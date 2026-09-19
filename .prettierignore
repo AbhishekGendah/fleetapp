@@ -1,0 +1,12 @@
+node_modules
+.next
+.turbo
+dist
+build
+coverage
+pnpm-lock.yaml
+packages/db/migrations
+
+# Hand-written prose docs from an earlier task; not this scaffold's to reformat.
+CLAUDE.md
+docs/

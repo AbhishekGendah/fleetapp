@@ -1,0 +1,10 @@
+@import "tailwindcss";
+@import "@fleetapp/ui/theme.css";
+
+/* packages/ui lives outside this app's own directory tree, so Tailwind's
+   automatic content scanning needs to be told to look there too. */
+@source "../../../../packages/ui/src/**/*.{ts,tsx}";
+
+body {
+  @apply bg-background text-foreground;
+}

@@ -1,0 +1,31 @@
+{
+  "name": "@fleetapp/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./client": "./src/client.ts",
+    "./schema": "./src/schema/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "1.1.0",
+    "drizzle-orm": "0.45.2",
+    "ws": "8.21.3",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@fleetapp/config": "workspace:*",
+    "@types/node": "26.6.2",
+    "@types/ws": "8.18.1",
+    "dotenv": "18.0.1",
+    "drizzle-kit": "0.31.10",
+    "eslint": "9.39.5",
+    "typescript": "6.0.3"
+  }
+}
