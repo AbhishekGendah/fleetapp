@@ -152,3 +152,6 @@ Never use "client", "customer" or "tenant" for these in code.
   PRs, code comments or docs.
 - Every new env var must be added to .env.example, the Zod env schema
   and turbo.json in the same commit.
+- All commits use the author and committer identity Abhishek Gendah
+  <75556610+AbhishekGendah@users.noreply.github.com>. Set it at the
+  start of every session before committing.
