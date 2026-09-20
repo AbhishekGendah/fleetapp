@@ -3,6 +3,9 @@ import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
+// force-dynamic also keeps the build itself from ever opening a DB
+// connection: without it, Next would call GET() at build time to
+// prerender this route.
 export const dynamic = "force-dynamic";
 
 export async function GET(): Promise<NextResponse> {

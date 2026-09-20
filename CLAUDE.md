@@ -150,3 +150,5 @@ Never use "client", "customer" or "tenant" for these in code.
 - Never add AI attribution anywhere: no "Generated with", no
   "Co-Authored-By: Claude", no claude.ai session links, in commits,
   PRs, code comments or docs.
+- Every new env var must be added to .env.example, the Zod env schema
+  and turbo.json in the same commit.

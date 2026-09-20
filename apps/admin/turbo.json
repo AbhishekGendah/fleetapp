@@ -1,0 +1,12 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "env": ["ADMIN_URL", "DATABASE_URL"]
+    },
+    "dev": {
+      "env": ["ADMIN_URL", "DATABASE_URL"]
+    }
+  }
+}

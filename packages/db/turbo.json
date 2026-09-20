@@ -1,0 +1,12 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "db:generate": {
+      "env": ["DATABASE_MIGRATION_URL"]
+    },
+    "db:migrate": {
+      "env": ["DATABASE_MIGRATION_URL"]
+    }
+  }
+}
