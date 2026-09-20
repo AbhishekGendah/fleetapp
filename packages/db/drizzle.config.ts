@@ -6,7 +6,7 @@ loadEnv();
 const migrationUrl = process.env.DATABASE_MIGRATION_URL;
 if (!migrationUrl) {
   throw new Error(
-    "DATABASE_MIGRATION_URL is required to run drizzle-kit (owner-role connection string).",
+    "DATABASE_MIGRATION_URL is required to run drizzle-kit (owner-role, DIRECT/unpooled connection string).",
   );
 }
 

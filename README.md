@@ -38,8 +38,11 @@ right version automatically).
 
 2. Copy each app's `.env.example` to `.env.local` (and
    `packages/db/.env.example` to `packages/db/.env`) and fill in real
-   values. See the pull request that introduced this skeleton for exact
-   Neon/Vercel setup steps, or ask Abhi for the dev database credentials.
+   values, or ask Abhi for the dev database credentials. Two different
+   Neon connection strings are involved: `DATABASE_URL` (runtime) uses
+   Neon's **pooled** connection; `DATABASE_MIGRATION_URL` (drizzle-kit
+   only) must use Neon's **direct/unpooled** connection — the pooled one
+   doesn't reliably support the session-level operations migrations need.
 
 3. Run everything in dev mode:
 
