@@ -96,6 +96,32 @@ describe("tenant isolation", () => {
     expect(code).toBe(POSTGRES_ERROR_CODES.insufficientPrivilege);
   });
 
+  it("cannot change its own Stripe or subscription status", async () => {
+    const stripeCode = await postgresErrorCodeOf(
+      withTenant(web.db, operatorAId, (tx) =>
+        tx.update(schema.operators).set({ stripeChargesEnabled: true }),
+      ),
+    );
+    const subscriptionCode = await postgresErrorCodeOf(
+      withTenant(web.db, operatorAId, (tx) =>
+        tx.update(schema.operators).set({ subscriptionStatus: "active" }),
+      ),
+    );
+
+    expect(stripeCode).toBe(POSTGRES_ERROR_CODES.insufficientPrivilege);
+    expect(subscriptionCode).toBe(POSTGRES_ERROR_CODES.insufficientPrivilege);
+  });
+
+  it("can still change its own business details", async () => {
+    await withTenant(web.db, operatorAId, (tx) =>
+      tx.update(schema.operators).set({ tradingName: "A Rentals" }),
+    );
+
+    const rows = await withTenant(web.db, operatorAId, (tx) => tx.select().from(schema.operators));
+
+    expect(rows[0]?.tradingName).toBe("A Rentals");
+  });
+
   it("cannot touch the Admin table at all", async () => {
     const code = await postgresErrorCodeOf(
       withTenant(web.db, operatorAId, (tx) => tx.select().from(schema.adminUsers)),

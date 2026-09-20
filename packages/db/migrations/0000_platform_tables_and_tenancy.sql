@@ -109,7 +109,29 @@ GRANT EXECUTE ON FUNCTION "app"."current_operator_id"() TO "web_app_role", "admi
 -- hard-deleted (rule 13).
 ALTER TABLE "operators" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "operators" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
-GRANT SELECT, UPDATE ON "operators" TO "web_app_role";--> statement-breakpoint
+GRANT SELECT ON "operators" TO "web_app_role";--> statement-breakpoint
+-- A column-level grant, not a table-level one: an Operator edits its own
+-- business details, but must never be able to set its own Stripe account or
+-- change its own AGS subscription status, even through a mass-assignment bug
+-- in a settings form. Kept in step with WEB_UPDATABLE_OPERATOR_COLUMNS in
+-- src/tenancy.ts, which a test checks this against.
+GRANT UPDATE (
+  "legal_name",
+  "trading_name",
+  "abn",
+  "gst_registered",
+  "gst_registered_from",
+  "address_line1",
+  "address_line2",
+  "suburb",
+  "state",
+  "postcode",
+  "phone",
+  "email",
+  "logo_file_key",
+  "timezone",
+  "updated_at"
+) ON "operators" TO "web_app_role";--> statement-breakpoint
 GRANT SELECT, INSERT, UPDATE ON "operators" TO "admin_app_role";--> statement-breakpoint
 CREATE POLICY "operators_web_tenant" ON "operators" FOR ALL TO "web_app_role"
   USING ("id" = "app"."current_operator_id"())

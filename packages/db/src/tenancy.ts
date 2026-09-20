@@ -46,3 +46,36 @@ export const NON_TENANT_TABLES = ["admin_users"] as const;
  * and 19 in CLAUDE.md.
  */
 export const APPEND_ONLY_TABLES = ["activity_log"] as const;
+
+/**
+ * Schemas that hold no tenant data and are exempt from the structural checks:
+ * Postgres internals, the tenancy helper functions, and Drizzle's migration
+ * bookkeeping.
+ */
+export const NON_TENANT_SCHEMAS = ["information_schema", APP_SCHEMA_NAME, "drizzle"] as const;
+
+/**
+ * The columns of `operators` that apps/web may change.
+ *
+ * Deliberately a column-level grant rather than a table-level one. The
+ * Operator edits its own business details; it must not be able to set its own
+ * Stripe account, mark its own payments enabled, or change its own AGS
+ * subscription status, even through a mass-assignment bug in a settings form.
+ */
+export const WEB_UPDATABLE_OPERATOR_COLUMNS = [
+  "legal_name",
+  "trading_name",
+  "abn",
+  "gst_registered",
+  "gst_registered_from",
+  "address_line1",
+  "address_line2",
+  "suburb",
+  "state",
+  "postcode",
+  "phone",
+  "email",
+  "logo_file_key",
+  "timezone",
+  "updated_at",
+] as const;

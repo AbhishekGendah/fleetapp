@@ -3,12 +3,26 @@ import { afterAll, beforeAll, describe, expect, it, inject } from "vitest";
 
 import {
   ADMIN_APP_ROLE,
+  NON_TENANT_SCHEMAS,
   NON_TENANT_TABLES,
   SELF_SCOPED_TENANT_TABLES,
   TENANT_ID_COLUMN,
   WEB_APP_ROLE,
+  WEB_UPDATABLE_OPERATOR_COLUMNS,
 } from "../src/tenancy";
 import { connectAs, type TestConnection } from "./fixtures";
+
+/**
+ * Postgres' own schemas are all prefixed `pg_`; everything else that holds no
+ * tenant data is listed by name, so a table created in a brand new schema is
+ * checked rather than quietly skipped.
+ */
+const nonTenantSchemas = sql`(${sql.join(
+  NON_TENANT_SCHEMAS.map((name) => sql`${name}`),
+  sql`, `,
+)})`;
+
+const tenantSchemaFilter = sql`n.nspname NOT LIKE 'pg\\_%' AND n.nspname NOT IN ${nonTenantSchemas}`;
 
 /**
  * Guards against the failure that matters most and is easiest to miss: a table
@@ -29,7 +43,7 @@ describe("schema guards", () => {
       SELECT c.relname AS table_name
       FROM pg_class c
       JOIN pg_namespace n ON n.oid = c.relnamespace
-      WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')
+      WHERE ${tenantSchemaFilter} AND c.relkind IN ('r', 'p')
       ORDER BY c.relname
     `);
     tableNames = result.rows.map((row) => row.table_name);
@@ -54,7 +68,7 @@ describe("schema guards", () => {
              c.relforcerowsecurity AS is_forced
       FROM pg_class c
       JOIN pg_namespace n ON n.oid = c.relnamespace
-      WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')
+      WHERE ${tenantSchemaFilter} AND c.relkind IN ('r', 'p')
     `);
 
     const unprotected = result.rows.filter((row) => !row.is_enabled || !row.is_forced);
@@ -64,7 +78,8 @@ describe("schema guards", () => {
 
   it("has at least one policy on every table", async () => {
     const result = await owner.db.execute<{ table_name: string }>(sql`
-      SELECT DISTINCT tablename AS table_name FROM pg_policies WHERE schemaname = 'public'
+      SELECT DISTINCT tablename AS table_name FROM pg_policies
+      WHERE schemaname NOT IN ${nonTenantSchemas}
     `);
     const tablesWithPolicies = new Set(result.rows.map((row) => row.table_name));
 
@@ -80,7 +95,7 @@ describe("schema guards", () => {
     const result = await owner.db.execute<{ table_name: string }>(sql`
       SELECT table_name
       FROM information_schema.columns
-      WHERE table_schema = 'public'
+      WHERE table_schema NOT IN ${nonTenantSchemas}
         AND column_name = ${TENANT_ID_COLUMN}
         AND is_nullable = 'NO'
     `);
@@ -104,6 +119,24 @@ describe("schema guards", () => {
     `);
 
     expect(result.rows.map((row) => `${row.grantee} on ${row.table_name}`)).toEqual([]);
+  });
+
+  it("lets the web role change only an Operator's own business details", async () => {
+    const result = await owner.db.execute<{ column_name: string }>(sql`
+      SELECT column_name
+      FROM information_schema.column_privileges
+      WHERE table_schema = 'public'
+        AND table_name = 'operators'
+        AND privilege_type = 'UPDATE'
+        AND grantee = ${WEB_APP_ROLE}
+      ORDER BY column_name
+    `);
+
+    // Anything missing from this list — Stripe account, subscription status —
+    // stays out of an Operator's reach even if a settings form is careless.
+    expect(result.rows.map((row) => row.column_name)).toEqual(
+      [...WEB_UPDATABLE_OPERATOR_COLUMNS].sort(),
+    );
   });
 
   it("grants the web role nothing on the Admin table", async () => {

@@ -13,7 +13,8 @@
 - Phase 1a slice 1 — tenancy foundation:
   - Tables: operators, users, admin_users, activity_log.
   - Row-level security enabled AND forced on every table, with
-    per-role policies and grants. No role can delete anything.
+    per-role policies and grants. No role can delete anything, and an
+    Operator cannot change its own Stripe or subscription status.
   - activity_log is append-only, enforced by a database trigger as
     well as by withheld grants.
   - `withTenant()` sets the Operator for one transaction only.
@@ -39,3 +40,6 @@ migrations can run automatically.
   backwards compatible with the deployed code instead. Decided in
   slice 1.
 - Decide whether the login tables sit inside RLS (slice 2).
+- When Renters arrive: admins can currently read every Operator's
+  activity log, which is where Renter details will end up. Needs
+  narrowing in the slice that adds Renter records.
