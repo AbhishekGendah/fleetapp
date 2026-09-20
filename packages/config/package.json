@@ -1,0 +1,26 @@
+{
+  "name": "@fleetapp/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./eslint/base": "./eslint/base.mjs",
+    "./eslint/next": "./eslint/next.mjs",
+    "./prettier": "./prettier/index.mjs",
+    "./typescript/base.json": "./typescript/base.json",
+    "./typescript/nextjs.json": "./typescript/nextjs.json"
+  },
+  "peerDependencies": {
+    "eslint": "^9.0.0"
+  },
+  "dependencies": {
+    "@eslint/js": "9.39.5",
+    "eslint-config-next": "16.3.5",
+    "eslint-config-prettier": "10.1.8",
+    "prettier-plugin-tailwindcss": "0.8.1",
+    "typescript-eslint": "8.70.0"
+  },
+  "devDependencies": {
+    "eslint": "9.39.5"
+  }
+}
