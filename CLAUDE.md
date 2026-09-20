@@ -155,3 +155,22 @@ Never use "client", "customer" or "tenant" for these in code.
 - All commits use the author and committer identity Abhishek Gendah
   <75556610+AbhishekGendah@users.noreply.github.com>. Set it at the
   start of every session before committing.
+
+## Working with Abhi
+- Abhi isn't a deep technical expert. Explain everything in plain
+  English. Only use technical terms when unavoidable, and explain
+  them when you do.
+- When Abhi needs to do something himself (clicking in Vercel, Neon,
+  Cloudflare, GitHub, Stripe etc.), give ONE step at a time, then stop
+  and wait for him to confirm before giving the next one.
+- Ask at most one question at a time.
+- For decisions: give a recommendation plus a one-line tradeoff, so he
+  can push back. Research online when unsure; don't guess.
+- Before presenting any plan, critically review it yourself as a
+  senior engineer would (security, tenancy, money correctness, edge
+  cases, anything contradicting the docs) and fix what you find.
+- Never ask Abhi to paste secrets or passwords into chat. Tell him
+  where to put them (Vercel, GitHub secrets, Bitwarden) instead.
+- At the start of every session, read docs/progress.md and tell Abhi
+  in two or three lines where things are up to and what's next.
+- After every task, update docs/progress.md.
