@@ -1,12 +1,12 @@
 # Phase 1a plan
 
-Status: awaiting approval. Nothing here is built yet.
+Status: slice 1 built. Slices 2 to 5 not started.
 
 Phase 1a in the roadmap is too big for one review or one commit, so it
 is split into five slices. Each slice is separately reviewable,
 separately testable on the dev site, and ends green in CI.
 
-## Slice 1 — Tenancy foundation
+## Slice 1 — Tenancy foundation (done)
 
 The most important slice. Everything later sits on it, and it is the
 only slice that is hard to change afterwards.
@@ -51,13 +51,15 @@ Tests (Vitest, against Postgres in Docker in the session):
   future table being added without protection.
 - The activity log rejects updates and deletes.
 
-Decision in this slice: migration timing. The migration job and the
-Vercel deploy both run off the same push, so which finishes first is
-not guaranteed. Recommendation: accept that, and require every
-migration to be backwards compatible (add first, remove in a later
-release), so either order is safe. The alternative is blocking deploys
-until migrations finish, which is stricter but means a failed migration
-takes the site down with it.
+Decided: the migration job and the Vercel deploy both run off the same
+push and neither waits for the other, so every migration must be
+backwards compatible with the code already deployed — add columns and
+tables in one release, remove them in a later one.
+
+Also decided while building: the table owner is subject to forced
+row-level security too, and no policy grants it access. Owner-run DDL
+is fine; owner-run data changes see no rows. Data work goes through the
+application roles.
 
 ## Slice 2 — Admin login
 
