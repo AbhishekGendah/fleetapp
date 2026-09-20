@@ -18,7 +18,9 @@
   - activity_log is append-only, enforced by a database trigger as
     well as by withheld grants.
   - `withTenant()` sets the Operator for one transaction only.
-  - Migrations run automatically on every push to main.
+  - Migrations run automatically on every push to main, using the
+    `DATABASE_MIGRATION_URL` GitHub secret. Applied to the dev
+    database: all four tables are live.
   - Tests against a real Postgres: Operator A cannot read Operator
     B's data, and a structural check fails the build if a future
     table is added without tenant scoping.
@@ -28,8 +30,6 @@ Slice 2 of Phase 1a: admin login (Better Auth, mandatory TOTP,
 recovery codes, and a safely gated way to create the first admin).
 Needs the decision below on the login tables and RLS first.
 
-Abhi needs to add the `DATABASE_MIGRATION_URL` secret in GitHub before
-migrations can run automatically.
 
 ## Open items
 - Product name TBD.
