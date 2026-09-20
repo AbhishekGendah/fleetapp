@@ -5,10 +5,10 @@ Global Solutions (AGS). See [`CLAUDE.md`](./CLAUDE.md) for the project
 rulebook and [`docs/design/`](./docs/design/) for how each part of the
 product works.
 
-This is currently just the project skeleton: a working pnpm/Turborepo
-monorepo with two empty Next.js apps, a shared UI kit, a database package
-with no domain tables yet, and CI. No auth, no domain data, no payments —
-that all comes in later tasks.
+This is currently the skeleton plus the tenancy foundation: a working
+pnpm/Turborepo monorepo, two empty Next.js apps, a shared UI kit, the
+platform tables with row-level security on them, and CI. No auth, no
+vehicles or renters, no payments — that all comes in later tasks.
 
 ## What's in here
 
@@ -17,8 +17,10 @@ that all comes in later tasks.
 - `apps/admin` — the AGS admin area, a separate app on its own subdomain.
 - `packages/ui` — shared Tailwind CSS + shadcn/ui components (`Button`,
   `Card` so far).
-- `packages/db` — Drizzle ORM setup and migrations for the Postgres
-  database. No tables yet.
+- `packages/db` — Drizzle ORM setup, migrations and the tenancy rules for
+  the Postgres database: Operators, Users, Admin Users and the activity
+  log, plus the row-level security that keeps one Operator out of
+  another's data.
 - `packages/core` — pure domain logic (money, dates, ledger, fine
   matching). Empty until a later task adds it.
 - `packages/config` — shared TypeScript, ESLint and Prettier config used by
@@ -63,9 +65,41 @@ All of these run across every app/package via Turborepo — add
 | `pnpm build`       | Production build of every app                    |
 | `pnpm lint`        | ESLint across every app/package                  |
 | `pnpm typecheck`   | `tsc --noEmit` across every app/package          |
-| `pnpm test`        | Run tests (currently just `packages/core`)       |
+| `pnpm test`        | Run tests (`packages/core` and `packages/db`)    |
 | `pnpm db:generate` | Generate a Drizzle migration from schema changes |
 | `pnpm db:migrate`  | Apply migrations to the database                 |
+
+## Tenancy
+
+Every tenant-owned table carries `operator_id` and has Postgres row-level
+security enabled **and forced**, so the database refuses cross-Operator
+reads even if application code asks for them. Application code never
+queries those tables directly — it goes through `withTenant()` in
+`packages/db/src/tenant-context.ts`, which opens a transaction and sets the
+Operator for that transaction only.
+
+`packages/db`'s tests prove this against a real Postgres: they run the
+actual migrations, connect as the real application roles, and check that
+Operator A cannot see Operator B's rows. They also walk the live schema and
+fail if any table was added without tenant scoping.
+
+Those tests start `postgres:17-alpine` in Docker. If you already have a
+Postgres running, or Docker image pulls are blocked, point them at it
+instead:
+
+```
+TEST_POSTGRES_SUPERUSER_URL=postgres://postgres:password@127.0.0.1:5432/postgres pnpm test
+```
+
+## Migrations
+
+`pnpm db:migrate` applies migrations locally. On every push to `main`, the
+`Migrate database` workflow runs them against the dev database using the
+`DATABASE_MIGRATION_URL` GitHub secret.
+
+That workflow and the Vercel deploy start from the same push, so **every
+migration must be backwards compatible with the code already deployed**:
+add columns and tables in one release, remove them in a later one.
 
 ## Checking it's alive
 
