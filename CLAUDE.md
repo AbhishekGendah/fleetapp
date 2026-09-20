@@ -52,8 +52,8 @@ Never use "client", "customer" or "tenant" for these in code.
 ## Development environment
 - Development happens in Claude Code on the web. No local machine is
   assumed.
-- Every change goes on a branch, then a PR, which gets a Vercel preview
-  deployment.
+- For now, commit and push directly to main. Switch to branches + PRs
+  before the first real Operator goes live.
 - Preview deployments are password-protected and use the dev database
   with fake data only. Real Renter data never exists outside production.
 - Tests may run Postgres in Docker inside the cloud session.
@@ -144,6 +144,6 @@ Never use "client", "customer" or "tenant" for these in code.
   possession and fine matching, timezone handling, and tenant isolation
   (a test proving Operator A cannot read Operator B's data).
 - Don't add a dependency without stating why.
-- Abhi reviews on his phone. Every PR description must explain in
-  plain English: what changed, how to test it on the preview link, and
-  anything he needs to decide.
+- At the end of every task, give Abhi a short plain-English summary:
+  what changed, how to test it on the live dev site, and anything he
+  needs to decide.
