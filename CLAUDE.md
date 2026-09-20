@@ -147,3 +147,6 @@ Never use "client", "customer" or "tenant" for these in code.
 - At the end of every task, give Abhi a short plain-English summary:
   what changed, how to test it on the live dev site, and anything he
   needs to decide.
+- Never add AI attribution anywhere: no "Generated with", no
+  "Co-Authored-By: Claude", no claude.ai session links, in commits,
+  PRs, code comments or docs.
