@@ -80,6 +80,22 @@ interface Server {
   stop(): Promise<void>;
 }
 
+/**
+ * Docker assigns the host port when the container is created, but there is a
+ * brief window right after `docker run` where it does not report it yet.
+ */
+async function readPublishedPort(containerName: string): Promise<string> {
+  for (let attempt = 0; attempt < READINESS_ATTEMPTS; attempt += 1) {
+    const { stdout } = await run("docker", ["port", containerName, "5432/tcp"]);
+    const port = stdout.trim().split("\n")[0]?.split(":").at(-1);
+    if (port) {
+      return port;
+    }
+    await delay(READINESS_INTERVAL_MS);
+  }
+  throw new Error(`Could not read the published port of ${containerName}.`);
+}
+
 async function startContainer(): Promise<Server> {
   const containerName = `fleetapp-test-pg-${randomUUID()}`;
   const superuserPassword = randomUUID();
@@ -102,13 +118,7 @@ async function startContainer(): Promise<Server> {
   };
 
   try {
-    const { stdout } = await run("docker", ["port", containerName, "5432/tcp"]);
-    const port = stdout.trim().split("\n")[0]?.split(":").at(-1);
-    if (!port) {
-      throw new Error(`Could not read the published port of ${containerName}.`);
-    }
-
-    const hostAndPort = `127.0.0.1:${port}`;
+    const hostAndPort = `127.0.0.1:${await readPublishedPort(containerName)}`;
     return {
       hostAndPort,
       superuserUrl: `postgres://postgres:${superuserPassword}@${hostAndPort}/postgres`,
