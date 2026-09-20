@@ -1,3 +1,6 @@
-// Domain tables land here in a later task. Kept as an empty module so
-// drizzle-kit and the db client both have a valid schema entry point.
-export {};
+export * from "./activity-log";
+export * from "./admin-users";
+export * from "./columns";
+export * from "./enums";
+export * from "./operators";
+export * from "./users";

@@ -7,6 +7,10 @@
     },
     "db:migrate": {
       "env": ["DATABASE_MIGRATION_URL"]
+    },
+    "test": {
+      "cache": false,
+      "env": ["TEST_POSTGRES_SUPERUSER_URL"]
     }
   }
 }
