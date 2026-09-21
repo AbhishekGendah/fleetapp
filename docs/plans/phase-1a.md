@@ -63,21 +63,13 @@ application roles.
 
 ## Slice 2 — Admin login
 
-Better Auth instance for `apps/admin`, its own tables (prefixed so they
-never collide with the Operator app's), mandatory TOTP, recovery codes
-shown once. A one-off, safely gated way to create the very first admin,
-which disables itself afterwards.
+Full plan: docs/plans/slice-2-admin-login.md.
 
-Decision needed before this slice: whether the login tables sit inside
-RLS. They cannot be fully scoped by Operator, because at sign-in time
-there is no Operator context yet — the email is what identifies the
-Operator. Recommendation: treat the login tables as platform tables
-outside the RLS layer, keep `operator_id` on `users` as a normal
-column, and rely on server-side authorisation for anything user-facing
-(which rule 4 requires regardless). RLS stays as the second layer for
-Renter and rental data, which is what it is actually protecting. The
-alternative is contorting the auth flow to fit RLS, which adds risk to
-the most security-sensitive path in the app.
+Decided: the login tables stay inside row-level security, and the login
+system gets its own database role that can reach those tables and
+nothing else. Sign-in needs no Operator context, so nothing has to be
+bent to fit; and a bug in ordinary app code cannot reach password
+hashes, because the connection it runs on has no access to them.
 
 ## Slice 3 — Operators and invites
 

@@ -26,9 +26,8 @@
     table is added without tenant scoping.
 
 ## Next
-Slice 2 of Phase 1a: admin login (Better Auth, mandatory TOTP,
-recovery codes, and a safely gated way to create the first admin).
-Needs the decision below on the login tables and RLS first.
+Slice 2 of Phase 1a: admin login. Planned in
+docs/plans/slice-2-admin-login.md, awaiting approval.
 
 
 ## Open items
@@ -39,7 +38,13 @@ Needs the decision below on the login tables and RLS first.
 - Migrations do NOT block the Vercel deploy; every migration must be
   backwards compatible with the deployed code instead. Decided in
   slice 1.
-- Decide whether the login tables sit inside RLS (slice 2).
+- Login tables stay inside RLS, reached only by a dedicated database
+  role. Decided before slice 2.
+- Abhi to pick the name shown inside the authenticator app
+  (`AUTH_ISSUER_NAME`). Awkward to change once Admins have enrolled.
+- "Remember this device" is fixed at 30 days in Better Auth and cannot
+  be changed; docs/design/01 says 14. Off for Admins in slice 2, so the
+  decision is only needed for Operators in slice 4.
 - When Renters arrive: admins can currently read every Operator's
   activity log, which is where Renter details will end up. Needs
   narrowing in the slice that adds Renter records.
