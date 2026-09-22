@@ -8,24 +8,33 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "create-first-admin": "tsx scripts/create-first-admin.ts",
+    "test": "vitest run"
   },
   "dependencies": {
-    "@fleetapp/db": "workspace:*",
     "@fleetapp/ui": "workspace:*",
+    "better-auth": "1.7.5",
     "next": "16.3.5",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@better-auth/utils": "0.4.2",
     "@fleetapp/config": "workspace:*",
+    "@fleetapp/db": "workspace:*",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "26.6.2",
+    "@types/pg": "8.15.5",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "drizzle-orm": "0.45.2",
     "eslint": "9.39.5",
+    "pg": "8.16.3",
     "tailwindcss": "4.3.3",
-    "typescript": "6.0.3"
+    "tsx": "4.23.13",
+    "typescript": "6.0.3",
+    "vitest": "5.0.1"
   }
 }

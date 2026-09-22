@@ -3,10 +3,26 @@
   "extends": ["//"],
   "tasks": {
     "build": {
-      "env": ["ADMIN_URL", "DATABASE_URL"]
+      "env": [
+        "ADMIN_URL",
+        "DATABASE_URL",
+        "AUTH_DATABASE_URL",
+        "BETTER_AUTH_SECRET",
+        "AUTH_ISSUER_NAME"
+      ]
     },
     "dev": {
-      "env": ["ADMIN_URL", "DATABASE_URL"]
+      "env": [
+        "ADMIN_URL",
+        "DATABASE_URL",
+        "AUTH_DATABASE_URL",
+        "BETTER_AUTH_SECRET",
+        "AUTH_ISSUER_NAME"
+      ]
+    },
+    "test": {
+      "cache": false,
+      "env": ["TEST_POSTGRES_SUPERUSER_URL"]
     }
   }
 }
