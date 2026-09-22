@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { auditColumns, primaryKeyColumn } from "./columns";
 
@@ -17,6 +17,16 @@ export const adminUsers = pgTable(
 
     email: text("email").notNull(),
     fullName: text("full_name").notNull(),
+
+    // Required by Better Auth. Always true in v1: an Admin's address is
+    // verified out of band by AGS before the account is created at all.
+    emailVerified: boolean("email_verified").notNull().default(false),
+
+    // Required by Better Auth, unused in v1. AGS staff have no profile photo.
+    image: text("image"),
+
+    /** Whether this Admin has finished setting up their authenticator app. */
+    twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
 
     ...auditColumns,
   },

@@ -20,6 +20,16 @@ export const WEB_APP_ROLE = "web_app_role";
 /** Database role used by apps/admin at request time. Must not have BYPASSRLS. */
 export const ADMIN_APP_ROLE = "admin_app_role";
 
+/**
+ * Database role used by the Admin login system, and nothing else.
+ *
+ * It reaches the Admin credential tables; `admin_app_role` cannot. So a bug in
+ * the ordinary admin app — a list, a search, a report — has no connection to
+ * the database on which a password hash or an authenticator secret is
+ * readable.
+ */
+export const ADMIN_AUTH_ROLE = "admin_auth_role";
+
 /** The tenancy column carried by every tenant-owned table. See rule 1. */
 export const TENANT_ID_COLUMN = "operator_id";
 
@@ -39,13 +49,44 @@ export const SELF_SCOPED_TENANT_TABLES = ["operators"] as const;
  * name here is the one way to opt a table out, which makes it a deliberate,
  * reviewable edit rather than an oversight.
  */
-export const NON_TENANT_TABLES = ["admin_users"] as const;
+export const NON_TENANT_TABLES = [
+  "admin_users",
+  "admin_sessions",
+  "admin_accounts",
+  "admin_verifications",
+  "admin_two_factors",
+  "admin_activity_log",
+] as const;
+
+/**
+ * Tables holding Admin credentials. Only `admin_auth_role` may touch them.
+ */
+export const ADMIN_CREDENTIAL_TABLES = [
+  "admin_accounts",
+  "admin_sessions",
+  "admin_verifications",
+  "admin_two_factors",
+] as const;
+
+/**
+ * Tables whose rows are transient rather than records of what happened, and so
+ * may be deleted.
+ *
+ * Rule 13 — archive, never hard-delete — is about core records. A session that
+ * has been signed out, or a password-reset token that has been used, is not a
+ * record of anything; leaving it in place would be the security problem.
+ */
+export const DELETABLE_TABLES = [
+  "admin_sessions",
+  "admin_verifications",
+  "admin_two_factors",
+] as const;
 
 /**
  * Tables that are append-only: no updates, no deletes, ever. See rules 11
  * and 19 in CLAUDE.md.
  */
-export const APPEND_ONLY_TABLES = ["activity_log"] as const;
+export const APPEND_ONLY_TABLES = ["activity_log", "admin_activity_log"] as const;
 
 /**
  * Schemas that hold no tenant data and are exempt from the structural checks:
