@@ -24,10 +24,25 @@
   - Tests against a real Postgres: Operator A cannot read Operator
     B's data, and a structural check fails the build if a future
     table is added without tenant scoping.
+- Phase 1a slice 2 — admin login:
+  - Email, password and an authenticator code, required on every
+    sign-in. No "remember this device" for Admins.
+  - A third database role, `admin_auth_role`, used only by the login
+    system. The role the rest of the admin app runs on is granted
+    nothing on the credential tables.
+  - `create-first-admin` command: run by hand, refuses to run twice.
+  - Separate append-only Admin audit trail.
+  - Tests sign in for real against a Postgres with the real
+    migrations applied.
 
 ## Next
-Slice 2 of Phase 1a: admin login. Planned in
-docs/plans/slice-2-admin-login.md, awaiting approval.
+Slice 3 of Phase 1a: creating and listing Operators in admin, with
+invite emails and a dev-only outbox to test them before Postmark.
+
+Before slice 2 can be deployed, Abhi needs to create the
+`admin_auth_role` database role in Neon and add three environment
+variables in Vercel. The migration grants to that role, so it must
+exist before the next push to main.
 
 
 ## Open items
@@ -42,9 +57,12 @@ docs/plans/slice-2-admin-login.md, awaiting approval.
   role. Decided before slice 2.
 - Abhi to pick the name shown inside the authenticator app
   (`AUTH_ISSUER_NAME`). Awkward to change once Admins have enrolled.
-- "Remember this device" is fixed at 30 days in Better Auth and cannot
-  be changed; docs/design/01 says 14. Off for Admins in slice 2, so the
-  decision is only needed for Operators in slice 4.
+- "Remember this device" IS configurable after all (`trustDeviceMaxAge`
+  in Better Auth 1.7.5; the published docs are out of date). The 14 days
+  in docs/design/01 is achievable for Operators in slice 4. Off
+  entirely for Admins.
+- `BETTER_AUTH_SECRET` encrypts every authenticator enrolment. Losing it
+  means every Admin re-enrols. Belongs in Bitwarden as well as Vercel.
 - When Renters arrive: admins can currently read every Operator's
   activity log, which is where Renter details will end up. Needs
   narrowing in the slice that adds Renter records.

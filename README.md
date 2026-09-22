@@ -5,9 +5,10 @@ Global Solutions (AGS). See [`CLAUDE.md`](./CLAUDE.md) for the project
 rulebook and [`docs/design/`](./docs/design/) for how each part of the
 product works.
 
-This is currently the skeleton plus the tenancy foundation: a working
-pnpm/Turborepo monorepo, two empty Next.js apps, a shared UI kit, the
-platform tables with row-level security on them, and CI. No auth, no
+This is currently the skeleton, the tenancy foundation and the AGS admin
+login: a working pnpm/Turborepo monorepo, the platform tables with
+row-level security on them, an admin app you can sign in to with a
+password and an authenticator app, and CI. No Operator app login yet, no
 vehicles or renters, no payments — that all comes in later tasks.
 
 ## What's in here
@@ -90,6 +91,30 @@ instead:
 ```
 TEST_POSTGRES_SUPERUSER_URL=postgres://postgres:password@127.0.0.1:5432/postgres pnpm test
 ```
+
+## Logging in to the admin app
+
+Three database roles, not two: `admin_auth_role` is used only by the
+login system and is the only one granted anything on the Admin
+credential tables. `admin_app_role`, which runs the rest of the admin
+app, can reach none of them — so a bug in an Operator list or a report
+has no connection on which a password hash is readable.
+
+Admins sign in with an email, a password and a code from an
+authenticator app, every time. "Remember this device" is deliberately
+off: an Admin account reaches every Operator.
+
+The first Admin is created by a command, not a web page, so there is no
+setup endpoint to find or forget to disable. It refuses to run once any
+Admin exists:
+
+```
+pnpm --filter admin create-first-admin "you@example.com" "Your Name"
+```
+
+`BETTER_AUTH_SECRET` encrypts every authenticator enrolment. **If it is
+lost or changed, every Admin has to enrol their authenticator app
+again.** Keep it in Bitwarden as well as in Vercel.
 
 ## Migrations
 
