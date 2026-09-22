@@ -3,8 +3,8 @@
  *
  * Deliberately a command rather than a web page. A setup page would be an
  * endpoint that exists on the internet, that can be found, and that someone
- * can forget to switch off. This is run by hand, with credentials that are not
- * in the app, and refuses to run if any Admin already exists.
+ * can forget to switch off. This is run by hand and refuses to run if any
+ * Admin already exists.
  *
  * Usage:
  *   pnpm --filter admin create-first-admin "you@example.com" "Your Name"
@@ -15,17 +15,11 @@
 import { createInterface } from "node:readline/promises";
 
 import { createDb } from "@fleetapp/db/client";
-import {
-  ADMIN_ACTIVITY_ACTIONS,
-  adminAccounts,
-  adminActivityLog,
-  adminUsers,
-} from "@fleetapp/db/schema";
 
-import { auth } from "../src/lib/auth";
 import { env } from "../src/env";
+import { auth } from "../src/lib/auth";
+import { createFirstAdmin, MINIMUM_ADMIN_PASSWORD_LENGTH } from "../src/lib/create-first-admin";
 
-const MINIMUM_PASSWORD_LENGTH = 12;
 const EXIT_FAILURE = 1;
 
 function fail(message: string): never {
@@ -42,8 +36,8 @@ async function readPassword(): Promise<string> {
     if (password !== confirmation) {
       fail("Those two passwords were not the same. Nothing was created.");
     }
-    if (password.length < MINIMUM_PASSWORD_LENGTH) {
-      fail(`The password must be at least ${MINIMUM_PASSWORD_LENGTH} characters.`);
+    if (password.length < MINIMUM_ADMIN_PASSWORD_LENGTH) {
+      fail(`The password must be at least ${MINIMUM_ADMIN_PASSWORD_LENGTH} characters.`);
     }
     return password;
   } finally {
@@ -58,52 +52,19 @@ async function main(): Promise<void> {
     fail('Usage: pnpm --filter admin create-first-admin "you@example.com" "Your Name"');
   }
 
-  const db = createDb(env.AUTH_DATABASE_URL);
-
-  const existing = await db.select({ id: adminUsers.id }).from(adminUsers).limit(1);
-  if (existing.length > 0) {
-    fail(
-      "An Admin already exists, so this command will not run. Create further Admins from inside the admin app.",
-    );
-  }
-
   const password = await readPassword();
 
-  // Signing up is switched off — Admins are never self-serve — so the rows are
-  // written here. The password is hashed by the login system's own hasher, so
-  // sign-in verifies it exactly as it would any other password.
-  const { password: passwordHasher } = await auth.$context;
-  const hashedPassword = await passwordHasher.hash(password);
-
-  await db.transaction(async (tx) => {
-    const [admin] = await tx
-      .insert(adminUsers)
-      .values({
-        email,
-        fullName,
-        // An Admin's address is verified out of band by AGS before this is
-        // ever run; there is nobody to send a confirmation link to yet.
-        emailVerified: true,
-      })
-      .returning({ id: adminUsers.id });
-
-    if (!admin) {
-      throw new Error("The Admin record was not created.");
-    }
-
-    await tx.insert(adminAccounts).values({
-      adminUserId: admin.id,
-      accountId: admin.id,
-      providerId: "credential",
-      password: hashedPassword,
-      updatedAt: new Date(),
+  try {
+    await createFirstAdmin({
+      database: createDb(env.AUTH_DATABASE_URL),
+      auth,
+      email,
+      fullName,
+      password,
     });
-
-    await tx.insert(adminActivityLog).values({
-      adminUserId: admin.id,
-      action: ADMIN_ACTIVITY_ACTIONS.created,
-    });
-  });
+  } catch (error) {
+    fail(error instanceof Error ? error.message : "Could not create the first Admin.");
+  }
 
   console.log(
     [

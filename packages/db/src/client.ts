@@ -1,4 +1,5 @@
 import { neonConfig, Pool } from "@neondatabase/serverless";
+import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { drizzle, type NeonDatabase } from "drizzle-orm/neon-serverless";
 import ws from "ws";
 
@@ -11,6 +12,15 @@ import * as schema from "./schema";
 neonConfig.webSocketConstructor = ws;
 
 export type Database = NeonDatabase<typeof schema>;
+
+/**
+ * Any Drizzle client over this schema, whichever driver is underneath.
+ *
+ * The apps use Neon's driver; the tests use node-postgres, because Neon's
+ * speaks a WebSocket protocol only Neon serves. Code that takes this type can
+ * be run by both, so a test exercises the same code the app does.
+ */
+export type AnyDatabase = PgDatabase<PgQueryResultHKT, typeof schema>;
 
 declare global {
   // `var` is required here: ambient global declarations don't support `let`/`const`.
