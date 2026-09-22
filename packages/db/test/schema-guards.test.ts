@@ -3,6 +3,8 @@ import { afterAll, beforeAll, describe, expect, it, inject } from "vitest";
 
 import {
   ADMIN_APP_ROLE,
+  ADMIN_AUTH_ROLE,
+  DELETABLE_TABLES,
   NON_TENANT_SCHEMAS,
   NON_TENANT_TABLES,
   SELF_SCOPED_TENANT_TABLES,
@@ -106,19 +108,25 @@ describe("schema guards", () => {
     expect(missing).toEqual([]);
   });
 
-  it("grants neither application role the right to delete a row", async () => {
+  it("grants no application role the right to delete a core record", async () => {
     // The table owner holds DELETE implicitly and only ever runs migrations.
-    // What matters is that neither running application can use it: core
-    // records are archived, never hard-deleted (rule 13).
+    // What matters is that no running application can use it on a record that
+    // is meant to be archived rather than removed (rule 13). Sessions and
+    // one-time tokens are listed in DELETABLE_TABLES: they are not records of
+    // anything, and leaving them behind would be the security problem.
+    const deletable = new Set<string>(DELETABLE_TABLES);
+
     const result = await owner.db.execute<{ table_name: string; grantee: string }>(sql`
       SELECT table_name, grantee
       FROM information_schema.role_table_grants
       WHERE table_schema = 'public'
         AND privilege_type = 'DELETE'
-        AND grantee IN (${WEB_APP_ROLE}, ${ADMIN_APP_ROLE})
+        AND grantee IN (${WEB_APP_ROLE}, ${ADMIN_APP_ROLE}, ${ADMIN_AUTH_ROLE})
     `);
 
-    expect(result.rows.map((row) => `${row.grantee} on ${row.table_name}`)).toEqual([]);
+    const unexpected = result.rows.filter((row) => !deletable.has(row.table_name));
+
+    expect(unexpected.map((row) => `${row.grantee} on ${row.table_name}`)).toEqual([]);
   });
 
   it("lets the web role change only an Operator's own business details", async () => {

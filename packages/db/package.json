@@ -8,7 +8,8 @@
     "./health": "./src/health.ts",
     "./schema": "./src/schema/index.ts",
     "./tenancy": "./src/tenancy.ts",
-    "./tenant-context": "./src/tenant-context.ts"
+    "./tenant-context": "./src/tenant-context.ts",
+    "./testing": "./src/testing/index.ts"
   },
   "scripts": {
     "lint": "eslint .",

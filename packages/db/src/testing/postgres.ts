@@ -25,6 +25,12 @@ const READINESS_INTERVAL_MS = 500;
 
 const DEFAULT_POSTGRES_PORT = "5432";
 const OWNER_ROLE = "fleetapp_test_owner";
+
+/**
+ * Arbitrary but fixed: any two runs sharing a server must pick the same number
+ * for the lock to mean anything.
+ */
+const PROVISIONING_LOCK_KEY = 8_314_707;
 const TEST_DATABASE = "fleetapp_test";
 
 export interface TestPostgres {
@@ -169,12 +175,42 @@ async function provisionRoles(
   }
 }
 
+/**
+ * Holds a lock for the life of the run.
+ *
+ * The roles the migrations grant to have fixed names, so two suites running at
+ * once against one server would drop and recreate each other's roles halfway
+ * through. Each run therefore waits its turn. A container is a fresh server
+ * with nobody to wait for, so this costs nothing there.
+ */
+async function acquireProvisioningLock(superuserUrl: string): Promise<() => Promise<void>> {
+  const client = new Client({ connectionString: superuserUrl });
+  await client.connect();
+  try {
+    await client.query("SELECT pg_advisory_lock($1)", [PROVISIONING_LOCK_KEY]);
+  } catch (error) {
+    await client.end();
+    throw error;
+  }
+  return async () => {
+    // Ending the session releases the lock; this is belt and braces.
+    await client
+      .query("SELECT pg_advisory_unlock($1)", [PROVISIONING_LOCK_KEY])
+      .catch(() => undefined);
+    await client.end();
+  };
+}
+
 export async function startTestPostgres(roles: readonly string[]): Promise<TestPostgres> {
   const existingServerUrl = process.env[EXISTING_SERVER_ENV_VAR];
   const server = existingServerUrl ? useExistingServer(existingServerUrl) : await startContainer();
 
+  let releaseLock: (() => Promise<void>) | undefined;
+
   try {
     await waitUntilAccepting(server.superuserUrl);
+
+    releaseLock = await acquireProvisioningLock(server.superuserUrl);
 
     // A throwaway password for a throwaway database. Generated rather than
     // hardcoded so it never looks like a credential worth reusing.
@@ -185,9 +221,13 @@ export async function startTestPostgres(roles: readonly string[]): Promise<TestP
       superuserUrl: withDatabase(server.superuserUrl, TEST_DATABASE),
       ownerUrl: connectionUrl(OWNER_ROLE, password, server.hostAndPort),
       urlForRole: (role) => connectionUrl(role, password, server.hostAndPort),
-      stop: server.stop,
+      stop: async () => {
+        await releaseLock?.();
+        await server.stop();
+      },
     };
   } catch (error) {
+    await releaseLock?.();
     await server.stop();
     throw error;
   }

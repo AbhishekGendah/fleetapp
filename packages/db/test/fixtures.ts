@@ -1,31 +1,9 @@
 import { randomUUID } from "node:crypto";
 
-import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
-
 import * as schema from "../src/schema";
+import type { TestDatabase } from "../src/testing/connect";
 
-export type TestDatabase = NodePgDatabase<typeof schema>;
-
-export interface TestConnection {
-  db: TestDatabase;
-  close(): Promise<void>;
-}
-
-export interface ConnectOptions {
-  maxConnections?: number;
-}
-
-export function connectAs(
-  connectionString: string,
-  { maxConnections }: ConnectOptions = {},
-): TestConnection {
-  const pool = new Pool({ connectionString, max: maxConnections });
-  return {
-    db: drizzle(pool, { schema }),
-    close: () => pool.end(),
-  };
-}
+export { connectAs, type TestConnection } from "../src/testing";
 
 export interface SeededOperators {
   operatorAId: string;
