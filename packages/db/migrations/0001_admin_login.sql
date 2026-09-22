@@ -78,6 +78,20 @@ CREATE INDEX "admin_verifications_identifier_idx" ON "admin_verifications" USING
 -- manages, so creating one here would work locally and fail where it matters.
 -- ---------------------------------------------------------------------------
 
+-- Migration 0000 granted table-level UPDATE on admin_users, which now covers
+-- the two columns added above. Those two decide whether an Admin has to
+-- present an authenticator code, so the role running the ordinary admin app
+-- must not be able to write them: it could otherwise switch an Admin's second
+-- factor off. Narrowed to a column-level grant, as on `operators`.
+REVOKE UPDATE ON "admin_users" FROM "admin_app_role";--> statement-breakpoint
+GRANT UPDATE (
+  "email",
+  "full_name",
+  "image",
+  "archived_at",
+  "updated_at"
+) ON "admin_users" TO "admin_app_role";--> statement-breakpoint
+
 ALTER TABLE "admin_sessions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "admin_sessions" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "admin_accounts" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint

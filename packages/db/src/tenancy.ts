@@ -120,3 +120,20 @@ export const WEB_UPDATABLE_OPERATOR_COLUMNS = [
   "timezone",
   "updated_at",
 ] as const;
+
+/**
+ * The columns of `admin_users` that the ordinary admin app may change.
+ *
+ * Deliberately a column-level grant. `email_verified` and
+ * `two_factor_enabled` decide whether someone has to present an
+ * authenticator code, so they belong to the login system alone — the role
+ * running Operator lists and reports has no business turning an Admin's
+ * second factor off.
+ */
+export const ADMIN_APP_UPDATABLE_ADMIN_USER_COLUMNS = [
+  "email",
+  "full_name",
+  "image",
+  "archived_at",
+  "updated_at",
+] as const;

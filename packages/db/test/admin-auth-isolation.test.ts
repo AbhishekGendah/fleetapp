@@ -2,7 +2,12 @@ import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, inject } from "vitest";
 
 import * as schema from "../src/schema";
-import { ADMIN_APP_ROLE, ADMIN_CREDENTIAL_TABLES, WEB_APP_ROLE } from "../src/tenancy";
+import {
+  ADMIN_APP_ROLE,
+  ADMIN_APP_UPDATABLE_ADMIN_USER_COLUMNS,
+  ADMIN_CREDENTIAL_TABLES,
+  WEB_APP_ROLE,
+} from "../src/tenancy";
 import {
   connectAs,
   POSTGRES_ERROR_CODES,
@@ -103,6 +108,24 @@ describe("admin credential isolation", () => {
         updatedAt: new Date(),
       }),
     ).resolves.toBeDefined();
+  });
+
+  it("will not let the admin app switch an Admin's second factor off", async () => {
+    const result = await owner.db.execute<{ column_name: string }>(sql`
+      SELECT column_name
+      FROM information_schema.column_privileges
+      WHERE table_schema = 'public'
+        AND table_name = 'admin_users'
+        AND privilege_type = 'UPDATE'
+        AND grantee = ${ADMIN_APP_ROLE}
+      ORDER BY column_name
+    `);
+
+    // two_factor_enabled and email_verified are deliberately absent: they
+    // decide whether an Admin has to present an authenticator code.
+    expect(result.rows.map((row) => row.column_name)).toEqual(
+      [...ADMIN_APP_UPDATABLE_ADMIN_USER_COLUMNS].sort(),
+    );
   });
 
   it("cannot remove an Admin's credential record", async () => {

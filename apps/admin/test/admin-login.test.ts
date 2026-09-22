@@ -119,6 +119,18 @@ describe("the admin login", () => {
       expect(result.user.email).toBe(email);
     });
 
+    it("leaves an Admin without an authenticator short of admin access", async () => {
+      // The password alone does create a session — but an Admin who has not
+      // enrolled is not let into the app. requireAdmin() sends them to
+      // enrolment, and this is the flag it reads to decide that.
+      const [admin] = await connection.db
+        .select({ twoFactorEnabled: adminUsers.twoFactorEnabled })
+        .from(adminUsers)
+        .where(eq(adminUsers.id, adminUserId));
+
+      expect(admin?.twoFactorEnabled).toBe(false);
+    });
+
     it("refuses the wrong password", async () => {
       await expect(
         auth.api.signInEmail({ body: { email, password: "not-the-right-password" } }),
@@ -185,6 +197,15 @@ describe("the admin login", () => {
       const secret = new TextDecoder().decode(base32.decode(encodedSecret!));
       const code = await createOTP(secret, { digits: TOTP_DIGITS }).totp();
       await auth.api.verifyTOTP({ body: { code }, headers: new Headers({ cookie }) });
+
+      // The flag requireAdmin() reads is now set, so the Admin stops being
+      // redirected to enrolment and is let into the app.
+      const [admin] = await connection.db
+        .select({ twoFactorEnabled: adminUsers.twoFactorEnabled })
+        .from(adminUsers)
+        .where(eq(adminUsers.id, adminUserId));
+
+      expect(admin?.twoFactorEnabled).toBe(true);
 
       const secondSignIn = await auth.api.signInEmail({
         body: { email, password: TEST_PASSWORD },

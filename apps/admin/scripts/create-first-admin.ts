@@ -12,7 +12,7 @@
  * The password is read from stdin, never from the command line, so it does not
  * end up in the shell history or in the process list.
  */
-import { createInterface } from "node:readline/promises";
+import { createInterface, type Interface } from "node:readline/promises";
 
 import { createDb } from "@fleetapp/db/client";
 
@@ -27,11 +27,30 @@ function fail(message: string): never {
   process.exit(EXIT_FAILURE);
 }
 
+/**
+ * Asks without echoing what is typed, so the password does not end up in the
+ * terminal's scrollback or over the shoulder of whoever is nearby.
+ */
+async function askSecretly(input: Interface, prompt: string): Promise<string> {
+  process.stderr.write(prompt);
+
+  const reveal = input as Interface & { _writeToOutput?: (text: string) => void };
+  const previousWriter = reveal._writeToOutput;
+  reveal._writeToOutput = () => undefined;
+
+  try {
+    return await input.question("");
+  } finally {
+    reveal._writeToOutput = previousWriter;
+    process.stderr.write("\n");
+  }
+}
+
 async function readPassword(): Promise<string> {
   const input = createInterface({ input: process.stdin, output: process.stderr });
   try {
-    const password = await input.question("Choose a password for the first Admin: ");
-    const confirmation = await input.question("Type it again: ");
+    const password = await askSecretly(input, "Choose a password for the first Admin: ");
+    const confirmation = await askSecretly(input, "Type it again: ");
 
     if (password !== confirmation) {
       fail("Those two passwords were not the same. Nothing was created.");
