@@ -78,6 +78,12 @@ CREATE INDEX "admin_verifications_identifier_idx" ON "admin_verifications" USING
 -- manages, so creating one here would work locally and fail where it matters.
 -- ---------------------------------------------------------------------------
 
+-- Explicit, as in migration 0000 for the other two roles. Postgres grants
+-- schema usage to PUBLIC by default, so this is already true today; saying it
+-- outright means revoking that default later cannot quietly lock the login
+-- system out of the database.
+GRANT USAGE ON SCHEMA "public" TO "admin_auth_role";--> statement-breakpoint
+
 -- Migration 0000 granted table-level UPDATE on admin_users, which now covers
 -- the two columns added above. Those two decide whether an Admin has to
 -- present an authenticator code, so the role running the ordinary admin app
