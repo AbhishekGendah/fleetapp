@@ -34,15 +34,22 @@
   - Separate append-only Admin audit trail.
   - Tests sign in for real against a Postgres with the real
     migrations applied.
+  - Deployed: `admin_auth_role` created in Neon, the three settings
+    added in Vercel, migration 0001 applied to the dev database.
 
 ## Next
-Slice 3 of Phase 1a: creating and listing Operators in admin, with
-invite emails and a dev-only outbox to test them before Postmark.
+Create the first Admin, then sign in and enrol an authenticator app.
 
-Before slice 2 can be deployed, Abhi needs to create the
-`admin_auth_role` database role in Neon and add three environment
-variables in Vercel. The migration grants to that role, so it must
-exist before the next push to main.
+The command needs four settings in the Claude Code environment (not
+just in Vercel): `AUTH_DATABASE_URL`, `BETTER_AUTH_SECRET`,
+`AUTH_ISSUER_NAME` and `ADMIN_URL`. They are picked up by a NEW
+session, so add them first, then start one and run:
+
+    pnpm --filter admin create-first-admin "you@example.com" "Your Name"
+
+After that: slice 3 of Phase 1a — creating and listing Operators in
+admin, with invite emails and a dev-only outbox to test them before
+Postmark.
 
 
 ## Open items

@@ -11,16 +11,27 @@
  *
  * The password is read from stdin, never from the command line, so it does not
  * end up in the shell history or in the process list.
+ *
+ * Reads its own, smaller set of variables rather than the app's: it never
+ * touches the app role's connection, and whoever runs this should have to be
+ * handed as little as possible.
  */
 import { createInterface, type Interface } from "node:readline/promises";
 
 import { createDb } from "@fleetapp/db/client";
+import { z } from "zod";
 
-import { env } from "../src/env";
-import { auth } from "../src/lib/auth";
+import { createAdminAuth } from "../src/lib/auth-options";
 import { createFirstAdmin, MINIMUM_ADMIN_PASSWORD_LENGTH } from "../src/lib/create-first-admin";
 
 const EXIT_FAILURE = 1;
+
+const scriptEnvSchema = z.object({
+  AUTH_DATABASE_URL: z.string().min(1),
+  BETTER_AUTH_SECRET: z.string().min(32),
+  AUTH_ISSUER_NAME: z.string().min(1),
+  ADMIN_URL: z.string().url(),
+});
 
 function fail(message: string): never {
   console.error(`\n${message}\n`);
@@ -71,12 +82,29 @@ async function main(): Promise<void> {
     fail('Usage: pnpm --filter admin create-first-admin "you@example.com" "Your Name"');
   }
 
+  const parsedEnv = scriptEnvSchema.safeParse(process.env);
+  if (!parsedEnv.success) {
+    fail(
+      "Missing settings. This command needs AUTH_DATABASE_URL, BETTER_AUTH_SECRET, " +
+        "AUTH_ISSUER_NAME and ADMIN_URL.",
+    );
+  }
+  const env = parsedEnv.data;
+
   const password = await readPassword();
+
+  const database = createDb(env.AUTH_DATABASE_URL);
 
   try {
     await createFirstAdmin({
-      database: createDb(env.AUTH_DATABASE_URL),
-      auth,
+      database,
+      auth: createAdminAuth({
+        database,
+        baseURL: env.ADMIN_URL,
+        secret: env.BETTER_AUTH_SECRET,
+        issuerName: env.AUTH_ISSUER_NAME,
+        recordActivity: async () => undefined,
+      }),
       email,
       fullName,
       password,
