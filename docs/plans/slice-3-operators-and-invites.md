@@ -101,7 +101,7 @@ A new package, `packages/email`, so both apps send email the same way:
 ## New settings (environment variables)
 
 All three in the admin app's `.env.example`, its startup checks and
-`turbo.json`, in the same commit:
+`apps/admin/turbo.json`, in the same commit:
 
 | Setting | What it is |
 |---|---|
@@ -149,10 +149,9 @@ migrations:
 
 ## Found while planning
 
-1. **`turbo.json` declares none of the existing environment variables**,
-   although the rulebook says every one must be listed there. Builds work
-   today because the apps read them when running, not when building, but
-   that's luck. Fixed as its own small commit before this slice starts.
+1. CORRECTED: the root `turbo.json` lists no environment variables, but
+   that is fine: each app and package lists its own in its own
+   `turbo.json`. The new settings go in `apps/admin/turbo.json`.
 2. **Slice 4 needs one careful piece:** when someone opens an invite
    link there is no signed-in Operator yet, so no tenant to scope the
    lookup by. The plan for slice 4 is a narrow database function that
