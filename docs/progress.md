@@ -58,6 +58,9 @@
     `operators.suspended_at`. The Operator app's role can't read invites
     or the inbox, and can't lift its own suspension.
   - New admin settings: `APP_URL`, `EMAIL_TRANSPORT`, `EMAIL_FROM`.
+  - Deployed: settings added in Vercel, migration 0002 applied to the dev
+    database. Abhi tested create, resend, suspend and reactivate on the
+    live dev site.
 
 ## Next
 Slice 4 of Phase 1a — Operator sign-in: accepting an invite (password,
