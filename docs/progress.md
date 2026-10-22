@@ -37,20 +37,18 @@
   - Deployed: `admin_auth_role` created in Neon, the three settings
     added in Vercel, migration 0001 applied to the dev database.
 
+- First Admin created on the dev database
+  (abhishek.gendah@altusglobalsolutions.com.au). Fixed two bugs in the
+  command on the way: it needed the app's DATABASE_URL just to load, and
+  it exited silently when the password was piped in.
+
 ## Next
-Create the first Admin, then sign in and enrol an authenticator app.
-
-The command needs four settings in the Claude Code environment (not
-just in Vercel): `AUTH_DATABASE_URL`, `BETTER_AUTH_SECRET`,
-`AUTH_ISSUER_NAME` and `ADMIN_URL`. They are picked up by a NEW
-session, so add them first, then start one and run:
-
-    pnpm --filter admin create-first-admin "you@example.com" "Your Name"
+Abhi to sign in at the admin site, enrol an authenticator app and save
+the recovery codes in Bitwarden.
 
 After that: slice 3 of Phase 1a — creating and listing Operators in
 admin, with invite emails and a dev-only outbox to test them before
 Postmark.
-
 
 ## Open items
 - Product name TBD.
@@ -73,3 +71,8 @@ Postmark.
 - When Renters arrive: admins can currently read every Operator's
   activity log, which is where Renter details will end up. Needs
   narrowing in the slice that adds Renter records.
+- Cloud sessions reach Neon only if the Neon host is in the
+  environment's Allowed domains, AND only through Node's built-in
+  WebSocket with NODE_USE_ENV_PROXY=1 (the `ws` library ignores the
+  session proxy). Done as a one-off for the first-Admin run. Any future
+  script run against Neon from a session needs the same.
