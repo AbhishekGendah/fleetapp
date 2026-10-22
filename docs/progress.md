@@ -62,12 +62,24 @@
     database. Abhi tested create, resend, suspend and reactivate on the
     live dev site.
 
+- Phase 1a slice 4, part 4a — Operator sign-in (plan:
+  docs/plans/slice-4-operator-sign-in.md):
+  - Invited Users accept their invite (password, authenticator, recovery
+    codes) and sign in, with "remember this device for 14 days".
+  - A fourth database role, `web_auth_role`, for the Operator login only.
+    Migration 0003 adds the User login tables (with `operator_id` filled
+    by a trigger) and narrows both app roles' rights on `users`.
+  - 5 wrong passwords lock a login for 15 minutes, in BOTH apps (the
+    admin login had no real limit before).
+  - Suspended Operators' Users are refused at sign-in and stopped on
+    their next click.
+  - Admin sign-in now accepts a recovery code (it had no way to before).
+  - Admin Operator list shows last sign-in.
+
 ## Next
-Slice 4 of Phase 1a — Operator sign-in: accepting an invite (password,
-authenticator, recovery codes), sign-in, 14-day trusted device,
-lockout, password reset, new-device email. Includes the narrow invite
-lookup recorded in the slice 3 plan, and making sign-in respect
-suspension.
+Deploy 4a: create `web_auth_role` in Neon, add three settings to the
+`fleetapp-web` Vercel project, then push. Then part 4b: password reset by
+email and the new-device email.
 
 ## Open items
 - Product name TBD.

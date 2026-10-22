@@ -66,7 +66,7 @@ All of these run across every app/package via Turborepo — add
 | `pnpm build`       | Production build of every app                    |
 | `pnpm lint`        | ESLint across every app/package                  |
 | `pnpm typecheck`   | `tsc --noEmit` across every app/package          |
-| `pnpm test`        | Run tests (`packages/core` and `packages/db`)    |
+| `pnpm test`        | Run every package's and app's tests              |
 | `pnpm db:generate` | Generate a Drizzle migration from schema changes |
 | `pnpm db:migrate`  | Apply migrations to the database                 |
 
@@ -115,6 +115,24 @@ pnpm --filter admin create-first-admin "you@example.com" "Your Name"
 `BETTER_AUTH_SECRET` encrypts every authenticator enrolment. **If it is
 lost or changed, every Admin has to enrol their authenticator app
 again.** Keep it in Bitwarden as well as in Vercel.
+
+## Logging in to the Operator app
+
+The same shape as the admin login, with its own fourth role:
+`web_auth_role` is the only one granted anything on the User credential
+tables; `web_app_role`, which runs the rest of the Operator app, can reach
+none of them. The login tables still carry `operator_id`, filled in by a
+database trigger from the User, because Better Auth knows nothing of
+Operators.
+
+Users get a login only by accepting an invite from an Admin. They sign in
+with an email, a password and an authenticator code, and can have a device
+remembered for 14 days. Every page checks, on every request, that the
+User's Operator is not suspended.
+
+Both logins lock for 15 minutes after 5 wrong passwords in a row. The count
+is kept in the database, because Better Auth's own rate limit lives in each
+server's memory and barely slows anyone down on Vercel.
 
 ## Migrations
 
