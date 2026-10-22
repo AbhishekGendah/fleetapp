@@ -1,0 +1,79 @@
+import { operators, users } from "@fleetapp/db/schema";
+import { withTenant } from "@fleetapp/db/tenant-context";
+import { eq } from "drizzle-orm";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+
+import { appDb } from "./app-db";
+import { auth } from "./auth";
+
+export interface SignedInUser {
+  id: string;
+  operatorId: string;
+  email: string;
+  fullName: string;
+  operatorName: string;
+  twoFactorEnabled: boolean;
+}
+
+export const SIGN_IN_PATH = "/sign-in";
+export const SET_UP_AUTHENTICATOR_PATH = "/set-up-authenticator";
+export const SUSPENDED_PATH = "/suspended";
+
+/**
+ * Loads the signed-in User, or sends them wherever they need to go first.
+ *
+ * Every page in the Operator app goes through here: authorisation belongs in
+ * server code, not in routing (rule 4). It runs on every request, so a
+ * suspension takes effect at a User's next click, not their next sign-in.
+ *
+ * The Operator comes from the session, which the login system read from the
+ * User's own record: never from anything the browser sends (rule 1). The rest
+ * is then read through the app's own role, scoped to that Operator, so the
+ * flags that decide entry are current rather than a snapshot from sign-in.
+ */
+export async function requireUser(
+  options: { allowWithoutAuthenticator?: boolean } = {},
+): Promise<SignedInUser> {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    redirect(SIGN_IN_PATH);
+  }
+  const operatorId = session.user.operatorId;
+
+  const [row] = await withTenant(appDb, operatorId, (tx) =>
+    tx
+      .select({
+        email: users.email,
+        fullName: users.fullName,
+        twoFactorEnabled: users.twoFactorEnabled,
+        userArchivedAt: users.archivedAt,
+        legalName: operators.legalName,
+        tradingName: operators.tradingName,
+        suspendedAt: operators.suspendedAt,
+        operatorArchivedAt: operators.archivedAt,
+      })
+      .from(users)
+      .innerJoin(operators, eq(operators.id, users.operatorId))
+      .where(eq(users.id, session.user.id)),
+  );
+
+  if (!row || row.userArchivedAt || row.operatorArchivedAt) {
+    redirect(SIGN_IN_PATH);
+  }
+  if (row.suspendedAt) {
+    redirect(SUSPENDED_PATH);
+  }
+  if (!row.twoFactorEnabled && !options.allowWithoutAuthenticator) {
+    redirect(SET_UP_AUTHENTICATOR_PATH);
+  }
+
+  return {
+    id: session.user.id,
+    operatorId,
+    email: row.email,
+    fullName: row.fullName,
+    operatorName: row.tradingName ?? row.legalName,
+    twoFactorEnabled: row.twoFactorEnabled,
+  };
+}
