@@ -3,6 +3,8 @@ export * from "./admin-activity-log";
 export * from "./admin-auth";
 export * from "./admin-users";
 export * from "./columns";
+export * from "./dev-email-outbox";
 export * from "./enums";
+export * from "./operator-invites";
 export * from "./operators";
 export * from "./users";

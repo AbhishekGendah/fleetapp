@@ -1,4 +1,4 @@
-import { boolean, date, pgTable, text, uuid, varchar } from "drizzle-orm/pg-core";
+import { boolean, date, pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
 
 import { auditColumns, primaryKeyColumn } from "./columns";
 import { australianStateEnum, subscriptionStatusEnum } from "./enums";
@@ -54,6 +54,14 @@ export const operators = pgTable("operators", {
   stripeBecsCapabilityStatus: text("stripe_becs_capability_status"),
 
   subscriptionStatus: subscriptionStatusEnum("subscription_status").notNull().default("trial"),
+
+  /**
+   * Set by an Admin to stop the Operator's Users signing in and its Renter
+   * links working. Deliberately separate from `subscriptionStatus`, which
+   * tracks what the Operator owes AGS. Does NOT stop Renter payments: that
+   * money is the Operator's. The web role cannot change this column.
+   */
+  suspendedAt: timestamp("suspended_at", { withTimezone: true }),
 
   ...auditColumns,
 });

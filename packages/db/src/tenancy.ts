@@ -56,6 +56,7 @@ export const NON_TENANT_TABLES = [
   "admin_verifications",
   "admin_two_factors",
   "admin_activity_log",
+  "dev_email_outbox",
 ] as const;
 
 /**
@@ -137,3 +138,12 @@ export const ADMIN_APP_UPDATABLE_ADMIN_USER_COLUMNS = [
   "archived_at",
   "updated_at",
 ] as const;
+
+/**
+ * The columns of `operator_invites` that the admin app may change.
+ *
+ * Recording that the email went, and revoking an invite on resend, are the
+ * admin app's job. Marking an invite accepted is not: that belongs to the
+ * Operator login system, once the User has actually set up their login.
+ */
+export const ADMIN_APP_UPDATABLE_INVITE_COLUMNS = ["sent_at", "revoked_at"] as const;

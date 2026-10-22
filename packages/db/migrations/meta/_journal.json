@@ -15,6 +15,13 @@
       "when": 1790034678844,
       "tag": "0001_admin_login",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792659159741,
+      "tag": "0002_operators_and_invites",
+      "breakpoints": true
     }
   ]
 }

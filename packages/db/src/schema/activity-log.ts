@@ -52,3 +52,22 @@ export const activityLog = pgTable(
     index("activity_log_operator_occurred_at_idx").on(table.operatorId, table.occurredAt.desc()),
   ],
 );
+
+/** What a log line is about. No free text at call sites. */
+export const ACTIVITY_ENTITY_TYPES = {
+  operator: "operator",
+  user: "user",
+  operatorInvite: "operator_invite",
+} as const;
+
+/** What happened to it. No free text at call sites. */
+export const ACTIVITY_ACTIONS = {
+  created: "created",
+  sent: "sent",
+  revoked: "revoked",
+  suspended: "suspended",
+  reactivated: "reactivated",
+} as const;
+
+export type ActivityEntityType = (typeof ACTIVITY_ENTITY_TYPES)[keyof typeof ACTIVITY_ENTITY_TYPES];
+export type ActivityAction = (typeof ACTIVITY_ACTIONS)[keyof typeof ACTIVITY_ACTIONS];
