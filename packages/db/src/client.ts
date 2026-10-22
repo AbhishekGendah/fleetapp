@@ -3,7 +3,7 @@ import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { drizzle, type NeonDatabase } from "drizzle-orm/neon-serverless";
 import ws from "ws";
 
-import { dbEnv } from "./env";
+import { getDbEnv } from "./env";
 import * as schema from "./schema";
 
 // The Neon serverless driver needs a WebSocket implementation in Node.js.
@@ -57,5 +57,5 @@ export function createDb(connectionString: string): Database {
 
 /** The app's own database client, using the role that app runs as. */
 export function getDb(): Database {
-  return createDb(dbEnv.DATABASE_URL);
+  return createDb(getDbEnv().DATABASE_URL);
 }
