@@ -1,13 +1,10 @@
-import { createDb } from "@fleetapp/db/client";
 import { adminUsers } from "@fleetapp/db/schema";
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { env } from "../env";
+import { appDb } from "./app-db";
 import { auth } from "./auth";
-
-const appDb = createDb(env.DATABASE_URL);
 
 export interface SignedInAdmin {
   id: string;

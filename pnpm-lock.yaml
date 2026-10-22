@@ -23,6 +23,12 @@ importers:
 
   apps/admin:
     dependencies:
+      '@fleetapp/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@fleetapp/email':
+        specifier: workspace:*
+        version: link:../../packages/email
       '@fleetapp/ui':
         specifier: workspace:*
         version: link:../../packages/ui

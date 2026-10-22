@@ -107,7 +107,7 @@ All three in the admin app's `.env.example`, its startup checks and
 |---|---|
 | `APP_URL` | The Operator app's address, to build the invite link |
 | `EMAIL_TRANSPORT` | `dev_outbox` for now; `postmark` once it exists |
-| `EMAIL_FROM` | Sender name and address, e.g. `Fleet <no-reply@…>` |
+| `EMAIL_FROM` | Sender name and address, e.g. `Product Name <no-reply@…>` |
 
 The admin app refuses to start if any is missing. The test inbox page
 exists only when `EMAIL_TRANSPORT` is `dev_outbox`.
