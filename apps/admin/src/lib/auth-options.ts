@@ -6,7 +6,7 @@ import {
   adminUsers,
   adminVerifications,
 } from "@fleetapp/db/schema";
-import { createDrizzleLockoutStore, signInLockout } from "@fleetapp/auth";
+import { createDrizzleLockoutStore, signInLockout, VERIFY_CODE_PATH } from "@fleetapp/auth";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -153,6 +153,23 @@ function buildAdminAuthOptions(config: AdminAuthConfig) {
               action: ADMIN_ACTIVITY_ACTIONS.signedIn,
               ipAddress: session.ipAddress,
             });
+          },
+        },
+      },
+      user: {
+        update: {
+          // The verify-code step changes an Admin only when it switches their
+          // authenticator on, so an update there is the enrolment finishing.
+          after: async (
+            admin: { id: string; twoFactorEnabled?: boolean | null },
+            context: { path?: string } | null,
+          ) => {
+            if (admin.twoFactorEnabled && context?.path === VERIFY_CODE_PATH) {
+              await config.recordActivity({
+                adminUserId: admin.id,
+                action: ADMIN_ACTIVITY_ACTIONS.twoFactorEnrolled,
+              });
+            }
           },
         },
       },

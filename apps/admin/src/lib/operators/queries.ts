@@ -5,8 +5,15 @@ import {
   type OperatorStatus,
 } from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
-import { activityLog, operatorInvites, operators, users } from "@fleetapp/db/schema";
-import { asc, desc, eq } from "drizzle-orm";
+import {
+  ACTIVITY_ACTIONS,
+  ACTIVITY_ENTITY_TYPES,
+  activityLog,
+  operatorInvites,
+  operators,
+  users,
+} from "@fleetapp/db/schema";
+import { and, asc, desc, eq } from "drizzle-orm";
 
 /** Enough history to see what happened recently; the full log stays in the database. */
 const OPERATOR_HISTORY_LIMIT = 50;
@@ -17,6 +24,8 @@ export interface OperatorSummary {
   tradingName: string | null;
   userEmail: string | null;
   status: OperatorStatus;
+  /** When one of its Users last signed in. Null if none ever has. */
+  lastSignedInAt: Date | null;
   createdAt: Date;
 }
 
@@ -27,7 +36,7 @@ export interface OperatorSummary {
  * shared list component in Phase 1b brings paging, sorting and export.
  */
 export async function listOperators(database: AnyDatabase, now: Date): Promise<OperatorSummary[]> {
-  const [operatorRows, userRows, latestInvites] = await Promise.all([
+  const [operatorRows, userRows, latestInvites, latestSignIns] = await Promise.all([
     database.select().from(operators).orderBy(desc(operators.createdAt)),
     database
       .selectDistinctOn([users.operatorId], { operatorId: users.operatorId, email: users.email })
@@ -37,8 +46,24 @@ export async function listOperators(database: AnyDatabase, now: Date): Promise<O
       .selectDistinctOn([operatorInvites.operatorId])
       .from(operatorInvites)
       .orderBy(operatorInvites.operatorId, desc(operatorInvites.createdAt)),
+    database
+      .selectDistinctOn([activityLog.operatorId], {
+        operatorId: activityLog.operatorId,
+        occurredAt: activityLog.occurredAt,
+      })
+      .from(activityLog)
+      .where(
+        and(
+          eq(activityLog.entityType, ACTIVITY_ENTITY_TYPES.user),
+          eq(activityLog.action, ACTIVITY_ACTIONS.signedIn),
+        ),
+      )
+      .orderBy(activityLog.operatorId, desc(activityLog.occurredAt)),
   ]);
 
+  const lastSignInByOperator = new Map(
+    latestSignIns.map((row) => [row.operatorId, row.occurredAt]),
+  );
   const emailByOperator = new Map(userRows.map((row) => [row.operatorId, row.email]));
   const inviteByOperator = new Map(latestInvites.map((invite) => [invite.operatorId, invite]));
 
@@ -54,6 +79,7 @@ export async function listOperators(database: AnyDatabase, now: Date): Promise<O
       },
       now,
     ),
+    lastSignedInAt: lastSignInByOperator.get(operator.id) ?? null,
     createdAt: operator.createdAt,
   }));
 }

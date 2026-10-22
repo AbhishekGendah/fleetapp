@@ -222,6 +222,12 @@ describe("the admin login", () => {
 
       expect(admin?.twoFactorEnabled).toBe(true);
 
+      const entries = await connection.db
+        .select({ action: adminActivityLog.action })
+        .from(adminActivityLog)
+        .where(eq(adminActivityLog.adminUserId, adminUserId));
+      expect(entries.map((entry) => entry.action)).toContain("two_factor_enrolled");
+
       const secondSignIn = await auth.api.signInEmail({
         body: { email, password: TEST_PASSWORD },
       });
