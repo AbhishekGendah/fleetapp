@@ -41,12 +41,11 @@
   (abhishek.gendah@altusglobalsolutions.com.au). Fixed two bugs in the
   command on the way: it needed the app's DATABASE_URL just to load, and
   it exited silently when the password was piped in.
+- Abhi signed in, enrolled an authenticator app and saved the password
+  and recovery codes in Bitwarden ("Fleet Admin (dev)").
 
 ## Next
-Abhi to sign in at the admin site, enrol an authenticator app and save
-the recovery codes in Bitwarden.
-
-After that: slice 3 of Phase 1a — creating and listing Operators in
+Slice 3 of Phase 1a — creating and listing Operators in
 admin, with invite emails and a dev-only outbox to test them before
 Postmark.
 
