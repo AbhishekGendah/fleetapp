@@ -5,5 +5,5 @@
  * each growing its own. Everything here depends on `pg`, which is a dev
  * dependency: this module is for tests, never for application code.
  */
-export { startTestPostgres, type TestPostgres } from "./postgres";
+export { startTestPostgres, type StartTestPostgresOptions, type TestPostgres } from "./postgres";
 export { connectAs, migrateTestDatabase, type TestConnection } from "./connect";

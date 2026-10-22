@@ -47,11 +47,28 @@ export interface TestPostgres {
    */
   ownerUrl: string;
   urlForRole(role: string): string;
+  /** The same two connections, to one of the `extraDatabases` asked for. */
+  ownerUrlForDatabase(database: string): string;
+  urlForRoleInDatabase(role: string, database: string): string;
   stop(): Promise<void>;
 }
 
-function connectionUrl(role: string, password: string, hostAndPort: string): string {
-  return `postgres://${role}:${password}@${hostAndPort}/${TEST_DATABASE}`;
+export interface StartTestPostgresOptions {
+  /**
+   * More empty databases on the same server, owned by the same owner role.
+   * For a test file that needs a table to start empty while another file is
+   * filling the same table in the main test database.
+   */
+  extraDatabases?: readonly string[];
+}
+
+function connectionUrl(
+  role: string,
+  password: string,
+  hostAndPort: string,
+  database: string = TEST_DATABASE,
+): string {
+  return `postgres://${role}:${password}@${hostAndPort}/${database}`;
 }
 
 /** The superuser connects to `postgres` to create the test database, then has
@@ -159,17 +176,22 @@ function useExistingServer(superuserUrl: string): Server {
 async function provisionRoles(
   superuserUrl: string,
   roles: readonly string[],
+  databases: readonly string[],
   password: string,
 ): Promise<void> {
   const client = new Client({ connectionString: superuserUrl });
   await client.connect();
   try {
-    await client.query(`DROP DATABASE IF EXISTS ${TEST_DATABASE}`);
+    for (const database of databases) {
+      await client.query(`DROP DATABASE IF EXISTS ${database}`);
+    }
     for (const role of [OWNER_ROLE, ...roles]) {
       await client.query(`DROP ROLE IF EXISTS ${role}`);
       await client.query(`CREATE ROLE ${role} LOGIN PASSWORD '${password}' NOBYPASSRLS`);
     }
-    await client.query(`CREATE DATABASE ${TEST_DATABASE} OWNER ${OWNER_ROLE}`);
+    for (const database of databases) {
+      await client.query(`CREATE DATABASE ${database} OWNER ${OWNER_ROLE}`);
+    }
   } finally {
     await client.end();
   }
@@ -201,7 +223,19 @@ async function acquireProvisioningLock(superuserUrl: string): Promise<() => Prom
   };
 }
 
-export async function startTestPostgres(roles: readonly string[]): Promise<TestPostgres> {
+/** Database names are written into SQL, so only plain identifiers are accepted. */
+const DATABASE_NAME_PATTERN = /^[a-z_][a-z0-9_]*$/;
+
+export async function startTestPostgres(
+  roles: readonly string[],
+  { extraDatabases = [] }: StartTestPostgresOptions = {},
+): Promise<TestPostgres> {
+  const invalidName = extraDatabases.find((name) => !DATABASE_NAME_PATTERN.test(name));
+  if (invalidName !== undefined) {
+    throw new Error(`Not a valid test database name: ${invalidName}`);
+  }
+  const databases = [TEST_DATABASE, ...extraDatabases];
+
   const existingServerUrl = process.env[EXISTING_SERVER_ENV_VAR];
   const server = existingServerUrl ? useExistingServer(existingServerUrl) : await startContainer();
 
@@ -215,12 +249,16 @@ export async function startTestPostgres(roles: readonly string[]): Promise<TestP
     // A throwaway password for a throwaway database. Generated rather than
     // hardcoded so it never looks like a credential worth reusing.
     const password = randomUUID();
-    await provisionRoles(server.superuserUrl, roles, password);
+    await provisionRoles(server.superuserUrl, roles, databases, password);
 
     return {
       superuserUrl: withDatabase(server.superuserUrl, TEST_DATABASE),
       ownerUrl: connectionUrl(OWNER_ROLE, password, server.hostAndPort),
       urlForRole: (role) => connectionUrl(role, password, server.hostAndPort),
+      ownerUrlForDatabase: (database) =>
+        connectionUrl(OWNER_ROLE, password, server.hostAndPort, database),
+      urlForRoleInDatabase: (role, database) =>
+        connectionUrl(role, password, server.hostAndPort, database),
       stop: async () => {
         await releaseLock?.();
         await server.stop();
