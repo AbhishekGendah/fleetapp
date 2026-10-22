@@ -11,7 +11,8 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { primaryKeyColumn } from "./columns";
-import { operatorIdColumn } from "./operators";
+import { TENANT_ID_COLUMN } from "../tenancy";
+import { operators } from "./operators";
 import { signInLockoutColumns } from "./sign-in-lockout";
 import { users } from "./users";
 
@@ -26,6 +27,23 @@ import { users } from "./users";
  * of tenant-owned data. Better Auth knows nothing of Operators and never sets
  * it, so a database trigger copies it from the User on every insert.
  */
+
+/**
+ * `operator_id` for the login tables, filled in by the database trigger.
+ *
+ * Better Auth refuses to start if a required column has no default, since it
+ * never writes this one itself. Inserting the SQL keyword DEFAULT is what
+ * Drizzle does for a missing column anyway; saying so here tells Better Auth
+ * the database supplies a value, and the trigger then does.
+ */
+const triggerFilledOperatorIdColumn = {
+  // A fresh builder: $defaultFn changes the builder it is called on, and the
+  // shared one is used by every other tenant table.
+  operatorId: uuid(TENANT_ID_COLUMN)
+    .notNull()
+    .references(() => operators.id)
+    .$defaultFn(() => sql`DEFAULT`),
+} as const;
 
 const userReference = {
   userId: uuid("user_id")
@@ -44,7 +62,7 @@ export const userSessions = pgTable(
   "user_sessions",
   {
     ...primaryKeyColumn,
-    ...operatorIdColumn,
+    ...triggerFilledOperatorIdColumn,
     ...userReference,
 
     token: text("token").notNull(),
@@ -69,7 +87,7 @@ export const userAccounts = pgTable(
   "user_accounts",
   {
     ...primaryKeyColumn,
-    ...operatorIdColumn,
+    ...triggerFilledOperatorIdColumn,
     ...userReference,
 
     accountId: text("account_id").notNull(),
@@ -126,7 +144,7 @@ export const userTwoFactors = pgTable(
   "user_two_factors",
   {
     ...primaryKeyColumn,
-    ...operatorIdColumn,
+    ...triggerFilledOperatorIdColumn,
     ...userReference,
 
     secret: text("secret").notNull(),
