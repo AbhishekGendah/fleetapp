@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, index, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { auditColumns, primaryKeyColumn } from "./columns";
 import { operatorIdColumn } from "./operators";
@@ -8,9 +8,8 @@ import { operatorIdColumn } from "./operators";
  * A User is an Operator's login. Exactly one per Operator in v1, but a
  * separate table so more can be added later without a migration of records.
  *
- * Credential columns (password hash, TOTP secret, recovery codes) are added by
- * Better Auth in a later slice; this table carries only the identity and the
- * Operator link.
+ * The password hash and authenticator secret live in the login tables in
+ * `user-auth.ts`, which only the Operator login system's role can reach.
  */
 export const users = pgTable(
   "users",
@@ -20,6 +19,16 @@ export const users = pgTable(
 
     email: text("email").notNull(),
     fullName: text("full_name").notNull(),
+
+    // Required by Better Auth. Set true when the invite is accepted: the
+    // invite email reaching them is what proves the address.
+    emailVerified: boolean("email_verified").notNull().default(false),
+
+    // Required by Better Auth, unused in v1.
+    image: text("image"),
+
+    /** Whether this User has finished setting up their authenticator app. */
+    twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
 
     ...auditColumns,
   },

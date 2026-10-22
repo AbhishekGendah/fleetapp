@@ -1,4 +1,4 @@
-import { ADMIN_APP_ROLE, ADMIN_AUTH_ROLE, WEB_APP_ROLE } from "@fleetapp/db/tenancy";
+import { ADMIN_APP_ROLE, ADMIN_AUTH_ROLE, APPLICATION_ROLES } from "@fleetapp/db/tenancy";
 import { migrateTestDatabase, startTestPostgres } from "@fleetapp/db/testing";
 import type { TestProject } from "vitest/node";
 
@@ -19,7 +19,7 @@ const OPERATORS_TEST_DATABASE = "fleetapp_test_operators";
 export default async function setup(project: TestProject): Promise<() => Promise<void>> {
   // Every role the migrations grant to has to exist, not only the one these
   // tests use, or the migration itself fails.
-  const postgres = await startTestPostgres([WEB_APP_ROLE, ADMIN_APP_ROLE, ADMIN_AUTH_ROLE], {
+  const postgres = await startTestPostgres(APPLICATION_ROLES, {
     extraDatabases: [OPERATORS_TEST_DATABASE],
   });
 

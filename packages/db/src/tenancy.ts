@@ -30,6 +30,27 @@ export const ADMIN_APP_ROLE = "admin_app_role";
  */
 export const ADMIN_AUTH_ROLE = "admin_auth_role";
 
+/**
+ * Database role used by the Operator login system, and nothing else. The
+ * counterpart of `admin_auth_role`: it reaches the User credential tables;
+ * `web_app_role` cannot.
+ *
+ * It reads across Operators, because signing in happens before anyone knows
+ * which Operator the person belongs to.
+ */
+export const WEB_AUTH_ROLE = "web_auth_role";
+
+/**
+ * Every role the apps connect as. The migrations grant to all of them, so
+ * every one has to exist (in Neon, and in a test database) before they run.
+ */
+export const APPLICATION_ROLES = [
+  WEB_APP_ROLE,
+  ADMIN_APP_ROLE,
+  ADMIN_AUTH_ROLE,
+  WEB_AUTH_ROLE,
+] as const;
+
 /** The tenancy column carried by every tenant-owned table. See rule 1. */
 export const TENANT_ID_COLUMN = "operator_id";
 
@@ -57,6 +78,7 @@ export const NON_TENANT_TABLES = [
   "admin_two_factors",
   "admin_activity_log",
   "dev_email_outbox",
+  "user_verifications",
 ] as const;
 
 /**
@@ -67,6 +89,16 @@ export const ADMIN_CREDENTIAL_TABLES = [
   "admin_sessions",
   "admin_verifications",
   "admin_two_factors",
+] as const;
+
+/**
+ * Tables holding User credentials. Only `web_auth_role` may touch them.
+ */
+export const USER_CREDENTIAL_TABLES = [
+  "user_accounts",
+  "user_sessions",
+  "user_verifications",
+  "user_two_factors",
 ] as const;
 
 /**
@@ -81,6 +113,9 @@ export const DELETABLE_TABLES = [
   "admin_sessions",
   "admin_verifications",
   "admin_two_factors",
+  "user_sessions",
+  "user_verifications",
+  "user_two_factors",
 ] as const;
 
 /**
@@ -147,3 +182,37 @@ export const ADMIN_APP_UPDATABLE_ADMIN_USER_COLUMNS = [
  * Operator login system, once the User has actually set up their login.
  */
 export const ADMIN_APP_UPDATABLE_INVITE_COLUMNS = ["sent_at", "revoked_at"] as const;
+
+/**
+ * The columns of `users` that the Operator app may change.
+ *
+ * Column-level, like `operators`: `email_verified` and `two_factor_enabled`
+ * decide whether someone must present an authenticator code, so they belong
+ * to the login system alone. Changing a login email goes through the login
+ * system too, not an ordinary form.
+ */
+export const WEB_UPDATABLE_USER_COLUMNS = ["full_name", "updated_at"] as const;
+
+/**
+ * The columns of `users` that the ordinary admin app may change. Switching a
+ * User's second factor off is deliberately not among them.
+ */
+export const ADMIN_APP_UPDATABLE_USER_COLUMNS = [
+  "email",
+  "full_name",
+  "archived_at",
+  "updated_at",
+] as const;
+
+/**
+ * The columns of `operators` the Operator login system may read: enough to
+ * refuse a suspended Operator and to word its emails, nothing more.
+ */
+export const WEB_AUTH_READABLE_OPERATOR_COLUMNS = [
+  "id",
+  "legal_name",
+  "trading_name",
+  "timezone",
+  "suspended_at",
+  "archived_at",
+] as const;

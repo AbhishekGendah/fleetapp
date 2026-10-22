@@ -12,6 +12,7 @@ import {
 
 import { primaryKeyColumn } from "./columns";
 import { adminUsers } from "./admin-users";
+import { signInLockoutColumns } from "./sign-in-lockout";
 
 /**
  * The Admin login tables.
@@ -77,6 +78,8 @@ export const adminAccounts = pgTable(
     accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: true }),
     refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { withTimezone: true }),
     scope: text("scope"),
+
+    ...signInLockoutColumns,
 
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

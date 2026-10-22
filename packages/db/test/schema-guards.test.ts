@@ -2,8 +2,7 @@ import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, inject } from "vitest";
 
 import {
-  ADMIN_APP_ROLE,
-  ADMIN_AUTH_ROLE,
+  APPLICATION_ROLES,
   DELETABLE_TABLES,
   NON_TENANT_SCHEMAS,
   NON_TENANT_TABLES,
@@ -121,7 +120,10 @@ describe("schema guards", () => {
       FROM information_schema.role_table_grants
       WHERE table_schema = 'public'
         AND privilege_type = 'DELETE'
-        AND grantee IN (${WEB_APP_ROLE}, ${ADMIN_APP_ROLE}, ${ADMIN_AUTH_ROLE})
+        AND grantee IN (${sql.join(
+          APPLICATION_ROLES.map((role) => sql`${role}`),
+          sql`, `,
+        )})
     `);
 
     const unexpected = result.rows.filter((row) => !deletable.has(row.table_name));
