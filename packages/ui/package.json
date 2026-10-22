@@ -4,10 +4,13 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./authenticator-setup": "./src/components/authenticator-setup.tsx",
     "./button": "./src/components/button.tsx",
     "./card": "./src/components/card.tsx",
     "./cn": "./src/lib/utils.ts",
+    "./form-message": "./src/components/form-message.tsx",
     "./input": "./src/components/input.tsx",
+    "./sign-in-form": "./src/components/sign-in-form.tsx",
     "./theme.css": "./src/styles/theme.css"
   },
   "scripts": {
@@ -22,10 +25,12 @@
     "@radix-ui/react-slot": "1.3.3",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
+    "qrcode": "1.5.4",
     "tailwind-merge": "3.7.0"
   },
   "devDependencies": {
     "@fleetapp/config": "workspace:*",
+    "@types/qrcode": "1.5.5",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "eslint": "9.39.5",
