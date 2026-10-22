@@ -1,6 +1,6 @@
 # Phase 1a, slice 3 — Operators and invites
 
-Status: planned, awaiting approval.
+Status: built.
 
 Goal: from the admin site, Abhi can create an Operator, which emails its
 first User an invite link. He can list Operators, resend an invite, and

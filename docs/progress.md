@@ -44,10 +44,27 @@
 - Abhi signed in, enrolled an authenticator app and saved the password
   and recovery codes in Bitwarden ("Fleet Admin (dev)").
 
+- Phase 1a slice 3 — Operators and invites (plan:
+  docs/plans/slice-3-operators-and-invites.md):
+  - Admin can create an Operator (with its User), list Operators, resend
+    an invite, suspend and reactivate. Every action is in the Operator's
+    activity log.
+  - Invite links expire after 7 days; only a fingerprint is stored.
+    Resend cancels the old link.
+  - New `packages/email`: one sending interface, React Email templates.
+    Emails go to a test inbox page in admin while
+    `EMAIL_TRANSPORT=dev_outbox`.
+  - Migration 0002: `operator_invites`, `dev_email_outbox`,
+    `operators.suspended_at`. The Operator app's role can't read invites
+    or the inbox, and can't lift its own suspension.
+  - New admin settings: `APP_URL`, `EMAIL_TRANSPORT`, `EMAIL_FROM`.
+
 ## Next
-Slice 3 of Phase 1a — creating and listing Operators in
-admin, with invite emails and a dev-only outbox to test them before
-Postmark.
+Slice 4 of Phase 1a — Operator sign-in: accepting an invite (password,
+authenticator, recovery codes), sign-in, 14-day trusted device,
+lockout, password reset, new-device email. Includes the narrow invite
+lookup recorded in the slice 3 plan, and making sign-in respect
+suspension.
 
 ## Open items
 - Product name TBD.
@@ -75,3 +92,10 @@ Postmark.
   WebSocket with NODE_USE_ENV_PROXY=1 (the `ws` library ignores the
   session proxy). Done as a one-off for the first-Admin run. Any future
   script run against Neon from a session needs the same.
+- Suspension is recorded but not yet enforced: nothing can sign in as an
+  Operator until slice 4, which must check `suspended_at`.
+- `EMAIL_TRANSPORT=dev_outbox` must never be set in production: the test
+  inbox holds working invite links. Production needs Postmark first.
+- The admin app can't be run against a local Postgres (it uses Neon's
+  driver), so new admin pages are checked by tests and a production
+  build, then on the live dev site.
