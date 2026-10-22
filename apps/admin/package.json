@@ -13,6 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fleetapp/auth": "workspace:*",
     "@fleetapp/core": "workspace:*",
     "@fleetapp/email": "workspace:*",
     "@fleetapp/ui": "workspace:*",

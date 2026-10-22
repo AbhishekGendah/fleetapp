@@ -47,6 +47,7 @@ export const adminActivityLog = pgTable(
 export const ADMIN_ACTIVITY_ACTIONS = {
   signedIn: "signed_in",
   signInFailed: "sign_in_failed",
+  lockedOut: "locked_out",
   signedOut: "signed_out",
   twoFactorEnrolled: "two_factor_enrolled",
   created: "created",

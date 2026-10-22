@@ -6,6 +6,8 @@ import {
   adminUsers,
   adminVerifications,
 } from "@fleetapp/db/schema";
+import { createDrizzleLockoutStore, signInLockout } from "@fleetapp/auth";
+import type { AnyDatabase } from "@fleetapp/db/client";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { twoFactor } from "better-auth/plugins";
@@ -39,11 +41,9 @@ const MAXIMUM_PASSWORD_LENGTH = 128;
  */
 const ADMIN_TRUST_DEVICE_MAX_AGE_SECONDS = 0;
 
-/** Anything that can run a query. Injected so the login flow can be tested. */
-type AuthDatabase = Parameters<typeof drizzleAdapter>[0];
-
 export interface AdminAuthConfig {
-  database: AuthDatabase;
+  /** Anything that can run a query. Injected so the login flow can be tested. */
+  database: AnyDatabase;
   baseURL: string;
   secret: string;
   /** Shown against the entry in an Admin's authenticator app. */
@@ -53,6 +53,8 @@ export interface AdminAuthConfig {
     action: string;
     ipAddress?: string | null;
   }) => Promise<void>;
+  /** Injected so the tests can move the clock past a lockout. */
+  now?: () => Date;
 }
 
 /**
@@ -107,6 +109,20 @@ function buildAdminAuthOptions(config: AdminAuthConfig) {
     },
 
     plugins: [
+      signInLockout({
+        store: createDrizzleLockoutStore(config.database, {
+          table: adminAccounts,
+          userId: adminAccounts.adminUserId,
+          providerId: adminAccounts.providerId,
+          failedSignInCount: adminAccounts.failedSignInCount,
+          signInLockedUntil: adminAccounts.signInLockedUntil,
+        }),
+        now: config.now,
+        onSignInFailed: (adminUserId) =>
+          config.recordActivity({ adminUserId, action: ADMIN_ACTIVITY_ACTIONS.signInFailed }),
+        onLockedOut: (adminUserId) =>
+          config.recordActivity({ adminUserId, action: ADMIN_ACTIVITY_ACTIONS.lockedOut }),
+      }),
       twoFactor({
         issuer: config.issuerName,
         schema: {

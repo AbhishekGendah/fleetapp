@@ -1,0 +1,27 @@
+{
+  "name": "@fleetapp/auth",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "better-auth": "1.7.5",
+    "drizzle-orm": "0.45.2"
+  },
+  "devDependencies": {
+    "@fleetapp/config": "workspace:*",
+    "@types/node": "26.6.2",
+    "better-auth": "1.7.5",
+    "drizzle-orm": "0.45.2",
+    "eslint": "9.39.5",
+    "typescript": "6.0.3",
+    "vitest": "5.0.1"
+  }
+}

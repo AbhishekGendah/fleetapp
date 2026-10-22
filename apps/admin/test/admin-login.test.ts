@@ -19,6 +19,21 @@ const TEST_SECRET = "a-test-signing-secret-at-least-32-chars-long";
 const TEST_BASE_URL = "http://localhost:3001";
 const TEST_ISSUER = "Test Issuer";
 const TOTP_DIGITS = 6;
+const WRONG_PASSWORD = "not-the-right-password";
+const SIXTEEN_MINUTES_MS = 16 * 60 * 1000;
+
+/** What a refused sign-in looks like from outside: status and error code. */
+async function refusalOf(attempt: Promise<unknown>): Promise<{ status: unknown; code: unknown }> {
+  try {
+    await attempt;
+  } catch (error) {
+    return {
+      status: Reflect.get(error as object, "status"),
+      code: Reflect.get(Reflect.get(error as object, "body") ?? {}, "code"),
+    };
+  }
+  throw new Error("The sign-in was not refused.");
+}
 
 /**
  * Exercises the real login configuration against a real Postgres.
@@ -212,6 +227,71 @@ describe("the admin login", () => {
       });
 
       expect(secondSignIn).toHaveProperty("twoFactorRedirect", true);
+    });
+  });
+
+  // Last, because it locks the one Admin these tests share.
+  describe("locking out repeated wrong passwords", () => {
+    let clock: Date;
+    let clockedAuth: AdminAuth;
+
+    beforeAll(() => {
+      clock = new Date();
+      clockedAuth = createAdminAuth({
+        database: connection.db,
+        baseURL: TEST_BASE_URL,
+        secret: TEST_SECRET,
+        issuerName: TEST_ISSUER,
+        recordActivity: async (entry) => {
+          await connection.db.insert(adminActivityLog).values({
+            adminUserId: entry.adminUserId ?? null,
+            action: entry.action,
+            ipAddress: entry.ipAddress ?? null,
+          });
+        },
+        now: () => clock,
+      });
+    });
+
+    const signInWith = (password: string) =>
+      clockedAuth.api.signInEmail({ body: { email, password } });
+
+    it("starts the count again after a right password", async () => {
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        await refusalOf(signInWith(WRONG_PASSWORD));
+      }
+
+      await expect(signInWith(TEST_PASSWORD)).resolves.toBeDefined();
+      await refusalOf(signInWith(WRONG_PASSWORD));
+      await expect(signInWith(TEST_PASSWORD)).resolves.toBeDefined();
+    });
+
+    it("refuses even the right password after five wrong ones, looking just like a wrong one", async () => {
+      const wrongPassword = await refusalOf(signInWith(WRONG_PASSWORD));
+      for (let attempt = 1; attempt < 5; attempt += 1) {
+        await refusalOf(signInWith(WRONG_PASSWORD));
+      }
+
+      const whileLocked = await refusalOf(signInWith(TEST_PASSWORD));
+
+      expect(whileLocked).toEqual(wrongPassword);
+    });
+
+    it("records the failures and the lockout", async () => {
+      const entries = await connection.db
+        .select({ action: adminActivityLog.action })
+        .from(adminActivityLog)
+        .where(eq(adminActivityLog.adminUserId, adminUserId));
+      const actions = entries.map((entry) => entry.action);
+
+      expect(actions).toContain("sign_in_failed");
+      expect(actions).toContain("locked_out");
+    });
+
+    it("lets the right password in again once the lockout ends", async () => {
+      clock = new Date(clock.getTime() + SIXTEEN_MINUTES_MS);
+
+      await expect(signInWith(TEST_PASSWORD)).resolves.toBeDefined();
     });
   });
 });
