@@ -42,7 +42,11 @@ function fail(message: string): never {
  * Asks without echoing what is typed, so the password does not end up in the
  * terminal's scrollback or over the shoulder of whoever is nearby.
  */
-async function askSecretly(input: Interface, prompt: string): Promise<string> {
+async function askSecretly(
+  input: Interface,
+  lines: AsyncIterator<string>,
+  prompt: string,
+): Promise<string> {
   process.stderr.write(prompt);
 
   const reveal = input as Interface & { _writeToOutput?: (text: string) => void };
@@ -50,7 +54,14 @@ async function askSecretly(input: Interface, prompt: string): Promise<string> {
   reveal._writeToOutput = () => undefined;
 
   try {
-    return await input.question("");
+    // A line iterator rather than question(): when the password is piped in,
+    // both lines arrive at once and question() silently drops the second,
+    // leaving the command to exit without creating anything or saying why.
+    const line = await lines.next();
+    if (line.done) {
+      fail("No password was entered. Nothing was created.");
+    }
+    return line.value;
   } finally {
     reveal._writeToOutput = previousWriter;
     process.stderr.write("\n");
@@ -59,9 +70,10 @@ async function askSecretly(input: Interface, prompt: string): Promise<string> {
 
 async function readPassword(): Promise<string> {
   const input = createInterface({ input: process.stdin, output: process.stderr });
+  const lines = input[Symbol.asyncIterator]();
   try {
-    const password = await askSecretly(input, "Choose a password for the first Admin: ");
-    const confirmation = await askSecretly(input, "Type it again: ");
+    const password = await askSecretly(input, lines, "Choose a password for the first Admin: ");
+    const confirmation = await askSecretly(input, lines, "Type it again: ");
 
     if (password !== confirmation) {
       fail("Those two passwords were not the same. Nothing was created.");
