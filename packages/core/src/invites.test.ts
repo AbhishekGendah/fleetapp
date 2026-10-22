@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { getInviteExpiry, getInviteStatus, isInviteUsable, type InviteDates } from "./invites";
+import {
+  buildInviteUrl,
+  getInviteExpiry,
+  getInviteStatus,
+  isInviteUsable,
+  type InviteDates,
+} from "./invites";
 
 const ISSUED_AT = new Date("2026-10-01T00:00:00Z");
 const EXPIRES_AT = new Date("2026-10-08T00:00:00Z");
@@ -45,5 +51,14 @@ describe("invites", () => {
     expect(isInviteUsable(sentInvite, EXPIRES_AT)).toBe(false);
     expect(isInviteUsable({ ...sentInvite, revokedAt: ISSUED_AT }, BEFORE_EXPIRY)).toBe(false);
     expect(isInviteUsable({ ...sentInvite, acceptedAt: ISSUED_AT }, BEFORE_EXPIRY)).toBe(false);
+  });
+
+  it("build links on the Operator app, whether or not its address ends in a slash", () => {
+    expect(buildInviteUrl("https://app.example.test", "abc")).toBe(
+      "https://app.example.test/invite/abc",
+    );
+    expect(buildInviteUrl("https://app.example.test/", "abc")).toBe(
+      "https://app.example.test/invite/abc",
+    );
   });
 });

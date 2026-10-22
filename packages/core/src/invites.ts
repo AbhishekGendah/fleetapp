@@ -3,6 +3,17 @@ export const INVITE_LIFETIME_DAYS = 7;
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
+/**
+ * Where an invite link points, on the Operator app. Shared because the admin
+ * app builds the link and the Operator app serves the page (slice 4).
+ */
+export const INVITE_ACCEPT_PATH = "/invite";
+
+export function buildInviteUrl(appUrl: string, token: string): string {
+  const base = appUrl.replace(/\/+$/, "");
+  return `${base}${INVITE_ACCEPT_PATH}/${token}`;
+}
+
 export const INVITE_STATUSES = ["pending", "not_sent", "expired", "revoked", "accepted"] as const;
 export type InviteStatus = (typeof INVITE_STATUSES)[number];
 
