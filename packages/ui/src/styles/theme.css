@@ -43,3 +43,15 @@
 
   --radius: 0.5rem;
 }
+
+/*
+ * Tailwind v4 draws a bare `border` in the text colour. Every border here is
+ * meant to be the light theme border unless a class says otherwise.
+ */
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-border);
+  }
+}
