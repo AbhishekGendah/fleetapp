@@ -80,9 +80,18 @@
     migration 0003 applied. Abhi tested accepting an invite, sign-in,
     remember-this-device, suspend and reactivate on the live dev site.
 
+- Phase 1a slice 4, part 4b:
+  - Forgot password: emailed link, 1 hour, single use, stored only as a
+    fingerprint. Signs out every other session and lifts a lockout; never
+    skips the authenticator. Same answer whether or not the email exists.
+  - New-device email: a sign-in from a browser the User has not used
+    before emails them the device and time (Operator's timezone). Migration
+    0004 adds `user_known_devices` (cookie fingerprints only).
+  - Shared email layout and `createEmailSender` for both apps.
+
 ## Next
-Slice 4, part 4b: password reset by email and the new-device email. Needs
-`EMAIL_TRANSPORT` and `EMAIL_FROM` added to `fleetapp-web`.
+Deploy 4b: add `EMAIL_TRANSPORT` and `EMAIL_FROM` to `fleetapp-web` in
+Vercel, redeploy, test. Then slice 5: the placeholder dashboard.
 
 ## Open items
 - Product name TBD.
@@ -122,3 +131,11 @@ Slice 4, part 4b: password reset by email and the new-device email. Needs
 - `AUTH_ISSUER_NAME` on the Operator app is a placeholder,
   "Altus Global Solutions (dev)". Must become the product name before the
   first real Operator.
+
+- A "forgot password" request for a real address takes a little longer to
+  answer than one for an unknown address (the email is sent before
+  replying), which in theory hints which addresses have logins. Fix when
+  Postmark goes in: send in the background with Vercel's waitUntil.
+- Admin password reset (deferred from slice 2) still not built: an Admin
+  who forgets their password needs the first-Admin approach or a direct
+  database fix. Worth its own small change.

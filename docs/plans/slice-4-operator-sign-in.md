@@ -1,6 +1,6 @@
 # Phase 1a, slice 4 — Operator sign-in
 
-Status: 4a built; 4b (password reset, new-device email) next.
+Status: built (4a and 4b).
 
 Goal: the person invited in slice 3 can open their invite link, choose a
 password, set up an authenticator app and save recovery codes. From then
