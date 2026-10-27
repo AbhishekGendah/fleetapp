@@ -5,18 +5,21 @@
   "type": "module",
   "exports": {
     "./authenticator-setup": "./src/components/authenticator-setup.tsx",
+    "./brand": "./src/brand.ts",
     "./button": "./src/components/button.tsx",
     "./card": "./src/components/card.tsx",
     "./client-form": "./src/components/client-form.tsx",
     "./cn": "./src/lib/utils.ts",
     "./form-message": "./src/components/form-message.tsx",
     "./input": "./src/components/input.tsx",
+    "./logo": "./src/components/logo.tsx",
     "./sign-in-form": "./src/components/sign-in-form.tsx",
     "./theme.css": "./src/styles/theme.css"
   },
   "scripts": {
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "peerDependencies": {
     "react": "^19.3.0",
@@ -26,17 +29,20 @@
     "@radix-ui/react-slot": "1.3.3",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
+    "lucide-react": "1.55.0",
     "qrcode": "1.5.4",
     "tailwind-merge": "3.7.0"
   },
   "devDependencies": {
     "@fleetapp/config": "workspace:*",
+    "@types/node": "26.6.2",
     "@types/qrcode": "1.5.5",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "eslint": "9.39.5",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "5.0.1"
   }
 }

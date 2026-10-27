@@ -1,32 +1,45 @@
 /*
- * Shared shadcn/ui-style design tokens, imported by each app's globals.css
- * (after `@import "tailwindcss";`) so both apps render from one palette.
+ * Shared design tokens, imported by each app's globals.css (after
+ * `@import "tailwindcss";`) so both apps render from one palette.
+ *
+ * The brand colours here must match BRAND.colours in src/brand.ts; a test
+ * checks they do. Change both together.
  */
 @theme {
-  --color-border: hsl(214.3 31.8% 91.4%);
-  --color-input: hsl(214.3 31.8% 91.4%);
-  --color-ring: hsl(222.2 84% 4.9%);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 
-  --color-background: hsl(0 0% 100%);
-  --color-foreground: hsl(222.2 84% 4.9%);
+  --color-border: #e2e8f0;
+  --color-input: #e2e8f0;
+  --color-ring: #0f766e;
 
-  --color-primary: hsl(222.2 47.4% 11.2%);
-  --color-primary-foreground: hsl(210 40% 98%);
+  --color-background: #f8fafc;
+  --color-foreground: #0f172a;
 
-  --color-secondary: hsl(210 40% 96.1%);
-  --color-secondary-foreground: hsl(222.2 47.4% 11.2%);
+  /* Deep teal: the main brand colour. */
+  --color-primary: #0f766e;
+  --color-primary-foreground: #ffffff;
+  --color-primary-dark: #115e59;
+  --color-primary-soft: #e6f4f1;
 
-  --color-muted: hsl(210 40% 96.1%);
-  --color-muted-foreground: hsl(215.4 16.3% 46.9%);
+  --color-secondary: #f1f5f9;
+  --color-secondary-foreground: #0f172a;
 
-  --color-accent: hsl(210 40% 96.1%);
-  --color-accent-foreground: hsl(222.2 47.4% 11.2%);
+  --color-muted: #f1f5f9;
+  --color-muted-foreground: #64748b;
 
-  --color-destructive: hsl(0 84.2% 60.2%);
-  --color-destructive-foreground: hsl(210 40% 98%);
+  --color-accent: #e6f4f1;
+  --color-accent-foreground: #115e59;
 
-  --color-card: hsl(0 0% 100%);
-  --color-card-foreground: hsl(222.2 84% 4.9%);
+  /* Amber: things that need the Operator's attention. */
+  --color-attention: #b45309;
+  --color-attention-soft: #fef3c7;
+  --color-attention-border: #fde68a;
+
+  --color-destructive: #dc2626;
+  --color-destructive-foreground: #ffffff;
+
+  --color-card: #ffffff;
+  --color-card-foreground: #0f172a;
 
   --radius: 0.5rem;
 }
