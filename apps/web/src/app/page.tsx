@@ -30,7 +30,7 @@ export default async function DashboardPage() {
 
   return (
     <AppShell user={user}>
-      <h1 className="text-2xl font-semibold">
+      <h1 className="text-primary text-2xl font-extrabold">
         {getGreeting(new Date(), setupDetails.timezone)}, {firstNameOf(user.fullName)}
       </h1>
 

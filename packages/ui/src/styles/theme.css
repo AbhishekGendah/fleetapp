@@ -6,20 +6,26 @@
  * checks they do. Change both together.
  */
 @theme {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  /* Wide and squared, like the logo's lettering. The product name only. */
+  --font-wordmark: var(--font-michroma), var(--font-manrope), sans-serif;
 
   --color-border: #e2e8f0;
   --color-input: #e2e8f0;
-  --color-ring: #0f766e;
+  --color-ring: #167884;
 
   --color-background: #f8fafc;
   --color-foreground: #0f172a;
 
-  /* Deep teal: the main brand colour. */
-  --color-primary: #0f766e;
+  /* Deep navy from the logo: the main brand colour. */
+  --color-primary: #0d3747;
   --color-primary-foreground: #ffffff;
-  --color-primary-dark: #115e59;
-  --color-primary-soft: #e6f4f1;
+  --color-primary-dark: #0a2b38;
+  --color-primary-soft: #e5f4f5;
+
+  /* Teal carries text (links, the current tab); cyan is decoration only. */
+  --color-teal: #167884;
+  --color-cyan: #2fa7b4;
 
   --color-secondary: #f1f5f9;
   --color-secondary-foreground: #0f172a;
@@ -27,8 +33,8 @@
   --color-muted: #f1f5f9;
   --color-muted-foreground: #64748b;
 
-  --color-accent: #e6f4f1;
-  --color-accent-foreground: #115e59;
+  --color-accent: #e5f4f5;
+  --color-accent-foreground: #167884;
 
   /* Amber: things that need the Operator's attention. */
   --color-attention: #b45309;

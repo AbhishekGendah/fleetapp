@@ -15,6 +15,8 @@ const TOKEN_FOR_COLOUR: Record<keyof typeof BRAND.colours, string> = {
   primary: "--color-primary",
   primaryDark: "--color-primary-dark",
   primarySoft: "--color-primary-soft",
+  teal: "--color-teal",
+  cyan: "--color-cyan",
   attention: "--color-attention",
   attentionSoft: "--color-attention-soft",
   danger: "--color-destructive",

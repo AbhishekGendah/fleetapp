@@ -10,7 +10,7 @@ function StepMarker({ isDone }: { isDone: boolean }) {
       aria-hidden
       className={cn(
         "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border text-xs",
-        isDone ? "bg-primary text-primary-foreground border-primary" : "border-input",
+        isDone ? "bg-teal border-teal text-white" : "border-input",
       )}
     >
       {isDone ? "✓" : null}
@@ -37,7 +37,7 @@ export function SetupChecklistCard({ steps }: { steps: SetupStep[] }) {
           aria-label="Setup progress"
         >
           <div
-            className="bg-primary h-full"
+            className="from-cyan to-teal h-full bg-gradient-to-r"
             style={{ width: `${(doneCount / steps.length) * 100}%` }}
           />
         </div>

@@ -41,7 +41,7 @@ export function SidebarNavigation() {
             className={cn(
               "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium",
               isActive
-                ? "bg-primary-soft text-primary-dark"
+                ? "bg-primary-soft text-teal"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
@@ -72,7 +72,7 @@ export function TabBarNavigation() {
             aria-current={isActive ? "page" : undefined}
             className={cn(
               "flex min-h-14 flex-col items-center justify-center gap-1 text-xs font-medium",
-              isActive ? "text-primary" : "text-muted-foreground",
+              isActive ? "text-teal" : "text-muted-foreground",
             )}
           >
             <item.icon className="size-6" aria-hidden />

@@ -10,12 +10,15 @@
 export const BRAND = {
   productName: "PintoFleet",
   adminName: "PintoFleet Admin",
-  /** The placeholder logo's mark: the first letter, until there is a real logo. */
-  logoMark: "P",
+  /** Taken from the logo. Navy and teal carry text; cyan is decoration only. */
   colours: {
-    primary: "#0F766E",
-    primaryDark: "#115E59",
-    primarySoft: "#E6F4F1",
+    primary: "#0D3747",
+    primaryDark: "#0A2B38",
+    primarySoft: "#E5F4F5",
+    /** The logo's cyan, darkened just enough to be readable as text. */
+    teal: "#167884",
+    /** The logo's own cyan. Too light for text: bars, icons and accents only. */
+    cyan: "#2FA7B4",
     attention: "#B45309",
     attentionSoft: "#FEF3C7",
     danger: "#DC2626",

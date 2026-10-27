@@ -13,7 +13,7 @@ export default async function SettingsPage() {
 
   return (
     <AppShell user={user}>
-      <h1 className="text-2xl font-semibold">Settings</h1>
+      <h1 className="text-primary text-2xl font-extrabold">Settings</h1>
       <Card>
         <CardHeader>
           <CardTitle>Business details</CardTitle>
