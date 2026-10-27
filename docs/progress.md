@@ -95,9 +95,21 @@
     the address bar. Browser-handled forms now post, and their buttons stay
     disabled until the page is ready (`ClientForm` in packages/ui).
 
+- Phase 1a slice 5 — placeholder dashboard:
+  - Header with business name and sign-out, a greeting by the Operator's
+    own clock, and the setup checklist with progress.
+  - Checklist steps are worked out from the Operator's records, never
+    stored as ticks. Business details counts as done once legal name,
+    ABN, address, phone and email are all filled in; Stripe once charges
+    are enabled. Contract and cars/Renters steps wait for their phases.
+  - Checked at 375px and desktop width.
+
+**Phase 1a is complete.**
+
 ## Next
-Slice 5 of Phase 1a: the placeholder Operator dashboard (mobile-first at
-375px, setup checklist stubbed out).
+Phase 1b: Operator settings (which also makes the "business details"
+checklist step doable), S3 file storage, and the mobile app shell with
+the shared list component. Starts with a plan for Abhi to approve.
 
 ## Open items
 - Product name TBD.
