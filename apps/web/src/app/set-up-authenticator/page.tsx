@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { HOME_PATH } from "../../lib/paths";
 import { requireUser } from "../../lib/require-user";
 import { SetUpAuthenticatorForm } from "./set-up-authenticator-form";
 
@@ -12,7 +13,7 @@ export default async function SetUpAuthenticatorPage() {
   // Nobody re-enrols by visiting this page. Replacing an authenticator goes
   // through AGS, after checking who is asking.
   if (user.twoFactorEnabled) {
-    redirect("/");
+    redirect(HOME_PATH);
   }
 
   return <SetUpAuthenticatorForm />;

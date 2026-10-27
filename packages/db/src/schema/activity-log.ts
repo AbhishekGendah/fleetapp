@@ -72,6 +72,7 @@ export const ACTIVITY_ACTIONS = {
   signInFailed: "sign_in_failed",
   lockedOut: "locked_out",
   twoFactorEnrolled: "two_factor_enrolled",
+  passwordReset: "password_reset",
 } as const;
 
 export type ActivityEntityType = (typeof ACTIVITY_ENTITY_TYPES)[keyof typeof ACTIVITY_ENTITY_TYPES];

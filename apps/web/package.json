@@ -15,6 +15,7 @@
     "@fleetapp/auth": "workspace:*",
     "@fleetapp/core": "workspace:*",
     "@fleetapp/db": "workspace:*",
+    "@fleetapp/email": "workspace:*",
     "@fleetapp/ui": "workspace:*",
     "better-auth": "1.7.5",
     "next": "16.3.5",

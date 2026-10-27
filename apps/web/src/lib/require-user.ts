@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 
 import { appDb } from "./app-db";
 import { auth } from "./auth";
+import { HOME_PATH, SET_UP_AUTHENTICATOR_PATH, SIGN_IN_PATH, SUSPENDED_PATH } from "./paths";
 
 export interface SignedInUser {
   id: string;
@@ -15,10 +16,6 @@ export interface SignedInUser {
   operatorName: string;
   twoFactorEnabled: boolean;
 }
-
-export const SIGN_IN_PATH = "/sign-in";
-export const SET_UP_AUTHENTICATOR_PATH = "/set-up-authenticator";
-export const SUSPENDED_PATH = "/suspended";
 
 interface SignedInAccount {
   userId: string;
@@ -122,6 +119,6 @@ export async function requireSuspendedUser(): Promise<void> {
     redirect(SIGN_IN_PATH);
   }
   if (!account.isSuspended) {
-    redirect("/");
+    redirect(HOME_PATH);
   }
 }

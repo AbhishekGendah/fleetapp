@@ -4,6 +4,7 @@ import { SignInForm, type PasswordStepResult } from "@fleetapp/ui/sign-in-form";
 import { useRouter } from "next/navigation";
 
 import { authClient } from "../../lib/auth-client";
+import { FORGOT_PASSWORD_PATH } from "../../lib/paths";
 
 async function signInWithPassword(email: string, password: string): Promise<PasswordStepResult> {
   const { data, error } = await authClient.signIn.email({ email, password });
@@ -42,6 +43,7 @@ export default function SignInPage() {
       verifyCode={verifyCode}
       verifyRecoveryCode={verifyRecoveryCode}
       trustDeviceLabel="Remember this device for 14 days"
+      forgotPasswordHref={FORGOT_PASSWORD_PATH}
       onSignedIn={handleSignedIn}
     />
   );

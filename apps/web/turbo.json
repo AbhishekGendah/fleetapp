@@ -8,7 +8,9 @@
         "DATABASE_URL",
         "AUTH_DATABASE_URL",
         "BETTER_AUTH_SECRET",
-        "AUTH_ISSUER_NAME"
+        "AUTH_ISSUER_NAME",
+        "EMAIL_TRANSPORT",
+        "EMAIL_FROM"
       ]
     },
     "dev": {
@@ -17,7 +19,9 @@
         "DATABASE_URL",
         "AUTH_DATABASE_URL",
         "BETTER_AUTH_SECRET",
-        "AUTH_ISSUER_NAME"
+        "AUTH_ISSUER_NAME",
+        "EMAIL_TRANSPORT",
+        "EMAIL_FROM"
       ]
     },
     "test": {

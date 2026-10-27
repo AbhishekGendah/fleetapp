@@ -7,7 +7,7 @@ import { z } from "zod";
 import { authDb, auth } from "../../../lib/auth";
 import { MAXIMUM_PASSWORD_LENGTH, MINIMUM_PASSWORD_LENGTH } from "../../../lib/auth-options";
 import { acceptInvite, InviteNotUsableError } from "../../../lib/invites/accept-invite";
-import { SET_UP_AUTHENTICATOR_PATH, SIGN_IN_PATH } from "../../../lib/require-user";
+import { SET_UP_AUTHENTICATOR_PATH, SIGN_IN_PATH } from "../../../lib/paths";
 
 const UNEXPECTED_ERROR_MESSAGE = "Something went wrong. Try again in a moment.";
 

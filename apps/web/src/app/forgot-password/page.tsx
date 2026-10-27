@@ -1,0 +1,75 @@
+"use client";
+
+import { Button } from "@fleetapp/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { Input, Label } from "@fleetapp/ui/input";
+import Link from "next/link";
+import { useState } from "react";
+
+import { authClient } from "../../lib/auth-client";
+import { RESET_LINK_LIFETIME_WORDS } from "../../lib/password-reset-policy";
+import { RESET_PASSWORD_PATH, SIGN_IN_PATH } from "../../lib/paths";
+
+/**
+ * Always the same answer, whatever happened: saying "no login with that
+ * email" would tell anyone which addresses have one.
+ */
+const SENT_MESSAGE = `If that address has a login, we have emailed it a link to choose a new password. The link works for ${RESET_LINK_LIFETIME_WORDS}.`;
+
+export default function ForgotPasswordPage() {
+  const [email, setEmail] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSent, setIsSent] = useState(false);
+
+  async function handleSubmit(event: React.FormEvent): Promise<void> {
+    event.preventDefault();
+    setIsSubmitting(true);
+    const { error } = await authClient.requestPasswordReset({
+      email,
+      redirectTo: RESET_PASSWORD_PATH,
+    });
+    if (error) {
+      // Shown the same message regardless; logged so a real fault is noticed.
+      console.error("Requesting a password reset failed", error.status);
+    }
+    setIsSubmitting(false);
+    setIsSent(true);
+  }
+
+  return (
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 p-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Forgot your password?</CardTitle>
+          <CardDescription>
+            {isSent ? SENT_MESSAGE : "Enter your email and we will send you a link."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {isSent ? null : (
+            <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="email">Email address</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="username"
+                  required
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+              </div>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Sending…" : "Send me a link"}
+              </Button>
+            </form>
+          )}
+          <Link href={SIGN_IN_PATH} className="text-center text-sm hover:underline">
+            Back to sign in
+          </Link>
+        </CardContent>
+      </Card>
+    </main>
+  );
+}

@@ -3,8 +3,16 @@ import { randomUUID } from "node:crypto";
 import { base32 } from "@better-auth/utils/base32";
 import { createOTP } from "@better-auth/utils/otp";
 import { generateSecretToken, getInviteExpiry, hashSecretToken } from "@fleetapp/core";
-import { activityLog, adminUsers, operatorInvites, operators, users } from "@fleetapp/db/schema";
+import {
+  activityLog,
+  adminUsers,
+  operatorInvites,
+  operators,
+  users,
+  userVerifications,
+} from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
+import type { EmailMessage, EmailSender } from "@fleetapp/email";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
@@ -19,6 +27,19 @@ const TEST_BASE_URL = "http://localhost:3000";
 const TOTP_DIGITS = 6;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const TRUST_DEVICE_COOKIE = "trust_device";
+const NEW_PASSWORD = "a-different-long-password";
+const RESET_LINK_PATTERN = /\/reset-password\?token=([^\s"&]+)/;
+
+/** Keeps what would have been sent, so a test can open the link in it. */
+function createRecordingSender(): EmailSender & { messages: EmailMessage[] } {
+  const messages: EmailMessage[] = [];
+  return {
+    messages,
+    async send(message) {
+      messages.push(message);
+    },
+  };
+}
 
 interface SeededInvite {
   token: string;
@@ -53,15 +74,18 @@ describe("the Operator login", () => {
   let webAuth: TestConnection;
   let auth: UserAuth;
   let adminUserId: string;
+  let sender: ReturnType<typeof createRecordingSender>;
 
   beforeAll(async () => {
     admin = connectAs(inject("adminAppRoleUrl"));
     webAuth = connectAs(inject("webAuthRoleUrl"));
+    sender = createRecordingSender();
     auth = createUserAuth({
       database: webAuth.db,
       baseURL: TEST_BASE_URL,
       secret: TEST_SECRET,
       issuerName: "Test Issuer",
+      emailSender: sender,
     });
 
     const [adminUser] = await admin.db
@@ -278,6 +302,85 @@ describe("the Operator login", () => {
         headers: new Headers({ cookie: trustCookie!.split(";")[0]! }),
       });
       expect(trustedSignIn).not.toHaveProperty("twoFactorRedirect");
+    });
+  });
+
+  describe("resetting a password", () => {
+    function emailsTo(email: string): EmailMessage[] {
+      return sender.messages.filter((message) => message.to === email);
+    }
+
+    async function requestReset(email: string): Promise<string | null> {
+      await auth.api.requestPasswordReset({ body: { email, redirectTo: "/reset-password" } });
+      const token = emailsTo(email).at(-1)?.text.match(RESET_LINK_PATTERN)?.[1];
+      return token ? decodeURIComponent(token) : null;
+    }
+
+    const signInWith = (email: string, password: string) =>
+      auth.api.signInEmail({ body: { email, password } });
+
+    it("emails a link that sets a new password once, keeping only its fingerprint", async () => {
+      const seeded = await seedAcceptedUser();
+      const token = await requestReset(seeded.email);
+      expect(token).toBeTruthy();
+
+      const stored = await webAuth.db.select().from(userVerifications);
+      expect(JSON.stringify(stored)).not.toContain(token!);
+
+      await auth.api.resetPassword({ body: { newPassword: NEW_PASSWORD, token: token! } });
+
+      await expect(signInWith(seeded.email, TEST_PASSWORD)).rejects.toThrow();
+      await expect(signInWith(seeded.email, NEW_PASSWORD)).resolves.toBeDefined();
+      await expect(
+        auth.api.resetPassword({ body: { newPassword: TEST_PASSWORD, token: token! } }),
+      ).rejects.toThrow();
+      expect(await historyOf(seeded.operatorId)).toContain("user password_reset");
+    });
+
+    it("signs out every existing session", async () => {
+      const seeded = await seedAcceptedUser();
+      const signIn = await auth.api.signInEmail({
+        body: { email: seeded.email, password: TEST_PASSWORD },
+        asResponse: true,
+      });
+      const cookie = cookiesFrom(signIn);
+
+      const token = await requestReset(seeded.email);
+      await auth.api.resetPassword({ body: { newPassword: NEW_PASSWORD, token: token! } });
+
+      expect(await auth.api.getSession({ headers: new Headers({ cookie }) })).toBeNull();
+    });
+
+    it("lifts a wrong-password lockout", async () => {
+      const seeded = await seedAcceptedUser();
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        await expect(signInWith(seeded.email, WRONG_PASSWORD)).rejects.toThrow();
+      }
+
+      const token = await requestReset(seeded.email);
+      await auth.api.resetPassword({ body: { newPassword: NEW_PASSWORD, token: token! } });
+
+      await expect(signInWith(seeded.email, NEW_PASSWORD)).resolves.toBeDefined();
+    });
+
+    it("sends nothing for an unknown email or a suspended Operator, and says the same", async () => {
+      const seeded = await seedAcceptedUser();
+      await admin.db
+        .update(operators)
+        .set({ suspendedAt: new Date() })
+        .where(eq(operators.id, seeded.operatorId));
+      const unknownEmail = `${randomUUID()}@example.test`;
+
+      const forSuspended = await auth.api.requestPasswordReset({
+        body: { email: seeded.email, redirectTo: "/reset-password" },
+      });
+      const forUnknown = await auth.api.requestPasswordReset({
+        body: { email: unknownEmail, redirectTo: "/reset-password" },
+      });
+
+      expect(forSuspended).toEqual(forUnknown);
+      expect(emailsTo(seeded.email)).toEqual([]);
+      expect(emailsTo(unknownEmail)).toEqual([]);
     });
   });
 });

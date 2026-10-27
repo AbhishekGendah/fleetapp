@@ -28,3 +28,10 @@ export async function recordUserActivity(
     FROM users WHERE id = ${entry.userId}
   `);
 }
+
+/** The shape the login system logs through: failures here never block a sign-in. */
+export type RecordUserActivity = (
+  userId: string,
+  action: ActivityAction,
+  actorType: UserActivityEntry["actorType"],
+) => Promise<void>;

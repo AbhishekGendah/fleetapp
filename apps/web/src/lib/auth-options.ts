@@ -2,8 +2,6 @@ import { createDrizzleLockoutStore, signInLockout, VERIFY_CODE_PATH } from "@fle
 import type { AnyDatabase } from "@fleetapp/db/client";
 import {
   ACTIVITY_ACTIONS,
-  type ActivityAction,
-  operators,
   userAccounts,
   users,
   userSessions,
@@ -13,9 +11,11 @@ import {
 import { betterAuth, type BetterAuthPlugin } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { twoFactor } from "better-auth/plugins";
-import { eq } from "drizzle-orm";
+import type { EmailSender } from "@fleetapp/email";
 
-import { recordUserActivity } from "./user-activity";
+import { isAllowedToSignIn } from "./sign-in-eligibility";
+import { createPasswordResetOptions } from "./password-reset";
+import { recordUserActivity, type RecordUserActivity } from "./user-activity";
 
 const SECONDS_PER_DAY = 24 * 60 * 60;
 
@@ -46,28 +46,11 @@ export interface UserAuthConfig {
   baseURL: string;
   secret: string;
   issuerName: string;
+  /** Sends password reset and new-device emails. */
+  emailSender: EmailSender;
   /** Added last. The app passes Next.js's cookie plugin; the tests pass nothing. */
   extraPlugins?: BetterAuthPlugin[];
   now?: () => Date;
-}
-
-/**
- * Whether a User may have a session at all: not archived, and their Operator
- * neither suspended nor archived. Checked when any session is created, so it
- * covers signing in, the authenticator step and accepting an invite alike.
- */
-async function isAllowedToSignIn(database: AnyDatabase, userId: string): Promise<boolean> {
-  const [row] = await database
-    .select({
-      userArchivedAt: users.archivedAt,
-      operatorSuspendedAt: operators.suspendedAt,
-      operatorArchivedAt: operators.archivedAt,
-    })
-    .from(users)
-    .innerJoin(operators, eq(operators.id, users.operatorId))
-    .where(eq(users.id, userId));
-
-  return Boolean(row && !row.userArchivedAt && !row.operatorSuspendedAt && !row.operatorArchivedAt);
 }
 
 /**
@@ -79,12 +62,20 @@ async function isAllowedToSignIn(database: AnyDatabase, userId: string): Promise
  * (rule 1), so it never comes from anything the browser sends.
  */
 function buildUserAuthOptions(config: UserAuthConfig) {
-  const record = (userId: string, action: ActivityAction, actorType: "user" | "system") =>
+  const record: RecordUserActivity = (userId, action, actorType) =>
     recordUserActivity(config.database, { userId, action, actorType }).catch((error: unknown) => {
       // A missing history line must not be what stops someone signing in.
       // Logs the failure, never the entry: it names a User.
       console.error("Failed to write a sign-in to the activity log", error);
     });
+
+  const lockoutStore = createDrizzleLockoutStore(config.database, {
+    table: userAccounts,
+    userId: userAccounts.userId,
+    providerId: userAccounts.providerId,
+    failedSignInCount: userAccounts.failedSignInCount,
+    signInLockedUntil: userAccounts.signInLockedUntil,
+  });
 
   return {
     appName: config.issuerName,
@@ -131,17 +122,18 @@ function buildUserAuthOptions(config: UserAuthConfig) {
       maxPasswordLength: MAXIMUM_PASSWORD_LENGTH,
       // The only way to get a login is an invite from an Admin.
       disableSignUp: true,
+      ...createPasswordResetOptions({
+        database: config.database,
+        emailSender: config.emailSender,
+        appUrl: config.baseURL,
+        lockoutStore,
+        record,
+      }),
     },
 
     plugins: [
       signInLockout({
-        store: createDrizzleLockoutStore(config.database, {
-          table: userAccounts,
-          userId: userAccounts.userId,
-          providerId: userAccounts.providerId,
-          failedSignInCount: userAccounts.failedSignInCount,
-          signInLockedUntil: userAccounts.signInLockedUntil,
-        }),
+        store: lockoutStore,
         now: config.now,
         onSignInFailed: (userId) => record(userId, ACTIVITY_ACTIONS.signInFailed, "system"),
         onLockedOut: (userId) => record(userId, ACTIVITY_ACTIONS.lockedOut, "system"),

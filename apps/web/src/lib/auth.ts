@@ -1,4 +1,5 @@
 import { createDb } from "@fleetapp/db/client";
+import { createEmailSender } from "@fleetapp/email";
 import { nextCookies } from "better-auth/next-js";
 
 import { env } from "../env";
@@ -16,6 +17,12 @@ export const auth = createUserAuth({
   baseURL: env.APP_URL,
   secret: env.BETTER_AUTH_SECRET,
   issuerName: env.AUTH_ISSUER_NAME,
+  // On the login role's connection: it may add to the test inbox, nothing more.
+  emailSender: createEmailSender({
+    transport: env.EMAIL_TRANSPORT,
+    database: authDb,
+    from: env.EMAIL_FROM,
+  }),
   // Lets server actions (accepting an invite) set the sign-in cookie.
   extraPlugins: [nextCookies()],
 });
