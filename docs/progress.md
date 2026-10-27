@@ -90,10 +90,14 @@
     before emails them the device and time (Operator's timezone). Migration
     0004 adds `user_known_devices` (cookie fingerprints only).
   - Shared email layout and `createEmailSender` for both apps.
+  - Fixed after Abhi's testing: a click before a page finished loading did
+    nothing, and on sign-in pages could have put the email and password in
+    the address bar. Browser-handled forms now post, and their buttons stay
+    disabled until the page is ready (`ClientForm` in packages/ui).
 
 ## Next
-Deploy 4b: add `EMAIL_TRANSPORT` and `EMAIL_FROM` to `fleetapp-web` in
-Vercel, redeploy, test. Then slice 5: the placeholder dashboard.
+Slice 5 of Phase 1a: the placeholder Operator dashboard (mobile-first at
+375px, setup checklist stubbed out).
 
 ## Open items
 - Product name TBD.
