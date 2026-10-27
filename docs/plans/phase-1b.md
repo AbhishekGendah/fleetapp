@@ -22,10 +22,10 @@ on inherits that look for free.
   - The logo's own cyan `#2FA7B4` for decoration only: progress bars,
     icons. Too light to carry text.
   - Amber `#B45309` for "needs attention", red for errors, slate greys.
-- **Type**: Manrope for everything, Michroma (wide and squared, like the
-  logo's lettering) for the product name only. Both served with the app.
-- **Logo**: the PintoTech emblem with "PINTOFLEET" set in Michroma, until
-  there is a drawn PintoFleet wordmark. Also the browser-tab icon.
+- **Type**: Manrope for everything, served with the app.
+- **Logo**: the PintoTech emblem with a drawn PINTOFLEET wordmark: the
+  PintoTech letters, with F and L built from its E. The emblem is also
+  the browser-tab icon.
 - **The app shell** (Operator app): on a phone, a bottom tab bar with
   44px+ targets; on a wider screen, a sidebar. Only sections that exist
   appear in it (Home and Settings for now); each later phase adds its own.

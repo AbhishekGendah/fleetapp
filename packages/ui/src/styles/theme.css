@@ -7,8 +7,6 @@
  */
 @theme {
   --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
-  /* Wide and squared, like the logo's lettering. The product name only. */
-  --font-wordmark: var(--font-michroma), var(--font-manrope), sans-serif;
 
   --color-border: #e2e8f0;
   --color-input: #e2e8f0;

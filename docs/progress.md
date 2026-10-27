@@ -110,23 +110,24 @@
   - PintoFleet brand file (`packages/ui/src/brand.ts`): name and colours
     from the PintoTech emblem (navy `#0D3747`, teal `#167884`, cyan
     `#2FA7B4` for decoration), amber for attention; a test keeps it in
-    step with `theme.css`. Manrope, with Michroma for the name. The
-    emblem is the logo and browser-tab icon.
+    step with `theme.css`. Manrope throughout. Logo: the emblem plus a
+    drawn PINTOFLEET wordmark (PintoTech letters; F and L built from its
+    E). The emblem is also the browser-tab icon.
   - Operator app shell: bottom tab bar on phones, sidebar from tablet
     width; Home and Settings (Settings is a placeholder until slice 2).
   - Sign-in style pages share one frame with the logo; admin carries an
     "Admin" label. Emails use the brand name and colour.
 
 ## Next
-Abhi: change `AUTH_ISSUER_NAME` to PintoFleet / PintoFleet Admin and the
-name in `EMAIL_FROM` in both Vercel projects. Then Phase 1b slice 2:
-Operator settings, starting with business details.
+Phase 1b slice 2: Operator settings, starting with business details.
+(`AUTH_ISSUER_NAME` and `EMAIL_FROM` now say PintoFleet in both Vercel
+projects.)
 
 ## Open items
 - Product name decided: PintoFleet (rule updated in CLAUDE.md). The logo
-  is the PintoTech emblem; the name beside it is typed in Michroma until
-  there is a drawn PintoFleet wordmark. A simpler emblem for small sizes
-  (browser tab, phone header) would also help. Abhi to check the name is free
+  is the PintoTech emblem plus a PINTOFLEET wordmark built from the
+  PintoTech letters. A simpler emblem for small sizes (browser tab, phone
+  header) would still help. Abhi to check the name is free
   (ASIC business names, IP Australia trade marks, domain).
 - Once branding lands: change `AUTH_ISSUER_NAME` (both Vercel projects)
   and the name in `EMAIL_FROM` to PintoFleet. Authenticator entries made
