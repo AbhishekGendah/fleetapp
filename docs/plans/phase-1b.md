@@ -14,18 +14,18 @@ on inherits that look for free.
 - **The brand file**, `packages/ui/src/brand.ts`: the name PintoFleet,
   the placeholder logo, the colours. The only place the name is typed
   (CLAUDE.md).
-- **Proposed colours** (Abhi approves before anything is built on them):
-  - Main colour: a deep teal, `#0F766E`. Calm and trustworthy for an app
-    about money, distinct from the black, green and orange the big
-    rideshare brands use, and readable: white text on it passes the
-    accessibility contrast standard comfortably.
-  - "Needs attention": amber, `#B45309`. Failed payments, expiring rego.
-  - "Something went wrong": red, as now.
-  - Greys: a cool slate for text and borders.
-- **Type**: Inter, a clean font designed for screens, served with the
-  app (no request to Google from the Operator's browser).
-- **Placeholder logo**: a simple mark plus the name in the brand colour,
-  in one component, so the real logo is a one-file swap.
+- **Colours, taken from the PintoTech emblem** (approved by Abhi from
+  a mock-up, replacing the first teal proposal):
+  - Deep navy `#0D3747` for main buttons and headings.
+  - Teal `#167884` (the logo's cyan, darkened to be readable as text) for
+    links and the current tab.
+  - The logo's own cyan `#2FA7B4` for decoration only: progress bars,
+    icons. Too light to carry text.
+  - Amber `#B45309` for "needs attention", red for errors, slate greys.
+- **Type**: Manrope for everything, Michroma (wide and squared, like the
+  logo's lettering) for the product name only. Both served with the app.
+- **Logo**: the PintoTech emblem with "PINTOFLEET" set in Michroma, until
+  there is a drawn PintoFleet wordmark. Also the browser-tab icon.
 - **The app shell** (Operator app): on a phone, a bottom tab bar with
   44px+ targets; on a wider screen, a sidebar. Only sections that exist
   appear in it (Home and Settings for now); each later phase adds its own.
