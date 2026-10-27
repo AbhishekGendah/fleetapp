@@ -14,6 +14,7 @@ import { twoFactor } from "better-auth/plugins";
 import type { EmailSender } from "@fleetapp/email";
 
 import { isAllowedToSignIn } from "./sign-in-eligibility";
+import { newDeviceAlert } from "./new-device-alert";
 import { createPasswordResetOptions } from "./password-reset";
 import { recordUserActivity, type RecordUserActivity } from "./user-activity";
 
@@ -148,6 +149,12 @@ function buildUserAuthOptions(config: UserAuthConfig) {
           durationSeconds: LOCKOUT_DURATION_SECONDS,
         },
         trustDeviceMaxAge: TRUSTED_DEVICE_SECONDS,
+      }),
+      newDeviceAlert({
+        database: config.database,
+        emailSender: config.emailSender,
+        appUrl: config.baseURL,
+        now: config.now,
       }),
       ...(config.extraPlugins ?? []),
     ],

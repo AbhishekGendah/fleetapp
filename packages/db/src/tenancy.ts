@@ -99,6 +99,7 @@ export const USER_CREDENTIAL_TABLES = [
   "user_sessions",
   "user_verifications",
   "user_two_factors",
+  "user_known_devices",
 ] as const;
 
 /**

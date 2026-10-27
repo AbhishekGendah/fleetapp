@@ -155,3 +155,29 @@ export const userTwoFactors = pgTable(
   },
   (table) => [index("user_two_factors_user_id_idx").on(table.userId)],
 );
+
+/**
+ * Browsers a User has signed in from, for the new-device email. Each holds a
+ * long-lived random cookie; only its fingerprint is stored, so the table
+ * cannot be used to fake a known device. Nothing else about the device is
+ * kept: the email describes it at the moment of sign-in and that is all.
+ */
+export const userKnownDevices = pgTable(
+  "user_known_devices",
+  {
+    ...primaryKeyColumn,
+    ...triggerFilledOperatorIdColumn,
+    ...userReference,
+
+    deviceHash: text("device_hash").notNull(),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (table) => [
+    uniqueIndex("user_known_devices_user_device_unique").on(table.userId, table.deviceHash),
+  ],
+);

@@ -8,6 +8,7 @@ import {
   adminUsers,
   operatorInvites,
   operators,
+  userKnownDevices,
   users,
   userVerifications,
 } from "@fleetapp/db/schema";
@@ -381,6 +382,66 @@ describe("the Operator login", () => {
       expect(forSuspended).toEqual(forUnknown);
       expect(emailsTo(seeded.email)).toEqual([]);
       expect(emailsTo(unknownEmail)).toEqual([]);
+    });
+  });
+
+  describe("emailing about a new device", () => {
+    const CHROME_ON_WINDOWS =
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
+    const KNOWN_DEVICE_COOKIE = "known_device";
+
+    const newDeviceEmailsTo = (email: string) =>
+      sender.messages.filter(
+        (message) => message.to === email && message.subject.includes("New sign-in"),
+      );
+
+    async function signInFrom(email: string, cookie?: string): Promise<string> {
+      const response = await auth.api.signInEmail({
+        body: { email, password: TEST_PASSWORD },
+        headers: new Headers({ "user-agent": CHROME_ON_WINDOWS, ...(cookie ? { cookie } : {}) }),
+        asResponse: true,
+      });
+      const deviceCookie = response.headers
+        .getSetCookie()
+        .find((setCookie) => setCookie.includes(KNOWN_DEVICE_COOKIE));
+      if (!deviceCookie) {
+        throw new Error("The sign-in did not mark the browser.");
+      }
+      return deviceCookie.split(";")[0]!;
+    }
+
+    it("stays quiet for the first browser and for a browser it already knows", async () => {
+      const seeded = await seedAcceptedUser();
+
+      const deviceCookie = await signInFrom(seeded.email);
+      await signInFrom(seeded.email, deviceCookie);
+
+      expect(newDeviceEmailsTo(seeded.email)).toEqual([]);
+    });
+
+    it("emails the User, naming the device, when a new browser signs in", async () => {
+      const seeded = await seedAcceptedUser();
+      await signInFrom(seeded.email);
+
+      await signInFrom(seeded.email);
+
+      const [alert] = newDeviceEmailsTo(seeded.email);
+      expect(alert?.text).toContain("Chrome on Windows");
+      expect(alert?.text).toContain("/forgot-password");
+    });
+
+    it("keeps only a fingerprint of the cookie that marks the browser", async () => {
+      const seeded = await seedAcceptedUser();
+      const deviceCookie = await signInFrom(seeded.email);
+      const token = decodeURIComponent(deviceCookie.split("=")[1]!);
+
+      const [device] = await webAuth.db
+        .select()
+        .from(userKnownDevices)
+        .where(eq(userKnownDevices.userId, seeded.userId));
+
+      expect(device?.deviceHash).toBe(hashSecretToken(token));
+      expect(device?.operatorId).toBe(seeded.operatorId);
     });
   });
 });
