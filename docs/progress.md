@@ -112,7 +112,13 @@ checklist step doable), S3 file storage, and the mobile app shell with
 the shared list component. Starts with a plan for Abhi to approve.
 
 ## Open items
-- Product name TBD.
+- Product name decided: PintoFleet (rule updated in CLAUDE.md). The brand
+  file `packages/ui/src/brand.ts` is created in the Phase 1b look-and-feel
+  step. Logo is a placeholder for now. Abhi to check the name is free
+  (ASIC business names, IP Australia trade marks, domain).
+- Once branding lands: change `AUTH_ISSUER_NAME` (both Vercel projects)
+  and the name in `EMAIL_FROM` to PintoFleet. Authenticator entries made
+  before then keep their old name until re-enrolled.
 - Pricing model TBD.
 - SMS provider TBD.
 - Confirm Stripe DDR notice rules before building rate changes.
@@ -146,9 +152,6 @@ the shared list component. Starts with a plan for Abhi to approve.
   build, then on the live dev site.
 - Branch `backup/slice-4a` on GitHub is no longer needed (main has all of
   it). Abhi to delete it with the other two old branches.
-- `AUTH_ISSUER_NAME` on the Operator app is a placeholder,
-  "Altus Global Solutions (dev)". Must become the product name before the
-  first real Operator.
 
 - A "forgot password" request for a real address takes a little longer to
   answer than one for an unknown address (the email is sent before

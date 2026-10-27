@@ -9,8 +9,12 @@ STOP and ask. Never work around a rule.
 ## What this is
 Multi-tenant SaaS for Australian vehicle rental businesses (weekly and
 ongoing rentals, often rideshare). Built by Altus Global Solutions
-(AGS). Australia only. Product name TBD: never hardcode a brand name,
-domain or URL path. Base URLs come from env vars (APP_URL, ADMIN_URL).
+(AGS). Australia only. The product name is PintoFleet. It lives only
+in the brand file in packages/ui (`packages/ui/src/brand.ts`, along with
+the logo and colours); never type it anywhere else, so a rename stays a
+one-file change. Settings that carry it (AUTH_ISSUER_NAME, EMAIL_FROM)
+stay env vars. Never hardcode a domain or URL path: base URLs come from
+env vars (APP_URL, ADMIN_URL).
 
 ## Terminology (use exactly, in code and UI)
 - Operator: the business that subscribes (the tenant). Key: operatorId.
