@@ -20,24 +20,31 @@ export const SIGN_IN_PATH = "/sign-in";
 export const SET_UP_AUTHENTICATOR_PATH = "/set-up-authenticator";
 export const SUSPENDED_PATH = "/suspended";
 
+interface SignedInAccount {
+  userId: string;
+  operatorId: string;
+  email: string;
+  fullName: string;
+  twoFactorEnabled: boolean;
+  operatorName: string;
+  isSuspended: boolean;
+  /** The User or their Operator has been archived: no way in at all. */
+  isClosed: boolean;
+}
+
 /**
- * Loads the signed-in User, or sends them wherever they need to go first.
- *
- * Every page in the Operator app goes through here: authorisation belongs in
- * server code, not in routing (rule 4). It runs on every request, so a
- * suspension takes effect at a User's next click, not their next sign-in.
+ * The signed-in User and the flags that decide where they may go, or null if
+ * nobody is signed in.
  *
  * The Operator comes from the session, which the login system read from the
  * User's own record: never from anything the browser sends (rule 1). The rest
  * is then read through the app's own role, scoped to that Operator, so the
- * flags that decide entry are current rather than a snapshot from sign-in.
+ * flags are current rather than a snapshot from sign-in.
  */
-export async function requireUser(
-  options: { allowWithoutAuthenticator?: boolean } = {},
-): Promise<SignedInUser> {
+async function loadSignedInAccount(): Promise<SignedInAccount | null> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
-    redirect(SIGN_IN_PATH);
+    return null;
   }
   const operatorId = session.user.operatorId;
 
@@ -57,23 +64,64 @@ export async function requireUser(
       .innerJoin(operators, eq(operators.id, users.operatorId))
       .where(eq(users.id, session.user.id)),
   );
+  if (!row) {
+    return null;
+  }
 
-  if (!row || row.userArchivedAt || row.operatorArchivedAt) {
+  return {
+    userId: session.user.id,
+    operatorId,
+    email: row.email,
+    fullName: row.fullName,
+    twoFactorEnabled: row.twoFactorEnabled,
+    operatorName: row.tradingName ?? row.legalName,
+    isSuspended: row.suspendedAt !== null,
+    isClosed: row.userArchivedAt !== null || row.operatorArchivedAt !== null,
+  };
+}
+
+/**
+ * Loads the signed-in User, or sends them wherever they need to go first.
+ *
+ * Every page in the Operator app goes through here: authorisation belongs in
+ * server code, not in routing (rule 4). It runs on every request, so a
+ * suspension takes effect at a User's next click, not their next sign-in.
+ */
+export async function requireUser(
+  options: { allowWithoutAuthenticator?: boolean } = {},
+): Promise<SignedInUser> {
+  const account = await loadSignedInAccount();
+  if (!account || account.isClosed) {
     redirect(SIGN_IN_PATH);
   }
-  if (row.suspendedAt) {
+  if (account.isSuspended) {
     redirect(SUSPENDED_PATH);
   }
-  if (!row.twoFactorEnabled && !options.allowWithoutAuthenticator) {
+  if (!account.twoFactorEnabled && !options.allowWithoutAuthenticator) {
     redirect(SET_UP_AUTHENTICATOR_PATH);
   }
 
   return {
-    id: session.user.id,
-    operatorId,
-    email: row.email,
-    fullName: row.fullName,
-    operatorName: row.tradingName ?? row.legalName,
-    twoFactorEnabled: row.twoFactorEnabled,
+    id: account.userId,
+    operatorId: account.operatorId,
+    email: account.email,
+    fullName: account.fullName,
+    operatorName: account.operatorName,
+    twoFactorEnabled: account.twoFactorEnabled,
   };
+}
+
+/**
+ * For the suspended page only: lets a suspended Operator's User see it, and
+ * sends everyone else on. Checked on every load, so once AGS reactivates the
+ * Operator, a refresh takes the User straight back in.
+ */
+export async function requireSuspendedUser(): Promise<void> {
+  const account = await loadSignedInAccount();
+  if (!account || account.isClosed) {
+    redirect(SIGN_IN_PATH);
+  }
+  if (!account.isSuspended) {
+    redirect("/");
+  }
 }

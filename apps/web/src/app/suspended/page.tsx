@@ -1,12 +1,15 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 
+import { requireSuspendedUser } from "../../lib/require-user";
 import { SignOutButton } from "../sign-out-button";
 
-/**
- * Where a suspended Operator's signed-in Users land. Deliberately does not
- * call requireUser(), which would send them straight back here.
- */
-export default function SuspendedPage() {
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+/** Where a suspended Operator's signed-in Users land, until it is reactivated. */
+export default async function SuspendedPage() {
+  await requireSuspendedUser();
+
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 p-4">
       <Card>
