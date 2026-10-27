@@ -1,7 +1,8 @@
 import type { SignInLockoutStore } from "@fleetapp/auth";
 import type { AnyDatabase } from "@fleetapp/db/client";
-import { ACTIVITY_ACTIONS } from "@fleetapp/db/schema";
+import { ACTIVITY_ACTIONS, userVerifications } from "@fleetapp/db/schema";
 import { renderPasswordResetEmail, type EmailSender } from "@fleetapp/email";
+import { eq } from "drizzle-orm";
 
 import { RESET_LINK_LIFETIME_SECONDS, RESET_LINK_LIFETIME_WORDS } from "./password-reset-policy";
 import { absoluteUrl, RESET_PASSWORD_PATH } from "./paths";
@@ -10,6 +11,20 @@ import type { RecordUserActivity } from "./user-activity";
 
 export function buildResetPasswordUrl(appUrl: string, token: string): string {
   return `${absoluteUrl(appUrl, RESET_PASSWORD_PATH)}?token=${encodeURIComponent(token)}`;
+}
+
+/**
+ * Makes every browser that was told to "remember this device" ask for the
+ * authenticator code again. Without it, someone who got into a User's email
+ * and sat at a remembered computer could reset the password and walk in with
+ * no code at all.
+ *
+ * Better Auth keeps each remembered device as a verification record whose
+ * value is the User's ID. Any other such record (an unused reset link) is
+ * worth throwing away at this point too.
+ */
+async function forgetRememberedDevices(database: AnyDatabase, userId: string): Promise<void> {
+  await database.delete(userVerifications).where(eq(userVerifications.value, userId));
 }
 
 export interface PasswordResetDependencies {
@@ -60,9 +75,10 @@ export function createPasswordResetOptions(deps: PasswordResetDependencies) {
       }
     },
 
-    // A new password starts the wrong-password count afresh, so a User locked
-    // out by a guesser can get back in by resetting.
     onPasswordReset: async ({ user }: { user: ResetUser }) => {
+      await forgetRememberedDevices(deps.database, user.id);
+      // A new password starts the wrong-password count afresh, so a User
+      // locked out by a guesser can get back in by resetting.
       await deps.lockoutStore.clearFailures(user.id);
       await deps.record(user.id, ACTIVITY_ACTIONS.passwordReset, "user");
     },

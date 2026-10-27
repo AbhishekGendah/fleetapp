@@ -257,52 +257,67 @@ describe("the Operator login", () => {
     });
   });
 
+  /**
+   * Enrols an authenticator, then signs in with "remember this device", as a
+   * User would. Returns the trust cookie that browser now holds.
+   */
+  async function enrolAndTrustDevice(email: string): Promise<string> {
+    const firstSignIn = await auth.api.signInEmail({
+      body: { email, password: TEST_PASSWORD },
+      asResponse: true,
+    });
+    const sessionCookie = cookiesFrom(firstSignIn);
+
+    const enrolment = await auth.api.enableTwoFactor({
+      body: { password: TEST_PASSWORD },
+      headers: new Headers({ cookie: sessionCookie }),
+    });
+    if (!("totpURI" in enrolment)) {
+      throw new Error("Enabling two-factor did not return an authenticator enrolment.");
+    }
+    await auth.api.verifyTOTP({
+      body: { code: await codeFor(enrolment.totpURI) },
+      headers: new Headers({ cookie: sessionCookie }),
+    });
+
+    // A password alone no longer signs in...
+    const passwordStep = await auth.api.signInEmail({
+      body: { email, password: TEST_PASSWORD },
+      asResponse: true,
+    });
+    expect(await passwordStep.clone().json()).toHaveProperty("twoFactorRedirect", true);
+
+    // ...but the code, with "remember this device", hands back a trust cookie.
+    const codeStep = await auth.api.verifyTOTP({
+      body: { code: await codeFor(enrolment.totpURI), trustDevice: true },
+      headers: new Headers({ cookie: cookiesFrom(passwordStep) }),
+      asResponse: true,
+    });
+    const trustCookie = codeStep.headers
+      .getSetCookie()
+      .find((cookie) => cookie.includes(TRUST_DEVICE_COOKIE));
+    if (!trustCookie) {
+      throw new Error("The code step did not remember the device.");
+    }
+    return trustCookie.split(";")[0]!;
+  }
+
+  const signInOnDevice = (email: string, password: string, trustCookie: string) =>
+    auth.api.signInEmail({
+      body: { email, password },
+      headers: new Headers({ cookie: trustCookie }),
+    });
+
   describe("the authenticator app", () => {
-    it("is required after enrolment, and a trusted device skips it", async () => {
+    it("is required after enrolment, and a remembered device skips it", async () => {
       const seeded = await seedAcceptedUser();
-      const firstSignIn = await auth.api.signInEmail({
-        body: { email: seeded.email, password: TEST_PASSWORD },
-        asResponse: true,
-      });
-      const sessionCookie = cookiesFrom(firstSignIn);
 
-      const enrolment = await auth.api.enableTwoFactor({
-        body: { password: TEST_PASSWORD },
-        headers: new Headers({ cookie: sessionCookie }),
-      });
-      if (!("totpURI" in enrolment)) {
-        throw new Error("Enabling two-factor did not return an authenticator enrolment.");
-      }
-      await auth.api.verifyTOTP({
-        body: { code: await codeFor(enrolment.totpURI) },
-        headers: new Headers({ cookie: sessionCookie }),
-      });
+      const trustCookie = await enrolAndTrustDevice(seeded.email);
+
       expect(await historyOf(seeded.operatorId)).toContain("user two_factor_enrolled");
-
-      // A password alone no longer signs in.
-      const passwordStep = await auth.api.signInEmail({
-        body: { email: seeded.email, password: TEST_PASSWORD },
-        asResponse: true,
-      });
-      expect(await passwordStep.clone().json()).toHaveProperty("twoFactorRedirect", true);
-
-      // The code, with "remember this device", hands back a trust cookie...
-      const codeStep = await auth.api.verifyTOTP({
-        body: { code: await codeFor(enrolment.totpURI), trustDevice: true },
-        headers: new Headers({ cookie: cookiesFrom(passwordStep) }),
-        asResponse: true,
-      });
-      const trustCookie = codeStep.headers
-        .getSetCookie()
-        .find((cookie) => cookie.includes(TRUST_DEVICE_COOKIE));
-      expect(trustCookie).toBeDefined();
-
-      // ...and with it, the next sign-in needs no code.
-      const trustedSignIn = await auth.api.signInEmail({
-        body: { email: seeded.email, password: TEST_PASSWORD },
-        headers: new Headers({ cookie: trustCookie!.split(";")[0]! }),
-      });
-      expect(trustedSignIn).not.toHaveProperty("twoFactorRedirect");
+      expect(await signInOnDevice(seeded.email, TEST_PASSWORD, trustCookie)).not.toHaveProperty(
+        "twoFactorRedirect",
+      );
     });
   });
 
@@ -350,6 +365,19 @@ describe("the Operator login", () => {
       await auth.api.resetPassword({ body: { newPassword: NEW_PASSWORD, token: token! } });
 
       expect(await auth.api.getSession({ headers: new Headers({ cookie }) })).toBeNull();
+    });
+
+    it("forgets every remembered device, so the next sign-in needs the code", async () => {
+      const seeded = await seedAcceptedUser();
+      const trustCookie = await enrolAndTrustDevice(seeded.email);
+
+      const token = await requestReset(seeded.email);
+      await auth.api.resetPassword({ body: { newPassword: NEW_PASSWORD, token: token! } });
+
+      expect(await signInOnDevice(seeded.email, NEW_PASSWORD, trustCookie)).toHaveProperty(
+        "twoFactorRedirect",
+        true,
+      );
     });
 
     it("lifts a wrong-password lockout", async () => {

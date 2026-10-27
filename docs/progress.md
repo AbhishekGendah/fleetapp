@@ -84,6 +84,8 @@
   - Forgot password: emailed link, 1 hour, single use, stored only as a
     fingerprint. Signs out every other session and lifts a lockout; never
     skips the authenticator. Same answer whether or not the email exists.
+    It also forgets every "remembered" device, so the next sign-in
+    anywhere needs the authenticator code (Abhi's suggestion).
   - New-device email: a sign-in from a browser the User has not used
     before emails them the device and time (Operator's timezone). Migration
     0004 adds `user_known_devices` (cookie fingerprints only).
@@ -139,3 +141,6 @@ Vercel, redeploy, test. Then slice 5: the placeholder dashboard.
 - Admin password reset (deferred from slice 2) still not built: an Admin
   who forgets their password needs the first-Admin approach or a direct
   database fix. Worth its own small change.
+- When a "change my password" setting is built for Users (or Admins), it
+  must forget remembered devices too, as password reset now does
+  (`forgetRememberedDevices` in apps/web/src/lib/password-reset.ts).
