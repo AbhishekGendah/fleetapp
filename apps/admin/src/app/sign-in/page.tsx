@@ -4,6 +4,7 @@ import { SignInForm, type PasswordStepResult } from "@fleetapp/ui/sign-in-form";
 import { useRouter } from "next/navigation";
 
 import { authClient } from "../../lib/auth-client";
+import { ADMIN_LABEL } from "../admin-label";
 
 async function signInWithPassword(email: string, password: string): Promise<PasswordStepResult> {
   const { data, error } = await authClient.signIn.email({ email, password });
@@ -32,6 +33,7 @@ export default function SignInPage() {
   return (
     <SignInForm
       description="Altus Global Solutions platform admin."
+      logoLabel={ADMIN_LABEL}
       signInWithPassword={signInWithPassword}
       verifyCode={verifyCode}
       verifyRecoveryCode={verifyRecoveryCode}

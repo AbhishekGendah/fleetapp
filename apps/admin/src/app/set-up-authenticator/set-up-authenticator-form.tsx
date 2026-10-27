@@ -4,6 +4,7 @@ import { AuthenticatorSetup, type AuthenticatorEnrolment } from "@fleetapp/ui/au
 import { useRouter } from "next/navigation";
 
 import { authClient } from "../../lib/auth-client";
+import { ADMIN_LABEL } from "../admin-label";
 
 async function enableAuthenticator(password: string): Promise<AuthenticatorEnrolment | null> {
   const { data, error } = await authClient.twoFactor.enable({ password });
@@ -28,6 +29,7 @@ export function SetUpAuthenticatorForm() {
 
   return (
     <AuthenticatorSetup
+      logoLabel={ADMIN_LABEL}
       enableAuthenticator={enableAuthenticator}
       verifyCode={verifyCode}
       onFinish={handleFinish}

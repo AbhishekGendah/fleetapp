@@ -288,6 +288,9 @@ importers:
       '@fleetapp/db':
         specifier: workspace:*
         version: link:../db
+      '@fleetapp/ui':
+        specifier: workspace:*
+        version: link:../ui
       '@react-email/components':
         specifier: 1.0.12
         version: 1.0.12(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
