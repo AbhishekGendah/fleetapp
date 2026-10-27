@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@fleetapp/ui/button";
+import { ClientForm, SubmitButton } from "@fleetapp/ui/client-form";
 import { FormError } from "@fleetapp/ui/form-message";
 import Link from "next/link";
 import { useState } from "react";
@@ -76,7 +77,7 @@ export function ResetPasswordForm(props: ResetPasswordFormProps) {
   }
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+    <ClientForm className="flex flex-col gap-4" onSubmit={handleSubmit}>
       <NewPasswordField
         name="password"
         label={`New password (at least ${props.minimumLength} characters)`}
@@ -88,14 +89,14 @@ export function ResetPasswordForm(props: ResetPasswordFormProps) {
         errors={fieldErrors?.confirmation}
       />
       <FormError message={formError} />
-      <Button type="submit" disabled={isSubmitting}>
+      <SubmitButton disabled={isSubmitting}>
         {isSubmitting ? "Saving…" : "Change password"}
-      </Button>
+      </SubmitButton>
       {formError ? (
         <Link href={FORGOT_PASSWORD_PATH} className="text-center text-sm hover:underline">
           Send me a new link
         </Link>
       ) : null}
-    </form>
+    </ClientForm>
   );
 }

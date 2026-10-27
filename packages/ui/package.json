@@ -7,6 +7,7 @@
     "./authenticator-setup": "./src/components/authenticator-setup.tsx",
     "./button": "./src/components/button.tsx",
     "./card": "./src/components/card.tsx",
+    "./client-form": "./src/components/client-form.tsx",
     "./cn": "./src/lib/utils.ts",
     "./form-message": "./src/components/form-message.tsx",
     "./input": "./src/components/input.tsx",

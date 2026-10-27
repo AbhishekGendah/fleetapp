@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Button } from "./button";
+import { ClientForm, SubmitButton } from "./client-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./card";
 import { FormError } from "./form-message";
 import { Input, Label } from "./input";
@@ -110,7 +111,7 @@ function PasswordStep(props: SignInFormProps & { onNeedsCode(): void }) {
   }
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+    <ClientForm className="flex flex-col gap-4" onSubmit={handleSubmit}>
       <div className="flex flex-col gap-2">
         <Label htmlFor="email">Email address</Label>
         <Input
@@ -136,15 +137,13 @@ function PasswordStep(props: SignInFormProps & { onNeedsCode(): void }) {
         />
       </div>
       <FormError message={errorMessage} />
-      <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Checking…" : "Continue"}
-      </Button>
+      <SubmitButton disabled={isSubmitting}>{isSubmitting ? "Checking…" : "Continue"}</SubmitButton>
       {props.forgotPasswordHref ? (
         <a href={props.forgotPasswordHref} className="text-center text-sm hover:underline">
           Forgot your password?
         </a>
       ) : null}
-    </form>
+    </ClientForm>
   );
 }
 
@@ -180,7 +179,7 @@ function CodeStep(props: CodeStepProps) {
     : code.length === TOTP_CODE_LENGTH;
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+    <ClientForm className="flex flex-col gap-4" onSubmit={handleSubmit}>
       <div className="flex flex-col gap-2">
         <Label htmlFor="code">
           {props.isRecoveryCode ? "Recovery code" : "Authenticator code"}
@@ -214,14 +213,14 @@ function CodeStep(props: CodeStepProps) {
         </label>
       ) : null}
       <FormError message={errorMessage} />
-      <Button type="submit" disabled={isSubmitting || !isCodeComplete}>
+      <SubmitButton disabled={isSubmitting || !isCodeComplete}>
         {isSubmitting ? "Checking…" : "Sign in"}
-      </Button>
+      </SubmitButton>
       <Button type="button" variant="link" onClick={props.onSwitch}>
         {props.isRecoveryCode
           ? "Use my authenticator app instead"
           : "Lost your phone? Use a recovery code"}
       </Button>
-    </form>
+    </ClientForm>
   );
 }

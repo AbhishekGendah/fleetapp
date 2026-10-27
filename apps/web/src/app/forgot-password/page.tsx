@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@fleetapp/ui/button";
+import { ClientForm, SubmitButton } from "@fleetapp/ui/client-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { Input, Label } from "@fleetapp/ui/input";
 import Link from "next/link";
@@ -47,7 +48,7 @@ export default function ForgotPasswordPage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {isSent ? null : (
-            <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+            <ClientForm className="flex flex-col gap-4" onSubmit={handleSubmit}>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="email">Email address</Label>
                 <Input
@@ -60,10 +61,10 @@ export default function ForgotPasswordPage() {
                   onChange={(event) => setEmail(event.target.value)}
                 />
               </div>
-              <Button type="submit" disabled={isSubmitting}>
+              <SubmitButton disabled={isSubmitting}>
                 {isSubmitting ? "Sending…" : "Send me a link"}
-              </Button>
-            </form>
+              </SubmitButton>
+            </ClientForm>
           )}
           <Link href={SIGN_IN_PATH} className="text-center text-sm hover:underline">
             Back to sign in

@@ -4,6 +4,7 @@ import QRCode from "qrcode";
 import { useState } from "react";
 
 import { Button } from "./button";
+import { ClientForm, SubmitButton } from "./client-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./card";
 import { FormError } from "./form-message";
 import { Input, Label } from "./input";
@@ -121,7 +122,7 @@ function ConfirmPasswordStep(props: {
   }
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+    <ClientForm className="flex flex-col gap-4" onSubmit={handleSubmit}>
       <div className="flex flex-col gap-2">
         <Label htmlFor="password">Confirm your password</Label>
         <Input
@@ -135,10 +136,8 @@ function ConfirmPasswordStep(props: {
         />
       </div>
       <FormError message={errorMessage} />
-      <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Checking…" : "Continue"}
-      </Button>
-    </form>
+      <SubmitButton disabled={isSubmitting}>{isSubmitting ? "Checking…" : "Continue"}</SubmitButton>
+    </ClientForm>
   );
 }
 
@@ -167,7 +166,7 @@ function ScanStep(props: {
   }
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+    <ClientForm className="flex flex-col gap-4" onSubmit={handleSubmit}>
       {/* A plain img: a data URL made in the browser is nothing next/image can optimise. */}
       <img
         src={props.details.qrCodeDataUrl}
@@ -198,10 +197,10 @@ function ScanStep(props: {
         />
       </div>
       <FormError message={errorMessage} />
-      <Button type="submit" disabled={isSubmitting || code.length !== TOTP_CODE_LENGTH}>
+      <SubmitButton disabled={isSubmitting || code.length !== TOTP_CODE_LENGTH}>
         {isSubmitting ? "Checking…" : "Confirm"}
-      </Button>
-    </form>
+      </SubmitButton>
+    </ClientForm>
   );
 }
 
