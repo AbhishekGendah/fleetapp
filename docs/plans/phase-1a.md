@@ -1,6 +1,6 @@
 # Phase 1a plan
 
-Status: slice 1 built. Slices 2 to 5 not started.
+Status: complete. All five slices built, deployed and tested on the dev site.
 
 Phase 1a in the roadmap is too big for one review or one commit, so it
 is split into five slices. Each slice is separately reviewable,
