@@ -106,10 +106,19 @@
 
 **Phase 1a is complete.**
 
+- Phase 1b slice 1 — look and feel (plan: docs/plans/phase-1b.md):
+  - PintoFleet brand file (`packages/ui/src/brand.ts`): name, deep teal
+    `#0F766E`, amber for attention, slate greys; a test keeps it in step
+    with `theme.css`. Inter font. Placeholder "P" logo.
+  - Operator app shell: bottom tab bar on phones, sidebar from tablet
+    width; Home and Settings (Settings is a placeholder until slice 2).
+  - Sign-in style pages share one frame with the logo; admin carries an
+    "Admin" label. Emails use the brand name and colour.
+
 ## Next
-Phase 1b: Operator settings (which also makes the "business details"
-checklist step doable), S3 file storage, and the mobile app shell with
-the shared list component. Starts with a plan for Abhi to approve.
+Abhi: change `AUTH_ISSUER_NAME` to PintoFleet / PintoFleet Admin and the
+name in `EMAIL_FROM` in both Vercel projects. Then Phase 1b slice 2:
+Operator settings, starting with business details.
 
 ## Open items
 - Product name decided: PintoFleet (rule updated in CLAUDE.md). The brand

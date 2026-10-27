@@ -1,6 +1,6 @@
 # Phase 1b plan
 
-Status: planned, awaiting approval.
+Status: approved. Slice 1 built; slices 2 to 4 not started.
 
 Phase 1b gives the Operator app its look, its settings and its file
 storage, and builds the one list screen every later list will reuse.
