@@ -6,6 +6,7 @@ import { useState } from "react";
 import { AuthPageLayout } from "./auth-page-layout";
 import { Button } from "./button";
 import { ClientForm, SubmitButton } from "./client-form";
+import { CodeInput } from "./code-input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./card";
 import { FormError } from "./form-message";
 import { Input, Label } from "./input";
@@ -153,11 +154,13 @@ function ScanStep(props: {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  async function handleSubmit(event: React.FormEvent): Promise<void> {
-    event.preventDefault();
+  async function verify(submittedCode: string): Promise<void> {
+    if (isSubmitting) {
+      return;
+    }
     setErrorMessage(null);
     setIsSubmitting(true);
-    const isVerified = await props.verifyCode(code);
+    const isVerified = await props.verifyCode(submittedCode);
     setIsSubmitting(false);
     setCode("");
 
@@ -166,6 +169,11 @@ function ScanStep(props: {
       return;
     }
     props.onVerified();
+  }
+
+  function handleSubmit(event: React.FormEvent): void {
+    event.preventDefault();
+    void verify(code);
   }
 
   return (
@@ -187,16 +195,14 @@ function ScanStep(props: {
       ) : null}
       <div className="flex flex-col gap-2">
         <Label htmlFor="code">Enter the 6-digit code it shows</Label>
-        <Input
+        <CodeInput
           id="code"
           name="code"
-          type="text"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          maxLength={TOTP_CODE_LENGTH}
-          required
+          length={TOTP_CODE_LENGTH}
           value={code}
-          onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
+          onChange={setCode}
+          onComplete={(completedCode) => void verify(completedCode)}
+          isDisabled={isSubmitting}
         />
       </div>
       <FormError message={errorMessage} />

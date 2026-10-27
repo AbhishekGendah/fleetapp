@@ -11,6 +11,7 @@
     "./card": "./src/components/card.tsx",
     "./client-form": "./src/components/client-form.tsx",
     "./cn": "./src/lib/utils.ts",
+    "./code-input": "./src/components/code-input.tsx",
     "./form-message": "./src/components/form-message.tsx",
     "./input": "./src/components/input.tsx",
     "./logo": "./src/components/logo.tsx",

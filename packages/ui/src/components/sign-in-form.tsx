@@ -5,6 +5,7 @@ import { useState } from "react";
 import { AuthPageLayout } from "./auth-page-layout";
 import { Button } from "./button";
 import { ClientForm, SubmitButton } from "./client-form";
+import { CodeInput } from "./code-input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./card";
 import { FormError } from "./form-message";
 import { Input, Label } from "./input";
@@ -160,13 +161,15 @@ function CodeStep(props: CodeStepProps) {
   const [shouldTrustDevice, setShouldTrustDevice] = useState(false);
   const { errorMessage, isSubmitting, run } = useSubmission();
 
-  async function handleSubmit(event: React.FormEvent): Promise<void> {
-    event.preventDefault();
+  async function verify(submittedCode: string): Promise<void> {
+    if (isSubmitting) {
+      return;
+    }
     const isSuccessful = await run(
       () =>
         props.isRecoveryCode
-          ? props.verifyRecoveryCode(code.trim(), shouldTrustDevice)
-          : props.verifyCode(code, shouldTrustDevice),
+          ? props.verifyRecoveryCode(submittedCode.trim(), shouldTrustDevice)
+          : props.verifyCode(submittedCode, shouldTrustDevice),
       (isVerified) => isVerified,
       props.isRecoveryCode ? RECOVERY_CODE_FAILED_MESSAGE : CODE_FAILED_MESSAGE,
     );
@@ -175,6 +178,11 @@ function CodeStep(props: CodeStepProps) {
       return;
     }
     setCode("");
+  }
+
+  function handleSubmit(event: React.FormEvent): void {
+    event.preventDefault();
+    void verify(code);
   }
 
   const isCodeComplete = props.isRecoveryCode
@@ -187,22 +195,29 @@ function CodeStep(props: CodeStepProps) {
         <Label htmlFor="code">
           {props.isRecoveryCode ? "Recovery code" : "Authenticator code"}
         </Label>
-        <Input
-          id="code"
-          name="code"
-          type="text"
-          inputMode={props.isRecoveryCode ? "text" : "numeric"}
-          autoComplete="one-time-code"
-          maxLength={props.isRecoveryCode ? undefined : TOTP_CODE_LENGTH}
-          required
-          autoFocus
-          value={code}
-          onChange={(event) =>
-            setCode(
-              props.isRecoveryCode ? event.target.value : event.target.value.replace(/\D/g, ""),
-            )
-          }
-        />
+        {props.isRecoveryCode ? (
+          <Input
+            id="code"
+            name="code"
+            type="text"
+            autoComplete="one-time-code"
+            required
+            autoFocus
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+          />
+        ) : (
+          <CodeInput
+            id="code"
+            name="code"
+            length={TOTP_CODE_LENGTH}
+            autoFocus
+            value={code}
+            onChange={setCode}
+            onComplete={(completedCode) => void verify(completedCode)}
+            isDisabled={isSubmitting}
+          />
+        )}
       </div>
       {props.trustDeviceLabel ? (
         <label className="flex min-h-11 items-center gap-3 text-sm">
