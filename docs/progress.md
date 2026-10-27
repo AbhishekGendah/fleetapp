@@ -75,11 +75,14 @@
     their next click.
   - Admin sign-in now accepts a recovery code (it had no way to before).
   - Admin Operator list shows last sign-in.
+  - Deployed: `web_auth_role` created in Neon (password rotated after it
+    showed in a screenshot), three settings added to `fleetapp-web`,
+    migration 0003 applied. Abhi tested accepting an invite, sign-in,
+    remember-this-device, suspend and reactivate on the live dev site.
 
 ## Next
-Deploy 4a: create `web_auth_role` in Neon, add three settings to the
-`fleetapp-web` Vercel project, then push. Then part 4b: password reset by
-email and the new-device email.
+Slice 4, part 4b: password reset by email and the new-device email. Needs
+`EMAIL_TRANSPORT` and `EMAIL_FROM` added to `fleetapp-web`.
 
 ## Open items
 - Product name TBD.
@@ -114,3 +117,8 @@ email and the new-device email.
 - The admin app can't be run against a local Postgres (it uses Neon's
   driver), so new admin pages are checked by tests and a production
   build, then on the live dev site.
+- Branch `backup/slice-4a` on GitHub is no longer needed (main has all of
+  it). Abhi to delete it with the other two old branches.
+- `AUTH_ISSUER_NAME` on the Operator app is a placeholder,
+  "Altus Global Solutions (dev)". Must become the product name before the
+  first real Operator.
