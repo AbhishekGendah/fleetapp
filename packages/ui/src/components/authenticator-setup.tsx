@@ -3,6 +3,7 @@
 import QRCode from "qrcode";
 import { useState } from "react";
 
+import { AuthPageLayout } from "./auth-page-layout";
 import { Button } from "./button";
 import { ClientForm, SubmitButton } from "./client-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./card";
@@ -21,6 +22,8 @@ export interface AuthenticatorEnrolment {
 }
 
 export interface AuthenticatorSetupProps {
+  /** Shown beside the logo, e.g. "Admin". */
+  logoLabel?: string;
   /** Starts enrolment. Null if the password was wrong. */
   enableAuthenticator(password: string): Promise<AuthenticatorEnrolment | null>;
   verifyCode(code: string): Promise<boolean>;
@@ -69,7 +72,7 @@ export function AuthenticatorSetup(props: AuthenticatorSetupProps) {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 p-4">
+    <AuthPageLayout label={props.logoLabel}>
       <Card>
         <CardHeader>
           <CardTitle>Set up your authenticator app</CardTitle>
@@ -94,7 +97,7 @@ export function AuthenticatorSetup(props: AuthenticatorSetupProps) {
           ) : null}
         </CardContent>
       </Card>
-    </main>
+    </AuthPageLayout>
   );
 }
 

@@ -29,7 +29,7 @@ export function SetupChecklistCard({ steps }: { steps: SetupStep[] }) {
           {doneCount} of {steps.length} done
         </CardDescription>
         <div
-          className="bg-muted mt-2 h-2 overflow-hidden rounded-full"
+          className="bg-primary-soft mt-2 h-2 overflow-hidden rounded-full"
           role="progressbar"
           aria-valuemin={0}
           aria-valuemax={steps.length}

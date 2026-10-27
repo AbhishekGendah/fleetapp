@@ -1,5 +1,6 @@
 "use client";
 
+import { AuthPageLayout } from "@fleetapp/ui/auth-page-layout";
 import { Button } from "@fleetapp/ui/button";
 import { ClientForm, SubmitButton } from "@fleetapp/ui/client-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
@@ -38,7 +39,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 p-4">
+    <AuthPageLayout>
       <Card>
         <CardHeader>
           <CardTitle>Forgot your password?</CardTitle>
@@ -71,6 +72,6 @@ export default function ForgotPasswordPage() {
           </Link>
         </CardContent>
       </Card>
-    </main>
+    </AuthPageLayout>
   );
 }

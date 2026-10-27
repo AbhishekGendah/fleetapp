@@ -1,3 +1,4 @@
+import { AuthPageLayout } from "@fleetapp/ui/auth-page-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import Link from "next/link";
 
@@ -19,7 +20,7 @@ export default async function ResetPasswordPage(props: ResetPasswordPageProps) {
   const { token } = await props.searchParams;
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 p-4">
+    <AuthPageLayout>
       <Card>
         <CardHeader>
           <CardTitle>Choose a new password</CardTitle>
@@ -37,6 +38,6 @@ export default async function ResetPasswordPage(props: ResetPasswordPageProps) {
           )}
         </CardContent>
       </Card>
-    </main>
+    </AuthPageLayout>
   );
 }

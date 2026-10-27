@@ -5,6 +5,7 @@ export const SET_UP_AUTHENTICATOR_PATH = "/set-up-authenticator";
 export const SUSPENDED_PATH = "/suspended";
 export const FORGOT_PASSWORD_PATH = "/forgot-password";
 export const RESET_PASSWORD_PATH = "/reset-password";
+export const SETTINGS_PATH = "/settings";
 
 /** Joins a page onto the app's address, whether or not that ends in a slash. */
 export function absoluteUrl(appUrl: string, path: string): string {

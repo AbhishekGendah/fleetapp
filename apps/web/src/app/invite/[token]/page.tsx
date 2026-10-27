@@ -1,3 +1,4 @@
+import { AuthPageLayout } from "@fleetapp/ui/auth-page-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 
 import { authDb } from "../../../lib/auth";
@@ -16,7 +17,7 @@ export default async function InvitePage(props: InvitePageProps) {
   const invite = await findUsableInvite(authDb, token, new Date());
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 p-4">
+    <AuthPageLayout>
       <Card>
         {invite ? (
           <>
@@ -39,6 +40,6 @@ export default async function InvitePage(props: InvitePageProps) {
           </CardHeader>
         )}
       </Card>
-    </main>
+    </AuthPageLayout>
   );
 }

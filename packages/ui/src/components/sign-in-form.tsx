@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { AuthPageLayout } from "./auth-page-layout";
 import { Button } from "./button";
 import { ClientForm, SubmitButton } from "./client-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./card";
@@ -22,6 +23,8 @@ export type PasswordStepResult = "needs_code" | "signed_in" | "refused";
 
 export interface SignInFormProps {
   description: string;
+  /** Shown beside the logo, e.g. "Admin". */
+  logoLabel?: string;
   signInWithPassword(email: string, password: string): Promise<PasswordStepResult>;
   verifyCode(code: string, shouldTrustDevice: boolean): Promise<boolean>;
   verifyRecoveryCode(code: string, shouldTrustDevice: boolean): Promise<boolean>;
@@ -60,7 +63,7 @@ export function SignInForm(props: SignInFormProps) {
   const [step, setStep] = useState<Step>("password");
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 p-4">
+    <AuthPageLayout label={props.logoLabel}>
       <Card>
         <CardHeader>
           <CardTitle>Sign in</CardTitle>
@@ -84,7 +87,7 @@ export function SignInForm(props: SignInFormProps) {
           )}
         </CardContent>
       </Card>
-    </main>
+    </AuthPageLayout>
   );
 }
 

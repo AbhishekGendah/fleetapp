@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./auth-page-layout": "./src/components/auth-page-layout.tsx",
     "./authenticator-setup": "./src/components/authenticator-setup.tsx",
     "./brand": "./src/brand.ts",
     "./button": "./src/components/button.tsx",
