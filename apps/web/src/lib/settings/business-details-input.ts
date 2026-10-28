@@ -21,8 +21,13 @@ const singleLine = z
   .max(MAXIMUM_TEXT_LENGTH, `At most ${MAXIMUM_TEXT_LENGTH} characters.`)
   .refine((value) => !CONTROL_CHARACTERS.test(value), "Must be on one line.");
 
-/** Blank means "not filled in yet": the setup checklist shows what is missing. */
+const REQUIRED_MESSAGE = "Required.";
+
+/** Blank means "not given": only for details a business may not have. */
 const optionalLine = singleLine.transform((value) => (value === "" ? null : value));
+
+/** The details every contract and invoice needs. */
+const requiredLine = singleLine.min(1, REQUIRED_MESSAGE);
 
 const GST_PROBLEM_MESSAGES = {
   missing_date: "Enter the date you registered for GST.",
@@ -31,41 +36,36 @@ const GST_PROBLEM_MESSAGES = {
 } as const;
 
 /**
- * Business details as submitted from the Settings form. Every field but the
- * legal name may be left blank and filled in later; anything filled in must
- * be right.
+ * Business details as submitted from the Settings form. Everything that goes
+ * on a contract or a tax invoice is required: legal name, ABN, address,
+ * phone and email. A trading name, a second address line and (when not
+ * registered) a GST date may be left out.
  */
 export const businessDetailsInputSchema = z
   .object({
-    legalName: singleLine.min(1, "Required."),
+    legalName: requiredLine,
     tradingName: optionalLine,
-    abn: optionalLine
-      .refine(
-        (value) => value === null || isValidAbn(value),
-        "That is not a valid ABN. Check the 11 digits.",
-      )
-      .transform((value) => (value === null ? null : normaliseAbn(value))),
+    abn: requiredLine
+      .refine(isValidAbn, "That is not a valid ABN. Check the 11 digits.")
+      .transform(normaliseAbn),
     gstRegistered: z.boolean(),
     gstRegisteredFrom: optionalLine.refine(
       (value) => value === null || /^\d{4}-\d{2}-\d{2}$/.test(value),
       "Enter a date.",
     ),
-    addressLine1: optionalLine,
+    addressLine1: requiredLine,
     addressLine2: optionalLine,
-    suburb: optionalLine,
-    state: z.enum(AUSTRALIAN_STATE_CODES).nullable(),
-    postcode: optionalLine.refine(
-      (value) => value === null || POSTCODE_PATTERN.test(value),
-      "A postcode is 4 digits.",
-    ),
-    phone: optionalLine
+    suburb: requiredLine,
+    state: z.enum(AUSTRALIAN_STATE_CODES, REQUIRED_MESSAGE),
+    postcode: requiredLine.regex(POSTCODE_PATTERN, "A postcode is 4 digits."),
+    phone: requiredLine
       .refine(
-        (value) => value === null || isValidAustralianPhone(value),
+        isValidAustralianPhone,
         "Enter a full Australian number, e.g. 0412 345 678 or (08) 9123 4567.",
       )
-      .transform((value) => (value === null ? null : formatAustralianPhone(value))),
-    email: optionalLine.refine(
-      (value) => value === null || z.email().safeParse(value).success,
+      .transform(formatAustralianPhone),
+    email: requiredLine.refine(
+      (value) => z.email().safeParse(value).success,
       "Enter a valid email address.",
     ),
     timezone: z.string().refine(isAustralianTimezone, "Choose a timezone."),

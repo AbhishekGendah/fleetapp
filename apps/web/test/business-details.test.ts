@@ -47,12 +47,11 @@ describe("the business details form's rules", () => {
     expect(parsed.addressLine2).toBeNull();
   });
 
-  it("lets everything but the legal name wait until later", () => {
-    const parsed = businessDetailsInputSchema.safeParse({
+  it("requires everything a contract or invoice needs", () => {
+    const errors = errorsFor({
       ...COMPLETE_FORM,
+      legalName: "  ",
       abn: "",
-      gstRegistered: false,
-      gstRegisteredFrom: "",
       addressLine1: "",
       suburb: "",
       state: null,
@@ -61,8 +60,28 @@ describe("the business details form's rules", () => {
       email: "",
     });
 
+    expect(Object.keys(errors).sort()).toEqual([
+      "abn",
+      "addressLine1",
+      "email",
+      "legalName",
+      "phone",
+      "postcode",
+      "state",
+      "suburb",
+    ]);
+  });
+
+  it("lets a trading name, a second address line and an unneeded GST date be left out", () => {
+    const parsed = businessDetailsInputSchema.safeParse({
+      ...COMPLETE_FORM,
+      tradingName: "",
+      addressLine2: "",
+      gstRegistered: false,
+      gstRegisteredFrom: "",
+    });
+
     expect(parsed.success).toBe(true);
-    expect(errorsFor({ ...COMPLETE_FORM, legalName: "  " })).toHaveProperty("legalName");
   });
 
   it("refuses an ABN that fails the ATO check", () => {

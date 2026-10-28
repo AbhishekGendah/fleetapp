@@ -79,6 +79,10 @@ of service) and the countries.
 - An Operator's ABN, address, phone and email are business information,
   not personal information, unless the Operator is a sole trader. Then
   they are personal and the APPs apply. Treat them with the same care.
+- Legal name, ABN, address, phone and email are required. A tax invoice
+  must show the seller's identity and ABN (GST law), and the Operator's
+  contact details belong on every rental contract. Invoices are built in a
+  later phase; this makes sure the details are there when they are.
 
 ## Emails
 

@@ -28,7 +28,8 @@ const BUSINESS_DETAIL_FIELDS = [
 ] as const satisfies readonly (keyof BusinessDetailsInput)[];
 
 type BusinessDetailField = (typeof BUSINESS_DETAIL_FIELDS)[number];
-export type BusinessDetails = Pick<BusinessDetailsInput, BusinessDetailField>;
+/** As stored: details saved before they became required may still be blank. */
+export type BusinessDetails = Pick<typeof operators.$inferSelect, BusinessDetailField>;
 
 const businessDetailColumns = {
   legalName: operators.legalName,

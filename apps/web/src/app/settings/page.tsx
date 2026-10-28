@@ -26,8 +26,8 @@ export default async function SettingsPage() {
         <CardHeader>
           <CardTitle>Business details</CardTitle>
           <CardDescription>
-            Used on your contracts, invoices and emails. Fill in what you can now; you can come back
-            to the rest.
+            Used on your contracts, invoices and emails, so everything is needed except where it
+            says optional.
           </CardDescription>
         </CardHeader>
         <CardContent>
