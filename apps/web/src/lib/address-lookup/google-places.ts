@@ -2,6 +2,7 @@ import { STATE_AREAS, type AustralianStateCode } from "@fleetapp/core";
 import { z } from "zod";
 
 import { addressFromComponents, type AddressParts } from "./address-from-components";
+import { suggestionsInStateFirst } from "./order-suggestions";
 
 const AUTOCOMPLETE_URL = "https://places.googleapis.com/v1/places:autocomplete";
 const PLACE_URL = "https://places.googleapis.com/v1/places/";
@@ -106,7 +107,7 @@ export function createGooglePlacesClient(
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
       const { suggestions } = autocompleteResponseSchema.parse(await readJson(response));
-      return suggestions.flatMap(({ placePrediction }) =>
+      const found = suggestions.flatMap(({ placePrediction }) =>
         placePrediction
           ? [
               {
@@ -118,6 +119,7 @@ export function createGooglePlacesClient(
             ]
           : [],
       );
+      return suggestionsInStateFirst(found, nearState);
     },
 
     async getAddress(placeId, sessionToken) {

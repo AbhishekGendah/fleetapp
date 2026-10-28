@@ -140,7 +140,8 @@
     server). Picking one fills street, suburb, state and postcode; every
     box stays editable, and if Google is down or capped it is a plain box.
     Suggestions favour the chosen state (else the timezone's state);
-    interstate addresses still appear lower down.
+    the app then lists that state's suggestions first itself, as
+    Google treats the state as a hint only. Interstate ones follow.
   - CI had been failing since the logo went in (the svg types were only
     found after a Next build); fixed, CI green again.
 

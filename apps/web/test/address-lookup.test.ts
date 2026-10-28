@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { addressFromComponents } from "../src/lib/address-lookup/address-from-components";
 import { createGooglePlacesClient } from "../src/lib/address-lookup/google-places";
+import { suggestionsInStateFirst } from "../src/lib/address-lookup/order-suggestions";
 import {
   addressChoiceInputSchema,
   addressSearchInputSchema,
@@ -47,6 +48,38 @@ describe("turning Google's address parts into an Australian address", () => {
       component(["administrative_area_level_1"], "Auckland", "AUK"),
     ]);
     expect(address.state).toBe("");
+  });
+});
+
+describe("putting the Operator's state first", () => {
+  const suggestion = (placeId: string, secondaryText: string) => ({
+    placeId,
+    mainText: "12 Seacrest Street",
+    secondaryText,
+  });
+  const fromGoogle = [
+    suggestion("1", "Tarcoola Beach WA"),
+    suggestion("2", "Seaford VIC"),
+    suggestion("3", "Mount Martha VIC"),
+    suggestion("4", "Seaford Heights SA"),
+    suggestion("5", "Safety Bay WA"),
+  ];
+
+  it("moves that state's addresses up, keeping Google's order otherwise", () => {
+    const ordered = suggestionsInStateFirst(fromGoogle, "WA").map((found) => found.placeId);
+    expect(ordered).toEqual(["1", "5", "2", "3", "4"]);
+  });
+
+  it("matches the state code only as a whole word", () => {
+    const ordered = suggestionsInStateFirst(
+      [suggestion("1", "Wallsend NSW"), suggestion("2", "Perth WA, Australia")],
+      "WA",
+    );
+    expect(ordered.map((found) => found.placeId)).toEqual(["2", "1"]);
+  });
+
+  it("leaves the order alone when no state is known", () => {
+    expect(suggestionsInStateFirst(fromGoogle, null)).toEqual(fromGoogle);
   });
 });
 
