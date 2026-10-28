@@ -1,3 +1,5 @@
+import { hasRequiredBusinessDetails, type RequiredBusinessDetails } from "./business-details";
+
 /**
  * The setup checklist on a new Operator's dashboard (docs/design/01).
  *
@@ -21,41 +23,15 @@ export interface SetupStep {
   status: SetupStepStatus;
 }
 
-export interface SetupChecklistInput {
-  legalName: string;
-  abn: string | null;
-  addressLine1: string | null;
-  suburb: string | null;
-  state: string | null;
-  postcode: string | null;
-  phone: string | null;
-  email: string | null;
+export interface SetupChecklistInput extends RequiredBusinessDetails {
   stripeChargesEnabled: boolean;
-}
-
-/**
- * Enough to put on a contract or an invoice: who the business is, where it
- * is, and how a Renter reaches it.
- */
-function hasBusinessDetails(input: SetupChecklistInput): boolean {
-  const required = [
-    input.legalName,
-    input.abn,
-    input.addressLine1,
-    input.suburb,
-    input.state,
-    input.postcode,
-    input.phone,
-    input.email,
-  ];
-  return required.every((value) => typeof value === "string" && value.trim().length > 0);
 }
 
 const doneIf = (isDone: boolean): SetupStepStatus => (isDone ? "done" : "to_do");
 
 export function getSetupChecklist(input: SetupChecklistInput): SetupStep[] {
   return [
-    { key: "business_details", status: doneIf(hasBusinessDetails(input)) },
+    { key: "business_details", status: doneIf(hasRequiredBusinessDetails(input)) },
     // Payments stay blocked until Stripe says charges are enabled.
     { key: "stripe", status: doneIf(input.stripeChargesEnabled) },
     // TODO: decide from real records once contract templates (Phase 3) and

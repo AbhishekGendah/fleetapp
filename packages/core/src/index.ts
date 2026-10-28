@@ -1,4 +1,5 @@
 export * from "./abn";
+export * from "./business-details";
 export * from "./describe-device";
 export * from "./format-date-time";
 export * from "./greeting";

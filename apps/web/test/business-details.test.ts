@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { REQUIRED_BUSINESS_DETAIL_FIELDS } from "@fleetapp/core";
 import { activityLog, operators } from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { and, eq } from "drizzle-orm";
@@ -60,16 +61,8 @@ describe("the business details form's rules", () => {
       email: "",
     });
 
-    expect(Object.keys(errors).sort()).toEqual([
-      "abn",
-      "addressLine1",
-      "email",
-      "legalName",
-      "phone",
-      "postcode",
-      "state",
-      "suburb",
-    ]);
+    // The same list the setup checklist goes by, so the two cannot drift apart.
+    expect(Object.keys(errors).sort()).toEqual([...REQUIRED_BUSINESS_DETAIL_FIELDS].sort());
   });
 
   it("lets a trading name, a second address line and an unneeded GST date be left out", () => {
