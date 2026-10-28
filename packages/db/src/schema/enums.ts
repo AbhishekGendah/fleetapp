@@ -1,10 +1,12 @@
+import { AUSTRALIAN_STATE_CODES } from "@fleetapp/core";
 import { pgEnum } from "drizzle-orm/pg-core";
 
 /**
  * Australian states and territories. The product is Australia only, so this is
- * a closed set rather than free text.
+ * a closed set rather than free text. The list itself lives in packages/core,
+ * beside the postcode rules that use it.
  */
-export const AUSTRALIAN_STATES = ["NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT"] as const;
+export const AUSTRALIAN_STATES = AUSTRALIAN_STATE_CODES;
 export const australianStateEnum = pgEnum("australian_state", AUSTRALIAN_STATES);
 
 /**
