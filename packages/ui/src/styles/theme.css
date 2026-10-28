@@ -58,4 +58,10 @@
   ::after {
     border-color: var(--color-border);
   }
+
+  /* Tick boxes and radio buttons in the brand teal, not the browser's blue. */
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--color-teal);
+  }
 }

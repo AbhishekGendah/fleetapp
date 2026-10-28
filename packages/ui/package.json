@@ -15,6 +15,7 @@
     "./form-message": "./src/components/form-message.tsx",
     "./input": "./src/components/input.tsx",
     "./logo": "./src/components/logo.tsx",
+    "./select": "./src/components/select.tsx",
     "./sign-in-form": "./src/components/sign-in-form.tsx",
     "./theme.css": "./src/styles/theme.css"
   },
