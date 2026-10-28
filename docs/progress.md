@@ -135,13 +135,22 @@
     turned into 0). Phones are stored in that format. Save with a problem
     goes to the first one and sends nothing. Fixes the GST tick showing
     unticked after a refused save.
+  - Address lookup on the street address box: suggestions from Google
+    as you type (Australia only, signed-in Users only, called from our
+    server). Picking one fills street, suburb, state and postcode; every
+    box stays editable, and if Google is down or capped it is a plain box.
 
 ## Next
 Phase 1b slice 3: file storage (S3 in Sydney), with the Operator's logo
 as the first use. Needs Abhi to set up AWS, one step at a time.
 
 ## Open items
-- Address lookup: Google Places, called from our server (decided).
+- Address lookup: Google Places (New), project `fleetapp-dev-513004` on
+  the Altus Google account. Key `fleetapp-web-dev` (Places API (New)
+  only) in Bitwarden and Vercel. Daily caps 300 each on
+  AutocompletePlacesRequest and GetPlaceRequest; budget alert at $10.
+  Before production: a production project with higher caps, and an
+  in-app daily limit per Operator (needs a small table: plan first).
 - Legal notes for the privacy policy and terms are kept in
   docs/legal-notes.md; every task now checks the legal side.
 - Product name decided: PintoFleet (rule updated in CLAUDE.md). The logo

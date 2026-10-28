@@ -34,6 +34,13 @@ const envSchema = z.object({
 
   /** Sender name and address, e.g. `Name <no-reply@example.com>`. */
   EMAIL_FROM: z.string().min(1),
+
+  /**
+   * Google Places (New) key for address lookup. Server only: it never reaches
+   * the browser. Restricted in Google Cloud to Places API (New), with daily
+   * caps set there.
+   */
+  GOOGLE_PLACES_API_KEY: z.string().min(1),
 });
 
 export const env = envSchema.parse({
@@ -44,4 +51,5 @@ export const env = envSchema.parse({
   AUTH_ISSUER_NAME: process.env.AUTH_ISSUER_NAME,
   EMAIL_TRANSPORT: process.env.EMAIL_TRANSPORT,
   EMAIL_FROM: process.env.EMAIL_FROM,
+  GOOGLE_PLACES_API_KEY: process.env.GOOGLE_PLACES_API_KEY,
 });

@@ -56,6 +56,12 @@ of service) and the countries.
   **To confirm:** read the full carve-out on Google's Places policy page
   (developers.google.com/maps/documentation/places/web-service/policies)
   before go-live. That site was not reachable from the build environment.
+- **Logo, to do before go-live:** the suggestion list says "Powered by
+  Google" in text for now. Google's terms ask for its logo image; swap it
+  in from Google's official logo files (download from Google's Maps
+  Platform attribution page).
+- **Never logged:** what was typed, or the error text Google sends back
+  (it can quote the address). Only the kind of failure is logged.
 
 ## Logins and devices (already built)
 

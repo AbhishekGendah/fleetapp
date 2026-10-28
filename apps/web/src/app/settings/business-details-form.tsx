@@ -18,6 +18,8 @@ import { Select } from "@fleetapp/ui/select";
 import { startTransition, useActionState, useMemo, useState } from "react";
 import { z } from "zod";
 
+import { AddressSearch } from "../../components/address-search";
+import type { AddressParts } from "../../lib/address-lookup/address-from-components";
 import type { BusinessDetails } from "../../lib/settings/business-details";
 import {
   MAXIMUM_TEXT_LENGTH,
@@ -32,6 +34,14 @@ import {
 } from "./business-details-form-state";
 
 const INITIAL_STATE: BusinessDetailsFormState = { status: "editing" };
+
+/** The boxes a looked-up address fills in. Address line 2 is left as typed. */
+const ADDRESS_FIELDS = [
+  "addressLine1",
+  "suburb",
+  "state",
+  "postcode",
+] as const satisfies readonly (keyof AddressParts)[];
 
 const POSTCODE_WARNING =
   "Saved. That postcode does not usually belong to that state: check it is right.";
@@ -122,6 +132,12 @@ export function BusinessDetailsForm({ details }: { details: BusinessDetails }) {
 
   function handleValueChange(name: BusinessDetailTextField, value: string): void {
     setValues((previous) => ({ ...previous, [name]: value }));
+    setIsResultShown(false);
+  }
+
+  function handleAddressChosen(address: AddressParts): void {
+    setValues((previous) => ({ ...previous, ...address }));
+    setCheckedFields((previous) => new Set([...previous, ...ADDRESS_FIELDS]));
     setIsResultShown(false);
   }
 
@@ -222,7 +238,13 @@ export function BusinessDetailsForm({ details }: { details: BusinessDetails }) {
 
       <Section title="Address">
         <Field name="addressLine1" label="Street address" error={errorFor("addressLine1")}>
-          <Input {...textBoxProps("addressLine1")} autoComplete="address-line1" />
+          <AddressSearch
+            {...boxProps("addressLine1")}
+            maxLength={MAXIMUM_TEXT_LENGTH}
+            placeholder="Start typing to search"
+            onValueChange={(value) => handleValueChange("addressLine1", value)}
+            onAddressChosen={handleAddressChosen}
+          />
         </Field>
         <Field
           name="addressLine2"
