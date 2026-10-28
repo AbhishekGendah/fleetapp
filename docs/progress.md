@@ -141,7 +141,9 @@ Phase 1b slice 3: file storage (S3 in Sydney), with the Operator's logo
 as the first use. Needs Abhi to set up AWS, one step at a time.
 
 ## Open items
-- Address lookup: provider to choose (Google Places vs Addressfinder).
+- Address lookup: Google Places, called from our server (decided).
+- Legal notes for the privacy policy and terms are kept in
+  docs/legal-notes.md; every task now checks the legal side.
 - Product name decided: PintoFleet (rule updated in CLAUDE.md). The logo
   is the PintoTech emblem plus a PINTOFLEET wordmark built from the
   PintoTech letters. A simpler emblem for small sizes (browser tab, phone

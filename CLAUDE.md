@@ -148,6 +148,11 @@ Never use "client", "customer" or "tenant" for these in code.
   possession and fine matching, timezone handling, and tenant isolation
   (a test proving Operator A cannot read Operator B's data).
 - Don't add a dependency without stating why.
+- Check the legal side of every task as part of the review: privacy
+  (Australian Privacy Principles, data sent overseas), consumer law,
+  Spam Act, a third party's terms, record keeping. Write anything that
+  needs disclosing or doing in docs/legal-notes.md, and mention it in
+  the end-of-task summary.
 - At the end of every task, give Abhi a short plain-English summary:
   what changed, how to test it on the live dev site, and anything he
   needs to decide.
