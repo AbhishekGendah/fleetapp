@@ -1,17 +1,21 @@
 import type { SetupStepKey } from "@fleetapp/core";
 
-interface SetupStepCopy {
+import { SETTINGS_PATH } from "../paths";
+
+export type SetupStepCopy = {
   title: string;
   description: string;
-  /** Until the screen for this step exists, when it is coming. */
-  comingSoon: string;
-}
+} & (
+  | { /** Where the step is done. */ href: string; actionLabel: string }
+  | { /** Until the screen for this step exists, when it is coming. */ comingSoon: string }
+);
 
 export const SETUP_STEP_COPY: Record<SetupStepKey, SetupStepCopy> = {
   business_details: {
     title: "Add your business details",
     description: "Your ABN, address and contact details, for contracts and invoices.",
-    comingSoon: "Coming soon",
+    href: `${SETTINGS_PATH}#business-details`,
+    actionLabel: "Add details",
   },
   stripe: {
     title: "Connect Stripe",

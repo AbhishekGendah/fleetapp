@@ -1,8 +1,9 @@
 import type { SetupStep } from "@fleetapp/core";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { cn } from "@fleetapp/ui/cn";
+import Link from "next/link";
 
-import { SETUP_STEP_COPY } from "../lib/dashboard/setup-step-copy";
+import { SETUP_STEP_COPY, type SetupStepCopy } from "../lib/dashboard/setup-step-copy";
 
 function StepMarker({ isDone }: { isDone: boolean }) {
   return (
@@ -16,6 +17,23 @@ function StepMarker({ isDone }: { isDone: boolean }) {
       {isDone ? "✓" : null}
     </span>
   );
+}
+
+function StepStatus({ isDone, copy }: { isDone: boolean; copy: SetupStepCopy }) {
+  if (isDone) {
+    return <span className="sr-only">Done</span>;
+  }
+  if ("href" in copy) {
+    return (
+      <Link
+        href={copy.href}
+        className="text-teal inline-flex min-h-11 items-center text-sm font-semibold hover:underline sm:min-h-0"
+      >
+        {copy.actionLabel} →
+      </Link>
+    );
+  }
+  return <span className="text-muted-foreground text-xs">{copy.comingSoon}</span>;
 }
 
 export function SetupChecklistCard({ steps }: { steps: SetupStep[] }) {
@@ -57,11 +75,7 @@ export function SetupChecklistCard({ steps }: { steps: SetupStep[] }) {
                     >
                       {copy.title}
                     </span>
-                    {isDone ? (
-                      <span className="sr-only">Done</span>
-                    ) : (
-                      <span className="text-muted-foreground text-xs">{copy.comingSoon}</span>
-                    )}
+                    <StepStatus isDone={isDone} copy={copy} />
                   </div>
                   <span className="text-muted-foreground text-sm">{copy.description}</span>
                 </div>
