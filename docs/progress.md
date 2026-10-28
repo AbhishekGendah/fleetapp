@@ -113,6 +113,8 @@
     step with `theme.css`. Manrope throughout. Logo: the emblem plus a
     drawn PINTOFLEET wordmark (PintoTech letters; F and L built from its
     E). The emblem is also the browser-tab icon.
+  - Authenticator codes are typed into six boxes and checked on the last
+    digit (shared `CodeInput` in packages/ui).
   - Operator app shell: bottom tab bar on phones, sidebar from tablet
     width; Home and Settings (Settings is a placeholder until slice 2).
   - Sign-in style pages share one frame with the logo; admin carries an
@@ -176,3 +178,7 @@ projects.)
 - When a "change my password" setting is built for Users (or Admins), it
   must forget remembered devices too, as password reset now does
   (`forgetRememberedDevices` in apps/web/src/lib/password-reset.ts).
+- Admin is live on commit 7065601 (before the six-box code entry), because
+  the build of 0f620e0 failed while `EMAIL_TRANSPORT` was mistyped (now
+  fixed). Abhi to redeploy 0f620e0 in `fleetapp-admin`, or the next push
+  will bring it.
