@@ -36,6 +36,13 @@
       "when": 1793075675429,
       "tag": "0004_known_devices",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793146091527,
+      "tag": "0005_operator_settings",
+      "breakpoints": true
     }
   ]
 }

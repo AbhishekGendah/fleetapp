@@ -6,6 +6,7 @@ export * from "./columns";
 export * from "./dev-email-outbox";
 export * from "./enums";
 export * from "./operator-invites";
+export * from "./operator-settings";
 export * from "./operators";
 export * from "./sign-in-lockout";
 export * from "./user-auth";

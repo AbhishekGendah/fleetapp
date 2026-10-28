@@ -58,6 +58,7 @@ export const ACTIVITY_ENTITY_TYPES = {
   operator: "operator",
   user: "user",
   operatorInvite: "operator_invite",
+  operatorSettings: "operator_settings",
 } as const;
 
 /** What happened to it. No free text at call sites. */
@@ -73,6 +74,7 @@ export const ACTIVITY_ACTIONS = {
   lockedOut: "locked_out",
   twoFactorEnrolled: "two_factor_enrolled",
   passwordReset: "password_reset",
+  updated: "updated",
 } as const;
 
 export type ActivityEntityType = (typeof ACTIVITY_ENTITY_TYPES)[keyof typeof ACTIVITY_ENTITY_TYPES];

@@ -217,6 +217,10 @@ importers:
         version: 9.39.5(jiti@2.7.0)
 
   packages/core:
+    dependencies:
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
     devDependencies:
       '@fleetapp/config':
         specifier: workspace:*
