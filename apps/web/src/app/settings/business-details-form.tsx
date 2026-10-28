@@ -6,8 +6,10 @@ import {
   formatAbn,
   formatAustralianPhone,
   formatPostcode,
+  isAustralianStateCode,
   POSTCODE_PATTERN,
   postcodeMatchesState,
+  stateForTimezone,
   type AustralianStateCode,
 } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
@@ -65,10 +67,15 @@ function savedValues(details: BusinessDetails): BusinessDetailsFormValues {
 
 /** Warned about, never refused: postcode ranges have exceptions. */
 function hasUnusualPostcode(values: BusinessDetailsFormValues): boolean {
-  if (!values.state || !POSTCODE_PATTERN.test(values.postcode)) {
+  if (!isAustralianStateCode(values.state) || !POSTCODE_PATTERN.test(values.postcode)) {
     return false;
   }
-  return !postcodeMatchesState(values.postcode, values.state as AustralianStateCode);
+  return !postcodeMatchesState(values.postcode, values.state);
+}
+
+/** The state to suggest addresses in first: the one chosen, else the timezone's. */
+function suggestionState(values: BusinessDetailsFormValues): AustralianStateCode | null {
+  return isAustralianStateCode(values.state) ? values.state : stateForTimezone(values.timezone);
 }
 
 function errorId(name: BusinessDetailTextField): string {
@@ -244,6 +251,7 @@ export function BusinessDetailsForm({ details }: { details: BusinessDetails }) {
             placeholder="Start typing to search"
             onValueChange={(value) => handleValueChange("addressLine1", value)}
             onAddressChosen={handleAddressChosen}
+            nearState={suggestionState(values)}
           />
         </Field>
         <Field

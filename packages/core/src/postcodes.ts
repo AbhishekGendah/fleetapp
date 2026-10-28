@@ -10,6 +10,10 @@ export const AUSTRALIAN_STATE_CODES = [
 ] as const;
 export type AustralianStateCode = (typeof AUSTRALIAN_STATE_CODES)[number];
 
+export function isAustralianStateCode(value: string): value is AustralianStateCode {
+  return (AUSTRALIAN_STATE_CODES as readonly string[]).includes(value);
+}
+
 type PostcodeRange = readonly [from: number, to: number];
 
 /**

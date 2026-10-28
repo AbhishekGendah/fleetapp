@@ -1,4 +1,4 @@
-import { AUSTRALIAN_STATE_CODES, type AustralianStateCode } from "@fleetapp/core";
+import { isAustralianStateCode, type AustralianStateCode } from "@fleetapp/core";
 
 /** One part of an address as Google returns it, e.g. the suburb. */
 export interface AddressComponent {
@@ -13,10 +13,6 @@ export interface AddressParts {
   suburb: string;
   state: AustralianStateCode | "";
   postcode: string;
-}
-
-function isStateCode(value: string): value is AustralianStateCode {
-  return (AUSTRALIAN_STATE_CODES as readonly string[]).includes(value);
 }
 
 /**
@@ -37,7 +33,7 @@ export function addressFromComponents(components: readonly AddressComponent[]): 
   return {
     addressLine1: [number, street].filter(Boolean).join(" "),
     suburb: (find("locality") ?? find("sublocality") ?? find("postal_town"))?.longText ?? "",
-    state: isStateCode(state) ? state : "",
+    state: isAustralianStateCode(state) ? state : "",
     postcode: find("postal_code")?.shortText ?? "",
   };
 }

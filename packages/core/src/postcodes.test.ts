@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatPostcode, postcodeMatchesState } from "./postcodes";
+import { formatPostcode, isAustralianStateCode, postcodeMatchesState } from "./postcodes";
 
 describe("postcodes and states", () => {
   it("matches each state's usual postcodes", () => {
@@ -31,5 +31,11 @@ describe("postcodes and states", () => {
   it("keeps only the first 4 digits as a postcode is typed", () => {
     expect(formatPostcode("60a0")).toBe("600");
     expect(formatPostcode("600012")).toBe("6000");
+  });
+
+  it("knows the state and territory codes", () => {
+    expect(isAustralianStateCode("WA")).toBe(true);
+    expect(isAustralianStateCode("wa")).toBe(false);
+    expect(isAustralianStateCode("")).toBe(false);
   });
 });

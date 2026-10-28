@@ -1,3 +1,4 @@
+import { AUSTRALIAN_STATE_CODES } from "@fleetapp/core";
 import { z } from "zod";
 
 /** Fewer letters than this match half of Australia: not worth a lookup. */
@@ -11,6 +12,7 @@ const ADDRESS_SEARCH_MAXIMUM_LENGTH = 200;
 export const addressSearchInputSchema = z.object({
   query: z.string().trim().min(ADDRESS_SEARCH_MINIMUM_LENGTH).max(ADDRESS_SEARCH_MAXIMUM_LENGTH),
   sessionToken: z.uuid(),
+  nearState: z.enum(AUSTRALIAN_STATE_CODES).nullable(),
 });
 
 export const addressChoiceInputSchema = z.object({

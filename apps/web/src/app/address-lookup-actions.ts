@@ -1,5 +1,7 @@
 "use server";
 
+import type { AustralianStateCode } from "@fleetapp/core";
+
 import type { AddressParts } from "../lib/address-lookup/address-from-components";
 import type { AddressSuggestion } from "../lib/address-lookup/google-places";
 import {
@@ -26,14 +28,19 @@ function logLookupFailure(step: string, error: unknown): void {
 export async function searchAddressesAction(
   query: string,
   sessionToken: string,
+  nearState: AustralianStateCode | null,
 ): Promise<AddressSuggestion[]> {
   await requireUser();
-  const parsed = addressSearchInputSchema.safeParse({ query, sessionToken });
+  const parsed = addressSearchInputSchema.safeParse({ query, sessionToken, nearState });
   if (!parsed.success) {
     return [];
   }
   try {
-    return await placesClient.suggestAddresses(parsed.data.query, parsed.data.sessionToken);
+    return await placesClient.suggestAddresses(
+      parsed.data.query,
+      parsed.data.sessionToken,
+      parsed.data.nearState,
+    );
   } catch (error) {
     logLookupFailure("suggestions", error);
     return [];

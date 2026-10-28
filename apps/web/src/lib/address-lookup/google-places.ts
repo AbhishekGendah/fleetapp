@@ -1,3 +1,4 @@
+import { STATE_AREAS, type AustralianStateCode } from "@fleetapp/core";
 import { z } from "zod";
 
 import { addressFromComponents, type AddressParts } from "./address-from-components";
@@ -54,7 +55,12 @@ export class AddressLookupError extends Error {
 }
 
 export interface GooglePlacesClient {
-  suggestAddresses(input: string, sessionToken: string): Promise<AddressSuggestion[]>;
+  /** Suggestions in `nearState` come first; others still appear. */
+  suggestAddresses(
+    input: string,
+    sessionToken: string,
+    nearState: AustralianStateCode | null,
+  ): Promise<AddressSuggestion[]>;
   getAddress(placeId: string, sessionToken: string): Promise<AddressParts>;
 }
 
@@ -77,7 +83,16 @@ export function createGooglePlacesClient(
   fetchImplementation: typeof fetch = fetch,
 ): GooglePlacesClient {
   return {
-    async suggestAddresses(input, sessionToken) {
+    async suggestAddresses(input, sessionToken, nearState) {
+      // A bias, not a restriction: an interstate address is still found.
+      const locationBias = nearState
+        ? {
+            rectangle: {
+              low: STATE_AREAS[nearState].southWest,
+              high: STATE_AREAS[nearState].northEast,
+            },
+          }
+        : undefined;
       const response = await fetchImplementation(AUTOCOMPLETE_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Goog-Api-Key": apiKey },
@@ -86,6 +101,7 @@ export function createGooglePlacesClient(
           sessionToken,
           includedRegionCodes: [AUSTRALIA_REGION_CODE],
           regionCode: AUSTRALIA_REGION_CODE,
+          locationBias,
         }),
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });

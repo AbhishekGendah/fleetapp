@@ -1,5 +1,6 @@
 "use client";
 
+import type { AustralianStateCode } from "@fleetapp/core";
 import { Input } from "@fleetapp/ui/input";
 import { useEffect, useId, useRef, useState } from "react";
 
@@ -15,6 +16,8 @@ type AddressSearchProps = Omit<React.ComponentPropsWithoutRef<"input">, "value" 
   value: string;
   onValueChange: (value: string) => void;
   onAddressChosen: (address: AddressParts) => void;
+  /** Addresses in this state are suggested first. */
+  nearState: AustralianStateCode | null;
 };
 
 /**
@@ -26,6 +29,7 @@ export function AddressSearch({
   value,
   onValueChange,
   onAddressChosen,
+  nearState,
   onBlur,
   ...inputProps
 }: AddressSearchProps) {
@@ -50,13 +54,13 @@ export function AddressSearch({
       return;
     }
     const timer = setTimeout(() => {
-      void searchAddressesAction(query, sessionToken.current).then((found) => {
+      void searchAddressesAction(query, sessionToken.current, nearState).then((found) => {
         setResults({ query, suggestions: found });
         setActiveIndex(-1);
       });
     }, TYPING_PAUSE_MS);
     return () => clearTimeout(timer);
-  }, [query, shouldSearch]);
+  }, [query, shouldSearch, nearState]);
 
   function close(): void {
     setActiveIndex(-1);

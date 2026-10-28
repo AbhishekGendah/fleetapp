@@ -53,13 +53,22 @@ describe("turning Google's address parts into an Australian address", () => {
 describe("what the browser may ask for", () => {
   it("needs at least 3 letters and a real session token", () => {
     expect(
-      addressSearchInputSchema.safeParse({ query: "12", sessionToken: SESSION_TOKEN }).success,
+      addressSearchInputSchema.safeParse({
+        query: "12",
+        sessionToken: SESSION_TOKEN,
+        nearState: null,
+      }).success,
     ).toBe(false);
-    expect(addressSearchInputSchema.safeParse({ query: "12 Hay", sessionToken: "x" }).success).toBe(
-      false,
-    );
     expect(
-      addressSearchInputSchema.safeParse({ query: "12 Hay", sessionToken: SESSION_TOKEN }).success,
+      addressSearchInputSchema.safeParse({ query: "12 Hay", sessionToken: "x", nearState: null })
+        .success,
+    ).toBe(false);
+    expect(
+      addressSearchInputSchema.safeParse({
+        query: "12 Hay",
+        sessionToken: SESSION_TOKEN,
+        nearState: "WA",
+      }).success,
     ).toBe(true);
   });
 
@@ -98,7 +107,7 @@ describe("the Google Places client", () => {
       });
     });
 
-    const suggestions = await client.suggestAddresses("12 Hay", SESSION_TOKEN);
+    const suggestions = await client.suggestAddresses("12 Hay", SESSION_TOKEN, "WA");
 
     expect(suggestions).toEqual([
       { placeId: "ChIJ1", mainText: "12 Hay Street", secondaryText: "Perth WA, Australia" },
@@ -110,7 +119,19 @@ describe("the Google Places client", () => {
       input: "12 Hay",
       sessionToken: SESSION_TOKEN,
       includedRegionCodes: ["au"],
+      locationBias: { rectangle: { low: { latitude: -35.2 }, high: { latitude: -13.6 } } },
     });
+  });
+
+  it("asks without a preferred area when no state is known", async () => {
+    let body: Record<string, unknown> = {};
+    const client = createGooglePlacesClient("test-key", async (_url, init) => {
+      body = JSON.parse(String(init?.body));
+      return Response.json({});
+    });
+
+    expect(await client.suggestAddresses("12 Hay", SESSION_TOKEN, null)).toEqual([]);
+    expect(body).not.toHaveProperty("locationBias");
   });
 
   it("asks only for the address parts of a chosen place", async () => {
@@ -131,7 +152,7 @@ describe("the Google Places client", () => {
       Response.json({ error: { message: "quota for 12 Hay Street" } }, { status: 429 }),
     );
 
-    await expect(client.suggestAddresses("12 Hay", SESSION_TOKEN)).rejects.toThrow(
+    await expect(client.suggestAddresses("12 Hay", SESSION_TOKEN, null)).rejects.toThrow(
       "Google Places answered 429",
     );
   });
