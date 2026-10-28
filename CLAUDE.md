@@ -136,6 +136,11 @@ Never use "client", "customer" or "tenant" for these in code.
     a hash of each token. They require a one-time code on a new device
     and never expose identity documents.
 27. Operator settings have sensible defaults and are all editable.
+28. Forms: every required field shows a red asterisk (`isRequired` on
+    `FormField`/`Label` from packages/ui) and its box carries `required`
+    or `aria-required`. A form with an asterisk shows `RequiredFieldsNote`
+    at the top. Optional fields are not labelled "(optional)". Fields are
+    checked as they are typed with the same Zod schema the server uses.
 
 ## How to work
 - Read the relevant docs/design/*.md file before working on an area.

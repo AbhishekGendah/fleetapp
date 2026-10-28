@@ -6,6 +6,7 @@ import {
   formatAbn,
   formatAustralianPhone,
   formatPostcode,
+  isRequiredBusinessDetail,
   isAustralianStateCode,
   POSTCODE_PATTERN,
   postcodeMatchesState,
@@ -15,7 +16,8 @@ import {
 import { Button } from "@fleetapp/ui/button";
 import { FormError } from "@fleetapp/ui/form-message";
 import { FormattedInput } from "@fleetapp/ui/formatted-input";
-import { Input, Label } from "@fleetapp/ui/input";
+import { fieldErrorId, FormField } from "@fleetapp/ui/form-field";
+import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
 import { Select } from "@fleetapp/ui/select";
 import { startTransition, useActionState, useMemo, useState } from "react";
 import { z } from "zod";
@@ -78,8 +80,12 @@ function suggestionState(values: BusinessDetailsFormValues): AustralianStateCode
   return isAustralianStateCode(values.state) ? values.state : stateForTimezone(values.timezone);
 }
 
-function errorId(name: BusinessDetailTextField): string {
-  return `${name}-error`;
+/**
+ * Starred on the form: the details a contract needs, plus the timezone and
+ * the GST date, which is only shown (and only needed) once GST is ticked.
+ */
+function isRequiredField(name: BusinessDetailTextField): boolean {
+  return isRequiredBusinessDetail(name) || name === "timezone" || name === "gstRegisteredFrom";
 }
 
 interface FieldProps {
@@ -92,16 +98,15 @@ interface FieldProps {
 
 function Field(props: FieldProps) {
   return (
-    <div className="flex flex-col gap-2">
-      <Label htmlFor={props.name}>{props.label}</Label>
+    <FormField
+      htmlFor={props.name}
+      label={props.label}
+      isRequired={isRequiredField(props.name)}
+      hint={props.hint}
+      error={props.error}
+    >
       {props.children}
-      {props.hint ? <p className="text-muted-foreground text-xs">{props.hint}</p> : null}
-      {props.error ? (
-        <p id={errorId(props.name)} className="text-destructive text-sm">
-          {props.error}
-        </p>
-      ) : null}
-    </div>
+    </FormField>
   );
 }
 
@@ -160,8 +165,9 @@ export function BusinessDetailsForm({ details }: { details: BusinessDetails }) {
       name,
       value: values[name],
       onBlur: () => handleBlur(name),
+      "aria-required": isRequiredField(name) ? true : undefined,
       "aria-invalid": error ? true : undefined,
-      "aria-describedby": error ? errorId(name) : undefined,
+      "aria-describedby": error ? fieldErrorId(name) : undefined,
     };
   }
 
@@ -197,13 +203,14 @@ export function BusinessDetailsForm({ details }: { details: BusinessDetails }) {
 
   return (
     <form action={formAction} onSubmit={handleSubmit} noValidate className="flex flex-col gap-8">
+      <RequiredFieldsNote />
       <Section title="Your business">
         <Field name="legalName" label="Legal name" error={errorFor("legalName")}>
           <Input {...textBoxProps("legalName")} autoComplete="organization" />
         </Field>
         <Field
           name="tradingName"
-          label="Trading name (optional)"
+          label="Trading name"
           hint="Shown to Renters instead of the legal name, if given."
           error={errorFor("tradingName")}
         >
@@ -254,11 +261,7 @@ export function BusinessDetailsForm({ details }: { details: BusinessDetails }) {
             nearState={suggestionState(values)}
           />
         </Field>
-        <Field
-          name="addressLine2"
-          label="Address line 2 (optional)"
-          error={errorFor("addressLine2")}
-        >
+        <Field name="addressLine2" label="Address line 2" error={errorFor("addressLine2")}>
           <Input {...textBoxProps("addressLine2")} autoComplete="address-line2" />
         </Field>
         <Field name="suburb" label="Suburb" error={errorFor("suburb")}>

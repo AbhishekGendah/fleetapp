@@ -1,5 +1,5 @@
-import { FormError } from "@fleetapp/ui/form-message";
-import { Input, Label } from "@fleetapp/ui/input";
+import { fieldErrorId, FormField } from "@fleetapp/ui/form-field";
+import { Input } from "@fleetapp/ui/input";
 
 /** One of the two "choose a password" boxes, on the invite and reset pages. */
 export function NewPasswordField(props: {
@@ -7,18 +7,18 @@ export function NewPasswordField(props: {
   label: string;
   errors?: string[];
 }) {
+  const error = props.errors?.join(" ");
   return (
-    <div className="flex flex-col gap-2">
-      <Label htmlFor={props.name}>{props.label}</Label>
+    <FormField htmlFor={props.name} label={props.label} isRequired error={error}>
       <Input
         id={props.name}
         name={props.name}
         type="password"
         autoComplete="new-password"
         required
-        aria-invalid={props.errors ? true : undefined}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? fieldErrorId(props.name) : undefined}
       />
-      {props.errors ? <FormError message={props.errors.join(" ")} /> : null}
-    </div>
+    </FormField>
   );
 }

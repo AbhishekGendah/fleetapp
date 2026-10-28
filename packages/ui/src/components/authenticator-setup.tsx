@@ -9,7 +9,8 @@ import { ClientForm, SubmitButton } from "./client-form";
 import { CodeInput } from "./code-input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./card";
 import { FormError } from "./form-message";
-import { Input, Label } from "./input";
+import { FormField } from "./form-field";
+import { Input, RequiredFieldsNote } from "./input";
 
 const TOTP_CODE_LENGTH = 6;
 const QR_CODE_WIDTH_PX = 240;
@@ -127,8 +128,8 @@ function ConfirmPasswordStep(props: {
 
   return (
     <ClientForm className="flex flex-col gap-4" onSubmit={handleSubmit}>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="password">Confirm your password</Label>
+      <RequiredFieldsNote />
+      <FormField htmlFor="password" label="Confirm your password" isRequired>
         <Input
           id="password"
           name="password"
@@ -138,7 +139,7 @@ function ConfirmPasswordStep(props: {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
-      </div>
+      </FormField>
       <FormError message={errorMessage} />
       <SubmitButton disabled={isSubmitting}>{isSubmitting ? "Checking…" : "Continue"}</SubmitButton>
     </ClientForm>
@@ -193,8 +194,8 @@ function ScanStep(props: {
           <span className="font-mono">{props.details.manualKey}</span>
         </p>
       ) : null}
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="code">Enter the 6-digit code it shows</Label>
+      <RequiredFieldsNote />
+      <FormField htmlFor="code" label="Enter the 6-digit code it shows" isRequired>
         <CodeInput
           id="code"
           name="code"
@@ -204,7 +205,7 @@ function ScanStep(props: {
           onComplete={(completedCode) => void verify(completedCode)}
           isDisabled={isSubmitting}
         />
-      </div>
+      </FormField>
       <FormError message={errorMessage} />
       <SubmitButton disabled={isSubmitting || code.length !== TOTP_CODE_LENGTH}>
         {isSubmitting ? "Checking…" : "Confirm"}

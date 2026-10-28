@@ -2,6 +2,7 @@
 
 import { Button } from "@fleetapp/ui/button";
 import { FormError } from "@fleetapp/ui/form-message";
+import { RequiredFieldsNote } from "@fleetapp/ui/input";
 import { useActionState } from "react";
 
 import { NewPasswordField } from "../../new-password-field";
@@ -17,6 +18,7 @@ export function AcceptInviteForm({ token, email }: { token: string; email: strin
       <input type="hidden" name="token" value={token} />
       {/* Lets a password manager save the new password against the right login. */}
       <input type="email" name="email" value={email} autoComplete="username" readOnly hidden />
+      <RequiredFieldsNote />
       <NewPasswordField
         name="password"
         label="Choose a password (at least 12 characters)"

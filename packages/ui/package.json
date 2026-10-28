@@ -12,6 +12,7 @@
     "./client-form": "./src/components/client-form.tsx",
     "./cn": "./src/lib/utils.ts",
     "./code-input": "./src/components/code-input.tsx",
+    "./form-field": "./src/components/form-field.tsx",
     "./form-message": "./src/components/form-message.tsx",
     "./formatted-input": "./src/components/formatted-input.tsx",
     "./input": "./src/components/input.tsx",

@@ -3,6 +3,7 @@
 import { Button } from "@fleetapp/ui/button";
 import { ClientForm, SubmitButton } from "@fleetapp/ui/client-form";
 import { FormError } from "@fleetapp/ui/form-message";
+import { RequiredFieldsNote } from "@fleetapp/ui/input";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -78,6 +79,7 @@ export function ResetPasswordForm(props: ResetPasswordFormProps) {
 
   return (
     <ClientForm className="flex flex-col gap-4" onSubmit={handleSubmit}>
+      <RequiredFieldsNote />
       <NewPasswordField
         name="password"
         label={`New password (at least ${props.minimumLength} characters)`}

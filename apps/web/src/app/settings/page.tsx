@@ -25,10 +25,7 @@ export default async function SettingsPage() {
       <Card id="business-details">
         <CardHeader>
           <CardTitle>Business details</CardTitle>
-          <CardDescription>
-            Used on your contracts, invoices and emails, so everything is needed except where it
-            says optional.
-          </CardDescription>
+          <CardDescription>Used on your contracts, invoices and emails.</CardDescription>
         </CardHeader>
         <CardContent>
           <BusinessDetailsForm details={details} />

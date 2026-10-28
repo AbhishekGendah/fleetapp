@@ -4,7 +4,8 @@ import { AuthPageLayout } from "@fleetapp/ui/auth-page-layout";
 import { Button } from "@fleetapp/ui/button";
 import { ClientForm, SubmitButton } from "@fleetapp/ui/client-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
-import { Input, Label } from "@fleetapp/ui/input";
+import { FormField } from "@fleetapp/ui/form-field";
+import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -50,8 +51,8 @@ export default function ForgotPasswordPage() {
         <CardContent className="flex flex-col gap-4">
           {isSent ? null : (
             <ClientForm className="flex flex-col gap-4" onSubmit={handleSubmit}>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="email">Email address</Label>
+              <RequiredFieldsNote />
+              <FormField htmlFor="email" label="Email address" isRequired>
                 <Input
                   id="email"
                   name="email"
@@ -61,7 +62,7 @@ export default function ForgotPasswordPage() {
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                 />
-              </div>
+              </FormField>
               <SubmitButton disabled={isSubmitting}>
                 {isSubmitting ? "Sending…" : "Send me a link"}
               </SubmitButton>

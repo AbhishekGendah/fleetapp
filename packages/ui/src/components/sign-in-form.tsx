@@ -8,7 +8,8 @@ import { ClientForm, SubmitButton } from "./client-form";
 import { CodeInput } from "./code-input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./card";
 import { FormError } from "./form-message";
-import { Input, Label } from "./input";
+import { FormField } from "./form-field";
+import { Input, RequiredFieldsNote } from "./input";
 
 const TOTP_CODE_LENGTH = 6;
 
@@ -116,8 +117,8 @@ function PasswordStep(props: SignInFormProps & { onNeedsCode(): void }) {
 
   return (
     <ClientForm className="flex flex-col gap-4" onSubmit={handleSubmit}>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="email">Email address</Label>
+      <RequiredFieldsNote />
+      <FormField htmlFor="email" label="Email address" isRequired>
         <Input
           id="email"
           name="email"
@@ -127,9 +128,8 @@ function PasswordStep(props: SignInFormProps & { onNeedsCode(): void }) {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
         />
-      </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="password">Password</Label>
+      </FormField>
+      <FormField htmlFor="password" label="Password" isRequired>
         <Input
           id="password"
           name="password"
@@ -139,7 +139,7 @@ function PasswordStep(props: SignInFormProps & { onNeedsCode(): void }) {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
-      </div>
+      </FormField>
       <FormError message={errorMessage} />
       <SubmitButton disabled={isSubmitting}>{isSubmitting ? "Checking…" : "Continue"}</SubmitButton>
       {props.forgotPasswordHref ? (
@@ -191,10 +191,12 @@ function CodeStep(props: CodeStepProps) {
 
   return (
     <ClientForm className="flex flex-col gap-4" onSubmit={handleSubmit}>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="code">
-          {props.isRecoveryCode ? "Recovery code" : "Authenticator code"}
-        </Label>
+      <RequiredFieldsNote />
+      <FormField
+        htmlFor="code"
+        label={props.isRecoveryCode ? "Recovery code" : "Authenticator code"}
+        isRequired
+      >
         {props.isRecoveryCode ? (
           <Input
             id="code"
@@ -218,7 +220,7 @@ function CodeStep(props: CodeStepProps) {
             isDisabled={isSubmitting}
           />
         )}
-      </div>
+      </FormField>
       {props.trustDeviceLabel ? (
         <label className="flex min-h-11 items-center gap-3 text-sm">
           <input
