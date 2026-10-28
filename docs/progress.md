@@ -120,10 +120,18 @@
   - Sign-in style pages share one frame with the logo; admin carries an
     "Admin" label. Emails use the brand name and colour.
 
+- Phase 1b slice 2 — Operator settings:
+  - Business details form in Settings (ABN checksum, GST date rules,
+    postcode-state warning, every Australian timezone). Each save logs
+    before/after of what changed. The checklist step links to it.
+  - `operator_settings` (migration 0005): one validated document per
+    Operator, defaults in code, version per save, frozen snapshot for
+    rentals. The schema is empty until a feature needs a setting; loading
+    and saving arrive with the first real setting (Phase 2).
+
 ## Next
-Phase 1b slice 2: Operator settings, starting with business details.
-(`AUTH_ISSUER_NAME` and `EMAIL_FROM` now say PintoFleet in both Vercel
-projects.)
+Phase 1b slice 3: file storage (S3 in Sydney), with the Operator's logo
+as the first use. Needs Abhi to set up AWS, one step at a time.
 
 ## Open items
 - Product name decided: PintoFleet (rule updated in CLAUDE.md). The logo
