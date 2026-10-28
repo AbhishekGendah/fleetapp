@@ -26,7 +26,17 @@ export function isValidAbn(input: string): boolean {
   return total % ABN_MODULUS === 0;
 }
 
-export function formatAbn(abn: string): string {
-  const digits = normaliseAbn(abn);
-  return `${digits.slice(0, 2)} ${digits.slice(2, 5)} ${digits.slice(5, 8)} ${digits.slice(8)}`;
+/** Where the spaces go in an ABN: after the 2nd, 5th and 8th digits. */
+const ABN_GROUP_ENDS = [2, 5, 8] as const;
+
+/**
+ * An ABN grouped the usual way, "51 824 753 556". Works on a partly typed
+ * one too, so the box can group it as it is typed; anything that is not a
+ * digit, and anything past the 11th digit, is dropped.
+ */
+export function formatAbn(input: string): string {
+  const digits = input.replace(/\D/g, "").slice(0, ABN_DIGIT_COUNT);
+  return [...digits]
+    .map((digit, index) => (ABN_GROUP_ENDS.includes(index as 2 | 5 | 8) ? ` ${digit}` : digit))
+    .join("");
 }

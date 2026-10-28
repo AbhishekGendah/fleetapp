@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { postcodeMatchesState } from "./postcodes";
+import { formatPostcode, postcodeMatchesState } from "./postcodes";
 
 describe("postcodes and states", () => {
   it("matches each state's usual postcodes", () => {
@@ -26,5 +26,10 @@ describe("postcodes and states", () => {
   it("notices a postcode that is not 4 digits", () => {
     expect(postcodeMatchesState("600", "WA")).toBe(false);
     expect(postcodeMatchesState("60000", "WA")).toBe(false);
+  });
+
+  it("keeps only the first 4 digits as a postcode is typed", () => {
+    expect(formatPostcode("60a0")).toBe("600");
+    expect(formatPostcode("600012")).toBe("6000");
   });
 });

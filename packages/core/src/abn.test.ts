@@ -25,4 +25,10 @@ describe("ABNs", () => {
     expect(normaliseAbn("51 824 753 556")).toBe("51824753556");
     expect(formatAbn("51824753556")).toBe("51 824 753 556");
   });
+
+  it("groups a partly typed ABN, dropping anything but its 11 digits", () => {
+    expect(formatAbn("518")).toBe("51 8");
+    expect(formatAbn("51824")).toBe("51 824");
+    expect(formatAbn("51a824 753 556 999")).toBe("51 824 753 556");
+  });
 });

@@ -45,7 +45,13 @@ const POSTCODE_RANGES: Record<AustralianStateCode, readonly PostcodeRange[]> = {
   NT: [[800, 999]],
 };
 
-export const POSTCODE_PATTERN = /^\d{4}$/;
+export const POSTCODE_DIGIT_COUNT = 4;
+export const POSTCODE_PATTERN = new RegExp(`^\\d{${POSTCODE_DIGIT_COUNT}}$`);
+
+/** A postcode as it is typed: digits only, and no more than a postcode has. */
+export function formatPostcode(input: string): string {
+  return input.replace(/\D/g, "").slice(0, POSTCODE_DIGIT_COUNT);
+}
 
 /** False when the postcode does not look like one from that state. */
 export function postcodeMatchesState(postcode: string, state: AustralianStateCode): boolean {

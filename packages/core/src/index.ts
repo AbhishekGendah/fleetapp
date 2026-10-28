@@ -5,6 +5,7 @@ export * from "./greeting";
 export * from "./gst";
 export * from "./invites";
 export * from "./operator-status";
+export * from "./phone";
 export * from "./postcodes";
 export * from "./secret-tokens";
 export * from "./settings";
