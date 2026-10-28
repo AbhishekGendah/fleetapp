@@ -1,16 +1,16 @@
 import {
   AUSTRALIAN_STATE_CODES,
   checkGstRegistration,
+  formatAustralianPhone,
   isAustralianTimezone,
+  isValidAustralianPhone,
   isValidAbn,
   normaliseAbn,
   POSTCODE_PATTERN,
 } from "@fleetapp/core";
 import { z } from "zod";
 
-const MAXIMUM_TEXT_LENGTH = 200;
-const PHONE_DIGITS_MINIMUM = 8;
-const PHONE_DIGITS_MAXIMUM = 15;
+export const MAXIMUM_TEXT_LENGTH = 200;
 
 /** Business details go on contracts and in email subjects: one line each. */
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
@@ -58,17 +58,12 @@ export const businessDetailsInputSchema = z
       (value) => value === null || POSTCODE_PATTERN.test(value),
       "A postcode is 4 digits.",
     ),
-    phone: optionalLine.refine((value) => {
-      if (value === null) {
-        return true;
-      }
-      const digits = value.replace(/\D/g, "");
-      return (
-        /^[\d\s()+-]+$/.test(value) &&
-        digits.length >= PHONE_DIGITS_MINIMUM &&
-        digits.length <= PHONE_DIGITS_MAXIMUM
-      );
-    }, "Enter a phone number, e.g. 08 9123 4567."),
+    phone: optionalLine
+      .refine(
+        (value) => value === null || isValidAustralianPhone(value),
+        "Enter a full Australian number, e.g. 0412 345 678 or (08) 9123 4567.",
+      )
+      .transform((value) => (value === null ? null : formatAustralianPhone(value))),
     email: optionalLine.refine(
       (value) => value === null || z.email().safeParse(value).success,
       "Enter a valid email address.",
@@ -90,3 +85,26 @@ export const businessDetailsInputSchema = z
   });
 
 export type BusinessDetailsInput = z.infer<typeof businessDetailsInputSchema>;
+
+/** What the form's boxes hold: every field as text, plus the GST tick. */
+export type BusinessDetailsFormValues = Record<
+  Exclude<keyof BusinessDetailsInput, "gstRegistered">,
+  string
+>;
+
+/**
+ * Checks the form exactly as the server will, so the browser can show the
+ * same messages while you type. A GST date left in the box after unticking
+ * GST is ignored, not refused: it is hidden, so it cannot be fixed.
+ */
+export function parseBusinessDetailsForm(
+  values: BusinessDetailsFormValues,
+  isGstRegistered: boolean,
+): z.ZodSafeParseResult<BusinessDetailsInput> {
+  return businessDetailsInputSchema.safeParse({
+    ...values,
+    state: values.state || null,
+    gstRegistered: isGstRegistered,
+    gstRegisteredFrom: isGstRegistered ? values.gstRegisteredFrom : "",
+  });
+}

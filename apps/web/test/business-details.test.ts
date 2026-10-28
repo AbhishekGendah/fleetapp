@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { loadBusinessDetails, saveBusinessDetails } from "../src/lib/settings/business-details";
 import {
   businessDetailsInputSchema,
+  parseBusinessDetailsForm,
   type BusinessDetailsInput,
 } from "../src/lib/settings/business-details-input";
 
@@ -22,7 +23,7 @@ const COMPLETE_FORM = {
   suburb: "Perth",
   state: "WA",
   postcode: "6000",
-  phone: "08 9123 4567",
+  phone: "(08) 9123 4567",
   email: "hello@example.test",
   timezone: "Australia/Perth",
 };
@@ -87,6 +88,20 @@ describe("the business details form's rules", () => {
     });
 
     expect(Object.keys(errors).sort()).toEqual(["email", "phone", "postcode", "timezone"]);
+  });
+
+  it("stores a phone number in the usual format, whatever way it was typed", () => {
+    const parsed = businessDetailsInputSchema.parse({ ...COMPLETE_FORM, phone: "+61 412345678" });
+
+    expect(parsed.phone).toBe("0412 345 678");
+    expect(errorsFor({ ...COMPLETE_FORM, phone: "0412 345" })).toHaveProperty("phone");
+  });
+
+  it("ignores a GST date left in the hidden box after unticking GST", () => {
+    const { gstRegistered: _ignored, ...values } = COMPLETE_FORM;
+    const parsed = parseBusinessDetailsForm(values, false);
+
+    expect(parsed.success && parsed.data.gstRegisteredFrom).toBeNull();
   });
 
   it("refuses a name that spans lines", () => {

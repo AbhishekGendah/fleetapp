@@ -128,12 +128,20 @@
     Operator, defaults in code, version per save, frozen snapshot for
     rentals. The schema is empty until a feature needs a setting; loading
     and saving arrive with the first real setting (Phase 2).
+  - Business details form checks as you go: each box is checked when you
+    leave it, then with every key, by the same rules the server uses on
+    save. ABN, phone and postcode format as you type and stop at their
+    length (phone: mobiles, landlines in brackets, 1300/1800/13, +61
+    turned into 0). Phones are stored in that format. Save with a problem
+    goes to the first one and sends nothing. Fixes the GST tick showing
+    unticked after a refused save.
 
 ## Next
 Phase 1b slice 3: file storage (S3 in Sydney), with the Operator's logo
 as the first use. Needs Abhi to set up AWS, one step at a time.
 
 ## Open items
+- Address lookup: provider to choose (Google Places vs Addressfinder).
 - Product name decided: PintoFleet (rule updated in CLAUDE.md). The logo
   is the PintoTech emblem plus a PINTOFLEET wordmark built from the
   PintoTech letters. A simpler emblem for small sizes (browser tab, phone

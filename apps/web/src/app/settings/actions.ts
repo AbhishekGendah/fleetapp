@@ -1,28 +1,33 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
 
 import { appDb } from "../../lib/app-db";
 import { HOME_PATH, SETTINGS_PATH } from "../../lib/paths";
 import { requireUser } from "../../lib/require-user";
 import { saveBusinessDetails } from "../../lib/settings/business-details";
-import { businessDetailsInputSchema } from "../../lib/settings/business-details-input";
+import {
+  parseBusinessDetailsForm,
+  type BusinessDetailsFormValues,
+} from "../../lib/settings/business-details-input";
 import {
   BUSINESS_DETAIL_TEXT_FIELDS,
   type BusinessDetailsFormState,
 } from "./business-details-form-state";
 
 const UNEXPECTED_ERROR_MESSAGE = "Something went wrong and nothing was saved. Try again.";
+// The browser runs the same checks first, so this is only reached by a
+// request that skipped them.
+const INVALID_MESSAGE =
+  "Some details are not right, so nothing was saved. Check them and try again.";
 
-/** What was typed, so a refused form comes back filled in rather than empty. */
-function submittedValues(formData: FormData): Record<string, string> {
+function submittedValues(formData: FormData): BusinessDetailsFormValues {
   return Object.fromEntries(
     BUSINESS_DETAIL_TEXT_FIELDS.map((name) => {
       const value = formData.get(name);
       return [name, typeof value === "string" ? value : ""];
     }),
-  );
+  ) as BusinessDetailsFormValues;
 }
 
 export async function saveBusinessDetailsAction(
@@ -31,21 +36,12 @@ export async function saveBusinessDetailsAction(
 ): Promise<BusinessDetailsFormState> {
   const user = await requireUser();
 
-  const values = submittedValues(formData);
-  const isGstRegistered = formData.get("gstRegistered") === "on";
-  const parsed = businessDetailsInputSchema.safeParse({
-    ...values,
-    state: values.state || null,
-    gstRegistered: isGstRegistered,
-    gstRegisteredFrom: isGstRegistered ? values.gstRegisteredFrom : "",
-  });
+  const parsed = parseBusinessDetailsForm(
+    submittedValues(formData),
+    formData.get("gstRegistered") === "on",
+  );
   if (!parsed.success) {
-    return {
-      status: "invalid",
-      fieldErrors: z.flattenError(parsed.error).fieldErrors,
-      values,
-      isGstRegistered,
-    };
+    return { status: "failed", formError: INVALID_MESSAGE };
   }
 
   try {
@@ -59,6 +55,6 @@ export async function saveBusinessDetailsAction(
     return { status: "saved", hasPostcodeWarning: result.hasPostcodeWarning };
   } catch (error) {
     console.error("Saving business details failed", error);
-    return { status: "failed", formError: UNEXPECTED_ERROR_MESSAGE, values, isGstRegistered };
+    return { status: "failed", formError: UNEXPECTED_ERROR_MESSAGE };
   }
 }
