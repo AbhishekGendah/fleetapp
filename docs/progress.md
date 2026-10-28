@@ -142,6 +142,10 @@
     Suggestions favour the chosen state (else the timezone's state);
     the app then lists that state's suggestions first itself, as
     Google treats the state as a hint only. Interstate ones follow.
+  - Legal name, ABN, street, suburb, state, postcode, phone and email are
+    now required (trading name, address line 2 and GST date stay
+    optional). Same set as the setup checklist step. Columns stay nullable
+    in the database: no migration.
   - CI had been failing since the logo went in (the svg types were only
     found after a Next build); fixed, CI green again.
 
