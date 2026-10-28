@@ -139,6 +139,8 @@
     as you type (Australia only, signed-in Users only, called from our
     server). Picking one fills street, suburb, state and postcode; every
     box stays editable, and if Google is down or capped it is a plain box.
+  - CI had been failing since the logo went in (the svg types were only
+    found after a Next build); fixed, CI green again.
 
 ## Next
 Phase 1b slice 3: file storage (S3 in Sydney), with the Operator's logo
