@@ -1,9 +1,10 @@
 "use server";
 
+import { describeErrorForLog } from "@fleetapp/core";
 import type { AustralianStateCode } from "@fleetapp/core";
 
 import type { AddressParts } from "../lib/address-lookup/address-from-components";
-import type { AddressSuggestion } from "../lib/address-lookup/google-places";
+import { AddressLookupError, type AddressSuggestion } from "../lib/address-lookup/google-places";
 import {
   addressChoiceInputSchema,
   addressSearchInputSchema,
@@ -14,9 +15,9 @@ import { requireUser } from "../lib/require-user";
 /** Never the error or the query itself: either can hold an address. */
 function logLookupFailure(step: string, error: unknown): void {
   console.error(`Address lookup failed at ${step}`, {
-    errorType: error instanceof Error ? error.name : typeof error,
-    message:
-      error instanceof Error && error.name === "AddressLookupError" ? error.message : undefined,
+    ...describeErrorForLog(error),
+    // Ours, and only ever "Google Places answered <status>".
+    message: error instanceof AddressLookupError ? error.message : undefined,
   });
 }
 

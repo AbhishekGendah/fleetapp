@@ -1,3 +1,4 @@
+import { describeErrorForLog } from "@fleetapp/core";
 import {
   describeDevice,
   formatDateTimeInTimeZone,
@@ -131,9 +132,7 @@ export function newDeviceAlert(options: NewDeviceAlertOptions): BetterAuthPlugin
                 await sendAlert(options, check);
               }
             } catch (error) {
-              console.error("The new-device check failed", {
-                errorType: error instanceof Error ? error.name : typeof error,
-              });
+              console.error("The new-device check failed", describeErrorForLog(error));
             }
           }),
         },

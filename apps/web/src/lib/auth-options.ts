@@ -1,3 +1,4 @@
+import { describeErrorForLog } from "@fleetapp/core";
 import { createDrizzleLockoutStore, signInLockout, VERIFY_CODE_PATH } from "@fleetapp/auth";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import {
@@ -67,7 +68,7 @@ function buildUserAuthOptions(config: UserAuthConfig) {
     recordUserActivity(config.database, { userId, action, actorType }).catch((error: unknown) => {
       // A missing history line must not be what stops someone signing in.
       // Logs the failure, never the entry: it names a User.
-      console.error("Failed to write a sign-in to the activity log", error);
+      console.error("Failed to write a sign-in to the activity log", describeErrorForLog(error));
     });
 
   const lockoutStore = createDrizzleLockoutStore(config.database, {

@@ -1,3 +1,4 @@
+import { describeErrorForLog } from "@fleetapp/core";
 import {
   buildInviteUrl,
   generateSecretToken,
@@ -107,7 +108,7 @@ export async function deliverInvite(
     // quote the recipient's address, and this goes to the hosting logs.
     console.error("Failed to send an Operator invite", {
       inviteId: input.invite.inviteId,
-      errorType: error instanceof Error ? error.name : typeof error,
+      ...describeErrorForLog(error),
     });
     return false;
   }

@@ -1,3 +1,4 @@
+import { describeErrorForLog } from "@fleetapp/core";
 import { sql } from "drizzle-orm";
 
 import { getDb } from "./client";
@@ -13,7 +14,8 @@ export async function isDatabaseReachable(): Promise<boolean> {
   try {
     await getDb().execute(sql`select 1`);
     return true;
-  } catch {
+  } catch (error) {
+    console.error("The database health check failed", describeErrorForLog(error));
     return false;
   }
 }

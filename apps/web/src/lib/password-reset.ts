@@ -1,3 +1,4 @@
+import { describeErrorForLog } from "@fleetapp/core";
 import type { SignInLockoutStore } from "@fleetapp/auth";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, userVerifications } from "@fleetapp/db/schema";
@@ -69,9 +70,7 @@ export function createPasswordResetOptions(deps: PasswordResetDependencies) {
         await deps.emailSender.send(message);
       } catch (error) {
         // Never the error itself: a provider's message can quote the address.
-        console.error("Failed to send a password reset email", {
-          errorType: error instanceof Error ? error.name : typeof error,
-        });
+        console.error("Failed to send a password reset email", describeErrorForLog(error));
       }
     },
 

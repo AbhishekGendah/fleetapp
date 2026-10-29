@@ -1,5 +1,6 @@
 "use server";
 
+import { describeErrorForLog } from "@fleetapp/core";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -51,7 +52,7 @@ function toActionState(error: unknown): ActionState {
   if (isOperatorActionError(error)) {
     return { formError: error.message };
   }
-  console.error("An Operator action failed", error);
+  console.error("An Operator action failed", describeErrorForLog(error));
   return { formError: UNEXPECTED_ERROR_MESSAGE };
 }
 

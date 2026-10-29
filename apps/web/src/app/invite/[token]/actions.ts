@@ -1,5 +1,6 @@
 "use server";
 
+import { describeErrorForLog } from "@fleetapp/core";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -61,7 +62,7 @@ export async function acceptInviteAction(
     if (error instanceof InviteNotUsableError) {
       return { formError: error.message };
     }
-    console.error("Accepting an invite failed", error);
+    console.error("Accepting an invite failed", describeErrorForLog(error));
     return { formError: UNEXPECTED_ERROR_MESSAGE };
   }
 
@@ -72,7 +73,7 @@ export async function acceptInviteAction(
     .signInEmail({ body: { email, password: parsed.data.password }, headers: await headers() })
     .then(() => true)
     .catch((error: unknown) => {
-      console.error("Signing in after accepting an invite failed", error);
+      console.error("Signing in after accepting an invite failed", describeErrorForLog(error));
       return false;
     });
   redirect(isSignedIn ? SET_UP_AUTHENTICATOR_PATH : SIGN_IN_PATH);

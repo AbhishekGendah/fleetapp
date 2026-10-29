@@ -1,5 +1,6 @@
 "use server";
 
+import { describeErrorForLog } from "@fleetapp/core";
 import { revalidatePath } from "next/cache";
 
 import { appDb } from "../../lib/app-db";
@@ -54,7 +55,7 @@ export async function saveBusinessDetailsAction(
     revalidatePath(HOME_PATH);
     return { status: "saved", hasPostcodeWarning: result.hasPostcodeWarning };
   } catch (error) {
-    console.error("Saving business details failed", error);
+    console.error("Saving business details failed", describeErrorForLog(error));
     return { status: "failed", formError: UNEXPECTED_ERROR_MESSAGE };
   }
 }

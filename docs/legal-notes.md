@@ -84,6 +84,15 @@ of service) and the countries.
   contact details belong on every rental contract. Invoices are built in a
   later phase; this makes sure the details are there when they are.
 
+## Logs
+
+- Error logs (Vercel) hold only the kind of error and, for a database
+  error, its code and constraint: never the error's message, which can
+  quote the values written (addresses, emails, a password hash). One
+  shared helper does this, `describeErrorForLog` in packages/core. The
+  privacy policy can say logs contain no personal information beyond
+  record IDs.
+
 ## Emails
 
 - Sign-in, reset and new-device emails are transactional. The Spam Act

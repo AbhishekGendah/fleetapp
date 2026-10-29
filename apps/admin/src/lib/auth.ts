@@ -1,3 +1,4 @@
+import { describeErrorForLog } from "@fleetapp/core";
 import { createDb } from "@fleetapp/db/client";
 import { adminActivityLog } from "@fleetapp/db/schema";
 
@@ -31,7 +32,7 @@ export const auth = createAdminAuth({
       // Failing to write an audit line must not be what stops someone
       // signing in. Logs the failure, never the entry: the entry names an
       // Admin and this goes to the hosting provider's logs.
-      console.error("Failed to write to the Admin activity log", error);
+      console.error("Failed to write to the Admin activity log", describeErrorForLog(error));
     }
   },
 });

@@ -16,13 +16,19 @@
  * touches the app role's connection, and whoever runs this should have to be
  * handed as little as possible.
  */
+import { describeErrorForLog } from "@fleetapp/core";
 import { createInterface, type Interface } from "node:readline/promises";
 
 import { createDb } from "@fleetapp/db/client";
 import { z } from "zod";
 
 import { createAdminAuth } from "../src/lib/auth-options";
-import { createFirstAdmin, MINIMUM_ADMIN_PASSWORD_LENGTH } from "../src/lib/create-first-admin";
+import {
+  AdminAlreadyExistsError,
+  createFirstAdmin,
+  MINIMUM_ADMIN_PASSWORD_LENGTH,
+  WeakPasswordError,
+} from "../src/lib/create-first-admin";
 
 const EXIT_FAILURE = 1;
 
@@ -122,7 +128,15 @@ async function main(): Promise<void> {
       password,
     });
   } catch (error) {
-    fail(error instanceof Error ? error.message : "Could not create the first Admin.");
+    // Only our own refusals are worth quoting: a database error's message can
+    // hold the email and the password hash.
+    const isOwnRefusal =
+      error instanceof AdminAlreadyExistsError || error instanceof WeakPasswordError;
+    fail(
+      isOwnRefusal
+        ? error.message
+        : `Could not create the first Admin (${describeErrorForLog(error).errorType}).`,
+    );
   }
 
   console.log(
@@ -138,6 +152,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error(error);
+  console.error("Creating the first Admin failed", describeErrorForLog(error));
   process.exit(EXIT_FAILURE);
 });
