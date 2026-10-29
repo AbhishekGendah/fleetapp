@@ -1,5 +1,6 @@
 import { getGreeting, getSetupChecklist, isSetupComplete } from "@fleetapp/core";
 import { Card, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { InstallAppHint } from "@fleetapp/ui/install-app-hint";
 import { redirect } from "next/navigation";
 
 import { loadSetupDetails } from "../lib/dashboard/load-setup-details";
@@ -36,6 +37,8 @@ export default async function DashboardPage() {
       </h1>
 
       {isSetupComplete(steps) ? null : <SetupChecklistCard steps={steps} />}
+
+      <InstallAppHint />
 
       <Card>
         <CardHeader>

@@ -206,6 +206,14 @@
   page says why. Numbers in `@fleetapp/auth/login-policy`.
   - CI had been failing since the logo went in (the svg types were only
     found after a Next build); fixed, CI green again.
+- Installable Operator app (a "web app" on the home screen, no app
+  store): manifest from the brand file, home-screen icons made from the
+  emblem (`apps/web/public/app-icons`, `src/app/apple-icon.png`), opens
+  full screen with no browser bars. A dismissible guide on the dashboard
+  (`InstallAppHint` in packages/ui, in the catalogue): an Install button
+  on Android, the Share → Add to Home Screen steps on iPhone, hidden on
+  desktops and once added. Offline use comes with the handover checklist
+  (rule 25), not now.
 
 ## Next
 Phase 1b is complete. Next: plan Phase 2 (vehicles and Renters) from

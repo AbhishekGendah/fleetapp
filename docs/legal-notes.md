@@ -71,6 +71,9 @@ of service) and the countries.
   recognises a browser so the User can be emailed when a new device
   signs in. The privacy policy should list them. They are essential, so
   Australia has no cookie consent law today, so no banner is expected (confirm with the lawyer).
+- The "add to home screen" guide remembers that it was dismissed in the
+  browser's own storage on that phone (no personal information, never
+  sent to us). Essential-style preference; list it with the cookies.
 - Sign-ins, failed sign-ins and lockouts are recorded in the activity
   log with the time and the kind of device. The privacy policy should
   say what is logged and for how long.

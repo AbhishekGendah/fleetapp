@@ -18,6 +18,7 @@ import { FormattedInput } from "@fleetapp/ui/formatted-input";
 import { DataList, type DataListDefinition } from "@fleetapp/ui/data-list";
 import { ImageUpload } from "@fleetapp/ui/image-upload";
 import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
+import { InstallAppHintCard } from "@fleetapp/ui/install-app-hint";
 import { Logo, LogoMark } from "@fleetapp/ui/logo";
 import { Select } from "@fleetapp/ui/select";
 import { useState } from "react";
@@ -274,6 +275,14 @@ export function ComponentCatalogue() {
 
       <CatalogueSection title="Code entry" note="Checked as soon as the last digit goes in.">
         <CodeEntry />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Install guide"
+        note="Operator app only, on a phone that has not added it to the home screen. Android gets an Install button; iPhones get the Share menu steps."
+      >
+        <InstallAppHintCard kind="prompt" onInstall={() => undefined} onDismiss={() => undefined} />
+        <InstallAppHintCard kind="apple" onDismiss={() => undefined} />
       </CatalogueSection>
     </div>
   );

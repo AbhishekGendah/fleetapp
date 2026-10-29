@@ -6,6 +6,7 @@ import { Manrope } from "next/font/google";
 // Side-effect import: validates env vars with Zod on load so a missing or
 // invalid value fails the build/deploy instead of failing later at runtime.
 import "../env";
+import { APP_DESCRIPTION } from "../lib/app-metadata";
 import "./globals.css";
 
 // Downloaded when the app is built and served from the app itself, so no
@@ -16,7 +17,9 @@ const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope", displa
 
 export const metadata: Metadata = {
   title: BRAND.productName,
-  description: "Vehicle rental management for Australian rental businesses.",
+  description: APP_DESCRIPTION,
+  // iPhones ignore most of the manifest: these make a home-screen copy open full screen.
+  appleWebApp: { capable: true, title: BRAND.productName, statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
