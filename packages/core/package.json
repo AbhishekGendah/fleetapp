@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./spreadsheet": "./src/spreadsheet.ts"
   },
   "scripts": {
     "lint": "eslint .",
@@ -19,6 +20,7 @@
     "vitest": "5.0.1"
   },
   "dependencies": {
+    "write-excel-file": "4.1.1",
     "zod": "4.6.5"
   }
 }
