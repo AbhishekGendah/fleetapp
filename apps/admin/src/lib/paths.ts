@@ -4,6 +4,8 @@ export const SIGN_IN_PATH = "/sign-in";
 export const SET_UP_AUTHENTICATOR_PATH = "/set-up-authenticator";
 export const OPERATORS_PATH = "/operators";
 export const NEW_OPERATOR_PATH = `${OPERATORS_PATH}/new`;
+/** Followed by /csv or /xlsx and the list's own query. */
+export const OPERATORS_EXPORT_PATH = `${OPERATORS_PATH}/export`;
 export const DEV_OUTBOX_PATH = "/dev-outbox";
 export const COMPONENTS_PATH = "/components";
 

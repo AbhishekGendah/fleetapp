@@ -1,6 +1,12 @@
 "use client";
 
-import { formatAbn, formatAustralianPhone } from "@fleetapp/core";
+import {
+  AUSTRALIAN_LOCALE,
+  formatAbn,
+  formatAustralianPhone,
+  pageOfRows,
+  parseListQuery,
+} from "@fleetapp/core";
 import { BRAND } from "@fleetapp/ui/brand";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
@@ -9,6 +15,7 @@ import { CodeInput, TOTP_CODE_LENGTH } from "@fleetapp/ui/code-input";
 import { fieldErrorId, FormField } from "@fleetapp/ui/form-field";
 import { FormError } from "@fleetapp/ui/form-message";
 import { FormattedInput } from "@fleetapp/ui/formatted-input";
+import { DataList, type DataListDefinition } from "@fleetapp/ui/data-list";
 import { ImageUpload } from "@fleetapp/ui/image-upload";
 import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
 import { Logo, LogoMark } from "@fleetapp/ui/logo";
@@ -152,6 +159,58 @@ function ImageUploadExample() {
   );
 }
 
+interface ExampleCar {
+  rego: string;
+  model: string;
+  odometer: number;
+}
+
+const EXAMPLE_CARS: ExampleCar[] = [
+  { rego: "1ABC234", model: "Toyota Camry Hybrid", odometer: 48210 },
+  { rego: "1XYZ987", model: "Kia Niro", odometer: 12650 },
+  { rego: "1DEF456", model: "Hyundai Ioniq", odometer: 90310 },
+];
+
+const EXAMPLE_LIST: DataListDefinition<ExampleCar> = {
+  columns: [
+    {
+      key: "rego",
+      label: "Rego",
+      isCardTitle: true,
+      sortValue: (car) => car.rego,
+      exportValue: (car) => car.rego,
+    },
+    { key: "model", label: "Model", exportValue: (car) => car.model },
+    {
+      key: "odometer",
+      label: "Odometer",
+      sortValue: (car) => car.odometer,
+      exportValue: (car) => car.odometer,
+      render: (car) => `${car.odometer.toLocaleString(AUSTRALIAN_LOCALE)} km`,
+    },
+  ],
+  searchText: (car) => `${car.rego} ${car.model}`,
+  filters: [],
+  defaultSort: { column: "rego", direction: "asc" },
+};
+
+/** The shared list with made-up cars. Sorting and searching here reload the page. */
+function DataListExample() {
+  const query = parseListQuery(EXAMPLE_LIST, {});
+  return (
+    <DataList
+      definition={EXAMPLE_LIST}
+      page={pageOfRows(EXAMPLE_CARS, EXAMPLE_LIST, query)}
+      query={query}
+      basePath=""
+      rowKey={(car) => car.rego}
+      itemName={{ one: "car", many: "cars" }}
+      searchLabel="Search by rego or model"
+      emptyMessage="No cars match."
+    />
+  );
+}
+
 /** Each shared piece, shown as it is used. */
 export function ComponentCatalogue() {
   return (
@@ -197,6 +256,13 @@ export function ComponentCatalogue() {
         note="Required boxes carry a red asterisk; problems show once a box is left (rule 28)."
       >
         <FormPieces />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Lists"
+        note="Every list: a table on a wide screen, cards on a phone, with sort, search, filters, pages and export."
+      >
+        <DataListExample />
       </CatalogueSection>
 
       <CatalogueSection

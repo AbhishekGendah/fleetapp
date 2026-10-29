@@ -191,6 +191,15 @@
   through `app.operators_with_file_housekeeping_due` (migration 0007),
   which returns Operator IDs only. Purged records stay; each removal is
   logged as done by the system.
+- Phase 1b slice 4, the shared list: `DataList` in packages/ui (table on
+  a wide screen, cards on a phone, sort by heading, search, filters,
+  pages of 25, CSV and Excel export of everything matching) from one
+  column definition; the rules are pure functions in core
+  (`list-query`, `spreadsheet-cells`, `@fleetapp/core/spreadsheet`).
+  Export cells that look like formulas are made plain text. The admin
+  Operator list uses it; it still loads all Operators from the database
+  and pages on the server, fine at this size, to move to database
+  paging when lists grow (Phase 2's lists page in the database).
 - Session timeouts (approved): Users signed out after 7 days without use
   and at 30 days at most; Admins after 30 minutes without use and at 8
   hours at most. The hard limit ends the sign-in for good and the sign-in
@@ -199,9 +208,8 @@
     found after a Next build); fixed, CI green again.
 
 ## Next
-Phase 1b slice 4: the shared list (table on desktop, cards on a phone,
-sorting, filters, search, CSV/Excel export), first used by the admin
-Operator list.
+Phase 1b is complete. Next: plan Phase 2 (vehicles and Renters) from
+docs/roadmap.md and docs/design/02 and 03, for Abhi's approval.
 
 ## Open items
 - Production buckets (before go-live): set the bucket clean-up rule for

@@ -10,6 +10,8 @@ const CONTAINER_STARTUP_TIMEOUT_MS = 120_000;
 const TEST_TIMEOUT_MS = 30_000;
 
 export default defineConfig({
+  // Some tests load screen definitions written in JSX; Next builds those itself.
+  oxc: { jsx: { runtime: "automatic" } },
   test: {
     environment: "node",
     globalSetup: ["./test/global-setup.ts"],

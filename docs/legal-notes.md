@@ -94,6 +94,17 @@ of service) and the countries.
   Renter photos and licence scans (APP 11.2, deletion requests, breach
   exposure).
 
+## Exports (built for the admin Operator list)
+
+- A CSV or Excel export copies data onto someone's own computer, where we
+  no longer control it. Exports are never cached by browsers or proxies,
+  and cells that look like formulas are made plain text so a file cannot
+  run anything when opened.
+- **When Renter lists get exports (Phase 2):** record each export in the
+  activity log (who, when, which list and filters), and say in the
+  privacy policy and the Operator terms that Operators are responsible
+  for what they export.
+
 ## Business details (already built)
 
 - An Operator's ABN, address, phone and email are business information,

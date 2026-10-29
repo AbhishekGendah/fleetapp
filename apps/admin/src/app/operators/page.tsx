@@ -1,97 +1,30 @@
-import { formatFileSize, operatorDisplayName } from "@fleetapp/core";
+import { listQueryString, pageOfRows, parseListQuery } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
-import { Card, CardContent } from "@fleetapp/ui/card";
+import { DataList } from "@fleetapp/ui/data-list";
 import Link from "next/link";
 
 import { appDb } from "../../lib/app-db";
-import { formatAdminDateTime } from "../../lib/format";
-import { listOperators, type OperatorSummary } from "../../lib/operators/queries";
+import { listOperators } from "../../lib/operators/queries";
+import {
+  NEW_OPERATOR_PATH,
+  OPERATORS_EXPORT_PATH,
+  OPERATORS_PATH,
+  operatorPath,
+} from "../../lib/paths";
 import { requireAdmin } from "../../lib/require-admin";
 import { AdminShell } from "../admin-shell";
-import { OperatorStatusBadge } from "../status-badge";
-import { NEW_OPERATOR_PATH, operatorPath } from "../../lib/paths";
+import { OPERATOR_LIST } from "./operator-list";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function displayName(operator: OperatorSummary): string {
-  return operatorDisplayName(operator);
-}
-
-function formatLastSignIn(operator: OperatorSummary): string {
-  return operator.lastSignedInAt ? formatAdminDateTime(operator.lastSignedInAt) : "Never";
-}
-
-function OperatorCards({ operators }: { operators: OperatorSummary[] }) {
-  return (
-    <ul className="flex flex-col gap-3 md:hidden">
-      {operators.map((operator) => (
-        <li key={operator.id}>
-          <Link href={operatorPath(operator.id)} className="block">
-            <Card>
-              <CardContent className="flex flex-col gap-1 p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <span className="font-medium">{displayName(operator)}</span>
-                  <OperatorStatusBadge status={operator.status} />
-                </div>
-                <span className="text-muted-foreground text-sm break-all">
-                  {operator.userEmail ?? "No User"}
-                </span>
-                <span className="text-muted-foreground text-xs">
-                  Last sign-in: {formatLastSignIn(operator)}
-                </span>
-                <span className="text-muted-foreground text-xs">
-                  Storage used: {formatFileSize(operator.storageUsedBytes)}
-                </span>
-              </CardContent>
-            </Card>
-          </Link>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function OperatorTable({ operators }: { operators: OperatorSummary[] }) {
-  return (
-    // TODO(phase 1b slice 4): move onto the shared list, which replaces this table.
-    // eslint-disable-next-line no-restricted-syntax -- until the shared list exists
-    <table className="hidden w-full text-left text-sm md:table">
-      <thead className="text-muted-foreground border-b">
-        <tr>
-          <th className="py-2 font-medium">Operator</th>
-          <th className="py-2 font-medium">User</th>
-          <th className="py-2 font-medium">Status</th>
-          <th className="py-2 font-medium">Last sign-in</th>
-          <th className="py-2 font-medium">Storage used</th>
-          <th className="py-2 font-medium">Created</th>
-        </tr>
-      </thead>
-      <tbody>
-        {operators.map((operator) => (
-          <tr key={operator.id} className="border-b">
-            <td className="py-3">
-              <Link href={operatorPath(operator.id)} className="font-medium hover:underline">
-                {displayName(operator)}
-              </Link>
-            </td>
-            <td className="py-3">{operator.userEmail ?? "No User"}</td>
-            <td className="py-3">
-              <OperatorStatusBadge status={operator.status} />
-            </td>
-            <td className="py-3">{formatLastSignIn(operator)}</td>
-            <td className="py-3">{formatFileSize(operator.storageUsedBytes)}</td>
-            <td className="py-3">{formatAdminDateTime(operator.createdAt)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-export default async function OperatorsPage() {
+export default async function OperatorsPage(props: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await requireAdmin();
+  const query = parseListQuery(OPERATOR_LIST, await props.searchParams);
   const operators = await listOperators(appDb, new Date());
+  const queryString = listQueryString(OPERATOR_LIST, query, { page: 1 });
 
   return (
     <AdminShell>
@@ -107,10 +40,21 @@ export default async function OperatorsPage() {
           No Operators yet. Create the first one to send its invite.
         </p>
       ) : (
-        <>
-          <OperatorCards operators={operators} />
-          <OperatorTable operators={operators} />
-        </>
+        <DataList
+          definition={OPERATOR_LIST}
+          page={pageOfRows(operators, OPERATOR_LIST, query)}
+          query={query}
+          basePath={OPERATORS_PATH}
+          rowKey={(operator) => operator.id}
+          rowHref={(operator) => operatorPath(operator.id)}
+          itemName={{ one: "Operator", many: "Operators" }}
+          searchLabel="Search by name or email"
+          exportHrefs={{
+            csv: `${OPERATORS_EXPORT_PATH}/csv${queryString}`,
+            xlsx: `${OPERATORS_EXPORT_PATH}/xlsx${queryString}`,
+          }}
+          emptyMessage="No Operators match. Try a different search or filter."
+        />
       )}
     </AdminShell>
   );

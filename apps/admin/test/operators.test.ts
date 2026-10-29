@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 
-import { hashSecretToken, MILLISECONDS_PER_DAY } from "@fleetapp/core";
+import {
+  MILLISECONDS_PER_DAY,
+  exportTable,
+  hashSecretToken,
+  matchingRows,
+  parseListQuery,
+} from "@fleetapp/core";
 import {
   activityLog,
   adminUsers,
@@ -17,6 +23,7 @@ import { createOperator } from "../src/lib/operators/create-operator";
 import type { OperatorActionDependencies } from "../src/lib/operators/dependencies";
 import { EmailAlreadyInUseError, OperatorSuspendedError } from "../src/lib/operators/errors";
 import type { CreateOperatorInput } from "../src/lib/operators/operator-input";
+import { OPERATOR_LIST } from "../src/app/operators/operator-list";
 import { getOperatorDetail, listOperators } from "../src/lib/operators/queries";
 import { resendInvite } from "../src/lib/operators/resend-invite";
 import { reactivateOperator, suspendOperator } from "../src/lib/operators/suspension";
@@ -171,6 +178,22 @@ describe("Operators and invites", () => {
       expect(summaries.find((summary) => summary.id === result.operatorId)?.status).toBe(
         "invite_expired",
       );
+    });
+
+    it("searches, filters and exports the list, defusing a name that looks like a formula", async () => {
+      const input = {
+        ...newOperatorInput(),
+        legalName: `=HYPERLINK("http://evil") ${randomUUID()}`,
+      };
+      const result = await createOperator(deps, adminUserId, input);
+      const operators = await listOperators(connection.db, new Date());
+
+      const query = parseListQuery(OPERATOR_LIST, { q: input.userEmail, status: "invited" });
+      const rows = matchingRows(operators, OPERATOR_LIST, query);
+      expect(rows.map((row) => row.id)).toEqual([result.operatorId]);
+
+      const [, exported] = exportTable(OPERATOR_LIST.columns, rows);
+      expect(String(exported?.[0]).startsWith("'=")).toBe(true);
     });
 
     it("shows how much each Operator stores, from sizes alone", async () => {
