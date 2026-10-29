@@ -25,8 +25,7 @@ const envSchema = z.object({
 
   /**
    * The name shown against the entry in an Admin's authenticator app. An env
-   * var rather than a constant because the product name is not settled, and
-   * nothing in this codebase hardcodes a brand.
+   * var, not the brand file, so that "Admin" can be added to it (CLAUDE.md).
    */
   AUTH_ISSUER_NAME: z.string().min(1),
 

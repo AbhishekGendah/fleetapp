@@ -5,25 +5,29 @@ Global Solutions (AGS). See [`CLAUDE.md`](./CLAUDE.md) for the project
 rulebook and [`docs/design/`](./docs/design/) for how each part of the
 product works.
 
-This is currently the skeleton, the tenancy foundation and the AGS admin
-login: a working pnpm/Turborepo monorepo, the platform tables with
-row-level security on them, an admin app you can sign in to with a
-password and an authenticator app, and CI. No Operator app login yet, no
-vehicles or renters, no payments — that all comes in later tasks.
+Built so far: the tenancy foundation, the AGS admin app (sign-in,
+creating Operators, sending invites), and the Operator app (accepting an
+invite, sign-in with an authenticator app, password reset, the dashboard
+and business details in Settings). No vehicles, Renters or payments yet.
+See [`docs/progress.md`](./docs/progress.md) for exactly where things are.
 
 ## What's in here
 
 - `apps/web` — the Operator app (and, later, the pages Renters open from a
   link).
 - `apps/admin` — the AGS admin area, a separate app on its own subdomain.
-- `packages/ui` — shared Tailwind CSS + shadcn/ui components (`Button`,
-  `Card` so far).
+- `packages/ui` — shared components and the brand (name, logo, colours in
+  `src/brand.ts`): forms, sign-in, authenticator setup, layout.
 - `packages/db` — Drizzle ORM setup, migrations and the tenancy rules for
   the Postgres database: Operators, Users, Admin Users and the activity
   log, plus the row-level security that keeps one Operator out of
   another's data.
-- `packages/core` — pure domain logic (money, dates, ledger, fine
-  matching). Empty until a later task adds it.
+- `packages/core` — pure domain logic with no database or framework:
+  ABN, phone and postcode rules, timezones, GST dates, invites, settings,
+  and later money, the ledger and fine matching.
+- `packages/auth` — the wrong-password lockout shared by both logins.
+- `packages/email` — email templates and the sender (the test inbox for
+  now; Postmark later).
 - `packages/config` — shared TypeScript, ESLint and Prettier config used by
   everything above.
 
@@ -74,10 +78,11 @@ All of these run across every app/package via Turborepo — add
 
 Every tenant-owned table carries `operator_id` and has Postgres row-level
 security enabled **and forced**, so the database refuses cross-Operator
-reads even if application code asks for them. Application code never
-queries those tables directly — it goes through `withTenant()` in
-`packages/db/src/tenant-context.ts`, which opens a transaction and sets the
-Operator for that transaction only.
+reads even if application code asks for them. The Operator app reads and
+writes them through `withTenant()` in `packages/db/src/tenant-context.ts`,
+which opens a transaction and sets the Operator for that transaction only.
+The admin app and the two login systems use their own database roles,
+each granted only the tables and columns it needs.
 
 `packages/db`'s tests prove this against a real Postgres: they run the
 actual migrations, connect as the real application roles, and check that

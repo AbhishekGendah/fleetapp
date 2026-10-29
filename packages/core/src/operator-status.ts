@@ -20,8 +20,7 @@ export interface OperatorStatusInput {
  * The one status an Admin sees in the Operator list.
  *
  * Suspension wins over everything: it is what an Admin most needs to see.
- * "Active" means the User has accepted their invite; until slice 4 that
- * cannot happen yet.
+ * "Active" means the User has accepted their invite.
  */
 export function getOperatorStatus(input: OperatorStatusInput, now: Date): OperatorStatus {
   if (input.suspendedAt) {

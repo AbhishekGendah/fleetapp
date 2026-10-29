@@ -146,6 +146,16 @@
     now required (trading name, address line 2 and GST date stay
     optional). Same set as the setup checklist step. Columns stay nullable
     in the database: no migration.
+- Clean-up after slice 2 (repo-wide review):
+  - Every required field has a red asterisk (shared `FormField` and
+    `RequiredFieldsNote` in packages/ui); rule 28 in CLAUDE.md makes it
+    the standard for every form.
+  - Logs hold only the kind of error, never its message (a database
+    error's message can quote personal data). `describeErrorForLog`.
+  - Shared in core instead of copied: required business details, form
+    text rules, digits, time units, locale, Operator display name, URL
+    joining. Admin has a paths module; no hardcoded page paths.
+  - Dead code and misplaced dependencies removed; stale docs fixed.
   - CI had been failing since the logo went in (the svg types were only
     found after a Next build); fixed, CI green again.
 
@@ -167,9 +177,9 @@ as the first use. Needs Abhi to set up AWS, one step at a time.
   PintoTech letters. A simpler emblem for small sizes (browser tab, phone
   header) would still help. Abhi to check the name is free
   (ASIC business names, IP Australia trade marks, domain).
-- Once branding lands: change `AUTH_ISSUER_NAME` (both Vercel projects)
-  and the name in `EMAIL_FROM` to PintoFleet. Authenticator entries made
-  before then keep their old name until re-enrolled.
+- `AUTH_ISSUER_NAME` and `EMAIL_FROM` are set to PintoFleet in both
+  Vercel projects. Authenticator entries made before then keep their old
+  name until re-enrolled.
 - Pricing model TBD.
 - SMS provider TBD.
 - Confirm Stripe DDR notice rules before building rate changes.
@@ -178,11 +188,7 @@ as the first use. Needs Abhi to set up AWS, one step at a time.
   slice 1.
 - Login tables stay inside RLS, reached only by a dedicated database
   role. Decided before slice 2.
-- Abhi to pick the name shown inside the authenticator app
-  (`AUTH_ISSUER_NAME`). Awkward to change once Admins have enrolled.
-- "Remember this device" IS configurable after all (`trustDeviceMaxAge`
-  in Better Auth 1.7.5; the published docs are out of date). The 14 days
-  in docs/design/01 is achievable for Operators in slice 4. Off
+- "Remember this device": 14 days for Users (built in slice 4), off
   entirely for Admins.
 - `BETTER_AUTH_SECRET` encrypts every authenticator enrolment. Losing it
   means every Admin re-enrols. Belongs in Bitwarden as well as Vercel.
@@ -194,15 +200,14 @@ as the first use. Needs Abhi to set up AWS, one step at a time.
   WebSocket with NODE_USE_ENV_PROXY=1 (the `ws` library ignores the
   session proxy). Done as a one-off for the first-Admin run. Any future
   script run against Neon from a session needs the same.
-- Suspension is recorded but not yet enforced: nothing can sign in as an
-  Operator until slice 4, which must check `suspended_at`.
 - `EMAIL_TRANSPORT=dev_outbox` must never be set in production: the test
   inbox holds working invite links. Production needs Postmark first.
 - The admin app can't be run against a local Postgres (it uses Neon's
   driver), so new admin pages are checked by tests and a production
   build, then on the live dev site.
-- Branch `backup/slice-4a` on GitHub is no longer needed (main has all of
-  it). Abhi to delete it with the other two old branches.
+- Old branches on GitHub are no longer needed (main has everything):
+  `backup/slice-4a`, `claude/vibrant-dijkstra-4jzf8i`,
+  `claude/whats-next-1mm9ou`. Abhi to delete them.
 
 - A "forgot password" request for a real address takes a little longer to
   answer than one for an unknown address (the email is sent before
@@ -214,7 +219,6 @@ as the first use. Needs Abhi to set up AWS, one step at a time.
 - When a "change my password" setting is built for Users (or Admins), it
   must forget remembered devices too, as password reset now does
   (`forgetRememberedDevices` in apps/web/src/lib/password-reset.ts).
-- Admin is live on commit 7065601 (before the six-box code entry), because
-  the build of 0f620e0 failed while `EMAIL_TRANSPORT` was mistyped (now
-  fixed). Abhi to redeploy 0f620e0 in `fleetapp-admin`, or the next push
-  will bring it.
+- Admin redeploy after the `EMAIL_TRANSPORT` typo: later pushes deploy
+  admin again, so this resolves itself; check `fleetapp-admin` shows a
+  recent deployment as Ready.

@@ -7,6 +7,7 @@ import { SIGN_IN_PATH } from "../lib/paths";
 import { requireUser } from "../lib/require-user";
 import { AppShell } from "./app-shell";
 import { SetupChecklistCard } from "./setup-checklist-card";
+import { appDb } from "../lib/app-db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ function firstNameOf(fullName: string): string {
  */
 export default async function DashboardPage() {
   const user = await requireUser();
-  const setupDetails = await loadSetupDetails(user.operatorId);
+  const setupDetails = await loadSetupDetails(appDb, user.operatorId);
   if (!setupDetails) {
     redirect(SIGN_IN_PATH);
   }

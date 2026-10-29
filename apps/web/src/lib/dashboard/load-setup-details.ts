@@ -1,9 +1,8 @@
 import type { SetupChecklistInput } from "@fleetapp/core";
+import type { AnyDatabase } from "@fleetapp/db/client";
 import { operators } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { eq } from "drizzle-orm";
-
-import { appDb } from "../app-db";
 
 export interface SetupDetails extends SetupChecklistInput {
   timezone: string;
@@ -14,8 +13,11 @@ export interface SetupDetails extends SetupChecklistInput {
  * app's role inside the signed-in User's Operator, so it can only ever read
  * that one row.
  */
-export async function loadSetupDetails(operatorId: string): Promise<SetupDetails | null> {
-  const [row] = await withTenant(appDb, operatorId, (tx) =>
+export async function loadSetupDetails(
+  database: AnyDatabase,
+  operatorId: string,
+): Promise<SetupDetails | null> {
+  const [row] = await withTenant(database, operatorId, (tx) =>
     tx
       .select({
         legalName: operators.legalName,

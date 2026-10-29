@@ -17,7 +17,7 @@ import { users } from "./users";
  *
  * Never deleted. A used, expired or revoked invite is a record of what
  * happened. The admin app's role may change only `sent_at` and `revoked_at`;
- * `accepted_at` belongs to the Operator login system (slice 4).
+ * `accepted_at` belongs to the Operator login system.
  */
 export const operatorInvites = pgTable(
   "operator_invites",

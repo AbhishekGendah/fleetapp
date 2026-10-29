@@ -6,7 +6,7 @@ export const INVITE_LIFETIME_DAYS = 7;
 
 /**
  * Where an invite link points, on the Operator app. Shared because the admin
- * app builds the link and the Operator app serves the page (slice 4).
+ * app builds the link and the Operator app serves the page.
  */
 export const INVITE_ACCEPT_PATH = "/invite";
 
@@ -49,7 +49,7 @@ export function getInviteStatus(invite: InviteDates, now: Date): InviteStatus {
   return "pending";
 }
 
-/** Only a live invite can be accepted; slice 4 checks this on the link page. */
+/** Only a live invite can be accepted; the invite page checks this. */
 export function isInviteUsable(invite: InviteDates, now: Date): boolean {
   const status = getInviteStatus(invite, now);
   return status === "pending" || status === "not_sent";
