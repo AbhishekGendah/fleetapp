@@ -4,7 +4,7 @@ import { z } from "zod";
 // Validated once at import time so a missing/invalid variable fails fast
 // instead of surfacing as a confusing runtime error later.
 const envSchema = z.object({
-  ADMIN_URL: z.string().url(),
+  ADMIN_URL: z.url(),
 
   /** Connection string for `admin_app_role`: everything except credentials. */
   DATABASE_URL: z.string().min(1),
@@ -31,7 +31,7 @@ const envSchema = z.object({
   AUTH_ISSUER_NAME: z.string().min(1),
 
   /** The Operator app's address, to build the links in invite emails. */
-  APP_URL: z.string().url(),
+  APP_URL: z.url(),
 
   /**
    * How email is sent. `dev_outbox` keeps every email in the test inbox on the

@@ -1,5 +1,5 @@
-import markImage from "../assets/pintofleet-mark.svg";
-import wordmarkImage from "../assets/pintofleet-wordmark.svg";
+import markImage from "../assets/logo-mark.svg";
+import wordmarkImage from "../assets/logo-wordmark.svg";
 import { BRAND } from "../brand";
 import { cn } from "../lib/utils";
 
@@ -16,9 +16,9 @@ export function LogoMark({ className }: { className?: string }) {
 }
 
 /**
- * The full logo: emblem and the drawn PINTOFLEET wordmark (the PintoTech
- * lettering, with F and L built from its E). The wordmark is a picture of
- * the name, so its text alternative carries the name for screen readers.
+ * The full logo: emblem and the drawn wordmark. The wordmark is a picture of
+ * the product name, so its text alternative carries the name from the brand
+ * file for screen readers. Swapping both files renames the logo.
  */
 export function Logo(props: { className?: string; label?: string }) {
   return (

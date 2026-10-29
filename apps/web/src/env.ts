@@ -4,7 +4,7 @@ import { z } from "zod";
 // Validated once at import time so a missing/invalid variable fails fast
 // instead of surfacing as a confusing runtime error later.
 const envSchema = z.object({
-  APP_URL: z.string().url(),
+  APP_URL: z.url(),
 
   /** Connection string for `web_app_role`: everything except credentials. */
   DATABASE_URL: z.string().min(1),

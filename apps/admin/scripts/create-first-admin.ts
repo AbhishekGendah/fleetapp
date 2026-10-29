@@ -36,7 +36,7 @@ const scriptEnvSchema = z.object({
   AUTH_DATABASE_URL: z.string().min(1),
   BETTER_AUTH_SECRET: z.string().min(32),
   AUTH_ISSUER_NAME: z.string().min(1),
-  ADMIN_URL: z.string().url(),
+  ADMIN_URL: z.url(),
 });
 
 function fail(message: string): never {

@@ -6,8 +6,7 @@ import { pgEnum } from "drizzle-orm/pg-core";
  * a closed set rather than free text. The list itself lives in packages/core,
  * beside the postcode rules that use it.
  */
-export const AUSTRALIAN_STATES = AUSTRALIAN_STATE_CODES;
-export const australianStateEnum = pgEnum("australian_state", AUSTRALIAN_STATES);
+export const australianStateEnum = pgEnum("australian_state", AUSTRALIAN_STATE_CODES);
 
 /**
  * The Operator's standing with AGS. `read_only` is the state after a failed
@@ -26,6 +25,5 @@ export const subscriptionStatusEnum = pgEnum("subscription_status", SUBSCRIPTION
 export const ACTOR_TYPES = ["user", "admin", "system", "renter_link"] as const;
 export const actorTypeEnum = pgEnum("actor_type", ACTOR_TYPES);
 
-export type AustralianState = (typeof AUSTRALIAN_STATES)[number];
 export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
 export type ActorType = (typeof ACTOR_TYPES)[number];

@@ -1,5 +1,5 @@
 import { operatorDisplayName } from "@fleetapp/core";
-import { ACTIVITY_ENTITY_TYPES } from "@fleetapp/db/schema";
+import { ACTIVITY_ENTITY_TYPES, type ActivityEntityType } from "@fleetapp/db/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { notFound } from "next/navigation";
 import { z } from "zod";
@@ -84,11 +84,13 @@ export default async function OperatorPage(props: OperatorPageProps) {
   );
 }
 
-const ENTITY_LABELS: Record<string, string> = {
+/** One label per kind of record: a new kind fails to compile until it has one. */
+const ENTITY_LABELS: Readonly<Record<string, string>> = {
   [ACTIVITY_ENTITY_TYPES.operator]: "Operator",
   [ACTIVITY_ENTITY_TYPES.user]: "User",
   [ACTIVITY_ENTITY_TYPES.operatorInvite]: "Invite",
-};
+  [ACTIVITY_ENTITY_TYPES.operatorSettings]: "Settings",
+} satisfies Record<ActivityEntityType, string>;
 
 function describeHistoryEntry(entityType: string, action: string): string {
   return `${ENTITY_LABELS[entityType] ?? entityType} ${action}`;

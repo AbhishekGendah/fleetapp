@@ -29,6 +29,9 @@ importers:
       '@fleetapp/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@fleetapp/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@fleetapp/email':
         specifier: workspace:*
         version: link:../../packages/email
@@ -38,6 +41,9 @@ importers:
       better-auth:
         specifier: 1.7.5
         version: 1.7.5(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@neondatabase/serverless@1.1.0)(@types/pg@8.15.5)(kysely@0.29.6)(pg@8.16.3))(next@16.3.5(@types/node@26.6.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(pg@8.16.3)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(vitest@5.0.1(@types/node@26.6.2)(vite@8.3.0(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)))
+      drizzle-orm:
+        specifier: 0.45.2
+        version: 0.45.2(@neondatabase/serverless@1.1.0)(@types/pg@8.15.5)(kysely@0.29.6)(pg@8.16.3)
       next:
         specifier: 16.3.5
         version: 16.3.5(@types/node@26.6.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -57,33 +63,21 @@ importers:
       '@fleetapp/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@fleetapp/db':
-        specifier: workspace:*
-        version: link:../../packages/db
       '@tailwindcss/postcss':
         specifier: 4.3.3
         version: 4.3.3
       '@types/node':
         specifier: 26.6.2
         version: 26.6.2
-      '@types/pg':
-        specifier: 8.15.5
-        version: 8.15.5
       '@types/react':
         specifier: 19.3.0
         version: 19.3.0
       '@types/react-dom':
         specifier: 19.3.0
         version: 19.3.0(@types/react@19.3.0)
-      drizzle-orm:
-        specifier: 0.45.2
-        version: 0.45.2(@neondatabase/serverless@1.1.0)(@types/pg@8.15.5)(kysely@0.29.6)(pg@8.16.3)
       eslint:
         specifier: 9.39.5
         version: 9.39.5(jiti@2.7.0)
-      pg:
-        specifier: 8.16.3
-        version: 8.16.3
       tailwindcss:
         specifier: 4.3.3
         version: 4.3.3
@@ -117,6 +111,9 @@ importers:
       better-auth:
         specifier: 1.7.5
         version: 1.7.5(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@neondatabase/serverless@1.1.0)(@types/pg@8.15.5)(kysely@0.29.6)(pg@8.16.3))(next@16.3.5(@types/node@26.6.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(pg@8.16.3)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(vitest@5.0.1(@types/node@26.6.2)(vite@8.3.0(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)))
+      drizzle-orm:
+        specifier: 0.45.2
+        version: 0.45.2(@neondatabase/serverless@1.1.0)(@types/pg@8.15.5)(kysely@0.29.6)(pg@8.16.3)
       lucide-react:
         specifier: 1.55.0
         version: 1.55.0(@types/react@19.3.0)(react@19.3.0)
@@ -145,24 +142,15 @@ importers:
       '@types/node':
         specifier: 26.6.2
         version: 26.6.2
-      '@types/pg':
-        specifier: 8.15.5
-        version: 8.15.5
       '@types/react':
         specifier: 19.3.0
         version: 19.3.0
       '@types/react-dom':
         specifier: 19.3.0
         version: 19.3.0(@types/react@19.3.0)
-      drizzle-orm:
-        specifier: 0.45.2
-        version: 0.45.2(@neondatabase/serverless@1.1.0)(@types/pg@8.15.5)(kysely@0.29.6)(pg@8.16.3)
       eslint:
         specifier: 9.39.5
         version: 9.39.5(jiti@2.7.0)
-      pg:
-        specifier: 8.16.3
-        version: 8.16.3
       tailwindcss:
         specifier: 4.3.3
         version: 4.3.3
@@ -348,9 +336,6 @@ importers:
       clsx:
         specifier: 2.1.1
         version: 2.1.1
-      lucide-react:
-        specifier: 1.55.0
-        version: 1.55.0(@types/react@19.3.0)(react@19.3.0)
       qrcode:
         specifier: 1.5.4
         version: 1.5.4
