@@ -249,9 +249,8 @@
   app), with a Result drop-down, notes, and a Summary tab listing every
   Issue and "Could be better". Kept up to date with every change
   (CLAUDE.md, How to work).
-  - Known gap noted in row A-24: the admin New Operator form only checks
-    its boxes on Create, not as you type (rule 28). To fix when next in
-    that area.
+  - Fixed (row A-24): the admin New Operator form now checks each box as
+    you type with the shared form helper, like every other form.
 
 ## Next
 Phase 2 step 2: car paperwork, costs and photos (rego renewals,

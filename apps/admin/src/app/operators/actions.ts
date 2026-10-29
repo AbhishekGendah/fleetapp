@@ -8,7 +8,10 @@ import { z } from "zod";
 import { operatorDependencies } from "../../lib/operator-dependencies";
 import { createOperator } from "../../lib/operators/create-operator";
 import { isOperatorActionError } from "../../lib/operators/errors";
-import { createOperatorInputSchema } from "../../lib/operators/operator-input";
+import {
+  CREATE_OPERATOR_FIELDS,
+  createOperatorInputSchema,
+} from "../../lib/operators/operator-input";
 import { resendInvite } from "../../lib/operators/resend-invite";
 import { reactivateOperator, suspendOperator } from "../../lib/operators/suspension";
 import { requireAdmin } from "../../lib/require-admin";
@@ -23,8 +26,6 @@ export interface ActionState {
   /** What was typed, so a refused form comes back filled in rather than empty. */
   values?: Record<string, string>;
 }
-
-const CREATE_OPERATOR_FIELDS = ["legalName", "tradingName", "userFullName", "userEmail"] as const;
 
 const operatorIdSchema = z.object({ operatorId: z.uuid() });
 

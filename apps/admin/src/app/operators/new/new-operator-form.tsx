@@ -1,69 +1,83 @@
 "use client";
 
+import { MAXIMUM_LINE_LENGTH } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
-import { fieldErrorId, FormField } from "@fleetapp/ui/form-field";
+import { FormField } from "@fleetapp/ui/form-field";
+import { FormError } from "@fleetapp/ui/form-message";
 import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
+import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import { useActionState } from "react";
+import { z } from "zod";
 
+import {
+  CREATE_OPERATOR_FIELDS,
+  createOperatorInputSchema,
+  isRequiredCreateOperatorField,
+  type CreateOperatorField,
+} from "../../../lib/operators/operator-input";
 import { createOperatorAction, type ActionState } from "../actions";
 
 const INITIAL_STATE: ActionState = {};
 
-interface FieldProps {
-  name: string;
-  label: string;
-  type?: string;
-  autoComplete?: string;
-  isRequired?: boolean;
-  hint?: string;
-  state: ActionState;
-}
+const EMPTY_FORM: Record<CreateOperatorField, string> = {
+  legalName: "",
+  tradingName: "",
+  userFullName: "",
+  userEmail: "",
+};
 
-function Field(props: FieldProps) {
-  const error = props.state.fieldErrors?.[props.name]?.join(" ");
-  return (
-    <FormField
-      htmlFor={props.name}
-      label={props.label}
-      isRequired={props.isRequired}
-      hint={props.hint}
-      error={error}
-    >
-      <Input
-        id={props.name}
-        name={props.name}
-        type={props.type ?? "text"}
-        autoComplete={props.autoComplete ?? "off"}
-        required={props.isRequired}
-        defaultValue={props.state.values?.[props.name]}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={error ? fieldErrorId(props.name) : undefined}
-      />
-    </FormField>
-  );
-}
+const FIELD_LABELS: Readonly<Record<CreateOperatorField, string>> = {
+  legalName: "Legal business name",
+  tradingName: "Trading name",
+  userFullName: "Their full name",
+  userEmail: "Their email address",
+};
 
+const FIELD_HINTS: Partial<Record<CreateOperatorField, string>> = {
+  tradingName: "Used in emails instead of the legal name, if given.",
+};
+
+/** Checked as you type with the same rules the server applies (rule 28). */
 export function NewOperatorForm() {
   const [state, formAction, isPending] = useActionState(createOperatorAction, INITIAL_STATE);
+  const form = useFormFields({
+    fields: CREATE_OPERATOR_FIELDS,
+    initialValues: EMPTY_FORM,
+    validate: (values) => {
+      const parsed = createOperatorInputSchema.safeParse(values);
+      return parsed.success ? {} : z.flattenError(parsed.error).fieldErrors;
+    },
+    isRequired: isRequiredCreateOperatorField,
+    maxLength: MAXIMUM_LINE_LENGTH,
+  });
+  const shownState = form.isResultShown && !isPending ? state : INITIAL_STATE;
 
   return (
-    <form action={formAction} className="flex max-w-md flex-col gap-4">
+    <form
+      action={formAction}
+      onSubmit={form.submitHandler(formAction)}
+      noValidate
+      className="flex max-w-md flex-col gap-4"
+    >
       <RequiredFieldsNote />
-      <Field name="legalName" label="Legal business name" isRequired state={state} />
-      <Field
-        name="tradingName"
-        label="Trading name"
-        hint="Used in emails instead of the legal name, if given."
-        state={state}
-      />
-      <Field name="userFullName" label="Their full name" isRequired state={state} />
-      <Field name="userEmail" label="Their email address" type="email" isRequired state={state} />
+      {CREATE_OPERATOR_FIELDS.map((field) => (
+        <FormField
+          key={field}
+          htmlFor={field}
+          label={FIELD_LABELS[field]}
+          isRequired={isRequiredCreateOperatorField(field)}
+          hint={FIELD_HINTS[field]}
+          error={form.errorFor(field) ?? shownState.fieldErrors?.[field]?.[0]}
+        >
+          <Input
+            {...form.textBoxProps(field)}
+            type={field === "userEmail" ? "email" : "text"}
+            autoComplete="off"
+          />
+        </FormField>
+      ))}
 
-      {state.formError ? (
-        <p className="text-destructive text-sm" role="alert">
-          {state.formError}
-        </p>
-      ) : null}
+      <FormError message={shownState.formError ?? null} />
 
       <Button type="submit" disabled={isPending}>
         {isPending ? "Creating…" : "Create and send invite"}
