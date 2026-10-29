@@ -20,6 +20,8 @@ export interface SignedInUser {
   email: string;
   fullName: string;
   operatorName: string;
+  /** Every time is shown in this zone (rule 10). */
+  operatorTimezone: string;
   twoFactorEnabled: boolean;
 }
 
@@ -30,6 +32,7 @@ interface SignedInAccount {
   fullName: string;
   twoFactorEnabled: boolean;
   operatorName: string;
+  operatorTimezone: string;
   access: AccountAccess;
 }
 
@@ -67,6 +70,7 @@ async function loadSignedInAccount(): Promise<SignedInAccount | null> {
         userArchivedAt: users.archivedAt,
         legalName: operators.legalName,
         tradingName: operators.tradingName,
+        operatorTimezone: operators.timezone,
         operatorSuspendedAt: operators.suspendedAt,
         operatorArchivedAt: operators.archivedAt,
       })
@@ -85,6 +89,7 @@ async function loadSignedInAccount(): Promise<SignedInAccount | null> {
     fullName: row.fullName,
     twoFactorEnabled: row.twoFactorEnabled,
     operatorName: operatorDisplayName(row),
+    operatorTimezone: row.operatorTimezone,
     access: getAccountAccess(row),
   };
 }
@@ -116,6 +121,7 @@ export async function requireUser(
     email: account.email,
     fullName: account.fullName,
     operatorName: account.operatorName,
+    operatorTimezone: account.operatorTimezone,
     twoFactorEnabled: account.twoFactorEnabled,
   };
 }

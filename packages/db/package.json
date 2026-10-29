@@ -7,6 +7,7 @@
     "./activity": "./src/activity.ts",
     "./client": "./src/client.ts",
     "./health": "./src/health.ts",
+    "./list-query": "./src/list-query.ts",
     "./schema": "./src/schema/index.ts",
     "./tenancy": "./src/tenancy.ts",
     "./tenant-context": "./src/tenant-context.ts",

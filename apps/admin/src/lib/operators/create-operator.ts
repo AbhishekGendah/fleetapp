@@ -1,4 +1,4 @@
-import { operatorDisplayName } from "@fleetapp/core";
+import { isUniqueViolation, operatorDisplayName } from "@fleetapp/core";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, operators, users } from "@fleetapp/db/schema";
 
 import { recordAdminActivity } from "./activity";
@@ -6,7 +6,6 @@ import type { OperatorActionDependencies, Transaction } from "./dependencies";
 import { EmailAlreadyInUseError } from "./errors";
 import { deliverInvite, issueInvite, type IssuedInvite } from "./invite";
 import type { CreateOperatorInput } from "./operator-input";
-import { isUniqueViolation } from "./postgres-errors";
 
 /** The index that keeps one login per email across the whole platform. */
 const USERS_EMAIL_UNIQUE_INDEX = "users_email_unique";

@@ -6,11 +6,15 @@ import {
   formatAustralianPhone,
   pageOfRows,
   parseListQuery,
+  type InMemoryListRules,
+  VEHICLE_MAKES,
 } from "@fleetapp/core";
 import { BRAND } from "@fleetapp/ui/brand";
+import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { Checkbox } from "@fleetapp/ui/checkbox";
+import { ComboBox } from "@fleetapp/ui/combo-box";
 import { CodeInput, TOTP_CODE_LENGTH } from "@fleetapp/ui/code-input";
 import { fieldErrorId, FormField } from "@fleetapp/ui/form-field";
 import { FormError } from "@fleetapp/ui/form-message";
@@ -21,6 +25,7 @@ import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
 import { InstallAppHintCard } from "@fleetapp/ui/install-app-hint";
 import { Logo, LogoMark } from "@fleetapp/ui/logo";
 import { Select } from "@fleetapp/ui/select";
+import { TabLinks } from "@fleetapp/ui/tab-links";
 import { useState } from "react";
 
 import { ADMIN_LABEL } from "../admin-label";
@@ -126,6 +131,16 @@ function FormPieces() {
   );
 }
 
+/** Suggests from the built-in car list; anything else can still be typed. */
+function ComboBoxExample() {
+  const [make, setMake] = useState("");
+  return (
+    <FormField htmlFor="example-make" label="Make" hint="Try “toy”, or a make that is not listed.">
+      <ComboBox id="example-make" options={VEHICLE_MAKES} value={make} onValueChange={setMake} />
+    </FormField>
+  );
+}
+
 function CodeEntry() {
   const [code, setCode] = useState("");
   return (
@@ -178,21 +193,26 @@ const EXAMPLE_LIST: DataListDefinition<ExampleCar> = {
       key: "rego",
       label: "Rego",
       isCardTitle: true,
-      sortValue: (car) => car.rego,
+      isSortable: true,
       exportValue: (car) => car.rego,
     },
     { key: "model", label: "Model", exportValue: (car) => car.model },
     {
       key: "odometer",
       label: "Odometer",
-      sortValue: (car) => car.odometer,
+      isSortable: true,
       exportValue: (car) => car.odometer,
       render: (car) => `${car.odometer.toLocaleString(AUSTRALIAN_LOCALE)} km`,
     },
   ],
-  searchText: (car) => `${car.rego} ${car.model}`,
   filters: [],
   defaultSort: { column: "rego", direction: "asc" },
+};
+
+const EXAMPLE_RULES: InMemoryListRules<ExampleCar> = {
+  searchText: (car) => `${car.rego} ${car.model}`,
+  sortValues: { rego: (car) => car.rego, odometer: (car) => car.odometer },
+  filterMatches: {},
 };
 
 /** The shared list with made-up cars. Sorting and searching here reload the page. */
@@ -201,7 +221,7 @@ function DataListExample() {
   return (
     <DataList
       definition={EXAMPLE_LIST}
-      page={pageOfRows(EXAMPLE_CARS, EXAMPLE_LIST, query)}
+      page={pageOfRows(EXAMPLE_CARS, EXAMPLE_RULES, query)}
       query={query}
       basePath=""
       rowKey={(car) => car.rego}
@@ -257,6 +277,36 @@ export function ComponentCatalogue() {
         note="Required boxes carry a red asterisk; problems show once a box is left (rule 28)."
       >
         <FormPieces />
+      </CatalogueSection>
+
+      <CatalogueSection title="Badges" note="A short label on a record, such as its status.">
+        <div className="flex flex-wrap gap-2">
+          <Badge tone="good">Available</Badge>
+          <Badge tone="attention">In service</Badge>
+          <Badge tone="danger">Suspended</Badge>
+          <Badge>Archived</Badge>
+        </div>
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Tabs"
+        note="Sections of one record, each with its own address. Scrolls sideways on a narrow phone."
+      >
+        <TabLinks
+          label="Example sections"
+          tabs={[
+            { href: "#details", label: "Details", isCurrent: true },
+            { href: "#odometer", label: "Odometer", isCurrent: false },
+            { href: "#history", label: "History", isCurrent: false },
+          ]}
+        />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Searchable box"
+        note="Suggests from a list as you type, and still takes anything typed. Used for car makes and models."
+      >
+        <ComboBoxExample />
       </CatalogueSection>
 
       <CatalogueSection

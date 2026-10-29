@@ -11,3 +11,16 @@ export const BUSINESS_DETAILS_ANCHOR = "business-details";
 
 /** The daily file clean-up, called by Vercel's scheduler (listed in vercel.json). */
 export const FILE_HOUSEKEEPING_CRON_PATH = "/api/cron/file-housekeeping";
+
+/** The Operator's cars. Called "cars" on screen; vehicles in code. */
+export const CARS_PATH = "/cars";
+export const NEW_CAR_PATH = `${CARS_PATH}/new`;
+export const CARS_EXPORT_PATH = `${CARS_PATH}/export`;
+
+export function carPath(vehicleId: string): string {
+  return `${CARS_PATH}/${vehicleId}`;
+}
+
+export function editCarPath(vehicleId: string): string {
+  return `${carPath(vehicleId)}/edit`;
+}

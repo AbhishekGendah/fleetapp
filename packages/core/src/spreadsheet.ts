@@ -1,6 +1,6 @@
 import writeXlsxFile, { type SheetData } from "write-excel-file/node";
 
-import type { ExportCell } from "./spreadsheet-cells";
+import { toCsv, type ExportCell } from "./spreadsheet-cells";
 
 /** How dates read in the exported sheet. */
 const EXCEL_DATE_FORMAT = "dd/mm/yyyy hh:mm";
@@ -22,4 +22,31 @@ export async function toXlsx(table: readonly ExportCell[][]): Promise<Buffer> {
     ),
   );
   return writeXlsxFile(sheet).toBuffer();
+}
+
+const EXPORT_CONTENT_TYPES = {
+  csv: "text/csv; charset=utf-8",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+} as const;
+export type ExportFormat = keyof typeof EXPORT_CONTENT_TYPES;
+
+export function isExportFormat(format: string): format is ExportFormat {
+  return Object.hasOwn(EXPORT_CONTENT_TYPES, format);
+}
+
+/** A list export as a file to download, for a route to return as it is. */
+export async function exportDownload(
+  table: readonly ExportCell[][],
+  format: ExportFormat,
+  fileName: string,
+): Promise<Response> {
+  const body = format === "csv" ? toCsv(table) : new Uint8Array(await toXlsx(table));
+  return new Response(body, {
+    headers: {
+      "Content-Type": EXPORT_CONTENT_TYPES[format],
+      "Content-Disposition": `attachment; filename="${fileName}.${format}"`,
+      // An export is a snapshot of private data: never kept by a browser or a proxy.
+      "Cache-Control": "no-store",
+    },
+  });
 }

@@ -9,7 +9,8 @@
     "./prettier": "./prettier/index.mjs",
     "./typescript/base.json": "./typescript/base.json",
     "./typescript/nextjs.json": "./typescript/nextjs.json",
-    "./eslint/standards": "./eslint/standards.mjs"
+    "./eslint/standards": "./eslint/standards.mjs",
+    "./vitest/app": "./vitest/app.mjs"
   },
   "peerDependencies": {
     "eslint": "^9.0.0"

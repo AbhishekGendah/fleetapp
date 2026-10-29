@@ -1,6 +1,6 @@
 import type { SetupStepKey } from "@fleetapp/core";
 
-import { BUSINESS_DETAILS_ANCHOR, SETTINGS_PATH } from "../paths";
+import { BUSINESS_DETAILS_ANCHOR, CARS_PATH, SETTINGS_PATH } from "../paths";
 
 export type SetupStepCopy = {
   title: string;
@@ -28,9 +28,11 @@ export const SETUP_STEP_COPY: Record<SetupStepKey, SetupStepCopy> = {
     description: "The terms your Renters sign before they drive away.",
     comingSoon: "Coming later",
   },
+  // Ticked once Renters exist too (Phase 2, step 3); cars can be added now.
   cars_and_renters: {
     title: "Add your cars and Renters",
-    description: "One at a time, or all at once from a spreadsheet.",
-    comingSoon: "Coming soon",
+    description: "Your cars first: Renters are coming soon.",
+    href: CARS_PATH,
+    actionLabel: "Add cars",
   },
 };

@@ -13,7 +13,7 @@ import {
 } from "../../lib/paths";
 import { requireAdmin } from "../../lib/require-admin";
 import { AdminShell } from "../admin-shell";
-import { OPERATOR_LIST } from "./operator-list";
+import { OPERATOR_LIST, OPERATOR_LIST_RULES } from "./operator-list";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,7 +42,7 @@ export default async function OperatorsPage(props: {
       ) : (
         <DataList
           definition={OPERATOR_LIST}
-          page={pageOfRows(operators, OPERATOR_LIST, query)}
+          page={pageOfRows(operators, OPERATOR_LIST_RULES, query)}
           query={query}
           basePath={OPERATORS_PATH}
           rowKey={(operator) => operator.id}

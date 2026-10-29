@@ -1,5 +1,5 @@
 import type { OperatorStatus } from "@fleetapp/core";
-import { cn } from "@fleetapp/ui/cn";
+import { Badge } from "@fleetapp/ui/badge";
 
 import {
   OPERATOR_STATUS_LABELS,
@@ -8,15 +8,8 @@ import {
 
 export function OperatorStatusBadge({ status }: { status: OperatorStatus }) {
   return (
-    <span
-      className={cn(
-        "inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium",
-        operatorStatusNeedsAttention(status)
-          ? "bg-destructive/10 text-destructive"
-          : "bg-muted text-muted-foreground",
-      )}
-    >
+    <Badge tone={operatorStatusNeedsAttention(status) ? "danger" : "neutral"}>
       {OPERATOR_STATUS_LABELS[status]}
-    </span>
+    </Badge>
   );
 }

@@ -1,4 +1,4 @@
-import { postgresFieldsOf } from "@fleetapp/core";
+import { postgresFieldsOf } from "./error-for-log";
 
 const UNIQUE_VIOLATION_CODE = "23505";
 

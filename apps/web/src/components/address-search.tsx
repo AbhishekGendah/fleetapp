@@ -1,8 +1,8 @@
 "use client";
 
 import { describeErrorForLog, type AustralianStateCode } from "@fleetapp/core";
-import { Input } from "@fleetapp/ui/input";
-import { useEffect, useId, useRef, useState } from "react";
+import { SuggestionBox } from "@fleetapp/ui/suggestion-box";
+import { useEffect, useRef, useState } from "react";
 
 import { getAddressAction, searchAddressesAction } from "../app/address-lookup-actions";
 import type { AddressParts } from "../lib/address-lookup/address-from-components";
@@ -72,11 +72,8 @@ export function AddressSearch({
   onValueChange,
   onAddressChosen,
   nearState,
-  onBlur,
   ...inputProps
 }: AddressSearchProps) {
-  const listId = useId();
-  const [activeIndex, setActiveIndex] = useState(-1);
   const [shouldSearch, setShouldSearch] = useState(false);
   // One token per address being looked up: Google bills the typing and the
   // pick together as one lookup.
@@ -88,13 +85,8 @@ export function AddressSearch({
     sessionToken,
   });
 
-  function close(): void {
-    setActiveIndex(-1);
-    setShouldSearch(false);
-  }
-
   async function choose(suggestion: AddressSuggestion): Promise<void> {
-    close();
+    setShouldSearch(false);
     onValueChange(suggestion.mainText);
     const address = await getAddressAction(suggestion.placeId, sessionToken.current).catch(
       (error: unknown) => {
@@ -108,79 +100,32 @@ export function AddressSearch({
     }
   }
 
-  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>): void {
-    if (suggestions.length === 0) {
-      return;
-    }
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      const step = event.key === "ArrowDown" ? 1 : -1;
-      setActiveIndex((index) => (index + step + suggestions.length) % suggestions.length);
-    } else if (event.key === "Enter" && activeIndex >= 0) {
-      // Enter picks the highlighted address instead of saving the form.
-      event.preventDefault();
-      void choose(suggestions[activeIndex]!);
-    } else if (event.key === "Escape") {
-      close();
-    }
-  }
-
-  const isOpen = suggestions.length > 0;
-
   return (
-    <div className="relative">
-      <Input
-        {...inputProps}
-        value={value}
-        role="combobox"
-        autoComplete="off"
-        aria-autocomplete="list"
-        aria-expanded={isOpen}
-        aria-controls={listId}
-        aria-activedescendant={activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}
-        onChange={(event) => {
-          setShouldSearch(true);
-          // New text, new suggestions: nothing is highlighted yet.
-          setActiveIndex(-1);
-          onValueChange(event.target.value);
-        }}
-        onKeyDown={handleKeyDown}
-        onBlur={(event) => {
-          close();
-          onBlur?.(event);
-        }}
-      />
-      {isOpen ? (
-        <div className="bg-card absolute inset-x-0 top-full z-10 mt-1 overflow-hidden rounded-md border shadow-lg">
-          <ul id={listId} role="listbox">
-            {suggestions.map((suggestion, index) => (
-              <li
-                key={suggestion.placeId}
-                id={`${listId}-${index}`}
-                role="option"
-                aria-selected={index === activeIndex}
-                // Before the box's blur, which would close the list first.
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  void choose(suggestion);
-                }}
-                className={`flex min-h-11 cursor-pointer flex-col justify-center px-3 py-2 text-sm ${
-                  index === activeIndex ? "bg-primary-soft" : ""
-                }`}
-              >
-                <span className="font-medium">{suggestion.mainText}</span>
-                {suggestion.secondaryText ? (
-                  <span className="text-muted-foreground text-xs">{suggestion.secondaryText}</span>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-          {/* Google's terms: results shown without a Google map must credit Google. */}
-          <p className="text-muted-foreground border-t px-3 py-1.5 text-right text-xs">
-            Powered by Google
-          </p>
-        </div>
-      ) : null}
-    </div>
+    <SuggestionBox
+      {...inputProps}
+      value={value}
+      onValueChange={(typed) => {
+        setShouldSearch(true);
+        onValueChange(typed);
+      }}
+      suggestions={suggestions}
+      suggestionKey={(suggestion) => suggestion.placeId}
+      renderSuggestion={(suggestion) => (
+        <>
+          <span className="font-medium">{suggestion.mainText}</span>
+          {suggestion.secondaryText ? (
+            <span className="text-muted-foreground text-xs">{suggestion.secondaryText}</span>
+          ) : null}
+        </>
+      )}
+      onSuggestionChosen={(suggestion) => void choose(suggestion)}
+      onDismiss={() => setShouldSearch(false)}
+      footer={
+        // Google's terms: results shown without a Google map must credit Google.
+        <p className="text-muted-foreground border-t px-3 py-1.5 text-right text-xs">
+          Powered by Google
+        </p>
+      }
+    />
   );
 }

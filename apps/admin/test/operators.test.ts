@@ -23,7 +23,7 @@ import { createOperator } from "../src/lib/operators/create-operator";
 import type { OperatorActionDependencies } from "../src/lib/operators/dependencies";
 import { EmailAlreadyInUseError, OperatorSuspendedError } from "../src/lib/operators/errors";
 import type { CreateOperatorInput } from "../src/lib/operators/operator-input";
-import { OPERATOR_LIST } from "../src/app/operators/operator-list";
+import { OPERATOR_LIST, OPERATOR_LIST_RULES } from "../src/app/operators/operator-list";
 import { getOperatorDetail, listOperators } from "../src/lib/operators/queries";
 import { resendInvite } from "../src/lib/operators/resend-invite";
 import { reactivateOperator, suspendOperator } from "../src/lib/operators/suspension";
@@ -189,7 +189,7 @@ describe("Operators and invites", () => {
       const operators = await listOperators(connection.db, new Date());
 
       const query = parseListQuery(OPERATOR_LIST, { q: input.userEmail, status: "invited" });
-      const rows = matchingRows(operators, OPERATOR_LIST, query);
+      const rows = matchingRows(operators, OPERATOR_LIST_RULES, query);
       expect(rows.map((row) => row.id)).toEqual([result.operatorId]);
 
       const [, exported] = exportTable(OPERATOR_LIST.columns, rows);

@@ -1,4 +1,4 @@
-import type { AnyDatabase } from "@fleetapp/db/client";
+import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import type { EmailSender } from "@fleetapp/email";
 
 /**
@@ -14,4 +14,4 @@ export interface OperatorActionDependencies {
   now: () => Date;
 }
 
-export type Transaction = Parameters<Parameters<AnyDatabase["transaction"]>[0]>[0];
+export type Transaction = AnyTransaction;

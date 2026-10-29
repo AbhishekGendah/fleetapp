@@ -16,3 +16,13 @@ export function formatDateTimeInTimeZone(moment: Date, timeZone: string): string
     timeZoneName: "short",
   }).format(moment);
 }
+
+/** A date with no time of day, stored as "2026-11-01", read as "1 Nov 2026" wherever the reader is. */
+export function formatCalendarDate(isoDate: string): string {
+  return new Intl.DateTimeFormat(AUSTRALIAN_LOCALE, {
+    timeZone: "UTC",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(`${isoDate}T00:00:00Z`));
+}

@@ -8,7 +8,7 @@ import {
   type UploadProblem,
 } from "@fleetapp/core";
 import { recordActivity } from "@fleetapp/db/activity";
-import type { AnyDatabase } from "@fleetapp/db/client";
+import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, files } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
@@ -37,10 +37,9 @@ export type UploadRequestResult =
   | { status: "allowed"; fileId: string; permission: UploadPermission }
   | { status: "refused"; problem: UploadProblem };
 
-type Transaction = Parameters<Parameters<AnyDatabase["transaction"]>[0]>[0];
 
 function logFile(
-  tx: Transaction,
+  tx: AnyTransaction,
   actor: FileActor,
   fileId: string,
   action: "uploaded" | "refused" | "deleted",
@@ -178,7 +177,7 @@ function logoInUse(operatorId: string) {
 }
 
 /** Hides the Operator's current logo at once; storage keeps it 30 days (rule 23). */
-async function markLogoDeleted(tx: Transaction, actor: FileActor, now: Date): Promise<boolean> {
+async function markLogoDeleted(tx: AnyTransaction, actor: FileActor, now: Date): Promise<boolean> {
   const removed = await tx
     .update(files)
     .set({ deletedAt: now })

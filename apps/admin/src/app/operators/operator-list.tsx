@@ -1,4 +1,5 @@
 import { formatFileSize, OPERATOR_STATUSES, operatorDisplayName } from "@fleetapp/core";
+import type { InMemoryListRules } from "@fleetapp/core";
 import type { DataListDefinition } from "@fleetapp/ui/data-list";
 
 import { formatAdminDateTime } from "../../lib/format";
@@ -16,7 +17,7 @@ export const OPERATOR_LIST: DataListDefinition<OperatorSummary> = {
       key: "operator",
       label: "Operator",
       isCardTitle: true,
-      sortValue: operatorDisplayName,
+      isSortable: true,
       exportValue: operatorDisplayName,
     },
     { key: "user", label: "User", exportValue: (operator) => operator.userEmail ?? "No User" },
@@ -29,7 +30,7 @@ export const OPERATOR_LIST: DataListDefinition<OperatorSummary> = {
     {
       key: "lastSignIn",
       label: "Last sign-in",
-      sortValue: (operator) => operator.lastSignedInAt,
+      isSortable: true,
       exportValue: (operator) => operator.lastSignedInAt,
       render: (operator) =>
         operator.lastSignedInAt ? formatAdminDateTime(operator.lastSignedInAt) : "Never",
@@ -37,20 +38,18 @@ export const OPERATOR_LIST: DataListDefinition<OperatorSummary> = {
     {
       key: "storage",
       label: "Storage used",
-      sortValue: (operator) => operator.storageUsedBytes,
+      isSortable: true,
       exportValue: (operator) => operator.storageUsedBytes,
       render: (operator) => formatFileSize(operator.storageUsedBytes),
     },
     {
       key: "created",
       label: "Created",
-      sortValue: (operator) => operator.createdAt,
+      isSortable: true,
       exportValue: (operator) => operator.createdAt,
       render: (operator) => formatAdminDateTime(operator.createdAt),
     },
   ],
-  searchText: (operator) =>
-    [operator.legalName, operator.tradingName, operator.userEmail].filter(Boolean).join(" "),
   filters: [
     {
       key: "status",
@@ -59,8 +58,23 @@ export const OPERATOR_LIST: DataListDefinition<OperatorSummary> = {
         value: status,
         label: OPERATOR_STATUS_LABELS[status],
       })),
-      matches: (operator, status) => operator.status === status,
     },
   ],
   defaultSort: { column: "created", direction: "desc" },
+};
+
+/**
+ * Searched and sorted in memory: there will only ever be dozens of
+ * Operators, and their status is worked out from several tables.
+ */
+export const OPERATOR_LIST_RULES: InMemoryListRules<OperatorSummary> = {
+  searchText: (operator) =>
+    [operator.legalName, operator.tradingName, operator.userEmail].filter(Boolean).join(" "),
+  sortValues: {
+    operator: operatorDisplayName,
+    lastSignIn: (operator) => operator.lastSignedInAt,
+    storage: (operator) => operator.storageUsedBytes,
+    created: (operator) => operator.createdAt,
+  },
+  filterMatches: { status: (operator, status) => operator.status === status },
 };

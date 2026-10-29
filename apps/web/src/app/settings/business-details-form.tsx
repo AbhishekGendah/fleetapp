@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  AUSTRALIAN_STATE_CODES,
   AUSTRALIAN_TIMEZONES,
   formatAbn,
   formatAustralianPhone,
@@ -18,14 +17,16 @@ import { Button } from "@fleetapp/ui/button";
 import { Checkbox } from "@fleetapp/ui/checkbox";
 import { FormError } from "@fleetapp/ui/form-message";
 import { FormattedInput } from "@fleetapp/ui/formatted-input";
+import { FormSection } from "@fleetapp/ui/form-section";
 import { fieldErrorId, FormField } from "@fleetapp/ui/form-field";
 import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
 import { Select } from "@fleetapp/ui/select";
-import { startTransition, useActionState, useMemo, useState } from "react";
+import { AustralianStateOptions } from "@fleetapp/ui/state-options";
+import { useFormFields } from "@fleetapp/ui/use-form-fields";
+import { useActionState, useState } from "react";
 import { z } from "zod";
 
 import { AddressSearch } from "../../components/address-search";
-import type { AddressParts } from "../../lib/address-lookup/address-from-components";
 import type { BusinessDetails } from "../../lib/settings/business-details";
 import {
   parseBusinessDetailsForm,
@@ -39,14 +40,6 @@ import {
 } from "./business-details-form-state";
 
 const INITIAL_STATE: BusinessDetailsFormState = { status: "editing" };
-
-/** The boxes a looked-up address fills in. Address line 2 is left as typed. */
-const ADDRESS_FIELDS = [
-  "addressLine1",
-  "suburb",
-  "state",
-  "postcode",
-] as const satisfies readonly (keyof AddressParts)[];
 
 const POSTCODE_WARNING =
   "Saved. That postcode does not usually belong to that state: check it is right.";
@@ -111,101 +104,26 @@ function Field(props: FieldProps) {
   );
 }
 
-function Section(props: { title: string; children: React.ReactNode }) {
-  return (
-    <fieldset className="flex flex-col gap-4">
-      <legend className="text-primary mb-1 text-base font-semibold">{props.title}</legend>
-      {props.children}
-    </fieldset>
-  );
-}
-
-/**
- * Each box is checked once you leave it, then again with every key, using the
- * same rules the server applies on save. Nothing is shown for a box you have
- * not reached yet, so an empty form does not open covered in red.
- */
+/** Checked as you type with the same rules the server applies on save (rule 28). */
 export function BusinessDetailsForm({ details }: { details: BusinessDetails }) {
   const [state, formAction, isPending] = useActionState(saveBusinessDetailsAction, INITIAL_STATE);
-  const [values, setValues] = useState(() => savedValues(details));
   const [isGstRegistered, setIsGstRegistered] = useState(details.gstRegistered);
-  const [checkedFields, setCheckedFields] = useState<ReadonlySet<BusinessDetailTextField>>(
-    () => new Set(),
-  );
-  const [isResultShown, setIsResultShown] = useState(false);
-
-  const errors = useMemo(() => {
-    const parsed = parseBusinessDetailsForm(values, isGstRegistered);
-    return parsed.success ? {} : z.flattenError(parsed.error).fieldErrors;
-  }, [values, isGstRegistered]);
-
-  function errorFor(name: BusinessDetailTextField): string | undefined {
-    return checkedFields.has(name) ? errors[name]?.[0] : undefined;
-  }
-
-  function handleValueChange(name: BusinessDetailTextField, value: string): void {
-    setValues((previous) => ({ ...previous, [name]: value }));
-    setIsResultShown(false);
-  }
-
-  function handleAddressChosen(address: AddressParts): void {
-    setValues((previous) => ({ ...previous, ...address }));
-    setCheckedFields((previous) => new Set([...previous, ...ADDRESS_FIELDS]));
-    setIsResultShown(false);
-  }
-
-  function handleBlur(name: BusinessDetailTextField): void {
-    setCheckedFields((previous) => new Set(previous).add(name));
-  }
-
-  /** What every box shares: its name, its value, and its error wired up for screen readers. */
-  function boxProps(name: BusinessDetailTextField) {
-    const error = errorFor(name);
-    return {
-      id: name,
-      name,
-      value: values[name],
-      onBlur: () => handleBlur(name),
-      "aria-required": isRequiredField(name) ? true : undefined,
-      "aria-invalid": error ? true : undefined,
-      "aria-describedby": error ? fieldErrorId(name) : undefined,
-    };
-  }
-
-  function textBoxProps(name: BusinessDetailTextField) {
-    return {
-      ...boxProps(name),
-      maxLength: MAXIMUM_LINE_LENGTH,
-      onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
-        handleValueChange(name, event.target.value),
-    };
-  }
-
-  function formattedBoxProps(name: BusinessDetailTextField, format: (raw: string) => string) {
-    return {
-      ...boxProps(name),
-      format,
-      onValueChange: (value: string) => handleValueChange(name, value),
-    };
-  }
-
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
-    event.preventDefault();
-    setCheckedFields(new Set(BUSINESS_DETAIL_TEXT_FIELDS));
-    const firstProblem = BUSINESS_DETAIL_TEXT_FIELDS.find((name) => errors[name]);
-    if (firstProblem) {
-      document.getElementById(firstProblem)?.focus();
-      return;
-    }
-    const formData = new FormData(event.currentTarget);
-    setIsResultShown(true);
-    startTransition(() => formAction(formData));
-  }
+  const form = useFormFields({
+    fields: BUSINESS_DETAIL_TEXT_FIELDS,
+    initialValues: savedValues(details),
+    validate: (values) => {
+      const parsed = parseBusinessDetailsForm(values, isGstRegistered);
+      return parsed.success ? {} : z.flattenError(parsed.error).fieldErrors;
+    },
+    isRequired: isRequiredField,
+    maxLength: MAXIMUM_LINE_LENGTH,
+  });
+  const { values, errorFor, boxProps, textBoxProps, formattedBoxProps } = form;
 
   return (
-    <form action={formAction} onSubmit={handleSubmit} noValidate className="flex flex-col gap-8">
+    <form action={formAction} onSubmit={form.submitHandler(formAction)} noValidate className="flex flex-col gap-8">
       <RequiredFieldsNote />
-      <Section title="Your business">
+      <FormSection title="Your business">
         <Field name="legalName" label="Legal name" error={errorFor("legalName")}>
           <Input {...textBoxProps("legalName")} autoComplete="organization" />
         </Field>
@@ -224,16 +142,16 @@ export function BusinessDetailsForm({ details }: { details: BusinessDetails }) {
             placeholder="51 824 753 556"
           />
         </Field>
-      </Section>
+      </FormSection>
 
-      <Section title="GST">
+      <FormSection title="GST">
         <Checkbox
           name="gstRegistered"
           label="This business is registered for GST"
           checked={isGstRegistered}
           onChange={(event) => {
             setIsGstRegistered(event.target.checked);
-            setIsResultShown(false);
+            form.markChanged();
           }}
         />
         {isGstRegistered ? (
@@ -245,16 +163,16 @@ export function BusinessDetailsForm({ details }: { details: BusinessDetails }) {
             <Input {...textBoxProps("gstRegisteredFrom")} type="date" />
           </Field>
         ) : null}
-      </Section>
+      </FormSection>
 
-      <Section title="Address">
+      <FormSection title="Address">
         <Field name="addressLine1" label="Street address" error={errorFor("addressLine1")}>
           <AddressSearch
             {...boxProps("addressLine1")}
             maxLength={MAXIMUM_LINE_LENGTH}
             placeholder="Start typing to search"
-            onValueChange={(value) => handleValueChange("addressLine1", value)}
-            onAddressChosen={handleAddressChosen}
+            onValueChange={(value) => form.setValue("addressLine1", value)}
+            onAddressChosen={form.fillIn}
             nearState={suggestionState(values)}
           />
         </Field>
@@ -269,14 +187,9 @@ export function BusinessDetailsForm({ details }: { details: BusinessDetails }) {
             <Select
               {...boxProps("state")}
               autoComplete="address-level1"
-              onChange={(event) => handleValueChange("state", event.target.value)}
+              onChange={(event) => form.setValue("state", event.target.value)}
             >
-              <option value="">Choose…</option>
-              {AUSTRALIAN_STATE_CODES.map((code) => (
-                <option key={code} value={code}>
-                  {code}
-                </option>
-              ))}
+              <AustralianStateOptions />
             </Select>
           </Field>
           <Field name="postcode" label="Postcode" error={errorFor("postcode")}>
@@ -292,9 +205,9 @@ export function BusinessDetailsForm({ details }: { details: BusinessDetails }) {
             That postcode does not usually belong to {values.state}. Check it; you can still save.
           </p>
         ) : null}
-      </Section>
+      </FormSection>
 
-      <Section title="Contact">
+      <FormSection title="Contact">
         <Field name="phone" label="Phone" error={errorFor("phone")}>
           <FormattedInput
             {...formattedBoxProps("phone", formatAustralianPhone)}
@@ -319,7 +232,7 @@ export function BusinessDetailsForm({ details }: { details: BusinessDetails }) {
         >
           <Select
             {...boxProps("timezone")}
-            onChange={(event) => handleValueChange("timezone", event.target.value)}
+            onChange={(event) => form.setValue("timezone", event.target.value)}
           >
             {AUSTRALIAN_TIMEZONES.map((zone) => (
               <option key={zone.id} value={zone.id}>
@@ -328,10 +241,10 @@ export function BusinessDetailsForm({ details }: { details: BusinessDetails }) {
             ))}
           </Select>
         </Field>
-      </Section>
+      </FormSection>
 
-      {isResultShown && state.status === "failed" ? <FormError message={state.formError} /> : null}
-      {isResultShown && !isPending && state.status === "saved" ? (
+      {form.isResultShown && state.status === "failed" ? <FormError message={state.formError} /> : null}
+      {form.isResultShown && !isPending && state.status === "saved" ? (
         <p
           className={state.hasPostcodeWarning ? "text-attention text-sm" : "text-teal text-sm"}
           role="status"

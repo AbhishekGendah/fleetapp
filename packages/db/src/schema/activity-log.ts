@@ -60,6 +60,8 @@ export const ACTIVITY_ENTITY_TYPES = {
   operatorInvite: "operator_invite",
   operatorSettings: "operator_settings",
   file: "file",
+  vehicle: "vehicle",
+  odometerReading: "odometer_reading",
 } as const;
 
 /** What happened to it. No free text at call sites. */
@@ -80,6 +82,10 @@ export const ACTIVITY_ACTIONS = {
   refused: "refused",
   deleted: "deleted",
   purged: "purged",
+  archived: "archived",
+  restored: "restored",
+  statusChanged: "status_changed",
+  withdrawn: "withdrawn",
 } as const;
 
 export type ActivityEntityType = (typeof ACTIVITY_ENTITY_TYPES)[keyof typeof ACTIVITY_ENTITY_TYPES];

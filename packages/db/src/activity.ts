@@ -1,5 +1,7 @@
 import type { AnyDatabase } from "./client";
 import {
+  ACTIVITY_ACTIONS,
+  ACTIVITY_ENTITY_TYPES,
   activityLog,
   type ActivityAction,
   type ActivityEntityType,
@@ -36,4 +38,48 @@ export async function recordActivity(writer: ActivityWriter, entry: ActivityEntr
     valuesBefore: entry.valuesBefore ?? null,
     valuesAfter: entry.valuesAfter ?? null,
   });
+}
+
+/** What each kind of record is called in a history list. A new kind fails to compile until it has one. */
+const ACTIVITY_ENTITY_LABELS = {
+  [ACTIVITY_ENTITY_TYPES.operator]: "Operator",
+  [ACTIVITY_ENTITY_TYPES.user]: "User",
+  [ACTIVITY_ENTITY_TYPES.operatorInvite]: "Invite",
+  [ACTIVITY_ENTITY_TYPES.operatorSettings]: "Settings",
+  [ACTIVITY_ENTITY_TYPES.file]: "File",
+  [ACTIVITY_ENTITY_TYPES.vehicle]: "Car",
+  [ACTIVITY_ENTITY_TYPES.odometerReading]: "Odometer reading",
+} satisfies Record<ActivityEntityType, string>;
+
+/** What each action reads as after the record's name: "Car archived". */
+const ACTIVITY_ACTION_LABELS = {
+  [ACTIVITY_ACTIONS.created]: "added",
+  [ACTIVITY_ACTIONS.sent]: "sent",
+  [ACTIVITY_ACTIONS.revoked]: "cancelled",
+  [ACTIVITY_ACTIONS.suspended]: "suspended",
+  [ACTIVITY_ACTIONS.reactivated]: "reactivated",
+  [ACTIVITY_ACTIONS.accepted]: "accepted",
+  [ACTIVITY_ACTIONS.signedIn]: "signed in",
+  [ACTIVITY_ACTIONS.signInFailed]: "sign-in failed",
+  [ACTIVITY_ACTIONS.lockedOut]: "locked out",
+  [ACTIVITY_ACTIONS.twoFactorEnrolled]: "authenticator set up",
+  [ACTIVITY_ACTIONS.passwordReset]: "password reset",
+  [ACTIVITY_ACTIONS.updated]: "changed",
+  [ACTIVITY_ACTIONS.uploaded]: "uploaded",
+  [ACTIVITY_ACTIONS.refused]: "refused",
+  [ACTIVITY_ACTIONS.deleted]: "deleted",
+  [ACTIVITY_ACTIONS.purged]: "removed for good",
+  [ACTIVITY_ACTIONS.archived]: "archived",
+  [ACTIVITY_ACTIONS.restored]: "restored",
+  [ACTIVITY_ACTIONS.statusChanged]: "status changed",
+  [ACTIVITY_ACTIONS.withdrawn]: "withdrawn",
+} satisfies Record<ActivityAction, string>;
+
+function labelFor(labels: Readonly<Record<string, string>>, key: string): string {
+  return Object.hasOwn(labels, key) ? labels[key]! : key;
+}
+
+/** One line of history in words, e.g. "Car status changed". Unknown values are shown as stored. */
+export function describeActivity(entityType: string, action: string): string {
+  return `${labelFor(ACTIVITY_ENTITY_LABELS, entityType)} ${labelFor(ACTIVITY_ACTION_LABELS, action)}`;
 }

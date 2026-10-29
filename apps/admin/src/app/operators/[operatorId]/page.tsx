@@ -1,5 +1,5 @@
 import { operatorDisplayName } from "@fleetapp/core";
-import { ACTIVITY_ENTITY_TYPES, type ActivityEntityType } from "@fleetapp/db/schema";
+import { describeActivity } from "@fleetapp/db/activity";
 import { Card, CardContent, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { notFound } from "next/navigation";
 import { z } from "zod";
@@ -84,19 +84,6 @@ export default async function OperatorPage(props: OperatorPageProps) {
   );
 }
 
-/** One label per kind of record: a new kind fails to compile until it has one. */
-const ENTITY_LABELS: Readonly<Record<string, string>> = {
-  [ACTIVITY_ENTITY_TYPES.operator]: "Operator",
-  [ACTIVITY_ENTITY_TYPES.user]: "User",
-  [ACTIVITY_ENTITY_TYPES.operatorInvite]: "Invite",
-  [ACTIVITY_ENTITY_TYPES.operatorSettings]: "Settings",
-  [ACTIVITY_ENTITY_TYPES.file]: "File",
-} satisfies Record<ActivityEntityType, string>;
-
-function describeHistoryEntry(entityType: string, action: string): string {
-  return `${ENTITY_LABELS[entityType] ?? entityType} ${action}`;
-}
-
 function DetailsCard({ operator }: { operator: OperatorDetail }) {
   return (
     <Card>
@@ -162,7 +149,7 @@ function HistoryCard({ operator }: { operator: OperatorDetail }) {
             <li key={entry.id} className="flex flex-col sm:flex-row sm:gap-2">
               <span className="text-muted-foreground">{formatAdminDateTime(entry.occurredAt)}</span>
               <span>
-                {describeHistoryEntry(entry.entityType, entry.action)} by {entry.actorType}
+                {describeActivity(entry.entityType, entry.action)} by {entry.actorType}
               </span>
             </li>
           ))}

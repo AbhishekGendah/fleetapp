@@ -86,7 +86,7 @@ function Toolbar<Row>(props: DataListProps<Row>) {
 
 function SortHeading<Row>(props: DataListProps<Row> & { column: DataListColumn<Row> }) {
   const { column, query, definition } = props;
-  if (!column.sortValue) {
+  if (!column.isSortable) {
     return <>{column.label}</>;
   }
   const isSorted = query.sort.column === column.key;

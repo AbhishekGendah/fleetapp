@@ -6,6 +6,8 @@ import {
   matchingRows,
   pageOfRows,
   parseListQuery,
+  missingListRules,
+  type InMemoryListRules,
   type ListDefinition,
 } from "./list-query";
 import { exportTable, neutraliseSpreadsheetText, toCsv } from "./spreadsheet-cells";
@@ -24,16 +26,10 @@ const CARS: Car[] = [
 
 const CAR_LIST: ListDefinition<Car> = {
   columns: [
-    { key: "rego", label: "Rego", sortValue: (car) => car.rego, exportValue: (car) => car.rego },
-    {
-      key: "odometer",
-      label: "Odometer",
-      sortValue: (car) => car.odometer,
-      exportValue: (car) => car.odometer,
-    },
+    { key: "rego", label: "Rego", isSortable: true, exportValue: (car) => car.rego },
+    { key: "odometer", label: "Odometer", isSortable: true, exportValue: (car) => car.odometer },
     { key: "status", label: "Status", exportValue: (car) => car.status },
   ],
-  searchText: (car) => car.rego,
   filters: [
     {
       key: "status",
@@ -42,10 +38,15 @@ const CAR_LIST: ListDefinition<Car> = {
         { value: "available", label: "Available" },
         { value: "rented", label: "Rented" },
       ],
-      matches: (car, value) => car.status === value,
     },
   ],
   defaultSort: { column: "rego", direction: "asc" },
+};
+
+const CAR_RULES: InMemoryListRules<Car> = {
+  searchText: (car) => car.rego,
+  sortValues: { rego: (car) => car.rego, odometer: (car) => car.odometer },
+  filterMatches: { status: (car, value) => car.status === value },
 };
 
 const regos = (cars: Car[]) => cars.map((car) => car.rego);
@@ -76,14 +77,14 @@ describe("reading a list's query from the page address", () => {
 describe("applying a list's query", () => {
   it("searches without caring about capitals, and filters", () => {
     const query = parseListQuery(CAR_LIST, { q: "AB", status: "available" });
-    expect(regos(matchingRows(CARS, CAR_LIST, query))).toEqual(["abd456"]);
+    expect(regos(matchingRows(CARS, CAR_RULES, query))).toEqual(["abd456"]);
   });
 
   it("sorts either way, with blanks last both times", () => {
     const ascending = parseListQuery(CAR_LIST, { sort: "odometer", dir: "asc" });
     const descending = parseListQuery(CAR_LIST, { sort: "odometer", dir: "desc" });
-    expect(regos(matchingRows(CARS, CAR_LIST, ascending))).toEqual(["abd456", "ABC123", "XYZ789"]);
-    expect(regos(matchingRows(CARS, CAR_LIST, descending))).toEqual(["ABC123", "abd456", "XYZ789"]);
+    expect(regos(matchingRows(CARS, CAR_RULES, ascending))).toEqual(["abd456", "ABC123", "XYZ789"]);
+    expect(regos(matchingRows(CARS, CAR_RULES, descending))).toEqual(["ABC123", "abd456", "XYZ789"]);
   });
 
   it("pages, and shows the last page for a page past the end", () => {
@@ -92,7 +93,7 @@ describe("applying a list's query", () => {
       status: "available" as const,
       odometer: index,
     }));
-    const page = pageOfRows(many, CAR_LIST, parseListQuery(CAR_LIST, { page: "9" }));
+    const page = pageOfRows(many, CAR_RULES, parseListQuery(CAR_LIST, { page: "9" }));
     expect(page).toMatchObject({ total: LIST_PAGE_SIZE + 5, page: 2, pageCount: 2 });
     expect(page.rows).toHaveLength(5);
   });
@@ -124,5 +125,23 @@ describe("exporting a list", () => {
       ["Lee", null],
     ]);
     expect(csv).toBe('﻿Name,Note\r\n"Smith, Jo","Said ""hi"""\r\nLee,');
+  });
+});
+
+describe("missingListRules", () => {
+  it("is empty when every sortable column and filter is covered", () => {
+    expect(
+      missingListRules(CAR_LIST, {
+        sortKeys: Object.keys(CAR_RULES.sortValues),
+        filterKeys: Object.keys(CAR_RULES.filterMatches),
+      }),
+    ).toEqual([]);
+  });
+
+  it("names what is not covered", () => {
+    expect(missingListRules(CAR_LIST, { sortKeys: ["rego"], filterKeys: [] })).toEqual([
+      "odometer",
+      "status",
+    ]);
   });
 });

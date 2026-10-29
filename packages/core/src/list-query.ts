@@ -17,8 +17,8 @@ export type ListValue = string | number | Date | null;
 export interface ListColumn<Row> {
   key: string;
   label: string;
-  /** Present for a column that can be sorted by. */
-  sortValue?: (row: Row) => ListValue;
+  /** Shown with a sort link. The list's rules must say how to sort by it. */
+  isSortable?: boolean;
   /** What goes in the CSV or Excel cell. */
   exportValue: (row: Row) => ListValue;
 }
@@ -28,19 +28,44 @@ export interface ListFilterOption {
   label: string;
 }
 
-export interface ListFilter<Row> {
+export interface ListFilter {
   key: string;
   label: string;
   options: readonly ListFilterOption[];
-  matches: (row: Row, value: string) => boolean;
 }
 
+/**
+ * What a list shows: its columns, filters and starting sort. How it is
+ * searched, filtered and sorted is kept apart, because a small list does it
+ * in memory (`InMemoryListRules`) and a large one in the database.
+ */
 export interface ListDefinition<Row, Column extends ListColumn<Row> = ListColumn<Row>> {
   columns: readonly Column[];
+  filters: readonly ListFilter[];
+  defaultSort: { column: string; direction: SortDirection };
+}
+
+/** How a list held in memory is searched, filtered and sorted, by column and filter key. */
+export interface InMemoryListRules<Row> {
   /** The text the search box looks through. */
   searchText: (row: Row) => string;
-  filters: readonly ListFilter<Row>[];
-  defaultSort: { column: string; direction: SortDirection };
+  sortValues: Readonly<Record<string, (row: Row) => ListValue>>;
+  filterMatches: Readonly<Record<string, (row: Row, value: string) => boolean>>;
+}
+
+/**
+ * The sortable columns and filters a list's rules do not cover: empty when
+ * they match. For tests, so a sort link or filter can never do nothing.
+ */
+export function missingListRules<Row>(
+  definition: ListDefinition<Row>,
+  rules: { sortKeys: readonly string[]; filterKeys: readonly string[] },
+): string[] {
+  const sortable = definition.columns.filter((column) => column.isSortable).map((column) => column.key);
+  return [
+    ...sortable.filter((key) => !rules.sortKeys.includes(key)),
+    ...definition.filters.map((filter) => filter.key).filter((key) => !rules.filterKeys.includes(key)),
+  ];
 }
 
 export interface ListQuery {
@@ -72,7 +97,7 @@ export function parseListQuery<Row>(
 ): ListQuery {
   const sortColumn = single(params, LIST_PARAMS.sort);
   const isSortable = definition.columns.some(
-    (column) => column.key === sortColumn && column.sortValue,
+    (column) => column.key === sortColumn && column.isSortable,
   );
   const direction = single(params, LIST_PARAMS.direction);
   const page = Number(single(params, LIST_PARAMS.page));
@@ -106,28 +131,29 @@ function compare(left: ListValue, right: ListValue): number {
   return Number(leftValue) - Number(rightValue);
 }
 
+/** The words of a search, lower-cased. A row matches when every word is somewhere in it. */
+export function searchWords(search: string): string[] {
+  return search.toLowerCase().split(/\s+/).filter(Boolean);
+}
+
 /** Every row the query matches, sorted: what an export holds. */
 export function matchingRows<Row>(
   rows: readonly Row[],
-  definition: ListDefinition<Row>,
+  rules: InMemoryListRules<Row>,
   query: ListQuery,
 ): Row[] {
-  const search = query.search.toLowerCase();
-  const sortColumn = definition.columns.find((column) => column.key === query.sort.column);
+  const words = searchWords(query.search);
   const directionSign = query.sort.direction === "asc" ? 1 : -1;
 
   const matching = rows.filter(
     (row) =>
-      (!search || definition.searchText(row).toLowerCase().includes(search)) &&
-      definition.filters.every((filter) => {
-        const value = query.filters[filter.key];
-        return value === undefined || filter.matches(row, value);
-      }),
+      words.every((word) => rules.searchText(row).toLowerCase().includes(word)) &&
+      Object.entries(query.filters).every(([key, value]) => rules.filterMatches[key]?.(row, value) ?? true),
   );
-  if (!sortColumn?.sortValue) {
+  const sortValue = rules.sortValues[query.sort.column];
+  if (!sortValue) {
     return matching;
   }
-  const sortValue = sortColumn.sortValue;
   return [...matching].sort((left, right) => {
     const leftValue = sortValue(left);
     const rightValue = sortValue(right);
@@ -145,17 +171,30 @@ export interface ListPage<Row> {
   pageCount: number;
 }
 
-/** One page of the matching rows. A page past the end shows the last one. */
+export interface ListPageBounds {
+  page: number;
+  pageCount: number;
+  /** How many matching rows come before this page. */
+  offset: number;
+}
+
+/** Which page to show of so many matching rows. A page past the end shows the last one. */
+export function listPageBounds(total: number, requestedPage: number): ListPageBounds {
+  const pageCount = Math.max(1, Math.ceil(total / LIST_PAGE_SIZE));
+  const page = Math.min(requestedPage, pageCount);
+  return { page, pageCount, offset: (page - 1) * LIST_PAGE_SIZE };
+}
+
+/** One page of the matching rows, for a list held in memory. */
 export function pageOfRows<Row>(
   rows: readonly Row[],
-  definition: ListDefinition<Row>,
+  rules: InMemoryListRules<Row>,
   query: ListQuery,
 ): ListPage<Row> {
-  const matching = matchingRows(rows, definition, query);
-  const pageCount = Math.max(1, Math.ceil(matching.length / LIST_PAGE_SIZE));
-  const page = Math.min(query.page, pageCount);
+  const matching = matchingRows(rows, rules, query);
+  const { page, pageCount, offset } = listPageBounds(matching.length, query.page);
   return {
-    rows: matching.slice((page - 1) * LIST_PAGE_SIZE, page * LIST_PAGE_SIZE),
+    rows: matching.slice(offset, offset + LIST_PAGE_SIZE),
     total: matching.length,
     page,
     pageCount,

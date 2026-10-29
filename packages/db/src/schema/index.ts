@@ -12,3 +12,4 @@ export * from "./operators";
 export * from "./sign-in-lockout";
 export * from "./user-auth";
 export * from "./users";
+export * from "./vehicles";

@@ -22,6 +22,9 @@ export type Database = NeonDatabase<typeof schema>;
  */
 export type AnyDatabase = PgDatabase<PgQueryResultHKT, typeof schema>;
 
+/** A transaction on any of them, as `database.transaction()` hands it over. */
+export type AnyTransaction = Parameters<Parameters<AnyDatabase["transaction"]>[0]>[0];
+
 declare global {
   // `var` is required here: ambient global declarations don't support `let`/`const`.
   var __fleetappDbPools: Map<string, Pool> | undefined;
