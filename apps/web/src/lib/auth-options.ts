@@ -183,8 +183,9 @@ function buildUserAuthOptions(config: UserAuthConfig) {
   };
 }
 
-export function createUserAuth(config: UserAuthConfig) {
+type UserAuthOptions = ReturnType<typeof buildUserAuthOptions>;
+export type UserAuth = ReturnType<typeof betterAuth<UserAuthOptions>>;
+
+export function createUserAuth(config: UserAuthConfig): UserAuth {
   return betterAuth(buildUserAuthOptions(config));
 }
-
-export type UserAuth = ReturnType<typeof createUserAuth>;

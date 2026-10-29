@@ -156,6 +156,14 @@
     text rules, digits, time units, locale, Operator display name, URL
     joining. Admin has a paths module; no hardcoded page paths.
   - Dead code and misplaced dependencies removed; stale docs fixed.
+  - Approved follow-up (sign-in and history): Admin emails stored
+    lower-cased; one set of login rules in `@fleetapp/auth/login-policy`
+    (password length, lockouts, recovery codes, new-password schema,
+    checked as you type on the invite and reset pages); one
+    `recordActivity` in `@fleetapp/db/activity`; one `getAccountAccess`.
+  - Lint now enforces the standards: no `any`, no empty catch, no stray
+    console output, explicit return types on exported functions in `.ts`
+    files (React components in `.tsx` are left to inference).
   - CI had been failing since the logo went in (the svg types were only
     found after a Next build); fixed, CI green again.
 

@@ -170,8 +170,9 @@ function buildAdminAuthOptions(config: AdminAuthConfig) {
  * Builds the Admin login system. The app hands it a connection on
  * `admin_auth_role`; the tests hand it one to a throwaway Postgres.
  */
-export function createAdminAuth(config: AdminAuthConfig) {
+type AdminAuthOptions = ReturnType<typeof buildAdminAuthOptions>;
+export type AdminAuth = ReturnType<typeof betterAuth<AdminAuthOptions>>;
+
+export function createAdminAuth(config: AdminAuthConfig): AdminAuth {
   return betterAuth(buildAdminAuthOptions(config));
 }
-
-export type AdminAuth = ReturnType<typeof createAdminAuth>;

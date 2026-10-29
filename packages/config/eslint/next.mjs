@@ -1,4 +1,6 @@
 import nextConfig from "eslint-config-next";
 import prettier from "eslint-config-prettier";
 
-export default [...nextConfig, prettier];
+import { standards } from "./standards.mjs";
+
+export default [...nextConfig, prettier, ...standards];

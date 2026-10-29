@@ -50,7 +50,14 @@ interface ResetUser {
  * suspended Operator's User gets no email, and a failure to send is logged
  * rather than shown, so neither reveals anything about the address.
  */
-export function createPasswordResetOptions(deps: PasswordResetDependencies) {
+export interface PasswordResetOptions {
+  resetPasswordTokenExpiresIn: number;
+  revokeSessionsOnPasswordReset: boolean;
+  sendResetPassword: (data: { user: ResetUser; token: string }) => Promise<void>;
+  onPasswordReset: (data: { user: ResetUser }) => Promise<void>;
+}
+
+export function createPasswordResetOptions(deps: PasswordResetDependencies): PasswordResetOptions {
   return {
     resetPasswordTokenExpiresIn: RESET_LINK_LIFETIME_SECONDS,
     // Whoever had the old password is signed out everywhere.
