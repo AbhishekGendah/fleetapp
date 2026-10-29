@@ -141,6 +141,11 @@ Never use "client", "customer" or "tenant" for these in code.
     or `aria-required`. A form with an asterisk shows `RequiredFieldsNote`
     at the top. Optional fields are not labelled "(optional)". Fields are
     checked as they are typed with the same Zod schema the server uses.
+29. Screens use the shared pieces in packages/ui (Button, Input, Select,
+    FormField, Checkbox, the shared list) rather than raw elements; the
+    linter refuses a raw button, box, dropdown, label or table in the
+    apps. A new kind of piece is added to packages/ui (and the component
+    catalogue) first, then used.
 
 ## How to work
 - Read the relevant docs/design/*.md file before working on an area.

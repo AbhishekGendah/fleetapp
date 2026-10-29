@@ -32,7 +32,9 @@ export function AcceptInviteForm(props: { token: string; email: string }) {
   return (
     <form action={formAction} onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
       <input type="hidden" name="token" value={props.token} />
-      {/* Lets a password manager save the new password against the right login. */}
+      {/* Lets a password manager save the new password against the right login.
+          Never shown, so it is not a form box the shared pieces cover. */}
+      {/* eslint-disable-next-line no-restricted-syntax -- an invisible hint for password managers */}
       <input
         type="email"
         name="email"

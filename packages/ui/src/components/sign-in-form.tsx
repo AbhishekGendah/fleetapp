@@ -5,6 +5,7 @@ import { useState } from "react";
 import { AuthPageLayout } from "./auth-page-layout";
 import { Button } from "./button";
 import { ClientForm, SubmitButton } from "./client-form";
+import { Checkbox } from "./checkbox";
 import { CodeInput, TOTP_CODE_LENGTH } from "./code-input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./card";
 import { FormError } from "./form-message";
@@ -220,15 +221,11 @@ function CodeStep(props: CodeStepProps) {
         )}
       </FormField>
       {props.trustDeviceLabel ? (
-        <label className="flex min-h-11 items-center gap-3 text-sm">
-          <input
-            type="checkbox"
-            className="size-5"
-            checked={shouldTrustDevice}
-            onChange={(event) => setShouldTrustDevice(event.target.checked)}
-          />
-          {props.trustDeviceLabel}
-        </label>
+        <Checkbox
+          label={props.trustDeviceLabel}
+          checked={shouldTrustDevice}
+          onChange={(event) => setShouldTrustDevice(event.target.checked)}
+        />
       ) : null}
       <FormError message={errorMessage} />
       <SubmitButton disabled={isSubmitting || !isCodeComplete}>

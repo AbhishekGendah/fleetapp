@@ -15,6 +15,7 @@ import {
   type AustralianStateCode,
 } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
+import { Checkbox } from "@fleetapp/ui/checkbox";
 import { FormError } from "@fleetapp/ui/form-message";
 import { FormattedInput } from "@fleetapp/ui/formatted-input";
 import { fieldErrorId, FormField } from "@fleetapp/ui/form-field";
@@ -226,19 +227,15 @@ export function BusinessDetailsForm({ details }: { details: BusinessDetails }) {
       </Section>
 
       <Section title="GST">
-        <label className="flex min-h-11 items-center gap-3 text-sm">
-          <input
-            type="checkbox"
-            name="gstRegistered"
-            className="size-5"
-            checked={isGstRegistered}
-            onChange={(event) => {
-              setIsGstRegistered(event.target.checked);
-              setIsResultShown(false);
-            }}
-          />
-          This business is registered for GST
-        </label>
+        <Checkbox
+          name="gstRegistered"
+          label="This business is registered for GST"
+          checked={isGstRegistered}
+          onChange={(event) => {
+            setIsGstRegistered(event.target.checked);
+            setIsResultShown(false);
+          }}
+        />
         {isGstRegistered ? (
           <Field
             name="gstRegisteredFrom"

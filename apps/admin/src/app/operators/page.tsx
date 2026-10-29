@@ -51,6 +51,8 @@ function OperatorCards({ operators }: { operators: OperatorSummary[] }) {
 
 function OperatorTable({ operators }: { operators: OperatorSummary[] }) {
   return (
+    // TODO(phase 1b slice 4): move onto the shared list, which replaces this table.
+    // eslint-disable-next-line no-restricted-syntax -- until the shared list exists
     <table className="hidden w-full text-left text-sm md:table">
       <thead className="text-muted-foreground border-b">
         <tr>

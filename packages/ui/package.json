@@ -9,6 +9,7 @@
     "./brand": "./src/brand.ts",
     "./button": "./src/components/button.tsx",
     "./card": "./src/components/card.tsx",
+    "./checkbox": "./src/components/checkbox.tsx",
     "./client-form": "./src/components/client-form.tsx",
     "./cn": "./src/lib/utils.ts",
     "./code-input": "./src/components/code-input.tsx",
