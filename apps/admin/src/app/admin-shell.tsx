@@ -4,7 +4,7 @@ import Link from "next/link";
 import { isDevOutboxEnabled } from "../lib/email";
 import { ADMIN_LABEL } from "./admin-label";
 import { SignOutButton } from "./sign-out-button";
-import { DEV_OUTBOX_PATH, OPERATORS_PATH } from "../lib/paths";
+import { COMPONENTS_PATH, DEV_OUTBOX_PATH, OPERATORS_PATH } from "../lib/paths";
 
 const NAV_LINK_CLASS =
   "flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground";
@@ -29,6 +29,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               Test inbox
             </Link>
           ) : null}
+          <Link href={COMPONENTS_PATH} className={NAV_LINK_CLASS}>
+            Components
+          </Link>
         </nav>
       </header>
       <main className="mx-auto flex max-w-5xl flex-col gap-4 p-4">{children}</main>
