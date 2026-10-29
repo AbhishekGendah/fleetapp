@@ -8,6 +8,7 @@
     "./client": "./src/client.ts",
     "./health": "./src/health.ts",
     "./list-query": "./src/list-query.ts",
+    "./qualified": "./src/qualified.ts",
     "./schema": "./src/schema/index.ts",
     "./tenancy": "./src/tenancy.ts",
     "./tenant-context": "./src/tenant-context.ts",

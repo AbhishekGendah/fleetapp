@@ -1,9 +1,9 @@
 import { FormError } from "@fleetapp/ui/form-message";
 
-import type { CarPageFormState } from "./car-page-state";
+import type { ChangeFormState } from "./change-form-state";
 
-/** What came back from a form on the car page: saved (or saved with a warning), or why not. */
-export function FormResult({ state }: { state: CarPageFormState }) {
+/** What came back from a form that changes a record: saved (or saved with a warning), or why not. */
+export function FormResult({ state }: { state: ChangeFormState }) {
   if (state.status === "failed") {
     return <FormError message={state.formError} />;
   }

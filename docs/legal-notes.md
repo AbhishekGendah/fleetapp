@@ -119,6 +119,21 @@ of service) and the countries.
 - Car exports (CSV/Excel) hold no personal information today. When rentals
   add Renter names to car lists, the export rules under "Exports" apply.
 
+## Rego and insurance (Phase 2 step 2a, built)
+
+- Rego renewals and insurance policies are business records, not personal
+  information. Policy numbers and costs stay inside the Operator's account;
+  the admin app cannot see them.
+- **Record keeping:** rego and insurance costs (with their GST) are tax
+  records. Removing a renewal or archiving a policy only hides it; the
+  record stays, so the Operator can still produce it.
+- **GST:** the app records the GST shown on each bill (prefilled at a tenth,
+  changeable). It does not decide whether the Operator can claim it; that
+  is between the Operator and their accountant. Worth a line in the terms.
+- **Insurance excess** is recorded now and will be used to cap damage
+  recovery charged to Renters (Phase 3/4). Charging a Renter more than the
+  contract allows is a consumer-law risk; check when that is built.
+
 ## Business details (already built)
 
 - An Operator's ABN, address, phone and email are business information,

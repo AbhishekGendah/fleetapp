@@ -1,0 +1,108 @@
+"use server";
+
+import { isRecordId } from "@fleetapp/core";
+
+import {
+  failedState,
+  savedState,
+  type ChangeFormState,
+} from "../../../components/change-form-state";
+import { appDb } from "../../../lib/app-db";
+import {
+  addVehicleToPolicy,
+  createPolicy,
+  removeVehicleFromPolicy,
+} from "../../../lib/vehicles/insurance";
+import { chosenId, policyFromForm, regoFromForm } from "../../../lib/vehicles/paperwork-form-data";
+import { addRegistration, archiveRegistration } from "../../../lib/vehicles/registrations";
+import { changeCar, NOT_FOUND_MESSAGE } from "./change-car";
+
+// The browser runs the same checks first, so this is only reached by a request that skipped them.
+const INVALID_MESSAGE =
+  "Some details are not right, so nothing was saved. Check them and try again.";
+const EARLIER_REGO_WARNING =
+  "Saved, but it expires before the car's current rego, so the current rego has not changed.";
+
+export async function addRegoAction(
+  vehicleId: string,
+  _previous: ChangeFormState,
+  formData: FormData,
+): Promise<ChangeFormState> {
+  const parsed = regoFromForm(formData);
+  if (!parsed.success) {
+    return failedState(INVALID_MESSAGE);
+  }
+  return changeCar(vehicleId, "Adding a rego renewal", async (actor) => {
+    const result = await addRegistration(appDb, actor, vehicleId, parsed.data);
+    if (result.status === "not_found") {
+      return failedState(NOT_FOUND_MESSAGE);
+    }
+    return result.isEarlierThanCurrent
+      ? savedState(EARLIER_REGO_WARNING, true)
+      : savedState("Rego saved.");
+  });
+}
+
+export async function removeRegoAction(
+  vehicleId: string,
+  registrationId: string,
+  _previous: ChangeFormState,
+): Promise<ChangeFormState> {
+  if (!isRecordId(registrationId)) {
+    return failedState(NOT_FOUND_MESSAGE);
+  }
+  return changeCar(vehicleId, "Removing a rego renewal", async (actor) =>
+    (await archiveRegistration(appDb, actor, registrationId)) === "archived"
+      ? savedState("Removed.")
+      : failedState("That renewal was already removed."),
+  );
+}
+
+/** "Add insurance" on a car's page: a new policy covering just this car. */
+export async function addPolicyForCarAction(
+  vehicleId: string,
+  _previous: ChangeFormState,
+  formData: FormData,
+): Promise<ChangeFormState> {
+  const parsed = policyFromForm(formData);
+  if (!parsed.success) {
+    return failedState(INVALID_MESSAGE);
+  }
+  return changeCar(vehicleId, "Adding insurance for a car", async (actor) =>
+    (await createPolicy(appDb, actor, parsed.data, [vehicleId])).status === "created"
+      ? savedState("Insurance saved.")
+      : failedState(NOT_FOUND_MESSAGE),
+  );
+}
+
+export async function joinPolicyAction(
+  vehicleId: string,
+  _previous: ChangeFormState,
+  formData: FormData,
+): Promise<ChangeFormState> {
+  const policyId = chosenId(formData);
+  if (!policyId) {
+    return failedState("Choose a policy.");
+  }
+  return changeCar(vehicleId, "Putting a car on a policy", async (actor) => {
+    const result = await addVehicleToPolicy(appDb, actor, policyId, vehicleId);
+    return result === "not_found"
+      ? failedState(NOT_FOUND_MESSAGE)
+      : savedState("Added to the policy.");
+  });
+}
+
+export async function leavePolicyAction(
+  vehicleId: string,
+  policyId: string,
+  _previous: ChangeFormState,
+): Promise<ChangeFormState> {
+  if (!isRecordId(policyId)) {
+    return failedState(NOT_FOUND_MESSAGE);
+  }
+  return changeCar(vehicleId, "Taking a car off a policy", async (actor) =>
+    (await removeVehicleFromPolicy(appDb, actor, policyId, vehicleId)) === "removed"
+      ? savedState("Taken off the policy.")
+      : failedState("The car was already off that policy."),
+  );
+}

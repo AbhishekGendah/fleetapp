@@ -37,7 +37,6 @@ export type UploadRequestResult =
   | { status: "allowed"; fileId: string; permission: UploadPermission }
   | { status: "refused"; problem: UploadProblem };
 
-
 function logFile(
   tx: AnyTransaction,
   actor: FileActor,

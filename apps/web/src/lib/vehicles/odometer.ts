@@ -1,16 +1,15 @@
-import { recordActivity } from "@fleetapp/db/activity";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import {
   ACTIVITY_ACTIONS,
   ACTIVITY_ENTITY_TYPES,
   odometerReadings,
-  vehicles,
   type ActivityAction,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, desc, eq, isNull } from "drizzle-orm";
 
-import type { ActingUser } from "../acting-user";
+import { recordUserChange, type ActingUser } from "../acting-user";
+import { findCurrentVehicle } from "./current-vehicle";
 
 /** The readings that count: verified and not withdrawn. Shared by every query that needs the current km. */
 export const countedReading = and(
@@ -28,9 +27,7 @@ function logReadingActivity(
   action: ActivityAction,
   valuesAfter?: Record<string, unknown>,
 ): Promise<void> {
-  return recordActivity(tx, {
-    operatorId: actor.operatorId,
-    actor: { type: "user", id: actor.userId },
+  return recordUserChange(tx, actor, {
     entityType: ACTIVITY_ENTITY_TYPES.odometerReading,
     entityId: readingId,
     action,
@@ -79,17 +76,7 @@ export async function recordOdometerReading(
   kilometres: number,
 ): Promise<RecordReadingResult> {
   return withTenant(database, actor.operatorId, async (tx) => {
-    const [vehicle] = await tx
-      .select({ id: vehicles.id })
-      .from(vehicles)
-      .where(
-        and(
-          eq(vehicles.id, vehicleId),
-          eq(vehicles.operatorId, actor.operatorId),
-          isNull(vehicles.archivedAt),
-        ),
-      );
-    if (!vehicle) {
+    if (!(await findCurrentVehicle(tx, actor.operatorId, vehicleId))) {
       return { status: "not_found" };
     }
     const [latest] = await tx

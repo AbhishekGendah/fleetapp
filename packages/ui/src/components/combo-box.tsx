@@ -22,7 +22,8 @@ export function ComboBox({ options, value, onValueChange, onFocus, ...boxProps }
   const [isOpen, setIsOpen] = React.useState(false);
   const matching = filterOptions(options, value);
   // A name typed out in full needs no list under it.
-  const isExactMatch = matching.length === 1 && matching[0]!.toLowerCase() === value.trim().toLowerCase();
+  const isExactMatch =
+    matching.length === 1 && matching[0]!.toLowerCase() === value.trim().toLowerCase();
 
   return (
     <SuggestionBox

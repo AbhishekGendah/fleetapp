@@ -1,13 +1,12 @@
 "use client";
 
-import { MAXIMUM_LINE_LENGTH } from "@fleetapp/core";
+import { fieldErrorsOf } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { FormField } from "@fleetapp/ui/form-field";
 import { FormError } from "@fleetapp/ui/form-message";
 import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
 import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import { useActionState } from "react";
-import { z } from "zod";
 
 import {
   CREATE_OPERATOR_FIELDS,
@@ -43,12 +42,8 @@ export function NewOperatorForm() {
   const form = useFormFields({
     fields: CREATE_OPERATOR_FIELDS,
     initialValues: EMPTY_FORM,
-    validate: (values) => {
-      const parsed = createOperatorInputSchema.safeParse(values);
-      return parsed.success ? {} : z.flattenError(parsed.error).fieldErrors;
-    },
+    validate: (values) => fieldErrorsOf(createOperatorInputSchema.safeParse(values)),
     isRequired: isRequiredCreateOperatorField,
-    maxLength: MAXIMUM_LINE_LENGTH,
   });
   const shownState = form.isResultShown && !isPending ? state : INITIAL_STATE;
 

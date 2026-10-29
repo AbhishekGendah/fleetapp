@@ -1,33 +1,28 @@
 "use client";
 
-import { MAXIMUM_LINE_LENGTH } from "@fleetapp/core";
+import { fieldErrorsOf } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { FormField } from "@fleetapp/ui/form-field";
 import { Input } from "@fleetapp/ui/input";
 import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import { useActionState } from "react";
-import { z } from "zod";
 
 import { odometerInputSchema } from "../../../lib/vehicles/vehicle-input";
-import { CAR_PAGE_INITIAL_STATE, type CarPageFormState } from "./car-page-state";
-import { FormResult } from "./form-result";
+import { INITIAL_CHANGE_STATE, type ChangeFormState } from "../../../components/change-form-state";
+import { FormResult } from "../../../components/form-result";
 
 const ODOMETER_FIELDS = ["kilometres"] as const;
 
 /** Records what the odometer shows now. */
 export function OdometerForm(props: {
-  action: (state: CarPageFormState, formData: FormData) => Promise<CarPageFormState>;
+  action: (state: ChangeFormState, formData: FormData) => Promise<ChangeFormState>;
 }) {
-  const [state, formAction, isPending] = useActionState(props.action, CAR_PAGE_INITIAL_STATE);
+  const [state, formAction, isPending] = useActionState(props.action, INITIAL_CHANGE_STATE);
   const form = useFormFields({
     fields: ODOMETER_FIELDS,
     initialValues: { kilometres: "" },
-    validate: (values) => {
-      const parsed = odometerInputSchema.safeParse(values);
-      return parsed.success ? {} : z.flattenError(parsed.error).fieldErrors;
-    },
+    validate: (values) => fieldErrorsOf(odometerInputSchema.safeParse(values)),
     isRequired: () => true,
-    maxLength: MAXIMUM_LINE_LENGTH,
   });
 
   return (

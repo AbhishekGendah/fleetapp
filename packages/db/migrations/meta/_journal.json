@@ -64,6 +64,13 @@
       "when": 1793265243705,
       "tag": "0008_vehicles",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793285609262,
+      "tag": "0009_vehicle_paperwork",
+      "breakpoints": true
     }
   ]
 }

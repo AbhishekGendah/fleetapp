@@ -2,16 +2,17 @@
 
 import {
   AUSTRALIAN_TIMEZONES,
+  type AustralianStateCode,
+  fieldErrorsOf,
   formatAbn,
   formatAustralianPhone,
   formatPostcode,
+  isAustralianStateCode,
   isRequiredBusinessDetail,
   MAXIMUM_LINE_LENGTH,
-  isAustralianStateCode,
   POSTCODE_PATTERN,
   postcodeMatchesState,
   stateForTimezone,
-  type AustralianStateCode,
 } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { Checkbox } from "@fleetapp/ui/checkbox";
@@ -24,7 +25,6 @@ import { Select } from "@fleetapp/ui/select";
 import { AustralianStateOptions } from "@fleetapp/ui/state-options";
 import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import { useActionState, useState } from "react";
-import { z } from "zod";
 
 import { AddressSearch } from "../../components/address-search";
 import type { BusinessDetails } from "../../lib/settings/business-details";
@@ -111,17 +111,18 @@ export function BusinessDetailsForm({ details }: { details: BusinessDetails }) {
   const form = useFormFields({
     fields: BUSINESS_DETAIL_TEXT_FIELDS,
     initialValues: savedValues(details),
-    validate: (values) => {
-      const parsed = parseBusinessDetailsForm(values, isGstRegistered);
-      return parsed.success ? {} : z.flattenError(parsed.error).fieldErrors;
-    },
+    validate: (values) => fieldErrorsOf(parseBusinessDetailsForm(values, isGstRegistered)),
     isRequired: isRequiredField,
-    maxLength: MAXIMUM_LINE_LENGTH,
   });
   const { values, errorFor, boxProps, textBoxProps, formattedBoxProps } = form;
 
   return (
-    <form action={formAction} onSubmit={form.submitHandler(formAction)} noValidate className="flex flex-col gap-8">
+    <form
+      action={formAction}
+      onSubmit={form.submitHandler(formAction)}
+      noValidate
+      className="flex flex-col gap-8"
+    >
       <RequiredFieldsNote />
       <FormSection title="Your business">
         <Field name="legalName" label="Legal name" error={errorFor("legalName")}>
@@ -243,7 +244,9 @@ export function BusinessDetailsForm({ details }: { details: BusinessDetails }) {
         </Field>
       </FormSection>
 
-      {form.isResultShown && state.status === "failed" ? <FormError message={state.formError} /> : null}
+      {form.isResultShown && state.status === "failed" ? (
+        <FormError message={state.formError} />
+      ) : null}
       {form.isResultShown && !isPending && state.status === "saved" ? (
         <p
           className={state.hasPostcodeWarning ? "text-attention text-sm" : "text-teal text-sm"}

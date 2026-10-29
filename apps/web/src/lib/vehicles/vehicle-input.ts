@@ -1,8 +1,11 @@
 import {
   AUSTRALIAN_STATE_CODES,
+  blankAsMissing,
   BODY_TYPES,
   EARLIEST_VEHICLE_YEAR,
+  emptyForm,
   FUEL_TYPES,
+  isCalendarDate,
   isValidVin,
   latestVehicleYear,
   listedName,
@@ -21,8 +24,6 @@ import {
   needsReturnDate,
 } from "@fleetapp/core";
 import { z } from "zod";
-
-const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Blank means "not given" for the optional choices; anything else must be one of the options. */
 function optionalChoice<const Option extends string>(options: readonly [Option, ...Option[]]) {
@@ -149,9 +150,7 @@ export function isRequiredVehicleField(field: VehicleFormField): boolean {
   return REQUIRED_VEHICLE_FIELDS.includes(field);
 }
 
-export const EMPTY_VEHICLE_FORM: VehicleFormValues = Object.fromEntries(
-  NEW_VEHICLE_FORM_FIELDS.map((field) => [field, ""]),
-) as VehicleFormValues;
+export const EMPTY_VEHICLE_FORM: VehicleFormValues = emptyForm(NEW_VEHICLE_FORM_FIELDS);
 
 /** A saved car as the edit form's boxes show it. */
 export function vehicleFormValues(
@@ -169,7 +168,7 @@ export function vehicleFormValues(
 }
 
 function formForParsing(values: Partial<VehicleFormValues>): Record<string, string | null> {
-  return { ...values, regoState: values.regoState || null };
+  return blankAsMissing(values as Record<string, string>, ["regoState"]);
 }
 
 /** The edit form's checks, the same in the browser as you type and on the server on save. */
@@ -199,7 +198,7 @@ export const vehicleStatusInputSchema = z
     status: z.enum(VEHICLE_STATUSES, "Choose a status."),
     statusReason: optionalLine,
     statusExpectedBack: optionalLine.refine(
-      (value) => value === null || ISO_DATE_PATTERN.test(value),
+      (value) => value === null || isCalendarDate(value),
       "Enter a date.",
     ),
   })

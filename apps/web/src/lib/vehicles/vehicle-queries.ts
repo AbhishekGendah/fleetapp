@@ -13,9 +13,11 @@ import {
   type DatabaseListRules,
 } from "@fleetapp/db/list-query";
 import { odometerReadings, vehicles } from "@fleetapp/db/schema";
+import { qualified } from "@fleetapp/db/qualified";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, asc, count, eq, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 
+import { currentInsuranceEndsOn, currentRegoExpiresOn } from "./expiry-columns";
 import { countedReading } from "./odometer";
 
 /** The filter value that shows archived cars instead of current ones. */
@@ -24,9 +26,9 @@ export const STATUS_FILTER_KEY = "status";
 
 /** The latest counted reading: what the car's odometer is taken to show now. */
 const currentKilometres = sql<number | null>`(
-  select ${odometerReadings.kilometres} from ${odometerReadings}
-  where ${odometerReadings.vehicleId} = ${vehicles.id} and ${countedReading}
-  order by ${odometerReadings.recordedAt} desc limit 1
+  select ${qualified(odometerReadings.kilometres)} from ${odometerReadings}
+  where ${qualified(odometerReadings.vehicleId)} = ${qualified(vehicles.id)} and ${countedReading}
+  order by ${qualified(odometerReadings.recordedAt)} desc limit 1
 )`;
 
 const summaryColumns = {
@@ -41,6 +43,8 @@ const summaryColumns = {
   status: vehicles.status,
   archivedAt: vehicles.archivedAt,
   currentKilometres,
+  regoExpiresOn: currentRegoExpiresOn,
+  insuranceEndsOn: currentInsuranceEndsOn,
 };
 
 export interface VehicleSummary {
@@ -55,6 +59,8 @@ export interface VehicleSummary {
   status: VehicleStatus;
   archivedAt: Date | null;
   currentKilometres: number | null;
+  regoExpiresOn: string | null;
+  insuranceEndsOn: string | null;
 }
 
 export const VEHICLE_LIST_RULES: DatabaseListRules = {
@@ -72,6 +78,8 @@ export const VEHICLE_LIST_RULES: DatabaseListRules = {
     year: vehicles.year,
     kilometres: currentKilometres,
     status: vehicles.status,
+    regoExpires: currentRegoExpiresOn,
+    insuranceEnds: currentInsuranceEndsOn,
   },
   filterBy: {
     [STATUS_FILTER_KEY]: (value) =>

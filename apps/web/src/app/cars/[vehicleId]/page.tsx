@@ -6,11 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@flee
 import { TabLinks } from "@fleetapp/ui/tab-links";
 import Link from "next/link";
 
-import { RecordHistory } from "../../../components/record-history";
 import { AppShell } from "../../app-shell";
 import { appDb } from "../../../lib/app-db";
 import { carPath, CARS_PATH, editCarPath } from "../../../lib/paths";
-import { loadRecordHistory } from "../../../lib/record-history";
+import { loadPaperworkIds } from "../../../lib/vehicles/paperwork-queries";
 import { requireUser, type SignedInUser } from "../../../lib/require-user";
 import {
   describeVehicleValue,
@@ -19,8 +18,9 @@ import {
 } from "../../../lib/vehicles/vehicle-labels";
 import type { VehicleDetail } from "../../../lib/vehicles/vehicle-queries";
 import { formatKilometres } from "../car-list";
+import { CarHistoryCard } from "../car-history-card";
 import { VehicleStatusBadge } from "../vehicle-status-badge";
-import { ActionButton } from "./action-button";
+import { ActionButton } from "../../../components/action-button";
 import {
   changeStatusAction,
   recordReadingAction,
@@ -29,6 +29,7 @@ import {
 } from "./actions";
 import { loadCarOrNotFound } from "./load-car";
 import { OdometerForm } from "./odometer-form";
+import { PaperworkTab } from "./paperwork-tab";
 import { StatusForm } from "./status-form";
 
 export const runtime = "nodejs";
@@ -36,6 +37,7 @@ export const dynamic = "force-dynamic";
 
 const TABS = [
   { key: "details", label: "Details" },
+  { key: "paperwork", label: "Rego & insurance" },
   { key: "odometer", label: "Odometer" },
   { key: "history", label: "History" },
 ] as const;
@@ -198,27 +200,24 @@ function OdometerTab({ vehicle, timezone }: { vehicle: VehicleDetail; timezone: 
 }
 
 async function HistoryTab({ vehicle, user }: { vehicle: VehicleDetail; user: SignedInUser }) {
-  const entries = await loadRecordHistory(appDb, user.operatorId, [
-    { entityType: ACTIVITY_ENTITY_TYPES.vehicle, entityIds: [vehicle.id] },
-    {
-      entityType: ACTIVITY_ENTITY_TYPES.odometerReading,
-      entityIds: vehicle.readings.map((reading) => reading.id),
-    },
-  ]);
+  const paperwork = await loadPaperworkIds(appDb, user.operatorId, vehicle.id);
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>History</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <RecordHistory
-          entries={entries}
-          timezone={user.operatorTimezone}
-          fieldLabel={vehicleFieldLabel}
-          describeValue={describeVehicleValue}
-        />
-      </CardContent>
-    </Card>
+    <CarHistoryCard
+      user={user}
+      subjects={[
+        { entityType: ACTIVITY_ENTITY_TYPES.vehicle, entityIds: [vehicle.id] },
+        {
+          entityType: ACTIVITY_ENTITY_TYPES.odometerReading,
+          entityIds: vehicle.readings.map((reading) => reading.id),
+        },
+        {
+          entityType: ACTIVITY_ENTITY_TYPES.vehicleRegistration,
+          entityIds: paperwork.registrationIds,
+        },
+        // A fleet policy's history includes its other cars: shown, as it is the same policy.
+        { entityType: ACTIVITY_ENTITY_TYPES.insurancePolicy, entityIds: paperwork.policyIds },
+      ]}
+    />
   );
 }
 
@@ -279,6 +278,7 @@ export default async function CarPage(props: {
       />
 
       {tab === "details" ? <DetailsTab vehicle={vehicle} /> : null}
+      {tab === "paperwork" ? <PaperworkTab vehicle={vehicle} user={user} /> : null}
       {tab === "odometer" ? (
         <OdometerTab vehicle={vehicle} timezone={user.operatorTimezone} />
       ) : null}

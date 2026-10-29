@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+import {
+  DEFAULT_EXPIRY_WARNING_DAYS,
+  MAXIMUM_EXPIRY_WARNING_DAYS,
+  MINIMUM_EXPIRY_WARNING_DAYS,
+} from "./expiry";
+
 /**
  * Every Operator setting that is not a business detail, as one validated
  * document (docs/plans/phase-1b.md, slice 2).
@@ -9,10 +15,17 @@ import { z } from "zod";
  * anything missing is read as its default, so adding a setting needs no data
  * migration and every Operator gets the default at once.
  *
- * Empty for now: no feature with a setting exists yet, and no setting is
- * added before the feature that uses it.
+ * No setting is added before the feature that uses it.
  */
-export const operatorSettingsSchema = z.object({});
+export const operatorSettingsSchema = z.object({
+  /** Cars: how many days before rego or insurance expires it shows "Due soon". */
+  vehicleExpiryWarningDays: z
+    .number()
+    .int()
+    .min(MINIMUM_EXPIRY_WARNING_DAYS)
+    .max(MAXIMUM_EXPIRY_WARNING_DAYS)
+    .default(DEFAULT_EXPIRY_WARNING_DAYS),
+});
 
 export type OperatorSettings = z.infer<typeof operatorSettingsSchema>;
 

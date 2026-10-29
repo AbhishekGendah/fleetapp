@@ -49,6 +49,8 @@ const ACTIVITY_ENTITY_LABELS = {
   [ACTIVITY_ENTITY_TYPES.file]: "File",
   [ACTIVITY_ENTITY_TYPES.vehicle]: "Car",
   [ACTIVITY_ENTITY_TYPES.odometerReading]: "Odometer reading",
+  [ACTIVITY_ENTITY_TYPES.vehicleRegistration]: "Rego renewal",
+  [ACTIVITY_ENTITY_TYPES.insurancePolicy]: "Insurance policy",
 } satisfies Record<ActivityEntityType, string>;
 
 /** What each action reads as after the record's name: "Car archived". */
@@ -73,6 +75,8 @@ const ACTIVITY_ACTION_LABELS = {
   [ACTIVITY_ACTIONS.restored]: "restored",
   [ACTIVITY_ACTIONS.statusChanged]: "status changed",
   [ACTIVITY_ACTIONS.withdrawn]: "withdrawn",
+  [ACTIVITY_ACTIONS.vehicleAdded]: "car added",
+  [ACTIVITY_ACTIONS.vehicleRemoved]: "car taken off",
 } satisfies Record<ActivityAction, string>;
 
 function labelFor(labels: Readonly<Record<string, string>>, key: string): string {

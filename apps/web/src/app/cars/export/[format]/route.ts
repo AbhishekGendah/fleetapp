@@ -4,6 +4,8 @@ import type { NextRequest } from "next/server";
 
 import { appDb } from "../../../../lib/app-db";
 import { requireUser } from "../../../../lib/require-user";
+import { withExpiryStatuses } from "../../../../lib/vehicles/expiry-columns";
+import { loadExpiryContext } from "../../../../lib/vehicles/expiry-context";
 import { listVehiclesForExport } from "../../../../lib/vehicles/vehicle-queries";
 import { CAR_LIST } from "../../car-list";
 
@@ -25,6 +27,10 @@ export async function GET(
   }
 
   const query = parseListQuery(CAR_LIST, Object.fromEntries(request.nextUrl.searchParams));
-  const vehicles = await listVehiclesForExport(appDb, user.operatorId, query);
-  return exportDownload(exportTable(CAR_LIST.columns, vehicles), format, EXPORT_FILE_NAME);
+  const [vehicles, expiry] = await Promise.all([
+    listVehiclesForExport(appDb, user.operatorId, query),
+    loadExpiryContext(user),
+  ]);
+  const rows = withExpiryStatuses(vehicles, expiry);
+  return exportDownload(exportTable(CAR_LIST.columns, rows), format, EXPORT_FILE_NAME);
 }

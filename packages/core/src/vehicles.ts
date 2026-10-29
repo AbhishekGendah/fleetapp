@@ -125,3 +125,21 @@ export function findOdometerDrops(readings: readonly OdometerReadingForCheck[]):
       .map((reading) => reading.id),
   );
 }
+
+/** How long a rego renewal runs. */
+export const REGO_TERMS_MONTHS = [3, 6, 12] as const;
+export type RegoTermMonths = (typeof REGO_TERMS_MONTHS)[number];
+
+/** The kinds of car insurance sold in Australia. */
+export const INSURANCE_COVER_TYPES = [
+  "comprehensive",
+  "third_party_fire_theft",
+  "third_party_property",
+] as const;
+export type InsuranceCoverType = (typeof INSURANCE_COVER_TYPES)[number];
+
+export const INSURANCE_COVER_TYPE_LABELS: Readonly<Record<InsuranceCoverType, string>> = {
+  comprehensive: "Comprehensive",
+  third_party_fire_theft: "Third party, fire and theft",
+  third_party_property: "Third party property",
+};

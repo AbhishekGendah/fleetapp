@@ -2,6 +2,7 @@ import {
   AUSTRALIAN_STATE_CODES,
   checkGstRegistration,
   formatAustralianPhone,
+  isCalendarDate,
   isAustralianTimezone,
   isValidAustralianPhone,
   isValidAbn,
@@ -35,7 +36,7 @@ export const businessDetailsInputSchema = z
       .transform(normaliseAbn),
     gstRegistered: z.boolean(),
     gstRegisteredFrom: optionalLine.refine(
-      (value) => value === null || /^\d{4}-\d{2}-\d{2}$/.test(value),
+      (value) => value === null || isCalendarDate(value),
       "Enter a date.",
     ),
     addressLine1: requiredLine,

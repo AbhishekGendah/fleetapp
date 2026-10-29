@@ -49,13 +49,18 @@ function rememberDismissed(): void {
   try {
     window.localStorage.setItem(DISMISSED_STORAGE_KEY, DISMISSED_VALUE);
   } catch (error) {
-    console.warn("Install guide: could not write storage", error instanceof Error ? error.name : "");
+    console.warn(
+      "Install guide: could not write storage",
+      error instanceof Error ? error.name : "",
+    );
   }
 }
 
 function shouldOfferInstall(): boolean {
   return (
-    window.matchMedia(TOUCH_SCREEN_QUERY).matches && !isOpenedFromHomeScreen() && !wasDismissedBefore()
+    window.matchMedia(TOUCH_SCREEN_QUERY).matches &&
+    !isOpenedFromHomeScreen() &&
+    !wasDismissedBefore()
   );
 }
 

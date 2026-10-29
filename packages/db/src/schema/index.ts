@@ -13,3 +13,4 @@ export * from "./sign-in-lockout";
 export * from "./user-auth";
 export * from "./users";
 export * from "./vehicles";
+export * from "./vehicle-paperwork";

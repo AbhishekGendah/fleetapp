@@ -5,8 +5,16 @@ import { DataList } from "@fleetapp/ui/data-list";
 import Link from "next/link";
 
 import { appDb } from "../../lib/app-db";
-import { CARS_EXPORT_PATH, CARS_PATH, carPath, NEW_CAR_PATH } from "../../lib/paths";
+import {
+  CARS_EXPORT_PATH,
+  CARS_PATH,
+  carPath,
+  INSURANCE_PATH,
+  NEW_CAR_PATH,
+} from "../../lib/paths";
 import { requireUser } from "../../lib/require-user";
+import { withExpiryStatuses } from "../../lib/vehicles/expiry-columns";
+import { loadExpiryContext } from "../../lib/vehicles/expiry-context";
 import { hasAnyVehicle, listVehiclePage } from "../../lib/vehicles/vehicle-queries";
 import { AppShell } from "../app-shell";
 import { CAR_LIST } from "./car-list";
@@ -19,9 +27,10 @@ export default async function CarsPage(props: {
 }) {
   const user = await requireUser();
   const query = parseListQuery(CAR_LIST, await props.searchParams);
-  const [hasCars, page] = await Promise.all([
+  const [hasCars, page, expiry] = await Promise.all([
     hasAnyVehicle(appDb, user.operatorId),
     listVehiclePage(appDb, user.operatorId, query),
+    loadExpiryContext(user),
   ]);
   const queryString = listQueryString(CAR_LIST, query, { page: 1 });
 
@@ -29,15 +38,20 @@ export default async function CarsPage(props: {
     <AppShell user={user}>
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-primary text-2xl font-extrabold">Cars</h1>
-        <Button asChild>
-          <Link href={NEW_CAR_PATH}>Add a car</Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <Link href={INSURANCE_PATH}>Insurance</Link>
+          </Button>
+          <Button asChild>
+            <Link href={NEW_CAR_PATH}>Add a car</Link>
+          </Button>
+        </div>
       </div>
 
       {hasCars ? (
         <DataList
           definition={CAR_LIST}
-          page={page}
+          page={{ ...page, rows: withExpiryStatuses(page.rows, expiry) }}
           query={query}
           basePath={CARS_PATH}
           rowKey={(vehicle) => vehicle.id}

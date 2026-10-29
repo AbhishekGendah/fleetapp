@@ -6,6 +6,8 @@ import {
   STATUS_FILTER_KEY,
   type VehicleSummary,
 } from "../../lib/vehicles/vehicle-queries";
+import type { WithExpiryStatuses } from "../../lib/vehicles/expiry-columns";
+import { ExpiryDate } from "./expiry-date";
 import { VehicleStatusBadge } from "./vehicle-status-badge";
 
 function carName(vehicle: VehicleSummary): string {
@@ -21,7 +23,9 @@ export function formatKilometres(kilometres: number): string {
  * cards) and both exports. Searched, sorted and paged by the database
  * (`VEHICLE_LIST_RULES`), so a fleet of any size loads one page at a time.
  */
-export const CAR_LIST: DataListDefinition<VehicleSummary> = {
+export type CarListRow = WithExpiryStatuses<VehicleSummary>;
+
+export const CAR_LIST: DataListDefinition<CarListRow> = {
   columns: [
     {
       key: "rego",
@@ -43,6 +47,22 @@ export const CAR_LIST: DataListDefinition<VehicleSummary> = {
         vehicle.currentKilometres === null
           ? "Not recorded"
           : formatKilometres(vehicle.currentKilometres),
+    },
+    {
+      key: "regoExpires",
+      label: "Rego",
+      isSortable: true,
+      exportValue: (vehicle) => vehicle.regoExpiresOn,
+      render: (vehicle) => <ExpiryDate date={vehicle.regoExpiresOn} status={vehicle.regoStatus} />,
+    },
+    {
+      key: "insuranceEnds",
+      label: "Insurance",
+      isSortable: true,
+      exportValue: (vehicle) => vehicle.insuranceEndsOn,
+      render: (vehicle) => (
+        <ExpiryDate date={vehicle.insuranceEndsOn} status={vehicle.insuranceStatus} />
+      ),
     },
     {
       key: "status",

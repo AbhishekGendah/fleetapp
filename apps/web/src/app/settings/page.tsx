@@ -7,7 +7,9 @@ import { BUSINESS_DETAILS_ANCHOR, SIGN_IN_PATH } from "../../lib/paths";
 import { requireUser } from "../../lib/require-user";
 import { loadBusinessDetails } from "../../lib/settings/business-details";
 import { AppShell } from "../app-shell";
+import { loadOperatorSettings } from "../../lib/settings/operator-settings";
 import { BusinessDetailsForm } from "./business-details-form";
+import { CarSettingsForm } from "./car-settings-form";
 import { LogoUpload } from "./logo-upload";
 
 export const runtime = "nodejs";
@@ -16,9 +18,10 @@ export const dynamic = "force-dynamic";
 /** Later phases add their own sections below business details. */
 export default async function SettingsPage() {
   const user = await requireUser();
-  const [details, logoUrl] = await Promise.all([
+  const [details, logoUrl, settings] = await Promise.all([
     loadBusinessDetails(appDb, user.operatorId),
     loadOperatorLogoUrl(user.operatorId),
+    loadOperatorSettings(appDb, user.operatorId),
   ]);
   if (!details) {
     redirect(SIGN_IN_PATH);
@@ -35,6 +38,15 @@ export default async function SettingsPage() {
         <CardContent className="flex flex-col gap-8">
           <LogoUpload logoUrl={logoUrl} />
           <BusinessDetailsForm details={details} />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Cars</CardTitle>
+          <CardDescription>Shown on the cars list and each car&rsquo;s page.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CarSettingsForm warningDays={settings.vehicleExpiryWarningDays} />
         </CardContent>
       </Card>
     </AppShell>

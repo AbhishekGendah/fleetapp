@@ -43,3 +43,32 @@ export function formTextValues<const Name extends string>(
     }),
   ) as Record<Name, string>;
 }
+
+/** A blank form: every named box empty. */
+export function emptyForm<const Name extends string>(names: readonly Name[]): Record<Name, string> {
+  return Object.fromEntries(names.map((name) => [name, ""])) as Record<Name, string>;
+}
+
+/**
+ * A dropdown left on its "Choose…" option sends "", which a schema should
+ * treat as missing, not as a choice. These become null.
+ */
+export function blankAsMissing<Values extends Record<string, string>>(
+  values: Values,
+  names: readonly (keyof Values)[],
+): Record<string, string | null> {
+  return {
+    ...values,
+    ...Object.fromEntries(names.map((name) => [name, values[name] || null])),
+  };
+}
+
+/**
+ * Each box's messages from a form check, as the shared form helper shows
+ * them: nothing when the form is fine.
+ */
+export function fieldErrorsOf<Output>(
+  result: z.ZodSafeParseResult<Output>,
+): Record<string, string[] | undefined> {
+  return result.success ? {} : z.flattenError(result.error).fieldErrors;
+}

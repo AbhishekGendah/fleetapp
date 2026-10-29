@@ -316,6 +316,8 @@ describe("cars", () => {
 
       expect(page).toMatchObject({ total: LIST_PAGE_SIZE + 1, pageCount: 2 });
       expect(page.rows).toHaveLength(LIST_PAGE_SIZE);
+      // Each car's own first reading, not another table's row.
+      expect(page.rows.every((row) => row.currentKilometres === FIRST_READING_KM)).toBe(true);
     });
 
     it("searches make, model and colour together", async () => {

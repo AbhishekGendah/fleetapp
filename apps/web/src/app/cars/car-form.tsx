@@ -3,6 +3,7 @@
 import {
   BODY_TYPE_LABELS,
   BODY_TYPES,
+  fieldErrorsOf,
   FUEL_TYPE_LABELS,
   FUEL_TYPES,
   listedName,
@@ -24,7 +25,6 @@ import { AustralianStateOptions } from "@fleetapp/ui/state-options";
 import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import Link from "next/link";
 import { useActionState } from "react";
-import { z } from "zod";
 
 import {
   isRequiredVehicleField,
@@ -83,14 +83,11 @@ export function CarForm({ isNew, initialValues, action, submitLabel, cancelHref 
   const form = useFormFields({
     fields: isNew ? NEW_VEHICLE_FORM_FIELDS : VEHICLE_FORM_FIELDS,
     initialValues,
-    validate: (values) => {
-      const parsed = isNew
-        ? parseNewVehicleForm(values, new Date())
-        : parseVehicleForm(values, new Date());
-      return parsed.success ? {} : z.flattenError(parsed.error).fieldErrors;
-    },
+    validate: (values) =>
+      fieldErrorsOf(
+        isNew ? parseNewVehicleForm(values, new Date()) : parseVehicleForm(values, new Date()),
+      ),
     isRequired: isRequiredVehicleField,
-    maxLength: MAXIMUM_LINE_LENGTH,
   });
   // A refusal stops applying as soon as anything is changed.
   const shownState = form.isResultShown && !isPending ? state : INITIAL_STATE;

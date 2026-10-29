@@ -6,5 +6,10 @@ export const APP_ICONS = [
   { src: `${ICON_FOLDER}/icon-192.png`, sizes: "192x192", type: "image/png", purpose: "any" },
   { src: `${ICON_FOLDER}/icon-512.png`, sizes: "512x512", type: "image/png", purpose: "any" },
   // Extra space around the emblem so Android can crop it to a circle or squircle.
-  { src: `${ICON_FOLDER}/maskable-512.png`, sizes: "512x512", type: "image/png", purpose: "maskable" },
+  {
+    src: `${ICON_FOLDER}/maskable-512.png`,
+    sizes: "512x512",
+    type: "image/png",
+    purpose: "maskable",
+  },
 ] as const;

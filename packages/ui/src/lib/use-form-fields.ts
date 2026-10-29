@@ -1,11 +1,14 @@
 "use client";
 
+import { MAXIMUM_LINE_LENGTH } from "@fleetapp/core";
 import { startTransition, useState, type ChangeEvent, type FormEvent } from "react";
 
 import { fieldErrorId } from "../components/form-field";
 
 /** Each field's messages, as Zod's `flattenError(...).fieldErrors` gives them. */
-export type FieldErrors<Field extends string> = Partial<Record<Field, readonly string[] | undefined>>;
+export type FieldErrors<Field extends string> = Partial<
+  Record<Field, readonly string[] | undefined>
+>;
 
 export interface FormFieldsOptions<Field extends string> {
   fields: readonly Field[];
@@ -14,8 +17,8 @@ export interface FormFieldsOptions<Field extends string> {
   validate: (values: Readonly<Record<Field, string>>) => FieldErrors<Field>;
   /** Given the values, since a box can become required, e.g. a date once GST is ticked. */
   isRequired: (field: Field, values: Readonly<Record<Field, string>>) => boolean;
-  /** The longest text any box takes. */
-  maxLength: number;
+  /** The longest text any box takes: one line of text unless said otherwise. */
+  maxLength?: number;
 }
 
 /** What every box shares: its name, its value, and its error wired up for screen readers. */
@@ -54,7 +57,9 @@ export interface FormFields<Field extends string> {
    * The form's onSubmit: shows every problem and moves to the first, or, if
    * there are none, sends the form to `send` (the form's server action).
    */
-  submitHandler: (send: (formData: FormData) => void) => (event: FormEvent<HTMLFormElement>) => void;
+  submitHandler: (
+    send: (formData: FormData) => void,
+  ) => (event: FormEvent<HTMLFormElement>) => void;
   /**
    * True once the form is sent, until anything changes: whether the answer
    * from the server still applies and should be shown.
@@ -108,7 +113,7 @@ export function useFormFields<Field extends string>(
   function textBoxProps(field: Field): TextBoxProps {
     return {
       ...boxProps(field),
-      maxLength: options.maxLength,
+      maxLength: options.maxLength ?? MAXIMUM_LINE_LENGTH,
       onChange: (event) => setValue(field, event.target.value),
     };
   }

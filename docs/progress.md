@@ -252,9 +252,35 @@
   - Fixed (row A-24): the admin New Operator form now checks each box as
     you type with the shared form helper, like every other form.
 
+- Phase 2 step 2 plan approved (docs/plans/phase-2-step-2.md). 2a built:
+  - Tables `vehicle_registrations`, `insurance_policies`,
+    `insurance_policy_vehicles` (migration 0009): forced RLS, two-column
+    links so nothing can point at another Operator's car or policy, no
+    deletes, no admin access, GST at most a tenth (checked by the
+    database too).
+  - Money: `packages/core/src/money.ts` (typed dollars to cents, GST of a
+    tenth, limits), tested. Calendar dates and "today in the Operator's
+    timezone" in `calendar-dates.ts`, expiry badges in `expiry.ts`.
+  - Screens: car page tab "Rego & insurance" (renewals, policies the car
+    is on, add insurance for this car, put on an existing policy); Cars →
+    Insurance (list, add a fleet policy with tick boxes, policy page with
+    cars, edit, archive, history); car list Rego and Insurance columns
+    with Due soon / Expired badges; Settings → Cars "Due soon" days
+    (first real Operator setting, stored in operator_settings).
+  - Fixed a bug found while building: the car list's Odometer column
+    showed "Not recorded" for every car (a sub-query matched the wrong
+    table's id). All such sub-queries now name their tables in full
+    (`packages/db/src/qualified.ts`); a test guards it.
+  - Shared along the way: one helper for logging a User's change, one for
+    running a change and refreshing pages, the result message and action
+    button pieces moved to `apps/web/src/components`, one history card,
+    and `fieldErrorsOf` so every form checks the same short way.
+  - Rego papers and insurance certificates attach in 2c, with the upload
+    piece.
+
 ## Next
-Phase 2 step 2: car paperwork, costs and photos (rego renewals,
-insurance policies, purchase and sale, other costs, photos, documents).
+Phase 2 step 2b: purchase, sale (buyer details, transfer papers) and other
+costs. Then 2c: photos and documents.
 
 ## Open items
 - Production buckets (before go-live): set the bucket clean-up rule for

@@ -1,5 +1,4 @@
 import { changedValues, hasChanges, isUniqueViolation } from "@fleetapp/core";
-import { recordActivity } from "@fleetapp/db/activity";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import {
   ACTIVITY_ACTIONS,
@@ -12,7 +11,7 @@ import {
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
-import type { ActingUser } from "../acting-user";
+import { recordUserChange, type ActingUser, type UserChange } from "../acting-user";
 import { addReading } from "./odometer";
 import type { NewVehicleInput, VehicleInput, VehicleStatusInput } from "./vehicle-input";
 
@@ -125,11 +124,9 @@ function logVehicleActivity(
   actor: ActingUser,
   vehicleId: string,
   action: ActivityAction,
-  values: { valuesBefore?: Record<string, unknown>; valuesAfter?: Record<string, unknown> } = {},
+  values: Pick<UserChange, "valuesBefore" | "valuesAfter"> = {},
 ): Promise<void> {
-  return recordActivity(tx, {
-    operatorId: actor.operatorId,
-    actor: { type: "user", id: actor.userId },
+  return recordUserChange(tx, actor, {
     entityType: ACTIVITY_ENTITY_TYPES.vehicle,
     entityId: vehicleId,
     action,

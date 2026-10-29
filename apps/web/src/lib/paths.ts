@@ -24,3 +24,11 @@ export function carPath(vehicleId: string): string {
 export function editCarPath(vehicleId: string): string {
   return `${carPath(vehicleId)}/edit`;
 }
+
+/** Insurance policies: most cover one car, a fleet policy several. */
+export const INSURANCE_PATH = `${CARS_PATH}/insurance`;
+export const NEW_POLICY_PATH = `${INSURANCE_PATH}/new`;
+
+export function policyPath(policyId: string): string {
+  return `${INSURANCE_PATH}/${policyId}`;
+}

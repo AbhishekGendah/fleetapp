@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  MAXIMUM_LINE_LENGTH,
+  fieldErrorsOf,
   needsReturnDate,
   VEHICLE_STATUS_LABELS,
   VEHICLE_STATUSES,
@@ -12,33 +12,28 @@ import { Input } from "@fleetapp/ui/input";
 import { Select } from "@fleetapp/ui/select";
 import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import { useActionState } from "react";
-import { z } from "zod";
 
 import {
   vehicleStatusInputSchema,
   type VehicleStatusFormValues,
 } from "../../../lib/vehicles/vehicle-input";
 import { VEHICLE_FIELD_LABELS } from "../../../lib/vehicles/vehicle-labels";
-import { CAR_PAGE_INITIAL_STATE, type CarPageFormState } from "./car-page-state";
-import { FormResult } from "./form-result";
+import { INITIAL_CHANGE_STATE, type ChangeFormState } from "../../../components/change-form-state";
+import { FormResult } from "../../../components/form-result";
 
 const STATUS_FIELDS = ["status", "statusReason", "statusExpectedBack"] as const;
 
 /** Changes the car's status. In service and off road ask why and until when. */
 export function StatusForm(props: {
   initialValues: VehicleStatusFormValues;
-  action: (state: CarPageFormState, formData: FormData) => Promise<CarPageFormState>;
+  action: (state: ChangeFormState, formData: FormData) => Promise<ChangeFormState>;
 }) {
-  const [state, formAction, isPending] = useActionState(props.action, CAR_PAGE_INITIAL_STATE);
+  const [state, formAction, isPending] = useActionState(props.action, INITIAL_CHANGE_STATE);
   const form = useFormFields({
     fields: STATUS_FIELDS,
     initialValues: props.initialValues,
-    validate: (values) => {
-      const parsed = vehicleStatusInputSchema.safeParse(values);
-      return parsed.success ? {} : z.flattenError(parsed.error).fieldErrors;
-    },
+    validate: (values) => fieldErrorsOf(vehicleStatusInputSchema.safeParse(values)),
     isRequired: (field, values) => field === "status" || needsReturnDate(values.status),
-    maxLength: MAXIMUM_LINE_LENGTH,
   });
   const isAway = needsReturnDate(form.values.status);
 
