@@ -168,6 +168,12 @@
   Admin) is checked against Have I Been Pwned by its fingerprint's first 5
   characters. If the service is down the password is allowed and a
   warning logged.
+- Keeping one standard: the linter refuses raw buttons, boxes, dropdowns,
+  labels and tables in the apps (rule 29); a Components page in admin
+  shows every shared piece; CI fails on copy-pasted code (`pnpm
+  duplicates`, rule 30). Sign-in browser code, sign-out, the health
+  check and the shared settings checks now live in one place each.
+- Next decision: session timeouts (plan with Abhi).
   - CI had been failing since the logo went in (the svg types were only
     found after a Next build); fixed, CI green again.
 
