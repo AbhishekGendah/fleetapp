@@ -204,6 +204,9 @@ sorting, filters, search, CSV/Excel export), first used by the admin
 Operator list.
 
 ## Open items
+- Production buckets (before go-live): set the bucket clean-up rule for
+  old copies to 7 days, not 30, so deleted files are gone ~30 days after
+  deletion. See docs/legal-notes.md.
 - Address lookup: Google Places (New), project `fleetapp-dev-513004` on
   the Altus Google account. Key `fleetapp-web-dev` (Places API (New)
   only) in Bitwarden and Vercel. Daily caps 300 each on

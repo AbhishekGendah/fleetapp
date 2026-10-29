@@ -87,6 +87,12 @@ of service) and the countries.
   hidden details phones add to photos, such as the GPS location where a
   photo was taken. Worth saying in the privacy policy.
 - Deleted files are kept 30 days, then removed for good (rule 23).
+- **Before go-live:** each bucket's own clean-up rule keeps an old copy
+  for another 30 days after the app removes a file, so a file can last
+  about 60 days in all. Fine for dev (no personal data). The production
+  buckets must use 7 days, so "removed after 30 days" stays true for
+  Renter photos and licence scans (APP 11.2, deletion requests, breach
+  exposure).
 
 ## Business details (already built)
 
