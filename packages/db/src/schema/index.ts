@@ -5,6 +5,7 @@ export * from "./admin-users";
 export * from "./columns";
 export * from "./dev-email-outbox";
 export * from "./enums";
+export * from "./files";
 export * from "./operator-invites";
 export * from "./operator-settings";
 export * from "./operators";
