@@ -1,3 +1,4 @@
+import { MILLISECONDS_PER_MINUTE } from "@fleetapp/core";
 import { sql, type SQL } from "drizzle-orm";
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 
@@ -6,8 +7,6 @@ import {
   SIGN_IN_LOCKOUT_MINUTES,
   type SignInLockoutStore,
 } from "./sign-in-lockout";
-
-const MILLISECONDS_PER_MINUTE = 60 * 1000;
 
 /** Only the password login is locked; it is the only kind there is in v1. */
 const CREDENTIAL_PROVIDER_ID = "credential";

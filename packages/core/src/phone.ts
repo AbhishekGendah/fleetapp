@@ -1,3 +1,5 @@
+import { digitsOnly } from "./text";
+
 /** An Australian phone number, written the national way, has 10 digits at most. */
 export const PHONE_MAXIMUM_DIGITS = 10;
 /** "13 12 34" style business numbers are six digits. */
@@ -10,7 +12,7 @@ const COUNTRY_CODE = "61";
 
 /** "+61 412…" is the same number as "0412…": keep the national form. */
 function nationalDigits(input: string): string {
-  const digits = input.replace(/\D/g, "");
+  const digits = digitsOnly(input);
   const isInternational = input.trim().startsWith("+") && digits.startsWith(COUNTRY_CODE);
   const national = isInternational ? `0${digits.slice(COUNTRY_CODE.length)}` : digits;
   return national.slice(0, PHONE_MAXIMUM_DIGITS);
@@ -54,7 +56,7 @@ function kindOf(digits: string): PhoneKind {
  * the box cannot hold more than a number can have.
  */
 export function formatAustralianPhone(input: string): string {
-  const typedDigits = input.replace(/\D/g, "");
+  const typedDigits = digitsOnly(input);
   // Mid-way through typing "+61": keep the plus, or it could never be typed.
   if (input.trim().startsWith("+") && COUNTRY_CODE.startsWith(typedDigits)) {
     return `+${typedDigits}`;

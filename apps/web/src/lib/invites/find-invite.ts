@@ -1,4 +1,4 @@
-import { hashSecretToken, isInviteUsable } from "@fleetapp/core";
+import { hashSecretToken, isInviteUsable, operatorDisplayName } from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { operatorInvites, operators, users } from "@fleetapp/db/schema";
 import { eq } from "drizzle-orm";
@@ -52,6 +52,6 @@ export async function findUsableInvite(
     userId: row.invite.userId,
     operatorId: row.invite.operatorId,
     email: row.email,
-    operatorName: row.tradingName ?? row.legalName,
+    operatorName: operatorDisplayName(row),
   };
 }

@@ -1,3 +1,4 @@
+import { operatorDisplayName } from "@fleetapp/core";
 import { ACTIVITY_ENTITY_TYPES } from "@fleetapp/db/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { notFound } from "next/navigation";
@@ -57,7 +58,7 @@ export default async function OperatorPage(props: OperatorPageProps) {
     <AdminShell>
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-xl font-semibold">{operator.tradingName ?? operator.legalName}</h1>
+          <h1 className="text-xl font-semibold">{operatorDisplayName(operator)}</h1>
           <OperatorStatusBadge status={operator.status} />
         </div>
         {resultMessage ? (

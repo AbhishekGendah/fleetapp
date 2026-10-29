@@ -1,3 +1,4 @@
+import { operatorDisplayName } from "@fleetapp/core";
 import {
   ACTIVITY_ACTIONS,
   ACTIVITY_ENTITY_TYPES,
@@ -39,7 +40,7 @@ export async function resendInvite(
   const isInviteSent = await deliverInvite(deps, {
     invite: reissued.invite,
     operatorId,
-    operatorName: reissued.operator.tradingName ?? reissued.operator.legalName,
+    operatorName: operatorDisplayName(reissued.operator),
     adminUserId,
     to: reissued.user.email,
     inviteeName: reissued.user.fullName,

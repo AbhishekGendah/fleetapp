@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 
 import { base32 } from "@better-auth/utils/base32";
 import { createOTP } from "@better-auth/utils/otp";
-import { generateSecretToken, getInviteExpiry, hashSecretToken } from "@fleetapp/core";
+import {
+  generateSecretToken,
+  getInviteExpiry,
+  hashSecretToken,
+  MILLISECONDS_PER_DAY,
+} from "@fleetapp/core";
 import {
   activityLog,
   adminUsers,
@@ -26,7 +31,7 @@ const WRONG_PASSWORD = "not-the-right-password";
 const TEST_SECRET = "a-test-signing-secret-at-least-32-chars-long";
 const TEST_BASE_URL = "http://localhost:3000";
 const TOTP_DIGITS = 6;
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const ONE_DAY_MS = MILLISECONDS_PER_DAY;
 const TRUST_DEVICE_COOKIE = "trust_device";
 const NEW_PASSWORD = "a-different-long-password";
 const RESET_LINK_PATTERN = /\/reset-password\?token=([^\s"&]+)/;

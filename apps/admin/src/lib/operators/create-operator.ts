@@ -1,3 +1,4 @@
+import { operatorDisplayName } from "@fleetapp/core";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, operators, users } from "@fleetapp/db/schema";
 
 import { recordAdminActivity } from "./activity";
@@ -38,7 +39,7 @@ export async function createOperator(
   const isInviteSent = await deliverInvite(deps, {
     invite: created.invite,
     operatorId: created.operatorId,
-    operatorName: input.tradingName ?? input.legalName,
+    operatorName: operatorDisplayName(input),
     adminUserId,
     to: input.userEmail,
     inviteeName: input.userFullName,

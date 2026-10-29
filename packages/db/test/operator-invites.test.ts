@@ -1,3 +1,4 @@
+import { INVITE_LIFETIME_DAYS, MILLISECONDS_PER_DAY } from "@fleetapp/core";
 import { randomUUID } from "node:crypto";
 
 import { eq } from "drizzle-orm";
@@ -13,7 +14,7 @@ import {
   type TestConnection,
 } from "./fixtures";
 
-const INVITE_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
+const INVITE_LIFETIME_MS = INVITE_LIFETIME_DAYS * MILLISECONDS_PER_DAY;
 
 /**
  * The database's own limits on invites, suspension and the test inbox. These

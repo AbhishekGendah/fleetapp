@@ -1,9 +1,8 @@
+import { MILLISECONDS_PER_DAY } from "./time-units";
 import { joinUrl } from "./urls";
 
 /** How long an invite link works for. An AGS setting, not an Operator one. */
 export const INVITE_LIFETIME_DAYS = 7;
-
-const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
  * Where an invite link points, on the Operator app. Shared because the admin

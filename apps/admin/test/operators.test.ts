@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { hashSecretToken } from "@fleetapp/core";
+import { hashSecretToken, MILLISECONDS_PER_DAY } from "@fleetapp/core";
 import {
   activityLog,
   adminUsers,
@@ -23,7 +23,7 @@ import { reactivateOperator, suspendOperator } from "../src/lib/operators/suspen
 
 const APP_URL = "https://app.example.test";
 const INVITE_LINK_PATTERN = /https:\/\/app\.example\.test\/invite\/([A-Za-z0-9_-]+)/;
-const EIGHT_DAYS_MS = 8 * 24 * 60 * 60 * 1000;
+const EIGHT_DAYS_MS = 8 * MILLISECONDS_PER_DAY;
 
 /** Keeps what would have been sent, so a test can open the link in it. */
 function createRecordingSender(): EmailSender & { messages: EmailMessage[] } {

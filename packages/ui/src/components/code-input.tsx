@@ -1,10 +1,12 @@
 "use client";
 
+import { digitsOnly } from "@fleetapp/core";
 import { useEffect, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
 
-const DIGITS_ONLY = /\D/g;
+/** Authenticator apps show 6-digit codes. */
+export const TOTP_CODE_LENGTH = 6;
 
 export interface CodeInputProps {
   id: string;
@@ -58,7 +60,7 @@ export function CodeInput(props: CodeInputProps) {
   // A pasted whole code replaces what is there, rather than being added after
   // the digits already typed and cut short.
   function handlePaste(event: React.ClipboardEvent<HTMLInputElement>): void {
-    const pasted = event.clipboardData.getData("text").replace(DIGITS_ONLY, "");
+    const pasted = digitsOnly(event.clipboardData.getData("text"));
     if (pasted.length < props.length) {
       return;
     }
@@ -82,9 +84,7 @@ export function CodeInput(props: CodeInputProps) {
         aria-label={props.ariaLabel}
         value={props.value}
         disabled={props.isDisabled}
-        onChange={(event) =>
-          acceptDigits(event.target.value.replace(DIGITS_ONLY, "").slice(0, props.length))
-        }
+        onChange={(event) => acceptDigits(digitsOnly(event.target.value).slice(0, props.length))}
         onPaste={handlePaste}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}

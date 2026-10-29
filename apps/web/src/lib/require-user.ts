@@ -1,3 +1,4 @@
+import { operatorDisplayName } from "@fleetapp/core";
 import { operators, users } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { eq } from "drizzle-orm";
@@ -71,7 +72,7 @@ async function loadSignedInAccount(): Promise<SignedInAccount | null> {
     email: row.email,
     fullName: row.fullName,
     twoFactorEnabled: row.twoFactorEnabled,
-    operatorName: row.tradingName ?? row.legalName,
+    operatorName: operatorDisplayName(row),
     isSuspended: row.suspendedAt !== null,
     isClosed: row.userArchivedAt !== null || row.operatorArchivedAt !== null,
   };

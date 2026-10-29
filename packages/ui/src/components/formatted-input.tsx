@@ -1,5 +1,6 @@
 "use client";
 
+import { digitsOnly } from "@fleetapp/core";
 import * as React from "react";
 
 import { countDigitsBefore, positionAfterDigits, removeDigit } from "../lib/caret";
@@ -38,7 +39,7 @@ export function FormattedInput({ value, format, onValueChange, ...props }: Forma
     // Backspace on a space or bracket would be undone by reformatting, leaving
     // the cursor stuck: take out the digit before it instead.
     const isBackspace = (event.nativeEvent as InputEvent).inputType === "deleteContentBackward";
-    if (isBackspace && raw.replace(/\D/g, "") === value.replace(/\D/g, "")) {
+    if (isBackspace && digitsOnly(raw) === digitsOnly(value)) {
       raw = removeDigit(raw, digitsBeforeCaret);
       digitsBeforeCaret -= 1;
     }

@@ -1,3 +1,5 @@
+import { AUSTRALIAN_LOCALE } from "./locale";
+
 const AFTERNOON_STARTS_AT_HOUR = 12;
 const EVENING_STARTS_AT_HOUR = 17;
 
@@ -5,7 +7,7 @@ export type Greeting = "Good morning" | "Good afternoon" | "Good evening";
 
 /** The hour (0 to 23) on the Operator's own clock, not the server's (rule 10). */
 function hourInTimeZone(moment: Date, timeZone: string): number {
-  const hour = new Intl.DateTimeFormat("en-AU", {
+  const hour = new Intl.DateTimeFormat(AUSTRALIAN_LOCALE, {
     timeZone,
     hour: "numeric",
     hourCycle: "h23",

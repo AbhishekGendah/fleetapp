@@ -5,13 +5,11 @@ import { useState } from "react";
 import { AuthPageLayout } from "./auth-page-layout";
 import { Button } from "./button";
 import { ClientForm, SubmitButton } from "./client-form";
-import { CodeInput } from "./code-input";
+import { CodeInput, TOTP_CODE_LENGTH } from "./code-input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./card";
 import { FormError } from "./form-message";
 import { FormField } from "./form-field";
 import { Input, RequiredFieldsNote } from "./input";
-
-const TOTP_CODE_LENGTH = 6;
 
 /**
  * Deliberately vague, and the same whatever went wrong. Telling someone which
@@ -73,7 +71,7 @@ export function SignInForm(props: SignInFormProps) {
             {step === "password"
               ? props.description
               : step === "code"
-                ? "Enter the 6-digit code from your authenticator app."
+                ? `Enter the ${TOTP_CODE_LENGTH}-digit code from your authenticator app.`
                 : "Enter one of the recovery codes you saved when you set up your authenticator."}
           </CardDescription>
         </CardHeader>

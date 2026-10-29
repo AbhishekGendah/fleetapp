@@ -1,3 +1,5 @@
+import { digitsOnly } from "./text";
+
 /** An ABN is always 11 digits. Shown grouped 2-3-3-3, e.g. "51 824 753 556". */
 export const ABN_DIGIT_COUNT = 11;
 
@@ -5,7 +7,7 @@ export const ABN_DIGIT_COUNT = 11;
 const ABN_WEIGHTS = [10, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19] as const;
 const ABN_MODULUS = 89;
 
-/** People type ABNs with spaces, so the digits are all that count. */
+/** ABNs are written with spaces between the groups; they are dropped. */
 export function normaliseAbn(input: string): string {
   return input.replace(/\s+/g, "");
 }
@@ -35,7 +37,7 @@ const ABN_GROUP_ENDS = [2, 5, 8] as const;
  * digit, and anything past the 11th digit, is dropped.
  */
 export function formatAbn(input: string): string {
-  const digits = input.replace(/\D/g, "").slice(0, ABN_DIGIT_COUNT);
+  const digits = digitsOnly(input).slice(0, ABN_DIGIT_COUNT);
   return [...digits]
     .map((digit, index) => (ABN_GROUP_ENDS.includes(index as 2 | 5 | 8) ? ` ${digit}` : digit))
     .join("");

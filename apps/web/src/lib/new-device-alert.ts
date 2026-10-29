@@ -5,6 +5,7 @@ import {
   generateSecretToken,
   hashSecretToken,
   joinUrl,
+  SECONDS_PER_DAY,
 } from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { operators, userKnownDevices, users } from "@fleetapp/db/schema";
@@ -18,7 +19,7 @@ import { FORGOT_PASSWORD_PATH } from "./paths";
 const KNOWN_DEVICE_COOKIE = "known_device";
 
 /** Browsers cap a cookie's life at 400 days; asking for more gets less. */
-const KNOWN_DEVICE_COOKIE_SECONDS = 400 * 24 * 60 * 60;
+const KNOWN_DEVICE_COOKIE_SECONDS = 400 * SECONDS_PER_DAY;
 
 export interface NewDeviceAlertOptions {
   database: AnyDatabase;

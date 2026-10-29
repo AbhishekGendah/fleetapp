@@ -1,3 +1,4 @@
+import { AUSTRALIAN_LOCALE } from "@fleetapp/core";
 import {
   Body,
   Button,
@@ -37,7 +38,7 @@ export function EmailLayout(props: {
   children: ReactNode;
 }): ReactElement {
   return (
-    <Html lang="en">
+    <Html lang={AUSTRALIAN_LOCALE}>
       <Head />
       <Preview>{props.preview}</Preview>
       <Body style={bodyStyle}>

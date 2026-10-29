@@ -1,3 +1,4 @@
+import { operatorDisplayName } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent } from "@fleetapp/ui/card";
 import Link from "next/link";
@@ -14,7 +15,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function displayName(operator: OperatorSummary): string {
-  return operator.tradingName ?? operator.legalName;
+  return operatorDisplayName(operator);
 }
 
 function formatLastSignIn(operator: OperatorSummary): string {

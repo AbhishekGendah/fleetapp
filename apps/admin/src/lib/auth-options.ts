@@ -1,3 +1,4 @@
+import { SECONDS_PER_HOUR, SECONDS_PER_MINUTE } from "@fleetapp/core";
 import {
   ADMIN_ACTIVITY_ACTIONS,
   adminAccounts,
@@ -18,10 +19,10 @@ import { twoFactor } from "better-auth/plugins";
  * account reaches every Operator.
  */
 const MAX_FAILED_TWO_FACTOR_ATTEMPTS = 5;
-const LOCKOUT_DURATION_SECONDS = 900;
+const LOCKOUT_DURATION_SECONDS = 15 * SECONDS_PER_MINUTE;
 
 /** How long an Admin stays signed in before having to sign in again. */
-const SESSION_DURATION_SECONDS = 60 * 60 * 8;
+const SESSION_DURATION_SECONDS = 8 * SECONDS_PER_HOUR;
 
 /** Recovery codes, shown once at enrolment and never again. */
 const RECOVERY_CODE_COUNT = 10;

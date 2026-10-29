@@ -1,4 +1,4 @@
-import { describeErrorForLog } from "@fleetapp/core";
+import { describeErrorForLog, SECONDS_PER_DAY } from "@fleetapp/core";
 import { createDrizzleLockoutStore, signInLockout, VERIFY_CODE_PATH } from "@fleetapp/auth";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import {
@@ -18,8 +18,6 @@ import { isAllowedToSignIn } from "./sign-in-eligibility";
 import { newDeviceAlert } from "./new-device-alert";
 import { createPasswordResetOptions } from "./password-reset";
 import { recordUserActivity, type RecordUserActivity } from "./user-activity";
-
-const SECONDS_PER_DAY = 24 * 60 * 60;
 
 /**
  * How long a User stays signed in, and how often an active session's expiry

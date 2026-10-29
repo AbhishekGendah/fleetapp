@@ -6,13 +6,12 @@ import { useState } from "react";
 import { AuthPageLayout } from "./auth-page-layout";
 import { Button } from "./button";
 import { ClientForm, SubmitButton } from "./client-form";
-import { CodeInput } from "./code-input";
+import { CodeInput, TOTP_CODE_LENGTH } from "./code-input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./card";
 import { FormError } from "./form-message";
 import { FormField } from "./form-field";
 import { Input, RequiredFieldsNote } from "./input";
 
-const TOTP_CODE_LENGTH = 6;
 const QR_CODE_WIDTH_PX = 240;
 
 const PASSWORD_FAILED_MESSAGE = "That password was not right.";
@@ -195,7 +194,11 @@ function ScanStep(props: {
         </p>
       ) : null}
       <RequiredFieldsNote />
-      <FormField htmlFor="code" label="Enter the 6-digit code it shows" isRequired>
+      <FormField
+        htmlFor="code"
+        label={`Enter the ${TOTP_CODE_LENGTH}-digit code it shows`}
+        isRequired
+      >
         <CodeInput
           id="code"
           name="code"
