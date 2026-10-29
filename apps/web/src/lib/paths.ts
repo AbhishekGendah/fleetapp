@@ -8,3 +8,6 @@ export const RESET_PASSWORD_PATH = "/reset-password";
 export const SETTINGS_PATH = "/settings";
 /** The business details card on the Settings page, for linking straight to it. */
 export const BUSINESS_DETAILS_ANCHOR = "business-details";
+
+/** The daily file clean-up, called by Vercel's scheduler (listed in vercel.json). */
+export const FILE_HOUSEKEEPING_CRON_PATH = "/api/cron/file-housekeeping";

@@ -39,6 +39,12 @@ const envSchema = z.object({
    */
   FILE_STORAGE_ACCESS_KEY_ID: z.string().min(1),
   FILE_STORAGE_SECRET_ACCESS_KEY: z.string().min(1),
+
+  /**
+   * Proves a scheduled job's call comes from Vercel's scheduler, which sends
+   * it as a bearer token. Random, at least 32 characters.
+   */
+  CRON_SECRET: z.string().min(32, "CRON_SECRET must be at least 32 characters"),
 });
 
 export const env = envSchema.parse({
@@ -55,4 +61,5 @@ export const env = envSchema.parse({
   FILE_STORAGE_REGION: process.env.FILE_STORAGE_REGION,
   FILE_STORAGE_ACCESS_KEY_ID: process.env.FILE_STORAGE_ACCESS_KEY_ID,
   FILE_STORAGE_SECRET_ACCESS_KEY: process.env.FILE_STORAGE_SECRET_ACCESS_KEY,
+  CRON_SECRET: process.env.CRON_SECRET,
 });

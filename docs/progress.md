@@ -184,6 +184,13 @@
   permission for one address, then a first-bytes check. Logo upload in
   Settings, shown in the header; one logo in use per Operator. Admin
   Operator list shows storage used. Shared ImageUpload in the catalogue.
+- Phase 1b slice 3b, daily file clean-up: Vercel's scheduler calls
+  `/api/cron/file-housekeeping` at 3am Perth with `CRON_SECRET`. It purges
+  files deleted over 30 days ago and uploads unfinished after 24 hours,
+  one Operator at a time with its tenant context set; it finds them
+  through `app.operators_with_file_housekeeping_due` (migration 0007),
+  which returns Operator IDs only. Purged records stay; each removal is
+  logged as done by the system.
 - Session timeouts (approved): Users signed out after 7 days without use
   and at 30 days at most; Admins after 30 minutes without use and at 8
   hours at most. The hard limit ends the sign-in for good and the sign-in
@@ -192,8 +199,9 @@
     found after a Next build); fixed, CI green again.
 
 ## Next
-Phase 1b slice 3b: the daily clean-up job (purge files deleted over 30
-days ago, clear unfinished uploads), protected by `CRON_SECRET`.
+Phase 1b slice 4: the shared list (table on desktop, cards on a phone,
+sorting, filters, search, CSV/Excel export), first used by the admin
+Operator list.
 
 ## Open items
 - Address lookup: Google Places (New), project `fleetapp-dev-513004` on

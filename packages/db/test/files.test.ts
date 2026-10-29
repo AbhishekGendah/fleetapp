@@ -130,3 +130,49 @@ describe("file records", () => {
     expect(code).toBe(POSTGRES_ERROR_CODES.insufficientPrivilege);
   });
 });
+
+describe("finding Operators with files to clean up", () => {
+  let web: TestConnection;
+  let admin: TestConnection;
+  let dueOperatorId: string;
+  let quietOperatorId: string;
+
+  beforeAll(async () => {
+    web = connectAs(inject("webRoleUrl"));
+    admin = connectAs(inject("adminRoleUrl"));
+    ({ operatorAId: dueOperatorId, operatorBId: quietOperatorId } = await seedTwoOperators(
+      admin.db,
+    ));
+    const longAgo = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000);
+    await withTenant(web.db, dueOperatorId, (tx) =>
+      tx
+        .insert(schema.files)
+        .values({ ...logoRow(dueOperatorId), confirmedAt: longAgo, deletedAt: longAgo }),
+    );
+    await withTenant(web.db, quietOperatorId, (tx) =>
+      tx.insert(schema.files).values({ ...logoRow(quietOperatorId), confirmedAt: new Date() }),
+    );
+  });
+
+  afterAll(async () => {
+    await Promise.all([web.close(), admin.close()]);
+  });
+
+  it("tells the Operator app which Operators have work, and nothing more", async () => {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const result = await web.db.execute(
+      sql`SELECT * FROM app.operators_with_file_housekeeping_due(${thirtyDaysAgo.toISOString()}::timestamptz, ${dayAgo.toISOString()}::timestamptz) AS operator_id`,
+    );
+    const operatorIds = (result.rows as { operator_id: string }[]).map((row) => row.operator_id);
+
+    expect(operatorIds).toContain(dueOperatorId);
+    expect(operatorIds).not.toContain(quietOperatorId);
+  });
+
+  it("still lets the Operator app read no other Operator's files directly", async () => {
+    const rows = await withTenant(web.db, quietOperatorId, (tx) => tx.select().from(schema.files));
+
+    expect(rows.every((row) => row.operatorId === quietOperatorId)).toBe(true);
+  });
+});
