@@ -1,4 +1,9 @@
-import { hashSecretToken, isInviteUsable, operatorDisplayName } from "@fleetapp/core";
+import {
+  getAccountAccess,
+  hashSecretToken,
+  isInviteUsable,
+  operatorDisplayName,
+} from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { operatorInvites, operators, users } from "@fleetapp/db/schema";
 import { eq } from "drizzle-orm";
@@ -32,7 +37,7 @@ export async function findUsableInvite(
       userArchivedAt: users.archivedAt,
       legalName: operators.legalName,
       tradingName: operators.tradingName,
-      suspendedAt: operators.suspendedAt,
+      operatorSuspendedAt: operators.suspendedAt,
       operatorArchivedAt: operators.archivedAt,
     })
     .from(operatorInvites)
@@ -43,7 +48,7 @@ export async function findUsableInvite(
   if (!row || !isInviteUsable(row.invite, now)) {
     return null;
   }
-  if (row.userArchivedAt || row.suspendedAt || row.operatorArchivedAt) {
+  if (getAccountAccess(row) !== "open") {
     return null;
   }
 

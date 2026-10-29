@@ -1,3 +1,4 @@
+import { getAccountAccess } from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { operators, users } from "@fleetapp/db/schema";
 import { eq } from "drizzle-orm";
@@ -18,5 +19,5 @@ export async function isAllowedToSignIn(database: AnyDatabase, userId: string): 
     .innerJoin(operators, eq(operators.id, users.operatorId))
     .where(eq(users.id, userId));
 
-  return Boolean(row && !row.userArchivedAt && !row.operatorSuspendedAt && !row.operatorArchivedAt);
+  return row !== undefined && getAccountAccess(row) === "open";
 }

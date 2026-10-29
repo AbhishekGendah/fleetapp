@@ -1,4 +1,4 @@
-import { operatorDisplayName } from "@fleetapp/core";
+import { getAccountAccess, operatorDisplayName, type AccountAccess } from "@fleetapp/core";
 import { operators, users } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { eq } from "drizzle-orm";
@@ -25,9 +25,7 @@ interface SignedInAccount {
   fullName: string;
   twoFactorEnabled: boolean;
   operatorName: string;
-  isSuspended: boolean;
-  /** The User or their Operator has been archived: no way in at all. */
-  isClosed: boolean;
+  access: AccountAccess;
 }
 
 /**
@@ -55,7 +53,7 @@ async function loadSignedInAccount(): Promise<SignedInAccount | null> {
         userArchivedAt: users.archivedAt,
         legalName: operators.legalName,
         tradingName: operators.tradingName,
-        suspendedAt: operators.suspendedAt,
+        operatorSuspendedAt: operators.suspendedAt,
         operatorArchivedAt: operators.archivedAt,
       })
       .from(users)
@@ -73,8 +71,7 @@ async function loadSignedInAccount(): Promise<SignedInAccount | null> {
     fullName: row.fullName,
     twoFactorEnabled: row.twoFactorEnabled,
     operatorName: operatorDisplayName(row),
-    isSuspended: row.suspendedAt !== null,
-    isClosed: row.userArchivedAt !== null || row.operatorArchivedAt !== null,
+    access: getAccountAccess(row),
   };
 }
 
@@ -89,10 +86,10 @@ export async function requireUser(
   options: { allowWithoutAuthenticator?: boolean } = {},
 ): Promise<SignedInUser> {
   const account = await loadSignedInAccount();
-  if (!account || account.isClosed) {
+  if (!account || account.access === "closed") {
     redirect(SIGN_IN_PATH);
   }
-  if (account.isSuspended) {
+  if (account.access === "suspended") {
     redirect(SUSPENDED_PATH);
   }
   if (!account.twoFactorEnabled && !options.allowWithoutAuthenticator) {
@@ -116,10 +113,10 @@ export async function requireUser(
  */
 export async function requireSuspendedUser(): Promise<void> {
   const account = await loadSignedInAccount();
-  if (!account || account.isClosed) {
+  if (!account || account.access === "closed") {
     redirect(SIGN_IN_PATH);
   }
-  if (!account.isSuspended) {
+  if (account.access !== "suspended") {
     redirect(HOME_PATH);
   }
 }
