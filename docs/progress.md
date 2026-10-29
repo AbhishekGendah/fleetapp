@@ -216,8 +216,8 @@
   (rule 25), not now.
 
 ## Next
-Phase 1b is complete. Next: plan Phase 2 (vehicles and Renters) from
-docs/roadmap.md and docs/design/02 and 03, for Abhi's approval.
+Phase 1b is complete. Phase 2 (cars and Renters) is drafted in
+docs/plans/phase-2.md, waiting for Abhi's approval.
 
 ## Open items
 - Production buckets (before go-live): set the bucket clean-up rule for
