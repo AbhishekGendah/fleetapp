@@ -1,4 +1,3 @@
-import { SECONDS_PER_HOUR } from "@fleetapp/core";
 import {
   ADMIN_ACTIVITY_ACTIONS,
   type AdminActivityAction,
@@ -9,6 +8,7 @@ import {
   adminVerifications,
 } from "@fleetapp/db/schema";
 import {
+  ADMIN_SESSION,
   createDrizzleLockoutStore,
   MAXIMUM_PASSWORD_LENGTH,
   MINIMUM_PASSWORD_LENGTH,
@@ -21,9 +21,6 @@ import type { AnyDatabase } from "@fleetapp/db/client";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { twoFactor } from "better-auth/plugins";
-
-/** How long an Admin stays signed in before having to sign in again. */
-const SESSION_DURATION_SECONDS = 8 * SECONDS_PER_HOUR;
 
 /**
  * "Remember this device" is deliberately switched off for Admins: an Admin
@@ -90,7 +87,10 @@ function buildAdminAuthOptions(config: AdminAuthConfig) {
     session: {
       modelName: "admin_sessions",
       fields: { userId: "adminUserId" },
-      expiresIn: SESSION_DURATION_SECONDS,
+      // The inactivity window, pushed back as the Admin works; the 8-hour hard
+      // limit is checked in requireAdmin.
+      expiresIn: ADMIN_SESSION.idleSeconds,
+      updateAge: ADMIN_SESSION.refreshSeconds,
     },
     account: { modelName: "admin_accounts", fields: { userId: "adminUserId" } },
     verification: { modelName: "admin_verifications" },

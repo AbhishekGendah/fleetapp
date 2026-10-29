@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
-import { adminActivityLog, adminUsers } from "@fleetapp/db/schema";
+import { ADMIN_SESSION } from "@fleetapp/auth/login-policy";
+import { adminActivityLog, adminSessions, adminUsers } from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { base32 } from "@better-auth/utils/base32";
 import { createOTP } from "@better-auth/utils/otp";
@@ -146,6 +147,18 @@ describe("the admin login", () => {
       const result = await auth.api.signInEmail({ body: { email, password: TEST_PASSWORD } });
 
       expect(result.user.email).toBe(email);
+    });
+
+    it("lasts 30 minutes without activity, the Admin inactivity window", async () => {
+      const result = await auth.api.signInEmail({ body: { email, password: TEST_PASSWORD } });
+      const [session] = await connection.db
+        .select({ expiresAt: adminSessions.expiresAt })
+        .from(adminSessions)
+        .where(eq(adminSessions.token, result.token!));
+
+      const lastsMs = session!.expiresAt.getTime() - Date.now();
+      expect(lastsMs).toBeGreaterThan((ADMIN_SESSION.idleSeconds - 60) * 1000);
+      expect(lastsMs).toBeLessThanOrEqual(ADMIN_SESSION.idleSeconds * 1000);
     });
 
     it("leaves an Admin without an authenticator short of admin access", async () => {

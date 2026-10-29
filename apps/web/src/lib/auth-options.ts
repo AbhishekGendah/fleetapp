@@ -6,6 +6,7 @@ import {
   RECOVERY_CODES,
   signInLockout,
   TWO_FACTOR_LOCKOUT,
+  USER_SESSION,
   VERIFY_CODE_PATH,
 } from "@fleetapp/auth";
 import type { AnyDatabase } from "@fleetapp/db/client";
@@ -27,14 +28,6 @@ import { newDeviceAlert } from "./new-device-alert";
 import { createPasswordResetOptions } from "./password-reset";
 import { TRUSTED_DEVICE_DAYS } from "./trusted-device-policy";
 import { recordUserActivity, type RecordUserActivity } from "./user-activity";
-
-/**
- * How long a User stays signed in, and how often an active session's expiry
- * is pushed back. Operators use this every day on their phone; signing in
- * with a code every few hours would be the wrong trade.
- */
-const SESSION_DURATION_SECONDS = 7 * SECONDS_PER_DAY;
-const SESSION_REFRESH_SECONDS = SECONDS_PER_DAY;
 
 const TRUSTED_DEVICE_SECONDS = TRUSTED_DEVICE_DAYS * SECONDS_PER_DAY;
 
@@ -104,8 +97,9 @@ function buildUserAuthOptions(config: UserAuthConfig) {
     },
     session: {
       modelName: "user_sessions",
-      expiresIn: SESSION_DURATION_SECONDS,
-      updateAge: SESSION_REFRESH_SECONDS,
+      // The inactivity window; the 30-day hard limit is checked in requireUser.
+      expiresIn: USER_SESSION.idleSeconds,
+      updateAge: USER_SESSION.refreshSeconds,
     },
     account: { modelName: "user_accounts" },
     verification: {

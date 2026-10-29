@@ -1,3 +1,8 @@
+import {
+  hasReachedSessionLimit,
+  timeLimitSignInPath,
+  USER_SESSION,
+} from "@fleetapp/auth/login-policy";
 import { getAccountAccess, operatorDisplayName, type AccountAccess } from "@fleetapp/core";
 import { operators, users } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
@@ -38,9 +43,18 @@ interface SignedInAccount {
  * flags are current rather than a snapshot from sign-in.
  */
 async function loadSignedInAccount(): Promise<SignedInAccount | null> {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const requestHeaders = await headers();
+  const session = await auth.api.getSession({ headers: requestHeaders });
   if (!session) {
     return null;
+  }
+  // Ended for good, not just hidden, so the old cookie is worth nothing.
+  if (hasReachedSessionLimit(session.session.createdAt, new Date(), USER_SESSION.maxAgeSeconds)) {
+    await auth.api.revokeSession({
+      body: { token: session.session.token },
+      headers: requestHeaders,
+    });
+    redirect(timeLimitSignInPath(SIGN_IN_PATH));
   }
   const operatorId = session.user.operatorId;
 

@@ -174,13 +174,18 @@
   shows every shared piece; CI fails on copy-pasted code (`pnpm
   duplicates`, rule 30). Sign-in browser code, sign-out, the health
   check and the shared settings checks now live in one place each.
-- Next decision: session timeouts (plan with Abhi).
+- Session timeouts (approved): Users signed out after 7 days without use
+  and at 30 days at most; Admins after 30 minutes without use and at 8
+  hours at most. The hard limit ends the sign-in for good and the sign-in
+  page says why. Numbers in `@fleetapp/auth/login-policy`.
   - CI had been failing since the logo went in (the svg types were only
     found after a Next build); fixed, CI green again.
 
 ## Next
 Phase 1b slice 3: file storage (S3 in Sydney), with the Operator's logo
-as the first use. Needs Abhi to set up AWS, one step at a time.
+as the first use. Needs Abhi to set up AWS, one step at a time. Plan to
+be re-checked against what has changed since it was written, then
+started.
 
 ## Open items
 - Address lookup: Google Places (New), project `fleetapp-dev-513004` on

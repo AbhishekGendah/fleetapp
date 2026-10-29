@@ -1,3 +1,8 @@
+import {
+  ADMIN_SESSION,
+  hasReachedSessionLimit,
+  timeLimitSignInPath,
+} from "@fleetapp/auth/login-policy";
 import { adminUsers } from "@fleetapp/db/schema";
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
@@ -31,10 +36,19 @@ export interface SignedInAdmin {
 export async function requireAdmin(
   options: { allowWithoutAuthenticator?: boolean } = {},
 ): Promise<SignedInAdmin> {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const requestHeaders = await headers();
+  const session = await auth.api.getSession({ headers: requestHeaders });
 
   if (!session) {
     redirect(SIGN_IN_PATH);
+  }
+  // Ended for good, not just hidden, so the old cookie is worth nothing.
+  if (hasReachedSessionLimit(session.session.createdAt, new Date(), ADMIN_SESSION.maxAgeSeconds)) {
+    await auth.api.revokeSession({
+      body: { token: session.session.token },
+      headers: requestHeaders,
+    });
+    redirect(timeLimitSignInPath(SIGN_IN_PATH));
   }
 
   const [admin] = await appDb

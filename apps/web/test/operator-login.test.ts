@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { USER_SESSION } from "@fleetapp/auth/login-policy";
 import { base32 } from "@better-auth/utils/base32";
 import { createOTP } from "@better-auth/utils/otp";
 import {
@@ -233,6 +234,10 @@ describe("the Operator login", () => {
       });
 
       expect(session?.user.operatorId).toBe(seeded.operatorId);
+      // A week without use before it lapses; the 30-day limit is checked on page loads.
+      const lastsMs = session!.session.expiresAt.getTime() - Date.now();
+      expect(lastsMs).toBeGreaterThan((USER_SESSION.idleSeconds - 60) * 1000);
+      expect(lastsMs).toBeLessThanOrEqual(USER_SESSION.idleSeconds * 1000);
     });
 
     it("refuses a suspended Operator's User, even with the right password", async () => {

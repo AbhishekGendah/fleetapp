@@ -1,4 +1,9 @@
-import { SECONDS_PER_MINUTE } from "@fleetapp/core";
+import {
+  MILLISECONDS_PER_SECOND,
+  SECONDS_PER_DAY,
+  SECONDS_PER_HOUR,
+  SECONDS_PER_MINUTE,
+} from "@fleetapp/core";
 import { z } from "zod";
 
 /**
@@ -49,3 +54,58 @@ export type NewPasswordInput = z.infer<typeof newPasswordSchema>;
 /** Shown when a new password is found in known breaches. A warning: it may still be used. */
 export const BREACHED_PASSWORD_WARNING =
   "This password has appeared in a data breach elsewhere, so people trying to break in may already have it. We recommend choosing a different one.";
+
+/**
+ * How long a sign-in lasts (approved by Abhi). Each has an inactivity window,
+ * pushed back by every page opened, and a hard limit after which the person
+ * signs in again however busy they have been.
+ *
+ * Users: a week without use, and 30 days at most. Operators work from their
+ * phone all day, so a short timeout would make the app painful; their
+ * authenticator and the new-device email protect them.
+ * Admins: 30 minutes without use, and 8 hours at most. An Admin reaches
+ * every Operator.
+ */
+export const USER_SESSION = {
+  idleSeconds: 7 * SECONDS_PER_DAY,
+  /** How often an active sign-in's end is pushed back. */
+  refreshSeconds: SECONDS_PER_DAY,
+  maxAgeSeconds: 30 * SECONDS_PER_DAY,
+  maxAgeWords: "30 days",
+} as const;
+
+export const ADMIN_SESSION = {
+  idleSeconds: 30 * SECONDS_PER_MINUTE,
+  refreshSeconds: 5 * SECONDS_PER_MINUTE,
+  maxAgeSeconds: 8 * SECONDS_PER_HOUR,
+  maxAgeWords: "8 hours",
+} as const;
+
+/** True once a sign-in is older than its hard limit, however active it has been. */
+export function hasReachedSessionLimit(
+  signedInAt: Date,
+  now: Date,
+  maxAgeSeconds: number,
+): boolean {
+  return now.getTime() - signedInAt.getTime() >= maxAgeSeconds * MILLISECONDS_PER_SECOND;
+}
+
+/** Added to the sign-in page's address when a sign-in was ended by its hard limit. */
+export const SIGNED_OUT_REASON_PARAM = "signed-out";
+export const SIGNED_OUT_TIME_LIMIT = "time-limit";
+
+/** Where to send someone whose sign-in reached its hard limit. */
+export function timeLimitSignInPath(signInPath: string): string {
+  return `${signInPath}?${SIGNED_OUT_REASON_PARAM}=${SIGNED_OUT_TIME_LIMIT}`;
+}
+
+/** What the sign-in page says, from its address: why the person is back, if a time limit sent them. */
+export function signInNotice(
+  searchParams: Record<string, string | string[] | undefined>,
+  session: { maxAgeWords: string },
+): string | undefined {
+  if (searchParams[SIGNED_OUT_REASON_PARAM] !== SIGNED_OUT_TIME_LIMIT) {
+    return undefined;
+  }
+  return `For your security, you were signed out after ${session.maxAgeWords}. Sign in again to carry on.`;
+}

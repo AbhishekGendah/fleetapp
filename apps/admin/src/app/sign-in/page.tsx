@@ -1,34 +1,9 @@
-"use client";
+import { ADMIN_SESSION, signInNotice } from "@fleetapp/auth/login-policy";
 
-import {
-  signInWithPassword,
-  verifyAuthenticatorCode,
-  verifyRecoveryCode,
-} from "@fleetapp/auth/client";
-import { SignInForm } from "@fleetapp/ui/sign-in-form";
-import { useRouter } from "next/navigation";
+import { SignInScreen } from "./sign-in-screen";
 
-import { ADMIN_LABEL } from "../admin-label";
-import { HOME_PATH } from "../../lib/paths";
-
-export default function SignInPage() {
-  const router = useRouter();
-
-  // Refreshed as well as moved, so no page cached from before signing in is shown.
-  function handleSignedIn(): void {
-    router.push(HOME_PATH);
-    router.refresh();
-  }
-
-  return (
-    <SignInForm
-      description="Altus Global Solutions platform admin."
-      logoLabel={ADMIN_LABEL}
-      signInWithPassword={signInWithPassword}
-      // No trusted devices for Admins: no tick box, so a code on every sign-in.
-      verifyCode={(code) => verifyAuthenticatorCode(code)}
-      verifyRecoveryCode={(code) => verifyRecoveryCode(code)}
-      onSignedIn={handleSignedIn}
-    />
-  );
+export default async function SignInPage(props: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  return <SignInScreen notice={signInNotice(await props.searchParams, ADMIN_SESSION)} />;
 }

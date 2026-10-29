@@ -24,6 +24,8 @@ const RECOVERY_CODE_FAILED_MESSAGE = "That recovery code was not right, or has b
 
 export interface SignInFormProps {
   description: string;
+  /** Why they are here, e.g. signed out after a time limit. Shown in amber. */
+  notice?: string;
   /** Shown beside the logo, e.g. "Admin". */
   logoLabel?: string;
   signInWithPassword(email: string, password: string): Promise<PasswordStepResult>;
@@ -76,7 +78,12 @@ export function SignInForm(props: SignInFormProps) {
                 : "Enter one of the recovery codes you saved when you set up your authenticator."}
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-4">
+          {props.notice && step === "password" ? (
+            <p className="text-attention text-sm" role="status">
+              {props.notice}
+            </p>
+          ) : null}
           {step === "password" ? (
             <PasswordStep {...props} onNeedsCode={() => setStep("code")} />
           ) : (
