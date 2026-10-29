@@ -33,6 +33,7 @@ of service) and the countries.
 | Service | What it sees | Where |
 |---|---|---|
 | Google Places (address lookup) | Address text as it is typed; nothing else | Google, worldwide |
+| Have I Been Pwned (leaked-password check) | 5 characters of a scrambled fingerprint of a new password; not personal information, and the password cannot be worked out from it | Run from Cloudflare, worldwide |
 | Postmark (email, not yet live) | Names, email addresses, email contents | USA |
 | Stripe (payments, not yet built) | Renter names, bank details, payment history | Stripe, incl. USA |
 | Vercel (hosting) | Everything passing through the app; functions run in Sydney | US company |

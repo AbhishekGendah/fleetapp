@@ -16,7 +16,8 @@
  * touches the app role's connection, and whoever runs this should have to be
  * handed as little as possible.
  */
-import { newPasswordSchema } from "@fleetapp/auth/login-policy";
+import { createBreachedPasswordCheck, isBreachedPasswordError } from "@fleetapp/auth";
+import { BREACHED_PASSWORD_MESSAGE, newPasswordSchema } from "@fleetapp/auth/login-policy";
 import { describeErrorForLog } from "@fleetapp/core";
 import { createInterface, type Interface } from "node:readline/promises";
 
@@ -123,6 +124,7 @@ async function main(): Promise<void> {
         secret: env.BETTER_AUTH_SECRET,
         issuerName: env.AUTH_ISSUER_NAME,
         recordActivity: async () => undefined,
+        isPasswordBreached: createBreachedPasswordCheck(),
       }),
       email,
       fullName,
@@ -131,6 +133,9 @@ async function main(): Promise<void> {
   } catch (error) {
     // Only our own refusals are worth quoting: a database error's message can
     // hold the email and the password hash.
+    if (isBreachedPasswordError(error)) {
+      fail(`${BREACHED_PASSWORD_MESSAGE} Nothing was created.`);
+    }
     const isOwnRefusal =
       error instanceof AdminAlreadyExistsError ||
       error instanceof WeakPasswordError ||

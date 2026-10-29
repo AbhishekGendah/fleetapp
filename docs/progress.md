@@ -164,6 +164,10 @@
   - Lint now enforces the standards: no `any`, no empty catch, no stray
     console output, explicit return types on exported functions in `.ts`
     files (React components in `.tsx` are left to inference).
+- Leaked passwords refused: every new password (invite, reset, first
+  Admin) is checked against Have I Been Pwned by its fingerprint's first 5
+  characters. If the service is down the password is allowed and a
+  warning logged.
   - CI had been failing since the logo went in (the svg types were only
     found after a Next build); fixed, CI green again.
 

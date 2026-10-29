@@ -21,6 +21,8 @@ const NEW_PASSWORD_FIELDS: readonly NewPasswordFieldName[] = ["password", "confi
  */
 export function useNewPasswordChecks() {
   const [values, setValues] = useState<NewPasswordInput>({ password: "", confirmation: "" });
+  // A problem only the server can find (a leaked password), cleared on the next key.
+  const [serverPasswordProblem, setServerPasswordProblem] = useState<string | null>(null);
   const [checkedFields, setCheckedFields] = useState<ReadonlySet<NewPasswordFieldName>>(
     () => new Set(),
   );
@@ -34,8 +36,15 @@ export function useNewPasswordChecks() {
     return {
       name,
       value: values[name],
-      error: checkedFields.has(name) ? errors[name]?.[0] : undefined,
-      onValueChange: (value) => setValues((previous) => ({ ...previous, [name]: value })),
+      error:
+        (checkedFields.has(name) ? errors[name]?.[0] : undefined) ??
+        (name === "password" ? (serverPasswordProblem ?? undefined) : undefined),
+      onValueChange: (value) => {
+        setValues((previous) => ({ ...previous, [name]: value }));
+        if (name === "password") {
+          setServerPasswordProblem(null);
+        }
+      },
       onBlur: () => setCheckedFields((previous) => new Set(previous).add(name)),
     };
   }
@@ -46,7 +55,7 @@ export function useNewPasswordChecks() {
     return Object.keys(errors).length === 0;
   }
 
-  return { values, fieldProps, checkAll };
+  return { values, fieldProps, checkAll, setServerPasswordProblem };
 }
 
 /** The first box's label, with the length the rule asks for. */

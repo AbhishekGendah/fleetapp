@@ -1,8 +1,10 @@
 import { describeErrorForLog, SECONDS_PER_DAY } from "@fleetapp/core";
 import {
+  breachedPasswordGuard,
   createDrizzleLockoutStore,
   MAXIMUM_PASSWORD_LENGTH,
   MINIMUM_PASSWORD_LENGTH,
+  type PasswordBreachCheck,
   RECOVERY_CODES,
   signInLockout,
   TWO_FACTOR_LOCKOUT,
@@ -46,6 +48,8 @@ export interface UserAuthConfig {
   issuerName: string;
   /** Sends password reset and new-device emails. */
   emailSender: EmailSender;
+  /** Refuses leaked passwords. The tests pass a stand-in, so they need no internet. */
+  isPasswordBreached: PasswordBreachCheck;
   /** Added last. The app passes Next.js's cookie plugin; the tests pass nothing. */
   extraPlugins?: BetterAuthPlugin[];
   now?: () => Date;
@@ -130,6 +134,7 @@ function buildUserAuthOptions(config: UserAuthConfig) {
     },
 
     plugins: [
+      breachedPasswordGuard(config.isPasswordBreached),
       signInLockout({
         store: lockoutStore,
         now: config.now,

@@ -45,3 +45,8 @@ export const newPasswordSchema = z
   });
 
 export type NewPasswordInput = z.infer<typeof newPasswordSchema>;
+
+/** What the login system answers for a password known to have leaked. */
+export const BREACHED_PASSWORD_CODE = "PASSWORD_BREACHED";
+export const BREACHED_PASSWORD_MESSAGE =
+  "This password has appeared in a data breach elsewhere, so it is not safe to use. Choose a different one.";

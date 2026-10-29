@@ -1,3 +1,4 @@
+import { isBreachedPasswordError } from "@fleetapp/auth";
 import { randomUUID } from "node:crypto";
 
 import { base32 } from "@better-auth/utils/base32";
@@ -25,6 +26,11 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { createUserAuth, type UserAuth } from "../src/lib/auth-options";
 import { acceptInvite, InviteNotUsableError } from "../src/lib/invites/accept-invite";
 import { findUsableInvite } from "../src/lib/invites/find-invite";
+
+/** Stands in for the breach lookup: only this one password counts as leaked. */
+const BREACHED_PASSWORD = "password1234567";
+const isKnownBreachedPassword = async (password: string): Promise<boolean> =>
+  password === BREACHED_PASSWORD;
 
 const TEST_PASSWORD = "a-long-enough-test-password";
 const WRONG_PASSWORD = "not-the-right-password";
@@ -91,6 +97,7 @@ describe("the Operator login", () => {
       baseURL: TEST_BASE_URL,
       secret: TEST_SECRET,
       issuerName: "Test Issuer",
+      isPasswordBreached: isKnownBreachedPassword,
       emailSender: sender,
     });
 
@@ -172,6 +179,21 @@ describe("the Operator login", () => {
       });
       expect(signIn.user.email).toBe(seeded.email);
       expect(await historyOf(seeded.operatorId)).toContain("operator_invite accepted");
+    });
+
+    it("refuses a password known to have leaked, and leaves the invite usable", async () => {
+      const seeded = await seedInvite();
+
+      await expect(
+        acceptInvite({
+          database: webAuth.db,
+          auth,
+          token: seeded.token,
+          password: BREACHED_PASSWORD,
+          now: new Date(),
+        }),
+      ).rejects.toSatisfy(isBreachedPasswordError);
+      expect(await findUsableInvite(webAuth.db, seeded.token, new Date())).not.toBeNull();
     });
 
     it("cannot be used twice", async () => {
@@ -356,6 +378,16 @@ describe("the Operator login", () => {
         auth.api.resetPassword({ body: { newPassword: TEST_PASSWORD, token: token! } }),
       ).rejects.toThrow();
       expect(await historyOf(seeded.operatorId)).toContain("user password_reset");
+    });
+
+    it("refuses a new password known to have leaked, keeping the old one", async () => {
+      const seeded = await seedAcceptedUser();
+      const token = await requestReset(seeded.email);
+
+      await expect(
+        auth.api.resetPassword({ body: { newPassword: BREACHED_PASSWORD, token: token! } }),
+      ).rejects.toSatisfy(isBreachedPasswordError);
+      await expect(signInWith(seeded.email, TEST_PASSWORD)).resolves.toBeDefined();
     });
 
     it("signs out every existing session", async () => {

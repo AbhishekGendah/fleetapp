@@ -1,3 +1,4 @@
+import { createBreachedPasswordCheck } from "@fleetapp/auth";
 import { createDb } from "@fleetapp/db/client";
 import { createEmailSender } from "@fleetapp/email";
 import { nextCookies } from "better-auth/next-js";
@@ -23,6 +24,7 @@ export const auth = createUserAuth({
     database: authDb,
     from: env.EMAIL_FROM,
   }),
+  isPasswordBreached: createBreachedPasswordCheck(),
   // Lets server actions (accepting an invite) set the sign-in cookie.
   extraPlugins: [nextCookies()],
 });

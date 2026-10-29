@@ -1,5 +1,6 @@
 "use client";
 
+import { BREACHED_PASSWORD_CODE, BREACHED_PASSWORD_MESSAGE } from "@fleetapp/auth/login-policy";
 import { Button } from "@fleetapp/ui/button";
 import { ClientForm, SubmitButton } from "@fleetapp/ui/client-form";
 import { FormError } from "@fleetapp/ui/form-message";
@@ -14,7 +15,7 @@ import { NEW_PASSWORD_HINT, NewPasswordField, useNewPasswordChecks } from "../ne
 const LINK_FAILED_MESSAGE = "This link no longer works. It may have expired or been used.";
 
 export function ResetPasswordForm(props: { token: string }) {
-  const { values, fieldProps, checkAll } = useNewPasswordChecks();
+  const { values, fieldProps, checkAll, setServerPasswordProblem } = useNewPasswordChecks();
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDone, setIsDone] = useState(false);
@@ -32,6 +33,10 @@ export function ResetPasswordForm(props: { token: string }) {
       token: props.token,
     });
     setIsSubmitting(false);
+    if (error?.code === BREACHED_PASSWORD_CODE) {
+      setServerPasswordProblem(BREACHED_PASSWORD_MESSAGE);
+      return;
+    }
     if (error) {
       setFormError(LINK_FAILED_MESSAGE);
       return;
