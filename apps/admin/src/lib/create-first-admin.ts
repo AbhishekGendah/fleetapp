@@ -1,3 +1,4 @@
+import { requiredEmail, requiredLine } from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import {
   ADMIN_ACTIVITY_ACTIONS,
@@ -26,6 +27,13 @@ export class WeakPasswordError extends Error {
   }
 }
 
+export class InvalidAdminDetailsError extends Error {
+  constructor() {
+    super("That email address or name is not valid. Nothing was created.");
+    this.name = "InvalidAdminDetailsError";
+  }
+}
+
 export interface CreateFirstAdminInput {
   database: AnyDatabase;
   auth: AdminAuth;
@@ -51,6 +59,13 @@ export async function createFirstAdmin(
   if (input.password.length < MINIMUM_ADMIN_PASSWORD_LENGTH) {
     throw new WeakPasswordError();
   }
+  // Lower-cased because the login system lower-cases what is typed at sign-in
+  // before looking it up: an address stored with capitals could never sign in.
+  const email = requiredEmail.safeParse(input.email);
+  const fullName = requiredLine.safeParse(input.fullName);
+  if (!email.success || !fullName.success) {
+    throw new InvalidAdminDetailsError();
+  }
 
   const { password: passwordHasher } = await input.auth.$context;
   const hashedPassword = await passwordHasher.hash(input.password);
@@ -65,8 +80,8 @@ export async function createFirstAdmin(
     const [admin] = await tx
       .insert(adminUsers)
       .values({
-        email: input.email,
-        fullName: input.fullName,
+        email: email.data,
+        fullName: fullName.data,
         // An Admin's address is verified out of band by AGS before this is
         // ever run; there is nobody to send a confirmation link to yet.
         emailVerified: true,

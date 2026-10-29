@@ -26,6 +26,7 @@ import { createAdminAuth } from "../src/lib/auth-options";
 import {
   AdminAlreadyExistsError,
   createFirstAdmin,
+  InvalidAdminDetailsError,
   MINIMUM_ADMIN_PASSWORD_LENGTH,
   WeakPasswordError,
 } from "../src/lib/create-first-admin";
@@ -131,7 +132,9 @@ async function main(): Promise<void> {
     // Only our own refusals are worth quoting: a database error's message can
     // hold the email and the password hash.
     const isOwnRefusal =
-      error instanceof AdminAlreadyExistsError || error instanceof WeakPasswordError;
+      error instanceof AdminAlreadyExistsError ||
+      error instanceof WeakPasswordError ||
+      error instanceof InvalidAdminDetailsError;
     fail(
       isOwnRefusal
         ? error.message

@@ -11,6 +11,7 @@ import { createAdminAuth, type AdminAuth } from "../src/lib/auth-options";
 import {
   AdminAlreadyExistsError,
   createFirstAdmin,
+  InvalidAdminDetailsError,
   WeakPasswordError,
 } from "../src/lib/create-first-admin";
 
@@ -90,11 +91,24 @@ describe("the admin login", () => {
       ).rejects.toBeInstanceOf(WeakPasswordError);
     });
 
-    it("creates the Admin and logs it", async () => {
+    it("refuses an email that is not an email", async () => {
+      await expect(
+        createFirstAdmin({
+          database: connection.db,
+          auth,
+          email: "not-an-email",
+          fullName: "No Email",
+          password: TEST_PASSWORD,
+        }),
+      ).rejects.toBeInstanceOf(InvalidAdminDetailsError);
+    });
+
+    it("creates the Admin and logs it, storing the email lower-cased", async () => {
+      // Typed with capitals; the sign-in tests below use the lower-case form.
       const created = await createFirstAdmin({
         database: connection.db,
         auth,
-        email,
+        email: ` ${email.toUpperCase()} `,
         fullName: "The First Admin",
         password: TEST_PASSWORD,
       });
