@@ -1,0 +1,19 @@
+{
+  "path": ["apps", "packages"],
+  "pattern": "**/*.{ts,tsx}",
+  "ignore": [
+    "**/node_modules/**",
+    "**/.next/**",
+    "**/.turbo/**",
+    "**/migrations/**",
+    "**/test/**",
+    "**/*.test.ts",
+    "**/next-env.d.ts"
+  ],
+  "minTokens": 60,
+  "minLines": 6,
+  "threshold": 0,
+  "reporters": ["console"],
+  "gitignore": true,
+  "absolute": false
+}

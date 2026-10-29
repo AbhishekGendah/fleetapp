@@ -68,6 +68,7 @@ export const adminAccounts = pgTable(
     ...primaryKeyColumn,
     ...adminUserReference,
 
+    // jscpd:ignore-start -- the Admin and User login tables are kept apart on purpose (separate database roles); Better Auth needs these columns in both
     accountId: text("account_id").notNull(),
     providerId: text("provider_id").notNull(),
     password: text("password"),
@@ -78,6 +79,7 @@ export const adminAccounts = pgTable(
     accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: true }),
     refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { withTimezone: true }),
     scope: text("scope"),
+    // jscpd:ignore-end
 
     ...signInLockoutColumns,
 

@@ -17,6 +17,7 @@ export const users = pgTable(
     ...primaryKeyColumn,
     ...operatorIdColumn,
 
+    // jscpd:ignore-start -- the Admin and User login tables are kept apart on purpose (separate database roles); Better Auth needs these columns in both
     email: text("email").notNull(),
     fullName: text("full_name").notNull(),
 
@@ -29,6 +30,7 @@ export const users = pgTable(
 
     /** Whether this User has finished setting up their authenticator app. */
     twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
+    // jscpd:ignore-end
 
     ...auditColumns,
   },

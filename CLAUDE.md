@@ -146,6 +146,9 @@ Never use "client", "customer" or "tenant" for these in code.
     linter refuses a raw button, box, dropdown, label or table in the
     apps. A new kind of piece is added to packages/ui (and the component
     catalogue) first, then used.
+30. No copy-pasted code: CI runs a duplicate detector (`pnpm duplicates`)
+    and fails on any repeated block. Extract it instead. A deliberate
+    repeat is marked `jscpd:ignore-start` with the reason.
 
 ## How to work
 - Read the relevant docs/design/*.md file before working on an area.
