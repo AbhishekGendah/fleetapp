@@ -16,7 +16,7 @@
  * touches the app role's connection, and whoever runs this should have to be
  * handed as little as possible.
  */
-import { MINIMUM_PASSWORD_LENGTH } from "@fleetapp/auth/login-policy";
+import { newPasswordSchema } from "@fleetapp/auth/login-policy";
 import { describeErrorForLog } from "@fleetapp/core";
 import { createInterface, type Interface } from "node:readline/promises";
 
@@ -82,13 +82,13 @@ async function readPassword(): Promise<string> {
     const password = await askSecretly(input, lines, "Choose a password for the first Admin: ");
     const confirmation = await askSecretly(input, lines, "Type it again: ");
 
-    if (password !== confirmation) {
-      fail("Those two passwords were not the same. Nothing was created.");
+    const parsed = newPasswordSchema.safeParse({ password, confirmation });
+    if (!parsed.success) {
+      fail(
+        `${parsed.error.issues[0]?.message ?? "That password will not do."} Nothing was created.`,
+      );
     }
-    if (password.length < MINIMUM_PASSWORD_LENGTH) {
-      fail(`The password must be at least ${MINIMUM_PASSWORD_LENGTH} characters.`);
-    }
-    return password;
+    return parsed.data.password;
   } finally {
     input.close();
   }

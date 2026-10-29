@@ -2,7 +2,6 @@ import { AuthPageLayout } from "@fleetapp/ui/auth-page-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import Link from "next/link";
 
-import { MINIMUM_PASSWORD_LENGTH } from "@fleetapp/auth/login-policy";
 import { FORGOT_PASSWORD_PATH } from "../../lib/paths";
 import { ResetPasswordForm } from "./reset-password-form";
 
@@ -31,7 +30,7 @@ export default async function ResetPasswordPage(props: ResetPasswordPageProps) {
         </CardHeader>
         <CardContent>
           {completeToken ? (
-            <ResetPasswordForm token={completeToken} minimumLength={MINIMUM_PASSWORD_LENGTH} />
+            <ResetPasswordForm token={completeToken} />
           ) : (
             <Link href={FORGOT_PASSWORD_PATH} className="text-sm hover:underline">
               Send me a new link

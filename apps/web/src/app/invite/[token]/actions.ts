@@ -6,25 +6,13 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { authDb, auth } from "../../../lib/auth";
-import { MAXIMUM_PASSWORD_LENGTH, MINIMUM_PASSWORD_LENGTH } from "@fleetapp/auth/login-policy";
+import { newPasswordSchema } from "@fleetapp/auth/login-policy";
 import { acceptInvite, InviteNotUsableError } from "../../../lib/invites/accept-invite";
 import { SET_UP_AUTHENTICATOR_PATH, SIGN_IN_PATH } from "../../../lib/paths";
 
 const UNEXPECTED_ERROR_MESSAGE = "Something went wrong. Try again in a moment.";
 
-const acceptInviteSchema = z
-  .object({
-    token: z.string().min(1),
-    password: z
-      .string()
-      .min(MINIMUM_PASSWORD_LENGTH, `At least ${MINIMUM_PASSWORD_LENGTH} characters.`)
-      .max(MAXIMUM_PASSWORD_LENGTH, `At most ${MAXIMUM_PASSWORD_LENGTH} characters.`),
-    confirmation: z.string(),
-  })
-  .refine((input) => input.password === input.confirmation, {
-    path: ["confirmation"],
-    message: "The two passwords were not the same.",
-  });
+const acceptInviteSchema = newPasswordSchema.and(z.object({ token: z.string().min(1) }));
 
 export interface AcceptInviteState {
   formError?: string;

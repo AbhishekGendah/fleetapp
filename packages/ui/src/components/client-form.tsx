@@ -20,6 +20,8 @@ const HydrationContext = createContext(false);
 export function ClientForm(props: {
   onSubmit(event: React.FormEvent<HTMLFormElement>): void | Promise<void>;
   className?: string;
+  /** Set when the form shows its own messages as you type, instead of the browser's. */
+  noValidate?: boolean;
   children: React.ReactNode;
 }) {
   const [hasHydrated, setHasHydrated] = useState(false);
@@ -27,7 +29,12 @@ export function ClientForm(props: {
 
   return (
     <HydrationContext.Provider value={hasHydrated}>
-      <form method="post" className={props.className} onSubmit={props.onSubmit}>
+      <form
+        method="post"
+        className={props.className}
+        noValidate={props.noValidate}
+        onSubmit={props.onSubmit}
+      >
         {props.children}
       </form>
     </HydrationContext.Provider>

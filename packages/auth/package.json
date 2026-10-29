@@ -24,6 +24,7 @@
     "typescript": "6.0.3"
   },
   "dependencies": {
-    "@fleetapp/core": "workspace:*"
+    "@fleetapp/core": "workspace:*",
+    "zod": "4.6.5"
   }
 }
