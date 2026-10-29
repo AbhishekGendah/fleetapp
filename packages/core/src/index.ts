@@ -2,6 +2,7 @@ export * from "./abn";
 export * from "./business-details";
 export * from "./describe-device";
 export * from "./error-for-log";
+export * from "./form-text";
 export * from "./format-date-time";
 export * from "./greeting";
 export * from "./gst";

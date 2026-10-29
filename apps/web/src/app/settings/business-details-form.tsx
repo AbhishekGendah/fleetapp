@@ -7,6 +7,7 @@ import {
   formatAustralianPhone,
   formatPostcode,
   isRequiredBusinessDetail,
+  MAXIMUM_LINE_LENGTH,
   isAustralianStateCode,
   POSTCODE_PATTERN,
   postcodeMatchesState,
@@ -26,7 +27,6 @@ import { AddressSearch } from "../../components/address-search";
 import type { AddressParts } from "../../lib/address-lookup/address-from-components";
 import type { BusinessDetails } from "../../lib/settings/business-details";
 import {
-  MAXIMUM_TEXT_LENGTH,
   parseBusinessDetailsForm,
   type BusinessDetailsFormValues,
 } from "../../lib/settings/business-details-input";
@@ -174,7 +174,7 @@ export function BusinessDetailsForm({ details }: { details: BusinessDetails }) {
   function textBoxProps(name: BusinessDetailTextField) {
     return {
       ...boxProps(name),
-      maxLength: MAXIMUM_TEXT_LENGTH,
+      maxLength: MAXIMUM_LINE_LENGTH,
       onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
         handleValueChange(name, event.target.value),
     };
@@ -254,7 +254,7 @@ export function BusinessDetailsForm({ details }: { details: BusinessDetails }) {
         <Field name="addressLine1" label="Street address" error={errorFor("addressLine1")}>
           <AddressSearch
             {...boxProps("addressLine1")}
-            maxLength={MAXIMUM_TEXT_LENGTH}
+            maxLength={MAXIMUM_LINE_LENGTH}
             placeholder="Start typing to search"
             onValueChange={(value) => handleValueChange("addressLine1", value)}
             onAddressChosen={handleAddressChosen}

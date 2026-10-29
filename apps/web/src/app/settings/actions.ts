@@ -1,16 +1,13 @@
 "use server";
 
-import { describeErrorForLog } from "@fleetapp/core";
+import { describeErrorForLog, formTextValues } from "@fleetapp/core";
 import { revalidatePath } from "next/cache";
 
 import { appDb } from "../../lib/app-db";
 import { HOME_PATH, SETTINGS_PATH } from "../../lib/paths";
 import { requireUser } from "../../lib/require-user";
 import { saveBusinessDetails } from "../../lib/settings/business-details";
-import {
-  parseBusinessDetailsForm,
-  type BusinessDetailsFormValues,
-} from "../../lib/settings/business-details-input";
+import { parseBusinessDetailsForm } from "../../lib/settings/business-details-input";
 import {
   BUSINESS_DETAIL_TEXT_FIELDS,
   type BusinessDetailsFormState,
@@ -22,15 +19,6 @@ const UNEXPECTED_ERROR_MESSAGE = "Something went wrong and nothing was saved. Tr
 const INVALID_MESSAGE =
   "Some details are not right, so nothing was saved. Check them and try again.";
 
-function submittedValues(formData: FormData): BusinessDetailsFormValues {
-  return Object.fromEntries(
-    BUSINESS_DETAIL_TEXT_FIELDS.map((name) => {
-      const value = formData.get(name);
-      return [name, typeof value === "string" ? value : ""];
-    }),
-  ) as BusinessDetailsFormValues;
-}
-
 export async function saveBusinessDetailsAction(
   _previous: BusinessDetailsFormState,
   formData: FormData,
@@ -38,7 +26,7 @@ export async function saveBusinessDetailsAction(
   const user = await requireUser();
 
   const parsed = parseBusinessDetailsForm(
-    submittedValues(formData),
+    formTextValues(formData, BUSINESS_DETAIL_TEXT_FIELDS),
     formData.get("gstRegistered") === "on",
   );
   if (!parsed.success) {

@@ -1,6 +1,6 @@
 "use server";
 
-import { describeErrorForLog } from "@fleetapp/core";
+import { describeErrorForLog, formTextValues } from "@fleetapp/core";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -22,16 +22,6 @@ export interface ActionState {
   fieldErrors?: Partial<Record<string, string[]>>;
   /** What was typed, so a refused form comes back filled in rather than empty. */
   values?: Record<string, string>;
-}
-
-/** Only the text fields, never anything Next adds to the form. */
-function submittedText(formData: FormData, names: readonly string[]): Record<string, string> {
-  return Object.fromEntries(
-    names.map((name) => {
-      const value = formData.get(name);
-      return [name, typeof value === "string" ? value : ""];
-    }),
-  );
 }
 
 const CREATE_OPERATOR_FIELDS = ["legalName", "tradingName", "userFullName", "userEmail"] as const;
@@ -58,7 +48,7 @@ export async function createOperatorAction(
 ): Promise<ActionState> {
   const admin = await requireAdmin();
 
-  const values = submittedText(formData, CREATE_OPERATOR_FIELDS);
+  const values = formTextValues(formData, CREATE_OPERATOR_FIELDS);
   const parsed = createOperatorInputSchema.safeParse(values);
   if (!parsed.success) {
     return { fieldErrors: z.flattenError(parsed.error).fieldErrors, values };

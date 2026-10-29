@@ -6,28 +6,13 @@ import {
   isValidAustralianPhone,
   isValidAbn,
   normaliseAbn,
+  optionalLine,
   POSTCODE_PATTERN,
+  requiredEmail,
+  REQUIRED_MESSAGE,
+  requiredLine,
 } from "@fleetapp/core";
 import { z } from "zod";
-
-export const MAXIMUM_TEXT_LENGTH = 200;
-
-/** Business details go on contracts and in email subjects: one line each. */
-const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
-
-const singleLine = z
-  .string()
-  .trim()
-  .max(MAXIMUM_TEXT_LENGTH, `At most ${MAXIMUM_TEXT_LENGTH} characters.`)
-  .refine((value) => !CONTROL_CHARACTERS.test(value), "Must be on one line.");
-
-const REQUIRED_MESSAGE = "Required.";
-
-/** Blank means "not given": only for details a business may not have. */
-const optionalLine = singleLine.transform((value) => (value === "" ? null : value));
-
-/** The details every contract and invoice needs. */
-const requiredLine = singleLine.min(1, REQUIRED_MESSAGE);
 
 const GST_PROBLEM_MESSAGES = {
   missing_date: "Enter the date you registered for GST.",
@@ -64,10 +49,7 @@ export const businessDetailsInputSchema = z
         "Enter a full Australian number, e.g. 0412 345 678 or (08) 9123 4567.",
       )
       .transform(formatAustralianPhone),
-    email: requiredLine.refine(
-      (value) => z.email().safeParse(value).success,
-      "Enter a valid email address.",
-    ),
+    email: requiredEmail,
     timezone: z.string().refine(isAustralianTimezone, "Choose a timezone."),
   })
   .superRefine((input, context) => {
