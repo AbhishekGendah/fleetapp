@@ -46,55 +46,73 @@ function inListSpelling(names: () => readonly string[]) {
   return (value: string) => listedName(names(), value) ?? value;
 }
 
+const kilometresField = wholeNumber({
+  minimum: 0,
+  maximum: MAXIMUM_ODOMETER_KM,
+  message: "Enter the kilometres shown, as a whole number.",
+});
+
 /**
- * A car as entered on the add or edit form. Rego, state, make, model and
- * year are required: they are what identifies a car on a contract or a fine.
+ * A car's boxes on the add or edit form. Rego, state, make, model and year
+ * are required: they are what identifies a car on a contract or a fine.
  */
-function vehicleInputSchema(today: Date) {
+function vehicleFieldsShape(today: Date) {
   const latestYear = latestVehicleYear(today);
-  return z
-    .object({
-      rego: requiredLine
-        .transform(normaliseRego)
-        .refine((rego) => rego.length > 0, REQUIRED_MESSAGE)
-        .refine(
-          (rego) => rego.length <= MAXIMUM_REGO_LENGTH,
-          `A rego is at most ${MAXIMUM_REGO_LENGTH} letters and numbers.`,
-        ),
-      regoState: z.enum(AUSTRALIAN_STATE_CODES, REQUIRED_MESSAGE),
-      vin: optionalLine
-        .refine(
-          (vin) => vin === null || isValidVin(vin),
-          "A VIN is 17 letters and numbers, never I, O or Q.",
-        )
-        .transform((vin) => (vin === null ? null : normaliseVin(vin))),
-      make: requiredLine.transform(inListSpelling(() => VEHICLE_MAKES)),
-      model: requiredLine,
-      variant: optionalLine,
-      year: wholeNumber({
-        minimum: EARLIEST_VEHICLE_YEAR,
-        maximum: latestYear,
-        message: `Enter a year from ${EARLIEST_VEHICLE_YEAR} to ${latestYear}.`,
-      }),
-      colour: optionalLine,
-      bodyType: optionalChoice(BODY_TYPES),
-      transmission: optionalChoice(TRANSMISSIONS),
-      fuelType: optionalChoice(FUEL_TYPES),
-      seats: optionalLine.pipe(
-        wholeNumber({
-          minimum: 1,
-          maximum: MAXIMUM_SEATS,
-          message: `Enter a number from 1 to ${MAXIMUM_SEATS}.`,
-        }).nullable(),
+  return {
+    rego: requiredLine
+      .transform(normaliseRego)
+      .refine((rego) => rego.length > 0, REQUIRED_MESSAGE)
+      .refine(
+        (rego) => rego.length <= MAXIMUM_REGO_LENGTH,
+        `A rego is at most ${MAXIMUM_REGO_LENGTH} letters and numbers.`,
       ),
-    })
-    .transform((input) => ({
-      ...input,
-      model: inListSpelling(() => modelsForMake(input.make))(input.model),
-    }));
+    regoState: z.enum(AUSTRALIAN_STATE_CODES, REQUIRED_MESSAGE),
+    vin: optionalLine
+      .refine(
+        (vin) => vin === null || isValidVin(vin),
+        "A VIN is 17 letters and numbers, never I, O or Q.",
+      )
+      .transform((vin) => (vin === null ? null : normaliseVin(vin))),
+    make: requiredLine.transform(inListSpelling(() => VEHICLE_MAKES)),
+    model: requiredLine,
+    variant: optionalLine,
+    year: wholeNumber({
+      minimum: EARLIEST_VEHICLE_YEAR,
+      maximum: latestYear,
+      message: `Enter a year from ${EARLIEST_VEHICLE_YEAR} to ${latestYear}.`,
+    }),
+    colour: optionalLine,
+    bodyType: optionalChoice(BODY_TYPES),
+    transmission: optionalChoice(TRANSMISSIONS),
+    fuelType: optionalChoice(FUEL_TYPES),
+    seats: optionalLine.pipe(
+      wholeNumber({
+        minimum: 1,
+        maximum: MAXIMUM_SEATS,
+        message: `Enter a number from 1 to ${MAXIMUM_SEATS}.`,
+      }).nullable(),
+    ),
+  };
+}
+
+/** The model in the list's spelling for its make, once the make itself is known. */
+function withListedModel<Input extends { make: string; model: string }>(input: Input): Input {
+  return { ...input, model: inListSpelling(() => modelsForMake(input.make))(input.model) };
+}
+
+function vehicleInputSchema(today: Date) {
+  return z.object(vehicleFieldsShape(today)).transform(withListedModel);
+}
+
+/** A new car starts with what its odometer shows, so its km are known from day one. */
+function newVehicleInputSchema(today: Date) {
+  return z
+    .object({ ...vehicleFieldsShape(today), kilometres: kilometresField })
+    .transform(withListedModel);
 }
 
 export type VehicleInput = z.infer<ReturnType<typeof vehicleInputSchema>>;
+export type NewVehicleInput = z.infer<ReturnType<typeof newVehicleInputSchema>>;
 
 /** Every box on the car form, by name, in the order they appear. */
 export const VEHICLE_FORM_FIELDS = [
@@ -112,7 +130,10 @@ export const VEHICLE_FORM_FIELDS = [
   "vin",
 ] as const satisfies readonly (keyof VehicleInput)[];
 
-export type VehicleFormField = (typeof VEHICLE_FORM_FIELDS)[number];
+/** The add form also asks for the odometer; the edit form does not (readings have their own tab). */
+export const NEW_VEHICLE_FORM_FIELDS = [...VEHICLE_FORM_FIELDS, "kilometres"] as const;
+
+export type VehicleFormField = (typeof NEW_VEHICLE_FORM_FIELDS)[number];
 export type VehicleFormValues = Record<VehicleFormField, string>;
 
 const REQUIRED_VEHICLE_FIELDS: readonly VehicleFormField[] = [
@@ -121,6 +142,7 @@ const REQUIRED_VEHICLE_FIELDS: readonly VehicleFormField[] = [
   "make",
   "model",
   "year",
+  "kilometres",
 ];
 
 export function isRequiredVehicleField(field: VehicleFormField): boolean {
@@ -128,27 +150,47 @@ export function isRequiredVehicleField(field: VehicleFormField): boolean {
 }
 
 export const EMPTY_VEHICLE_FORM: VehicleFormValues = Object.fromEntries(
-  VEHICLE_FORM_FIELDS.map((field) => [field, ""]),
+  NEW_VEHICLE_FORM_FIELDS.map((field) => [field, ""]),
 ) as VehicleFormValues;
 
 /** A saved car as the edit form's boxes show it. */
 export function vehicleFormValues(
-  vehicle: Readonly<Record<VehicleFormField, string | number | null>>,
+  vehicle: Readonly<Record<(typeof VEHICLE_FORM_FIELDS)[number], string | number | null>>,
 ): VehicleFormValues {
-  return Object.fromEntries(
-    VEHICLE_FORM_FIELDS.map((field) => [
-      field,
-      vehicle[field] === null ? "" : String(vehicle[field]),
-    ]),
-  ) as VehicleFormValues;
+  return {
+    ...EMPTY_VEHICLE_FORM,
+    ...Object.fromEntries(
+      VEHICLE_FORM_FIELDS.map((field) => [
+        field,
+        vehicle[field] === null ? "" : String(vehicle[field]),
+      ]),
+    ),
+  };
 }
 
-/** The same checks in the browser as you type and on the server on save. */
+function formForParsing(values: Partial<VehicleFormValues>): Record<string, string | null> {
+  return { ...values, regoState: values.regoState || null };
+}
+
+/** The edit form's checks, the same in the browser as you type and on the server on save. */
 export function parseVehicleForm(
-  values: VehicleFormValues,
+  values: Partial<VehicleFormValues>,
   today: Date,
 ): z.ZodSafeParseResult<VehicleInput> {
-  return vehicleInputSchema(today).safeParse({ ...values, regoState: values.regoState || null });
+  return vehicleInputSchema(today).safeParse(formForParsing(values));
+}
+
+/** The add form's checks: the car plus its first odometer reading. */
+export function parseNewVehicleForm(
+  values: Partial<VehicleFormValues>,
+  today: Date,
+): z.ZodSafeParseResult<NewVehicleInput> {
+  return newVehicleInputSchema(today).safeParse(formForParsing(values));
+}
+
+/** Rego as it is typed: capitals, letters and numbers only, never longer than a plate can be. */
+export function typedRego(raw: string): string {
+  return normaliseRego(raw).slice(0, MAXIMUM_REGO_LENGTH);
 }
 
 /** A car's status as chosen on the status form. */
@@ -186,10 +228,4 @@ export const vehicleStatusInputSchema = z
 export type VehicleStatusInput = z.infer<typeof vehicleStatusInputSchema>;
 export type VehicleStatusFormValues = Record<keyof VehicleStatusInput, string>;
 
-export const odometerInputSchema = z.object({
-  kilometres: wholeNumber({
-    minimum: 0,
-    maximum: MAXIMUM_ODOMETER_KM,
-    message: "Enter the kilometres shown, as a whole number.",
-  }),
-});
+export const odometerInputSchema = z.object({ kilometres: kilometresField });

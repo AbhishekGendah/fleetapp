@@ -237,6 +237,12 @@
     which stays in memory: dozens of rows, status worked out from several
     tables) or in the database (cars).
 
+- Step 1 follow-ups from Abhi's testing: rego is typed in capitals,
+  letters and numbers only, at most 9 characters (no per-state format:
+  personalised plates allow almost anything); Tab in any suggestion box
+  takes the highlighted or top suggestion; adding a car asks for the
+  odometer reading, saved as its first reading in the same step.
+
 ## Next
 Phase 2 step 2: car paperwork, costs and photos (rego renewals,
 insurance policies, purchase and sale, other costs, photos, documents).

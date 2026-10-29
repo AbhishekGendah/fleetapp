@@ -29,6 +29,7 @@ export default async function EditCarPage(props: { params: Promise<{ vehicleId: 
         </CardHeader>
         <CardContent>
           <CarForm
+            isNew={false}
             initialValues={vehicleFormValues(vehicle)}
             action={editCarAction.bind(null, vehicle.id)}
             submitLabel="Save changes"

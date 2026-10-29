@@ -39,6 +39,36 @@ function logReadingActivity(
 }
 
 /**
+ * Adds a reading of what the odometer shows now, inside the caller's
+ * transaction, and logs it. The caller checks the car is the Operator's.
+ */
+export async function addReading(
+  tx: AnyTransaction,
+  actor: ActingUser,
+  vehicleId: string,
+  kilometres: number,
+): Promise<void> {
+  const [reading] = await tx
+    .insert(odometerReadings)
+    .values({
+      operatorId: actor.operatorId,
+      vehicleId,
+      kilometres,
+      recordedAt: new Date(),
+      source: "manual",
+      recordedByUserId: actor.userId,
+    })
+    .returning({ id: odometerReadings.id });
+  if (!reading) {
+    throw new Error("The reading was not saved.");
+  }
+  await logReadingActivity(tx, actor, reading.id, ACTIVITY_ACTIONS.created, {
+    vehicleId,
+    kilometres,
+  });
+}
+
+/**
  * Records what the odometer shows now. A reading lower than the last one is
  * saved and flagged, never refused: the odometer may have been replaced.
  */
@@ -69,24 +99,7 @@ export async function recordOdometerReading(
       .orderBy(desc(odometerReadings.recordedAt))
       .limit(1);
 
-    const [reading] = await tx
-      .insert(odometerReadings)
-      .values({
-        operatorId: actor.operatorId,
-        vehicleId,
-        kilometres,
-        recordedAt: new Date(),
-        source: "manual",
-        recordedByUserId: actor.userId,
-      })
-      .returning({ id: odometerReadings.id });
-    if (!reading) {
-      throw new Error("The reading was not saved.");
-    }
-    await logReadingActivity(tx, actor, reading.id, ACTIVITY_ACTIONS.created, {
-      vehicleId,
-      kilometres,
-    });
+    await addReading(tx, actor, vehicleId, kilometres);
     return { status: "recorded", isLowerThanLast: latest ? kilometres < latest.kilometres : false };
   });
 }

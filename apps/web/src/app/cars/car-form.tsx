@@ -7,6 +7,7 @@ import {
   FUEL_TYPES,
   listedName,
   MAXIMUM_LINE_LENGTH,
+  MAXIMUM_REGO_LENGTH,
   modelsForMake,
   TRANSMISSION_LABELS,
   TRANSMISSIONS,
@@ -27,7 +28,10 @@ import { z } from "zod";
 
 import {
   isRequiredVehicleField,
+  NEW_VEHICLE_FORM_FIELDS,
+  parseNewVehicleForm,
   parseVehicleForm,
+  typedRego,
   VEHICLE_FORM_FIELDS,
   type VehicleFormField,
   type VehicleFormValues,
@@ -45,6 +49,8 @@ const DUPLICATE_MESSAGES = {
 } as const;
 
 interface CarFormProps {
+  /** Adding a car also asks for its odometer reading; editing does not. */
+  isNew: boolean;
   initialValues: VehicleFormValues;
   action: (state: CarFormState, formData: FormData) => Promise<CarFormState>;
   submitLabel: string;
@@ -72,13 +78,15 @@ function ChoiceOptions(props: {
  * you type; anything not listed can still be typed, with a gentle warning in
  * case it is a misspelling.
  */
-export function CarForm({ initialValues, action, submitLabel, cancelHref }: CarFormProps) {
+export function CarForm({ isNew, initialValues, action, submitLabel, cancelHref }: CarFormProps) {
   const [state, formAction, isPending] = useActionState(action, INITIAL_STATE);
   const form = useFormFields({
-    fields: VEHICLE_FORM_FIELDS,
+    fields: isNew ? NEW_VEHICLE_FORM_FIELDS : VEHICLE_FORM_FIELDS,
     initialValues,
     validate: (values) => {
-      const parsed = parseVehicleForm(values, new Date());
+      const parsed = isNew
+        ? parseNewVehicleForm(values, new Date())
+        : parseVehicleForm(values, new Date());
       return parsed.success ? {} : z.flattenError(parsed.error).fieldErrors;
     },
     isRequired: isRequiredVehicleField,
@@ -128,7 +136,13 @@ export function CarForm({ initialValues, action, submitLabel, cancelHref }: CarF
       <FormSection title="The car">
         <div className="grid grid-cols-[1fr_7rem] gap-4">
           <FormField {...fieldProps("rego")}>
-            <Input {...textBoxProps("rego")} autoCapitalize="characters" placeholder="1ABC234" />
+            <Input
+              {...textBoxProps("rego")}
+              maxLength={MAXIMUM_REGO_LENGTH}
+              onChange={(event) => form.setValue("rego", typedRego(event.target.value))}
+              autoCapitalize="characters"
+              placeholder="1ABC234"
+            />
           </FormField>
           <FormField {...fieldProps("regoState")}>
             <Select
@@ -176,6 +190,11 @@ export function CarForm({ initialValues, action, submitLabel, cancelHref }: CarF
             <Input {...textBoxProps("colour")} />
           </FormField>
         </div>
+        {isNew ? (
+          <FormField {...fieldProps("kilometres")} hint="What the odometer shows today.">
+            <Input {...textBoxProps("kilometres")} inputMode="numeric" />
+          </FormField>
+        ) : null}
       </FormSection>
 
       <FormSection title="More details">

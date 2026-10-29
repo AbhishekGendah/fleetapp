@@ -24,7 +24,7 @@ export type SuggestionBoxProps<Suggestion> = Omit<
 
 /**
  * A text box with a list of suggestions under it: arrow keys move through
- * them, Enter or a tap picks one, Escape closes the list. Typing always stays
+ * them, Enter, Tab or a tap picks one, Escape closes the list. Typing always stays
  * free; what to suggest is up to whoever uses it (a fixed list, a lookup).
  */
 export function SuggestionBox<Suggestion>({
@@ -68,6 +68,13 @@ export function SuggestionBox<Suggestion>({
       // Enter picks the highlighted suggestion instead of submitting the form.
       event.preventDefault();
       choose(suggestions[activeIndex]!);
+    } else if (event.key === "Tab" && !event.shiftKey) {
+      // Leaving with Tab takes the highlighted suggestion, or the top one once
+      // something is typed, so "toy" then Tab gives "Toyota". Focus still moves on.
+      const index = activeIndex >= 0 ? activeIndex : value.trim() ? 0 : -1;
+      if (index >= 0 && index < suggestions.length) {
+        choose(suggestions[index]!);
+      }
     } else if (event.key === "Escape") {
       dismiss();
     }

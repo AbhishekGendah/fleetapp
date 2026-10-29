@@ -15,8 +15,10 @@ import {
   EMPTY_VEHICLE_FORM,
   parseVehicleForm,
   vehicleStatusInputSchema,
+  parseNewVehicleForm,
+  typedRego,
+  type NewVehicleInput,
   type VehicleFormValues,
-  type VehicleInput,
 } from "../src/lib/vehicles/vehicle-input";
 import {
   listVehiclePage,
@@ -40,17 +42,19 @@ const CAMRY: VehicleFormValues = {
   make: "toyota",
   model: "camry",
   year: "2022",
+  kilometres: "12,000",
 };
+const FIRST_READING_KM = 12_000;
 
 function errorFieldsFor(values: VehicleFormValues): string[] {
-  const parsed = parseVehicleForm(values, TODAY);
+  const parsed = parseNewVehicleForm(values, TODAY);
   return parsed.success
     ? []
     : [...new Set(parsed.error.issues.map((issue) => String(issue.path[0])))].sort();
 }
 
-function parsed(values: VehicleFormValues): VehicleInput {
-  const result = parseVehicleForm(values, TODAY);
+function parsed(values: VehicleFormValues): NewVehicleInput {
+  const result = parseNewVehicleForm(values, TODAY);
   if (!result.success) {
     throw new Error(`Test car is not valid: ${result.error.message}`);
   }
@@ -58,7 +62,7 @@ function parsed(values: VehicleFormValues): VehicleInput {
 }
 
 /** A car with a rego no other test uses: the test files share one database. */
-function uniqueCar(changes: Partial<VehicleFormValues> = {}): VehicleInput {
+function uniqueCar(changes: Partial<VehicleFormValues> = {}): NewVehicleInput {
   return parsed({ ...CAMRY, rego: randomUUID().slice(0, 7), ...changes });
 }
 
@@ -75,14 +79,21 @@ describe("the car form's rules", () => {
     expect(car).toMatchObject({ make: "Trabant", model: "601" });
   });
 
-  it("requires rego, state, make, model and year", () => {
+  it("requires rego, state, make, model, year and, for a new car, the odometer", () => {
     expect(errorFieldsFor(EMPTY_VEHICLE_FORM)).toEqual([
+      "kilometres",
       "make",
       "model",
       "rego",
       "regoState",
       "year",
     ]);
+    expect(parseVehicleForm({ ...CAMRY, kilometres: "" }, TODAY).success).toBe(true);
+  });
+
+  it("types a rego in capitals, letters and numbers only, no longer than a plate", () => {
+    expect(typedRego("1abc 2-3.4")).toBe("1ABC234");
+    expect(typedRego("abcdefghijkl")).toBe("ABCDEFGHI");
   });
 
   it("refuses a bad VIN, an impossible year and silly seat counts", () => {
@@ -262,13 +273,16 @@ describe("cars", () => {
   it("flags a reading lower than the last, and leaves a withdrawn one out of the current km", async () => {
     const vehicleId = await addCar();
 
+    expect((await loadVehicle(web.db, actor.operatorId, vehicleId))?.currentKilometres).toBe(
+      FIRST_READING_KM,
+    );
     await recordOdometerReading(web.db, actor, vehicleId, 50_000);
     const slip = await recordOdometerReading(web.db, actor, vehicleId, 5_000);
     expect(slip).toEqual({ status: "recorded", isLowerThanLast: true });
 
     const withSlip = await loadVehicle(web.db, actor.operatorId, vehicleId);
     expect(withSlip?.currentKilometres).toBe(5_000);
-    expect(withSlip?.readings.map((reading) => reading.isDrop)).toEqual([true, false]);
+    expect(withSlip?.readings.map((reading) => reading.isDrop)).toEqual([true, false, false]);
 
     expect(await withdrawOdometerReading(web.db, actor, withSlip!.readings[0]!.id)).toBe(
       "withdrawn",

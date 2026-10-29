@@ -20,6 +20,7 @@ export default async function NewCarPage() {
         </CardHeader>
         <CardContent>
           <CarForm
+            isNew
             initialValues={EMPTY_VEHICLE_FORM}
             action={addCarAction}
             submitLabel="Add car"

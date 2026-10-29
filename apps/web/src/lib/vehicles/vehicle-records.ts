@@ -13,7 +13,8 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
 import type { ActingUser } from "../acting-user";
-import type { VehicleInput, VehicleStatusInput } from "./vehicle-input";
+import { addReading } from "./odometer";
+import type { NewVehicleInput, VehicleInput, VehicleStatusInput } from "./vehicle-input";
 
 /** The car fields the add and edit form sets. */
 const VEHICLE_FIELDS = [
@@ -47,7 +48,9 @@ export type SaveVehicleResult = { status: "saved"; vehicleId: string } | Duplica
 /** Changes to an archived car wait until it is restored. */
 export type ChangeVehicleResult = "changed" | "unchanged" | "not_found";
 
-function pickVehicleFields(input: VehicleInput): Pick<Vehicle, (typeof VEHICLE_FIELDS)[number]> {
+function pickVehicleFields(
+  input: VehicleInput | NewVehicleInput,
+): Pick<Vehicle, (typeof VEHICLE_FIELDS)[number]> {
   return Object.fromEntries(VEHICLE_FIELDS.map((field) => [field, input[field]])) as Pick<
     Vehicle,
     (typeof VEHICLE_FIELDS)[number]
@@ -134,11 +137,14 @@ function logVehicleActivity(
   });
 }
 
-/** Adds a car to the signed-in User's Operator (never one named by the form: rule 1). */
+/**
+ * Adds a car, with its first odometer reading, to the signed-in User's
+ * Operator (never one named by the form: rule 1).
+ */
 export async function createVehicle(
   database: AnyDatabase,
   actor: ActingUser,
-  input: VehicleInput,
+  input: NewVehicleInput,
 ): Promise<SaveVehicleResult> {
   const fields = pickVehicleFields(input);
   return saveOrReportDuplicate(database, actor.operatorId, fields, () =>
@@ -153,6 +159,7 @@ export async function createVehicle(
       await logVehicleActivity(tx, actor, created.id, ACTIVITY_ACTIONS.created, {
         valuesAfter: fields,
       });
+      await addReading(tx, actor, created.id, input.kilometres);
       return { status: "saved" as const, vehicleId: created.id };
     }),
   );

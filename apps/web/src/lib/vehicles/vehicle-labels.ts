@@ -24,6 +24,7 @@ export const VEHICLE_FIELD_LABELS: Readonly<Record<VehicleLabelledField, string>
   fuelType: "Fuel",
   seats: "Seats",
   vin: "VIN",
+  kilometres: "Odometer (km)",
   status: "Status",
   statusReason: "Reason",
   statusExpectedBack: "Expected back",
