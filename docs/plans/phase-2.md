@@ -1,6 +1,6 @@
 # Phase 2 plan — Vehicles and Renters
 
-Status: draft, waiting for Abhi's approval. Nothing is built yet.
+Status: approved. Step 1 (cars) built.
 
 Phase 2 gives Operators their two core records: cars and Renters. Rentals
 (Phase 3) and money (Phase 4) build on them. Five slices, each deployed

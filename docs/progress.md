@@ -215,9 +215,31 @@
   desktops and once added. Offline use comes with the handover checklist
   (rule 25), not now.
 
+- Phase 2 approved (docs/plans/phase-2.md). Step 1, cars:
+  - Tables `vehicles` and `odometer_readings` (migration 0008), RLS
+    forced, Operator-only; admin has no access. One rego per state per
+    Operator and one VIN per Operator (archived cars excepted). Readings
+    are never changed: one entered by mistake is withdrawn. A reading
+    always points at a car of its own Operator (two-column link).
+  - Screens: Cars in the menu; list (search every word, status filter,
+    archived cars on request, sort, pages of 25 from the database,
+    CSV/Excel); add and edit form with live checks; car page with
+    Details, Odometer and History tabs; status (in service and off road
+    need a reason and return date); archive and restore.
+  - Make and model suggest from a built-in list of cars sold in
+    Australia (`packages/core/src/vehicle-models.ts`); anything else can
+    be typed, with a "check the spelling" warning.
+  - New shared pieces: searchable box (also used by the address lookup),
+    badge, tabs, form section, state options, and one form helper that
+    every form uses for live checks and sending.
+  - Shared list rules now separate what a list shows from how it is
+    searched, so the same list screen works in memory (admin Operators,
+    which stays in memory: dozens of rows, status worked out from several
+    tables) or in the database (cars).
+
 ## Next
-Phase 1b is complete. Phase 2 (cars and Renters) is drafted in
-docs/plans/phase-2.md, waiting for Abhi's approval.
+Phase 2 step 2: car paperwork, costs and photos (rego renewals,
+insurance policies, purchase and sale, other costs, photos, documents).
 
 ## Open items
 - Production buckets (before go-live): set the bucket clean-up rule for

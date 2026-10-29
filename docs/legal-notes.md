@@ -108,6 +108,17 @@ of service) and the countries.
   privacy policy and the Operator terms that Operators are responsible
   for what they export.
 
+## Cars (Phase 2 step 1, built)
+
+- A car's rego, VIN and details are not personal information on their own.
+  They can become so once linked to a Renter (who had which car when), which
+  arrives with rentals in Phase 3: treat car history as personal from then.
+- The built-in make and model list uses manufacturers' names only to
+  describe the cars, which trade mark law allows. No logos are used, and no
+  paid or copied database: the list was compiled from public information.
+- Car exports (CSV/Excel) hold no personal information today. When rentals
+  add Renter names to car lists, the export rules under "Exports" apply.
+
 ## Business details (already built)
 
 - An Operator's ABN, address, phone and email are business information,
