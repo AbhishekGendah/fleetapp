@@ -1,3 +1,5 @@
+import { joinUrl } from "./urls";
+
 /** How long an invite link works for. An AGS setting, not an Operator one. */
 export const INVITE_LIFETIME_DAYS = 7;
 
@@ -10,8 +12,7 @@ const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 export const INVITE_ACCEPT_PATH = "/invite";
 
 export function buildInviteUrl(appUrl: string, token: string): string {
-  const base = appUrl.replace(/\/+$/, "");
-  return `${base}${INVITE_ACCEPT_PATH}/${token}`;
+  return joinUrl(appUrl, `${INVITE_ACCEPT_PATH}/${token}`);
 }
 
 export const INVITE_STATUSES = ["pending", "not_sent", "expired", "revoked", "accepted"] as const;

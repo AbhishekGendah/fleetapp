@@ -4,6 +4,7 @@ import { AuthenticatorSetup, type AuthenticatorEnrolment } from "@fleetapp/ui/au
 import { useRouter } from "next/navigation";
 
 import { authClient } from "../../lib/auth-client";
+import { HOME_PATH } from "../../lib/paths";
 
 async function enableAuthenticator(password: string): Promise<AuthenticatorEnrolment | null> {
   const { data, error } = await authClient.twoFactor.enable({ password });
@@ -22,7 +23,7 @@ export function SetUpAuthenticatorForm() {
   const router = useRouter();
 
   function handleFinish(): void {
-    router.push("/");
+    router.push(HOME_PATH);
     router.refresh();
   }
 

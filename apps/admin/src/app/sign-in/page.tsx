@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { authClient } from "../../lib/auth-client";
 import { ADMIN_LABEL } from "../admin-label";
+import { HOME_PATH } from "../../lib/paths";
 
 async function signInWithPassword(email: string, password: string): Promise<PasswordStepResult> {
   const { data, error } = await authClient.signIn.email({ email, password });
@@ -37,7 +38,7 @@ export default function SignInPage() {
       signInWithPassword={signInWithPassword}
       verifyCode={verifyCode}
       verifyRecoveryCode={verifyRecoveryCode}
-      onSignedIn={() => router.push("/")}
+      onSignedIn={() => router.push(HOME_PATH)}
     />
   );
 }

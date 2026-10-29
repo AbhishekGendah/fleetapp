@@ -1,9 +1,10 @@
-import { describeErrorForLog } from "@fleetapp/core";
 import {
   describeDevice,
+  describeErrorForLog,
   formatDateTimeInTimeZone,
   generateSecretToken,
   hashSecretToken,
+  joinUrl,
 } from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { operators, userKnownDevices, users } from "@fleetapp/db/schema";
@@ -12,7 +13,7 @@ import type { BetterAuthPlugin } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import { and, eq, sql } from "drizzle-orm";
 
-import { absoluteUrl, FORGOT_PASSWORD_PATH } from "./paths";
+import { FORGOT_PASSWORD_PATH } from "./paths";
 
 const KNOWN_DEVICE_COOKIE = "known_device";
 
@@ -85,7 +86,7 @@ async function sendAlert(options: NewDeviceAlertOptions, check: DeviceCheck): Pr
     name: recipient.name,
     signedInAt: formatDateTimeInTimeZone(check.signedInAt, recipient.timezone),
     deviceDescription: describeDevice(check.userAgent),
-    resetPasswordUrl: absoluteUrl(options.appUrl, FORGOT_PASSWORD_PATH),
+    resetPasswordUrl: joinUrl(options.appUrl, FORGOT_PASSWORD_PATH),
   });
   await options.emailSender.send(message);
 }

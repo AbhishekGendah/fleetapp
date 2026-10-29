@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { appDb } from "./app-db";
 import { auth } from "./auth";
+import { SET_UP_AUTHENTICATOR_PATH, SIGN_IN_PATH } from "./paths";
 
 export interface SignedInAdmin {
   id: string;
@@ -33,7 +34,7 @@ export async function requireAdmin(
   const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session) {
-    redirect("/sign-in");
+    redirect(SIGN_IN_PATH);
   }
 
   const [admin] = await appDb
@@ -49,13 +50,13 @@ export async function requireAdmin(
 
   // The record is gone or archived but a session survives it.
   if (!admin || admin.archivedAt) {
-    redirect("/sign-in");
+    redirect(SIGN_IN_PATH);
   }
 
   // An Admin reaches every Operator, so there is no using the admin app
   // without an authenticator app set up first.
   if (!admin.twoFactorEnabled && !options.allowWithoutAuthenticator) {
-    redirect("/set-up-authenticator");
+    redirect(SET_UP_AUTHENTICATOR_PATH);
   }
 
   return {

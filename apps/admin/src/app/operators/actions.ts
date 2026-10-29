@@ -13,8 +13,8 @@ import { resendInvite } from "../../lib/operators/resend-invite";
 import { reactivateOperator, suspendOperator } from "../../lib/operators/suspension";
 import { requireAdmin } from "../../lib/require-admin";
 import { INVITE_RESULT_PARAM, INVITE_RESULTS } from "./invite-result";
+import { OPERATORS_PATH, operatorPath } from "../../lib/paths";
 
-const OPERATORS_PATH = "/operators";
 const UNEXPECTED_ERROR_MESSAGE = "Something went wrong. Nothing was changed; try again.";
 
 export interface ActionState {
@@ -37,10 +37,6 @@ function submittedText(formData: FormData, names: readonly string[]): Record<str
 const CREATE_OPERATOR_FIELDS = ["legalName", "tradingName", "userFullName", "userEmail"] as const;
 
 const operatorIdSchema = z.object({ operatorId: z.uuid() });
-
-function operatorPath(operatorId: string): string {
-  return `${OPERATORS_PATH}/${operatorId}`;
-}
 
 function inviteResultPath(operatorId: string, isInviteSent: boolean): string {
   const result = isInviteSent ? INVITE_RESULTS.sent : INVITE_RESULTS.notSent;

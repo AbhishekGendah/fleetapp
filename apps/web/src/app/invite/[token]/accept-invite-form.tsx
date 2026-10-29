@@ -10,7 +10,8 @@ import { acceptInviteAction, type AcceptInviteState } from "./actions";
 
 const INITIAL_STATE: AcceptInviteState = {};
 
-export function AcceptInviteForm({ token, email }: { token: string; email: string }) {
+export function AcceptInviteForm(props: { token: string; email: string; minimumLength: number }) {
+  const { token, email } = props;
   const [state, formAction, isPending] = useActionState(acceptInviteAction, INITIAL_STATE);
 
   return (
@@ -21,7 +22,7 @@ export function AcceptInviteForm({ token, email }: { token: string; email: strin
       <RequiredFieldsNote />
       <NewPasswordField
         name="password"
-        label="Choose a password (at least 12 characters)"
+        label={`Choose a password (at least ${props.minimumLength} characters)`}
         errors={state.fieldErrors?.password}
       />
       <NewPasswordField

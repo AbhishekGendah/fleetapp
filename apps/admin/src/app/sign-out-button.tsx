@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { authClient } from "../lib/auth-client";
+import { SIGN_IN_PATH } from "../lib/paths";
 
 export function SignOutButton() {
   const router = useRouter();
@@ -13,7 +14,7 @@ export function SignOutButton() {
   async function handleSignOut(): Promise<void> {
     setIsSigningOut(true);
     await authClient.signOut();
-    router.push("/sign-in");
+    router.push(SIGN_IN_PATH);
     router.refresh();
   }
 

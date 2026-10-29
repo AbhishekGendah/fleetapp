@@ -18,19 +18,20 @@ interface ResetPasswordPageProps {
  */
 export default async function ResetPasswordPage(props: ResetPasswordPageProps) {
   const { token } = await props.searchParams;
+  const completeToken = typeof token === "string" && token ? token : null;
 
   return (
     <AuthPageLayout>
       <Card>
         <CardHeader>
           <CardTitle>Choose a new password</CardTitle>
-          {typeof token === "string" && token ? null : (
+          {completeToken ? null : (
             <CardDescription>This link is not complete. Ask for a new one.</CardDescription>
           )}
         </CardHeader>
         <CardContent>
-          {typeof token === "string" && token ? (
-            <ResetPasswordForm token={token} minimumLength={MINIMUM_PASSWORD_LENGTH} />
+          {completeToken ? (
+            <ResetPasswordForm token={completeToken} minimumLength={MINIMUM_PASSWORD_LENGTH} />
           ) : (
             <Link href={FORGOT_PASSWORD_PATH} className="text-sm hover:underline">
               Send me a new link

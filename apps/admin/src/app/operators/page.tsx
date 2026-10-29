@@ -8,6 +8,7 @@ import { listOperators, type OperatorSummary } from "../../lib/operators/queries
 import { requireAdmin } from "../../lib/require-admin";
 import { AdminShell } from "../admin-shell";
 import { OperatorStatusBadge } from "../status-badge";
+import { NEW_OPERATOR_PATH, operatorPath } from "../../lib/paths";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ function OperatorCards({ operators }: { operators: OperatorSummary[] }) {
     <ul className="flex flex-col gap-3 md:hidden">
       {operators.map((operator) => (
         <li key={operator.id}>
-          <Link href={`/operators/${operator.id}`} className="block">
+          <Link href={operatorPath(operator.id)} className="block">
             <Card>
               <CardContent className="flex flex-col gap-1 p-4">
                 <div className="flex items-start justify-between gap-2">
@@ -63,7 +64,7 @@ function OperatorTable({ operators }: { operators: OperatorSummary[] }) {
         {operators.map((operator) => (
           <tr key={operator.id} className="border-b">
             <td className="py-3">
-              <Link href={`/operators/${operator.id}`} className="font-medium hover:underline">
+              <Link href={operatorPath(operator.id)} className="font-medium hover:underline">
                 {displayName(operator)}
               </Link>
             </td>
@@ -89,7 +90,7 @@ export default async function OperatorsPage() {
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">Operators</h1>
         <Button asChild>
-          <Link href="/operators/new">New Operator</Link>
+          <Link href={NEW_OPERATOR_PATH}>New Operator</Link>
         </Button>
       </div>
 

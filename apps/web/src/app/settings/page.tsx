@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@flee
 import { redirect } from "next/navigation";
 
 import { appDb } from "../../lib/app-db";
-import { SIGN_IN_PATH } from "../../lib/paths";
+import { BUSINESS_DETAILS_ANCHOR, SIGN_IN_PATH } from "../../lib/paths";
 import { requireUser } from "../../lib/require-user";
 import { loadBusinessDetails } from "../../lib/settings/business-details";
 import { AppShell } from "../app-shell";
@@ -22,7 +22,7 @@ export default async function SettingsPage() {
   return (
     <AppShell user={user}>
       <h1 className="text-primary text-2xl font-extrabold">Settings</h1>
-      <Card id="business-details">
+      <Card id={BUSINESS_DETAILS_ANCHOR}>
         <CardHeader>
           <CardTitle>Business details</CardTitle>
           <CardDescription>Used on your contracts, invoices and emails.</CardDescription>

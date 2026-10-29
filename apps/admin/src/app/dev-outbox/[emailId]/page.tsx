@@ -8,6 +8,7 @@ import { isDevOutboxEnabled } from "../../../lib/email";
 import { formatAdminDateTime } from "../../../lib/format";
 import { requireAdmin } from "../../../lib/require-admin";
 import { AdminShell } from "../../admin-shell";
+import { DEV_OUTBOX_PATH } from "../../../lib/paths";
 
 export const runtime = "nodejs";
 
@@ -37,7 +38,7 @@ export default async function OutboxEmailPage(props: OutboxEmailPageProps) {
 
   return (
     <AdminShell>
-      <Link href="/dev-outbox" className="text-sm hover:underline">
+      <Link href={DEV_OUTBOX_PATH} className="text-sm hover:underline">
         ← Test inbox
       </Link>
       <h1 className="text-xl font-semibold break-words">{email.subject}</h1>

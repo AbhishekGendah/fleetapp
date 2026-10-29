@@ -1,4 +1,4 @@
-import { describeErrorForLog } from "@fleetapp/core";
+import { describeErrorForLog, joinUrl } from "@fleetapp/core";
 import type { SignInLockoutStore } from "@fleetapp/auth";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, userVerifications } from "@fleetapp/db/schema";
@@ -6,12 +6,12 @@ import { renderPasswordResetEmail, type EmailSender } from "@fleetapp/email";
 import { eq } from "drizzle-orm";
 
 import { RESET_LINK_LIFETIME_SECONDS, RESET_LINK_LIFETIME_WORDS } from "./password-reset-policy";
-import { absoluteUrl, RESET_PASSWORD_PATH } from "./paths";
+import { RESET_PASSWORD_PATH } from "./paths";
 import { isAllowedToSignIn } from "./sign-in-eligibility";
 import type { RecordUserActivity } from "./user-activity";
 
 export function buildResetPasswordUrl(appUrl: string, token: string): string {
-  return `${absoluteUrl(appUrl, RESET_PASSWORD_PATH)}?token=${encodeURIComponent(token)}`;
+  return `${joinUrl(appUrl, RESET_PASSWORD_PATH)}?token=${encodeURIComponent(token)}`;
 }
 
 /**

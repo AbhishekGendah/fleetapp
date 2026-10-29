@@ -1,6 +1,6 @@
 "use client";
 
-import type { AustralianStateCode } from "@fleetapp/core";
+import { describeErrorForLog, type AustralianStateCode } from "@fleetapp/core";
 import { Input } from "@fleetapp/ui/input";
 import { useEffect, useId, useRef, useState } from "react";
 
@@ -20,6 +20,48 @@ type AddressSearchProps = Omit<React.ComponentPropsWithoutRef<"input">, "value" 
   nearState: AustralianStateCode | null;
 };
 
+/** A lost connection only means no suggestions: the box still works. */
+function logLookupFailure(error: unknown): void {
+  console.warn("Address lookup did not answer", describeErrorForLog(error));
+}
+
+interface SuggestionSearch {
+  query: string;
+  isEnabled: boolean;
+  nearState: AustralianStateCode | null;
+  sessionToken: React.RefObject<string>;
+}
+
+/** Suggestions for what is typed, fetched after a pause in typing. */
+function useAddressSuggestions(search: SuggestionSearch): AddressSuggestion[] {
+  const { query, isEnabled, nearState, sessionToken } = search;
+  // Kept with the text they were found for, and shown only while the box
+  // still holds that text, so an old answer never shows up.
+  const [results, setResults] = useState<{ query: string; suggestions: AddressSuggestion[] }>({
+    query: "",
+    suggestions: [],
+  });
+
+  useEffect(() => {
+    if (!isEnabled || query.length < ADDRESS_SEARCH_MINIMUM_LENGTH) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      searchAddressesAction(query, sessionToken.current, nearState)
+        .catch((error: unknown) => {
+          logLookupFailure(error);
+          return [];
+        })
+        .then((found) => {
+          setResults({ query, suggestions: found });
+        });
+    }, TYPING_PAUSE_MS);
+    return () => clearTimeout(timer);
+  }, [query, isEnabled, nearState, sessionToken]);
+
+  return isEnabled && results.query === query ? results.suggestions : [];
+}
+
 /**
  * A street address box that suggests real addresses as you type. Typing stays
  * free: a suggestion only fills the form when picked, and if Google is slow,
@@ -34,33 +76,17 @@ export function AddressSearch({
   ...inputProps
 }: AddressSearchProps) {
   const listId = useId();
-  // Suggestions are kept with the text they were found for, and shown only
-  // while the box still holds that text, so an old answer never shows up.
-  const [results, setResults] = useState<{ query: string; suggestions: AddressSuggestion[] }>({
-    query: "",
-    suggestions: [],
-  });
   const [activeIndex, setActiveIndex] = useState(-1);
   const [shouldSearch, setShouldSearch] = useState(false);
   // One token per address being looked up: Google bills the typing and the
   // pick together as one lookup.
   const sessionToken = useRef<string>(crypto.randomUUID());
-
-  const query = value.trim();
-  const suggestions = shouldSearch && results.query === query ? results.suggestions : [];
-
-  useEffect(() => {
-    if (!shouldSearch || query.length < ADDRESS_SEARCH_MINIMUM_LENGTH) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      void searchAddressesAction(query, sessionToken.current, nearState).then((found) => {
-        setResults({ query, suggestions: found });
-        setActiveIndex(-1);
-      });
-    }, TYPING_PAUSE_MS);
-    return () => clearTimeout(timer);
-  }, [query, shouldSearch, nearState]);
+  const suggestions = useAddressSuggestions({
+    query: value.trim(),
+    isEnabled: shouldSearch,
+    nearState,
+    sessionToken,
+  });
 
   function close(): void {
     setActiveIndex(-1);
@@ -70,7 +96,12 @@ export function AddressSearch({
   async function choose(suggestion: AddressSuggestion): Promise<void> {
     close();
     onValueChange(suggestion.mainText);
-    const address = await getAddressAction(suggestion.placeId, sessionToken.current);
+    const address = await getAddressAction(suggestion.placeId, sessionToken.current).catch(
+      (error: unknown) => {
+        logLookupFailure(error);
+        return null;
+      },
+    );
     sessionToken.current = crypto.randomUUID();
     if (address) {
       onAddressChosen(address);
@@ -109,6 +140,8 @@ export function AddressSearch({
         aria-activedescendant={activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}
         onChange={(event) => {
           setShouldSearch(true);
+          // New text, new suggestions: nothing is highlighted yet.
+          setActiveIndex(-1);
           onValueChange(event.target.value);
         }}
         onKeyDown={handleKeyDown}

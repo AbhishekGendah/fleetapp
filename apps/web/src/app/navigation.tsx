@@ -22,8 +22,12 @@ const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   { href: SETTINGS_PATH, label: "Settings", icon: Settings },
 ];
 
+/** A section is current on its own page and the pages under it, not on "/settings-x". */
 function isCurrent(pathname: string, href: string): boolean {
-  return href === HOME_PATH ? pathname === HOME_PATH : pathname.startsWith(href);
+  if (href === HOME_PATH) {
+    return pathname === HOME_PATH;
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 /** On a wider screen: a column down the left. */

@@ -8,6 +8,7 @@ import { isDevOutboxEnabled } from "../../lib/email";
 import { formatAdminDateTime } from "../../lib/format";
 import { requireAdmin } from "../../lib/require-admin";
 import { AdminShell } from "../admin-shell";
+import { devOutboxEmailPath } from "../../lib/paths";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,7 +34,7 @@ export default async function DevOutboxPage() {
         <ul className="flex flex-col gap-3">
           {emails.map((email) => (
             <li key={email.id}>
-              <Link href={`/dev-outbox/${email.id}`} className="block">
+              <Link href={devOutboxEmailPath(email.id)} className="block">
                 <Card>
                   <CardContent className="flex flex-col gap-1 p-4">
                     <span className="font-medium">{email.subject}</span>

@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@flee
 import { authDb } from "../../../lib/auth";
 import { findUsableInvite } from "../../../lib/invites/find-invite";
 import { AcceptInviteForm } from "./accept-invite-form";
+import { MINIMUM_PASSWORD_LENGTH } from "../../../lib/auth-options";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,7 +29,11 @@ export default async function InvitePage(props: InvitePageProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <AcceptInviteForm token={token} email={invite.email} />
+              <AcceptInviteForm
+                token={token}
+                email={invite.email}
+                minimumLength={MINIMUM_PASSWORD_LENGTH}
+              />
             </CardContent>
           </>
         ) : (

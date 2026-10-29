@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { authClient } from "../../lib/auth-client";
 import { FORGOT_PASSWORD_PATH } from "../../lib/paths";
+import { HOME_PATH } from "../../lib/paths";
 
 async function signInWithPassword(email: string, password: string): Promise<PasswordStepResult> {
   const { data, error } = await authClient.signIn.email({ email, password });
@@ -32,7 +33,7 @@ export default function SignInPage() {
   const router = useRouter();
 
   function handleSignedIn(): void {
-    router.push("/");
+    router.push(HOME_PATH);
     router.refresh();
   }
 
