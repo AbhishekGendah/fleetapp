@@ -14,6 +14,8 @@ interface FormFieldProps {
   /** Shows the asterisk. The box must also carry `required` or `aria-required`. */
   isRequired?: boolean;
   hint?: string;
+  /** Worth knowing, but not wrong: shown in amber, and does not block saving. */
+  warning?: string;
   error?: string;
   children: React.ReactNode;
 }
@@ -30,6 +32,11 @@ export function FormField(props: FormFieldProps): React.JSX.Element {
       </Label>
       {props.children}
       {props.hint ? <p className="text-muted-foreground text-xs">{props.hint}</p> : null}
+      {props.warning && !props.error ? (
+        <p id={fieldErrorId(props.htmlFor)} className="text-attention text-sm" role="status">
+          {props.warning}
+        </p>
+      ) : null}
       {props.error ? (
         <p id={fieldErrorId(props.htmlFor)} className="text-destructive text-sm">
           {props.error}

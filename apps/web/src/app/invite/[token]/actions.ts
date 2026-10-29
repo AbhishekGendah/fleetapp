@@ -6,7 +6,6 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { authDb, auth } from "../../../lib/auth";
-import { BREACHED_PASSWORD_MESSAGE, isBreachedPasswordError } from "@fleetapp/auth";
 import { newPasswordSchema } from "@fleetapp/auth/login-policy";
 import { acceptInvite, InviteNotUsableError } from "../../../lib/invites/accept-invite";
 import { SET_UP_AUTHENTICATOR_PATH, SIGN_IN_PATH } from "../../../lib/paths";
@@ -50,9 +49,6 @@ export async function acceptInviteAction(
   } catch (error) {
     if (error instanceof InviteNotUsableError) {
       return { formError: error.message };
-    }
-    if (isBreachedPasswordError(error)) {
-      return { fieldErrors: { password: [BREACHED_PASSWORD_MESSAGE] } };
     }
     console.error("Accepting an invite failed", describeErrorForLog(error));
     return { formError: UNEXPECTED_ERROR_MESSAGE };

@@ -3,11 +3,12 @@
 import { Button } from "@fleetapp/ui/button";
 import { FormError } from "@fleetapp/ui/form-message";
 import { RequiredFieldsNote } from "@fleetapp/ui/input";
-import { useActionState } from "react";
+import { startTransition, useActionState, useState } from "react";
 
 import {
   NEW_PASSWORD_HINT,
   NewPasswordField,
+  submitLabel,
   useNewPasswordChecks,
 } from "../../new-password-field";
 import { acceptInviteAction, type AcceptInviteState } from "./actions";
@@ -16,11 +17,17 @@ const INITIAL_STATE: AcceptInviteState = {};
 
 export function AcceptInviteForm(props: { token: string; email: string }) {
   const [state, formAction, isPending] = useActionState(acceptInviteAction, INITIAL_STATE);
-  const { fieldProps, checkAll } = useNewPasswordChecks();
+  const { fieldProps, isReadyToSend, isLeakWarningShown } = useNewPasswordChecks();
+  const [isChecking, setIsChecking] = useState(false);
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
-    if (!checkAll()) {
-      event.preventDefault();
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    setIsChecking(true);
+    const isReady = await isReadyToSend();
+    setIsChecking(false);
+    if (isReady) {
+      startTransition(() => formAction(formData));
     }
   }
 
@@ -55,8 +62,8 @@ export function AcceptInviteForm(props: { token: string; email: string }) {
         label="Type it again"
       />
       <FormError message={state.formError ?? null} />
-      <Button type="submit" disabled={isPending}>
-        {isPending ? "Setting up…" : "Continue"}
+      <Button type="submit" disabled={isPending || isChecking}>
+        {isPending || isChecking ? "Setting up…" : submitLabel(isLeakWarningShown, "Continue")}
       </Button>
     </form>
   );

@@ -1,4 +1,3 @@
-import { isBreachedPasswordError } from "@fleetapp/auth";
 import { randomUUID } from "node:crypto";
 
 import { adminActivityLog, adminUsers } from "@fleetapp/db/schema";
@@ -15,11 +14,6 @@ import {
   InvalidAdminDetailsError,
   WeakPasswordError,
 } from "../src/lib/create-first-admin";
-
-/** Stands in for the breach lookup: only this one password counts as leaked. */
-const BREACHED_PASSWORD = "password1234567";
-const isKnownBreachedPassword = async (password: string): Promise<boolean> =>
-  password === BREACHED_PASSWORD;
 
 const TEST_PASSWORD = "a-long-enough-test-password";
 const TEST_SECRET = "a-test-signing-secret-at-least-32-chars-long";
@@ -68,7 +62,6 @@ describe("the admin login", () => {
       baseURL: TEST_BASE_URL,
       secret: TEST_SECRET,
       issuerName: TEST_ISSUER,
-      isPasswordBreached: isKnownBreachedPassword,
       recordActivity: async (entry) => {
         await connection.db.insert(adminActivityLog).values({
           adminUserId: entry.adminUserId ?? null,
@@ -96,18 +89,6 @@ describe("the admin login", () => {
           password: "short",
         }),
       ).rejects.toBeInstanceOf(WeakPasswordError);
-    });
-
-    it("refuses a password known to have leaked", async () => {
-      await expect(
-        createFirstAdmin({
-          database: connection.db,
-          auth,
-          email: `${randomUUID()}@example.test`,
-          fullName: "Leaked Password",
-          password: BREACHED_PASSWORD,
-        }),
-      ).rejects.toSatisfy(isBreachedPasswordError);
     });
 
     it("refuses an email that is not an email", async () => {
@@ -281,7 +262,6 @@ describe("the admin login", () => {
         baseURL: TEST_BASE_URL,
         secret: TEST_SECRET,
         issuerName: TEST_ISSUER,
-        isPasswordBreached: isKnownBreachedPassword,
         recordActivity: async (entry) => {
           await connection.db.insert(adminActivityLog).values({
             adminUserId: entry.adminUserId ?? null,

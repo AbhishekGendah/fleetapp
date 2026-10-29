@@ -1,10 +1,6 @@
 import { createHash } from "node:crypto";
 
 import { describeErrorForLog } from "@fleetapp/core";
-import type { BetterAuthPlugin } from "better-auth";
-import { APIError, isAPIError } from "better-auth/api";
-
-import { BREACHED_PASSWORD_CODE, BREACHED_PASSWORD_MESSAGE } from "./login-policy";
 
 /** Have I Been Pwned's range lookup: given 5 characters of a SHA-1, it lists matching hashes. */
 const BREACH_RANGE_URL = "https://api.pwnedpasswords.com/range/";
@@ -20,9 +16,9 @@ export type PasswordBreachCheck = (password: string) => Promise<boolean>;
  * only the first 5 characters of its SHA-1 fingerprint leave the server, and
  * the match is made here. Padding hides how many matches came back.
  *
- * If the service cannot be reached the password is allowed, with a warning
- * logged: an outage elsewhere must not stop a User choosing a password. The
- * length rule and the authenticator still apply.
+ * Used to warn, never to refuse: a leaked password may still be used once
+ * the person has been told (Abhi's decision). If the service cannot be
+ * reached the answer is "not known to have leaked", with a warning logged.
  */
 export function createBreachedPasswordCheck(
   fetchImplementation: typeof fetch = fetch,
@@ -53,39 +49,4 @@ function isSuffixListed(rangeResponse: string, suffix: string): boolean {
     const [listedSuffix, count] = line.split(":");
     return listedSuffix?.trim().toUpperCase() === suffix && Number(count) > 0;
   });
-}
-
-export function isBreachedPasswordError(error: unknown): boolean {
-  return isAPIError(error) && error.body?.code === BREACHED_PASSWORD_CODE;
-}
-
-/**
- * Refuses any new password that is known to have leaked. Hooked into the login
- * system's password hashing, which runs only when a password is being set:
- * accepting an invite, resetting a password, creating the first Admin. So
- * every way of choosing a password is covered, and signing in is not slowed.
- */
-export function breachedPasswordGuard(isPasswordBreached: PasswordBreachCheck): BetterAuthPlugin {
-  return {
-    id: "breached-password-guard",
-    init(ctx) {
-      const hash = ctx.password.hash;
-      return {
-        context: {
-          password: {
-            ...ctx.password,
-            async hash(password: string): Promise<string> {
-              if (await isPasswordBreached(password)) {
-                throw APIError.from("BAD_REQUEST", {
-                  code: BREACHED_PASSWORD_CODE,
-                  message: BREACHED_PASSWORD_MESSAGE,
-                });
-              }
-              return hash(password);
-            },
-          },
-        },
-      };
-    },
-  };
 }

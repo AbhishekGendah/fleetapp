@@ -1,7 +1,6 @@
 "use client";
 
 import { authClient } from "@fleetapp/auth/client";
-import { BREACHED_PASSWORD_CODE, BREACHED_PASSWORD_MESSAGE } from "@fleetapp/auth/login-policy";
 import { Button } from "@fleetapp/ui/button";
 import { ClientForm, SubmitButton } from "@fleetapp/ui/client-form";
 import { FormError } from "@fleetapp/ui/form-message";
@@ -10,12 +9,17 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { FORGOT_PASSWORD_PATH, SIGN_IN_PATH } from "../../lib/paths";
-import { NEW_PASSWORD_HINT, NewPasswordField, useNewPasswordChecks } from "../new-password-field";
+import {
+  NEW_PASSWORD_HINT,
+  NewPasswordField,
+  submitLabel,
+  useNewPasswordChecks,
+} from "../new-password-field";
 
 const LINK_FAILED_MESSAGE = "This link no longer works. It may have expired or been used.";
 
 export function ResetPasswordForm(props: { token: string }) {
-  const { values, fieldProps, checkAll, setServerPasswordProblem } = useNewPasswordChecks();
+  const { values, fieldProps, isReadyToSend, isLeakWarningShown } = useNewPasswordChecks();
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDone, setIsDone] = useState(false);
@@ -23,20 +27,17 @@ export function ResetPasswordForm(props: { token: string }) {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     setFormError(null);
-    if (!checkAll()) {
+    setIsSubmitting(true);
+    if (!(await isReadyToSend())) {
+      setIsSubmitting(false);
       return;
     }
 
-    setIsSubmitting(true);
     const { error } = await authClient.resetPassword({
       newPassword: values.password,
       token: props.token,
     });
     setIsSubmitting(false);
-    if (error?.code === BREACHED_PASSWORD_CODE) {
-      setServerPasswordProblem(BREACHED_PASSWORD_MESSAGE);
-      return;
-    }
     if (error) {
       setFormError(LINK_FAILED_MESSAGE);
       return;
@@ -64,7 +65,7 @@ export function ResetPasswordForm(props: { token: string }) {
       <NewPasswordField {...fieldProps("confirmation")} label="Type it again" />
       <FormError message={formError} />
       <SubmitButton disabled={isSubmitting}>
-        {isSubmitting ? "Saving…" : "Change password"}
+        {isSubmitting ? "Saving…" : submitLabel(isLeakWarningShown, "Change password")}
       </SubmitButton>
       {formError ? (
         <Link href={FORGOT_PASSWORD_PATH} className="text-center text-sm hover:underline">

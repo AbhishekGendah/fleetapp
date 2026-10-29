@@ -164,10 +164,11 @@
   - Lint now enforces the standards: no `any`, no empty catch, no stray
     console output, explicit return types on exported functions in `.ts`
     files (React components in `.tsx` are left to inference).
-- Leaked passwords refused: every new password (invite, reset, first
-  Admin) is checked against Have I Been Pwned by its fingerprint's first 5
-  characters. If the service is down the password is allowed and a
-  warning logged.
+- Leaked passwords warned about, not refused (Abhi's decision): every new
+  password (invite, reset, first Admin) is checked against Have I Been
+  Pwned by its fingerprint's first 5 characters. A leaked one shows an
+  amber warning and "Use this password anyway"; pressing it again keeps
+  it. If the service is down, no warning is shown.
 - Keeping one standard: the linter refuses raw buttons, boxes, dropdowns,
   labels and tables in the apps (rule 29); a Components page in admin
   shows every shared piece; CI fails on copy-pasted code (`pnpm

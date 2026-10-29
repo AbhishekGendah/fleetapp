@@ -9,11 +9,9 @@ import {
   adminVerifications,
 } from "@fleetapp/db/schema";
 import {
-  breachedPasswordGuard,
   createDrizzleLockoutStore,
   MAXIMUM_PASSWORD_LENGTH,
   MINIMUM_PASSWORD_LENGTH,
-  type PasswordBreachCheck,
   RECOVERY_CODES,
   signInLockout,
   TWO_FACTOR_LOCKOUT,
@@ -50,8 +48,6 @@ export interface AdminAuthConfig {
     action: AdminActivityAction;
     ipAddress?: string | null;
   }) => Promise<void>;
-  /** Refuses leaked passwords. The tests pass a stand-in, so they need no internet. */
-  isPasswordBreached: PasswordBreachCheck;
   /** Injected so the tests can move the clock past a lockout. */
   now?: () => Date;
 }
@@ -108,7 +104,6 @@ function buildAdminAuthOptions(config: AdminAuthConfig) {
     },
 
     plugins: [
-      breachedPasswordGuard(config.isPasswordBreached),
       signInLockout({
         store: createDrizzleLockoutStore(config.database, {
           table: adminAccounts,

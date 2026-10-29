@@ -1,4 +1,3 @@
-import { createBreachedPasswordCheck } from "@fleetapp/auth";
 import { describeErrorForLog } from "@fleetapp/core";
 import { createDb } from "@fleetapp/db/client";
 import { adminActivityLog } from "@fleetapp/db/schema";
@@ -18,7 +17,6 @@ import { createAdminAuth } from "./auth-options";
 const authDb = createDb(env.AUTH_DATABASE_URL);
 
 export const auth = createAdminAuth({
-  isPasswordBreached: createBreachedPasswordCheck(),
   database: authDb,
   baseURL: env.ADMIN_URL,
   secret: env.BETTER_AUTH_SECRET,

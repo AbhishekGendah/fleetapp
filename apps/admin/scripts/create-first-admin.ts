@@ -16,8 +16,8 @@
  * touches the app role's connection, and whoever runs this should have to be
  * handed as little as possible.
  */
-import { authEnvShape, createBreachedPasswordCheck, isBreachedPasswordError } from "@fleetapp/auth";
-import { BREACHED_PASSWORD_MESSAGE, newPasswordSchema } from "@fleetapp/auth/login-policy";
+import { authEnvShape, createBreachedPasswordCheck } from "@fleetapp/auth";
+import { BREACHED_PASSWORD_WARNING, newPasswordSchema } from "@fleetapp/auth/login-policy";
 import { describeErrorForLog } from "@fleetapp/core";
 import { createInterface, type Interface } from "node:readline/promises";
 
@@ -88,6 +88,15 @@ async function readPassword(): Promise<string> {
         `${parsed.error.issues[0]?.message ?? "That password will not do."} Nothing was created.`,
       );
     }
+    if (await createBreachedPasswordCheck()(parsed.data.password)) {
+      // A warning, not a refusal: the person running this decides.
+      process.stderr.write(`\n${BREACHED_PASSWORD_WARNING}\n`);
+      process.stderr.write("Use it anyway? Type yes to carry on: ");
+      const answer = await lines.next();
+      if (answer.done || answer.value.trim().toLowerCase() !== "yes") {
+        fail("Nothing was created. Run the command again with a different password.");
+      }
+    }
     return parsed.data.password;
   } finally {
     input.close();
@@ -123,7 +132,6 @@ async function main(): Promise<void> {
         secret: env.BETTER_AUTH_SECRET,
         issuerName: env.AUTH_ISSUER_NAME,
         recordActivity: async () => undefined,
-        isPasswordBreached: createBreachedPasswordCheck(),
       }),
       email,
       fullName,
@@ -132,9 +140,6 @@ async function main(): Promise<void> {
   } catch (error) {
     // Only our own refusals are worth quoting: a database error's message can
     // hold the email and the password hash.
-    if (isBreachedPasswordError(error)) {
-      fail(`${BREACHED_PASSWORD_MESSAGE} Nothing was created.`);
-    }
     const isOwnRefusal =
       error instanceof AdminAlreadyExistsError ||
       error instanceof WeakPasswordError ||
