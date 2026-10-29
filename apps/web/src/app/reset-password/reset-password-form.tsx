@@ -1,5 +1,6 @@
 "use client";
 
+import { authClient } from "@fleetapp/auth/client";
 import { BREACHED_PASSWORD_CODE, BREACHED_PASSWORD_MESSAGE } from "@fleetapp/auth/login-policy";
 import { Button } from "@fleetapp/ui/button";
 import { ClientForm, SubmitButton } from "@fleetapp/ui/client-form";
@@ -8,7 +9,6 @@ import { RequiredFieldsNote } from "@fleetapp/ui/input";
 import Link from "next/link";
 import { useState } from "react";
 
-import { authClient } from "../../lib/auth-client";
 import { FORGOT_PASSWORD_PATH, SIGN_IN_PATH } from "../../lib/paths";
 import { NEW_PASSWORD_HINT, NewPasswordField, useNewPasswordChecks } from "../new-password-field";
 

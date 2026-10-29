@@ -1,3 +1,4 @@
+// jscpd:ignore-start -- each app needs its own root layout, and Next requires the font settings written out where the font is loaded
 import { BRAND } from "@fleetapp/ui/brand";
 import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
@@ -9,6 +10,8 @@ import "./globals.css";
 
 // Downloaded when the app is built and served from the app itself.
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope", display: "swap" });
+
+// jscpd:ignore-end
 
 export const metadata: Metadata = {
   title: BRAND.adminName,

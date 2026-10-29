@@ -1,5 +1,6 @@
 "use client";
 
+import { authClient } from "@fleetapp/auth/client";
 import { AuthPageLayout } from "@fleetapp/ui/auth-page-layout";
 import { Button } from "@fleetapp/ui/button";
 import { ClientForm, SubmitButton } from "@fleetapp/ui/client-form";
@@ -9,7 +10,6 @@ import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
 import Link from "next/link";
 import { useState } from "react";
 
-import { authClient } from "../../lib/auth-client";
 import { RESET_LINK_LIFETIME_WORDS } from "../../lib/password-reset-policy";
 import { RESET_PASSWORD_PATH, SIGN_IN_PATH } from "../../lib/paths";
 

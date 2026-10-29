@@ -19,3 +19,13 @@ export async function isDatabaseReachable(): Promise<boolean> {
     return false;
   }
 }
+
+export interface HealthReport {
+  status: "ok";
+  database: "ok" | "error";
+}
+
+/** What both apps' health endpoints answer. Says nothing beyond up or down. */
+export async function getHealthReport(): Promise<HealthReport> {
+  return { status: "ok", database: (await isDatabaseReachable()) ? "ok" : "error" };
+}

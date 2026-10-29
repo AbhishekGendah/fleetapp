@@ -2,7 +2,8 @@ import { Logo, LogoMark } from "@fleetapp/ui/logo";
 
 import type { SignedInUser } from "../lib/require-user";
 import { SidebarNavigation, TabBarNavigation } from "./navigation";
-import { SignOutButton } from "./sign-out-button";
+import { SignOutButton } from "@fleetapp/ui/sign-out-button";
+import { SIGN_IN_PATH } from "../lib/paths";
 
 /**
  * The frame around every signed-in page. Designed at phone width first: a
@@ -27,7 +28,7 @@ export function AppShell({ user, children }: { user: SignedInUser; children: Rea
                 <span className="text-muted-foreground truncate text-xs">{user.email}</span>
               </div>
             </div>
-            <SignOutButton />
+            <SignOutButton signInHref={SIGN_IN_PATH} />
           </div>
         </header>
 

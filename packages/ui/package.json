@@ -20,6 +20,7 @@
     "./logo": "./src/components/logo.tsx",
     "./select": "./src/components/select.tsx",
     "./sign-in-form": "./src/components/sign-in-form.tsx",
+    "./sign-out-button": "./src/components/sign-out-button.tsx",
     "./theme.css": "./src/styles/theme.css"
   },
   "scripts": {
@@ -32,6 +33,7 @@
     "react-dom": "^19.3.0"
   },
   "dependencies": {
+    "@fleetapp/auth": "workspace:*",
     "@fleetapp/core": "workspace:*",
     "@radix-ui/react-slot": "1.3.3",
     "class-variance-authority": "0.7.1",

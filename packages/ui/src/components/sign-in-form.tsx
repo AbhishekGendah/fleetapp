@@ -1,5 +1,6 @@
 "use client";
 
+import type { PasswordStepResult } from "@fleetapp/auth/client";
 import { useState } from "react";
 
 import { AuthPageLayout } from "./auth-page-layout";
@@ -10,6 +11,7 @@ import { CodeInput, TOTP_CODE_LENGTH } from "./code-input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./card";
 import { FormError } from "./form-message";
 import { FormField } from "./form-field";
+import { CurrentPasswordField } from "./password-field";
 import { Input, RequiredFieldsNote } from "./input";
 
 /**
@@ -19,8 +21,6 @@ import { Input, RequiredFieldsNote } from "./input";
 const SIGN_IN_FAILED_MESSAGE = "That email address and password did not match.";
 const CODE_FAILED_MESSAGE = "That code was not right. Check your authenticator app and try again.";
 const RECOVERY_CODE_FAILED_MESSAGE = "That recovery code was not right, or has been used.";
-
-export type PasswordStepResult = "needs_code" | "signed_in" | "refused";
 
 export interface SignInFormProps {
   description: string;
@@ -128,17 +128,7 @@ function PasswordStep(props: SignInFormProps & { onNeedsCode(): void }) {
           onChange={(event) => setEmail(event.target.value)}
         />
       </FormField>
-      <FormField htmlFor="password" label="Password" isRequired>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-      </FormField>
+      <CurrentPasswordField label="Password" value={password} onValueChange={setPassword} />
       <FormError message={errorMessage} />
       <SubmitButton disabled={isSubmitting}>{isSubmitting ? "Checking…" : "Continue"}</SubmitButton>
       {props.forgotPasswordHref ? (

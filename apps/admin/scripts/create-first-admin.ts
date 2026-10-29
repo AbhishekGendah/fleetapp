@@ -16,7 +16,7 @@
  * touches the app role's connection, and whoever runs this should have to be
  * handed as little as possible.
  */
-import { createBreachedPasswordCheck, isBreachedPasswordError } from "@fleetapp/auth";
+import { authEnvShape, createBreachedPasswordCheck, isBreachedPasswordError } from "@fleetapp/auth";
 import { BREACHED_PASSWORD_MESSAGE, newPasswordSchema } from "@fleetapp/auth/login-policy";
 import { describeErrorForLog } from "@fleetapp/core";
 import { createInterface, type Interface } from "node:readline/promises";
@@ -36,8 +36,7 @@ const EXIT_FAILURE = 1;
 
 const scriptEnvSchema = z.object({
   AUTH_DATABASE_URL: z.string().min(1),
-  BETTER_AUTH_SECRET: z.string().min(32),
-  AUTH_ISSUER_NAME: z.string().min(1),
+  ...authEnvShape,
   ADMIN_URL: z.url(),
 });
 

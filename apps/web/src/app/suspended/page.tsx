@@ -2,7 +2,8 @@ import { AuthPageLayout } from "@fleetapp/ui/auth-page-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 
 import { requireSuspendedUser } from "../../lib/require-user";
-import { SignOutButton } from "../sign-out-button";
+import { SignOutButton } from "@fleetapp/ui/sign-out-button";
+import { SIGN_IN_PATH } from "../../lib/paths";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ export default async function SuspendedPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <SignOutButton />
+          <SignOutButton signInHref={SIGN_IN_PATH} />
         </CardContent>
       </Card>
     </AuthPageLayout>

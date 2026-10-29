@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./login-policy": "./src/login-policy.ts"
+    "./login-policy": "./src/login-policy.ts",
+    "./client": "./src/client.ts"
   },
   "scripts": {
     "lint": "eslint .",

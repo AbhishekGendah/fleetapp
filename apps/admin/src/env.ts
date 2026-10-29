@@ -1,9 +1,13 @@
-import { EMAIL_TRANSPORTS } from "@fleetapp/email";
+import { authEnvShape } from "@fleetapp/auth";
+import { emailEnvShape } from "@fleetapp/email";
 import { z } from "zod";
 
 // Validated once at import time so a missing/invalid variable fails fast
 // instead of surfacing as a confusing runtime error later.
 const envSchema = z.object({
+  ...authEnvShape,
+  ...emailEnvShape,
+
   ADMIN_URL: z.url(),
 
   /** Connection string for `admin_app_role`: everything except credentials. */
@@ -16,30 +20,8 @@ const envSchema = z.object({
    */
   AUTH_DATABASE_URL: z.string().min(1),
 
-  /**
-   * Encrypts authenticator secrets and recovery codes, and signs session
-   * tokens. If this value is lost or changed, every Admin has to enrol their
-   * authenticator app again.
-   */
-  BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET must be at least 32 characters"),
-
-  /**
-   * The name shown against the entry in an Admin's authenticator app. An env
-   * var, not the brand file, so that "Admin" can be added to it (CLAUDE.md).
-   */
-  AUTH_ISSUER_NAME: z.string().min(1),
-
   /** The Operator app's address, to build the links in invite emails. */
   APP_URL: z.url(),
-
-  /**
-   * How email is sent. `dev_outbox` keeps every email in the test inbox on the
-   * admin site instead of sending it, and must never be used in production.
-   */
-  EMAIL_TRANSPORT: z.enum(EMAIL_TRANSPORTS),
-
-  /** Sender name and address, e.g. `Name <no-reply@example.com>`. */
-  EMAIL_FROM: z.string().min(1),
 });
 
 export const env = envSchema.parse({

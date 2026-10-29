@@ -1,5 +1,6 @@
 "use client";
 
+import type { AuthenticatorEnrolment } from "@fleetapp/auth/client";
 import QRCode from "qrcode";
 import { useState } from "react";
 
@@ -10,17 +11,13 @@ import { CodeInput, TOTP_CODE_LENGTH } from "./code-input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./card";
 import { FormError } from "./form-message";
 import { FormField } from "./form-field";
-import { Input, RequiredFieldsNote } from "./input";
+import { CurrentPasswordField } from "./password-field";
+import { RequiredFieldsNote } from "./input";
 
 const QR_CODE_WIDTH_PX = 240;
 
 const PASSWORD_FAILED_MESSAGE = "That password was not right.";
 const CODE_FAILED_MESSAGE = "That code was not right. Wait for the next one and try again.";
-
-export interface AuthenticatorEnrolment {
-  totpURI: string;
-  backupCodes: string[];
-}
 
 export interface AuthenticatorSetupProps {
   /** Shown beside the logo, e.g. "Admin". */
@@ -128,17 +125,11 @@ function ConfirmPasswordStep(props: {
   return (
     <ClientForm className="flex flex-col gap-4" onSubmit={handleSubmit}>
       <RequiredFieldsNote />
-      <FormField htmlFor="password" label="Confirm your password" isRequired>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-      </FormField>
+      <CurrentPasswordField
+        label="Confirm your password"
+        value={password}
+        onValueChange={setPassword}
+      />
       <FormError message={errorMessage} />
       <SubmitButton disabled={isSubmitting}>{isSubmitting ? "Checking…" : "Continue"}</SubmitButton>
     </ClientForm>
