@@ -170,6 +170,67 @@ Tradeoff: that login is a long-lived key kept in Vercel. Before
 production, swap it for Vercel's keyless connection to AWS (OIDC), which
 removes the key altogether but is fiddlier to set up.
 
+### Detailed build (added before building; for Abhi's approval)
+
+AWS is set up (two dev buckets in Sydney, versioning on, deleted copies
+kept 30 days, uploads only from the dev site, one app login limited to
+the two buckets). Built in two parts:
+
+**3a: storing files, and the logo**
+
+- `files` table: one row per file. `operator_id` (NOT NULL, forced
+  row-level security, the usual isolation tests); what it is for
+  (`operator_logo` now; vehicle photos and Renter documents later);
+  which bucket (`general` or `identity`); its address in the bucket;
+  type; size; who uploaded it; when it was confirmed, deleted and
+  purged. **No original file name is kept**: names often carry people's
+  names, and nothing needs them.
+- Addresses are built by the server: `<operatorId>/<purpose>/<fileId>`.
+  The browser never chooses one.
+- Permissions: the Operator app may read and add its own rows and change
+  only the confirm/delete dates. The admin app may read only the
+  Operator, size and dates, never the address or type, so it can show
+  storage used and nothing else.
+- Upload: the server checks the type and size against the purpose,
+  writes a pending row, and hands out a 10-minute upload permission for
+  that one address, type and size limit. After the upload, the server
+  reads the first bytes from storage and checks they really are a PNG,
+  JPEG, WebP or PDF. Anything else is deleted and the row marked
+  refused.
+- Logo: PNG, JPEG or WebP only (no SVG: it can carry code), 5 MB cap,
+  shrunk in the browser to at most 1600px first. Stored on the Operator
+  as `logo_file_id` (one new column the Operator app may change).
+  Replacing or removing it marks the old file deleted. Shown in the
+  Operator app header and in Business details through links that expire
+  in 5 minutes.
+- Every upload, replacement and removal goes in the activity log.
+- Admin's Operator list gains "Storage used".
+- One shared storage interface, with an in-memory stand-in so the tests
+  need no AWS.
+
+**3b: the daily clean-up**
+
+- A daily job (Vercel's scheduler, 3am Perth) purges files deleted over
+  30 days ago and clears uploads that never finished after 24 hours.
+- It is protected by `CRON_SECRET`, which Abhi adds in Vercel.
+- It has no signed-in User, so it finds the Operators with work to do
+  through a narrow database function that returns Operator IDs only,
+  then works one Operator at a time with that Operator's tenant context
+  set (rule 3).
+- Purged rows stay as a record (rule 13): the file goes, its history
+  does not.
+
+Changes from the plan above, found while preparing:
+
+- The settings are named `FILE_STORAGE_REGION`,
+  `FILE_STORAGE_ACCESS_KEY_ID` and `FILE_STORAGE_SECRET_ACCESS_KEY`.
+  Vercel fills in Amazon's usual `AWS_…` names itself on its servers,
+  so ours would clash.
+- One more Amazon package, `@aws-sdk/s3-request-presigner`, makes the
+  5-minute viewing links.
+- Thumbnails (rule 21) arrive with car photos in Phase 2. A logo needs
+  none.
+
 ## Slice 4 — The shared list
 
 Goal: the one list component every list in the product uses
@@ -193,7 +254,7 @@ phone.
 
 | Package | Why |
 |---|---|
-| `@aws-sdk/client-s3`, `@aws-sdk/s3-presigned-post` | Amazon's own library for S3, and the upload permissions in slice 3 |
+| `@aws-sdk/client-s3`, `@aws-sdk/s3-presigned-post`, `@aws-sdk/s3-request-presigner` | Amazon's own library for S3, the upload permissions and the short-lived viewing links in slice 3 |
 | `write-excel-file` | Excel export in slice 4. Small, MIT-licensed, actively maintained. Chosen over `exceljs`, which has had no release in nearly two years |
 
 Inter comes through Next.js's own font loader, so it adds no
@@ -203,7 +264,7 @@ dependency.
 
 | Setting | App | Slice |
 |---|---|---|
-| `STORAGE_BUCKET`, `IDENTITY_STORAGE_BUCKET`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Operator app only. Admin's "storage used" comes from the database, so admin needs no AWS keys | 3 |
+| `STORAGE_BUCKET`, `IDENTITY_STORAGE_BUCKET`, `FILE_STORAGE_REGION`, `FILE_STORAGE_ACCESS_KEY_ID`, `FILE_STORAGE_SECRET_ACCESS_KEY` (set in Vercel) | Operator app only. Admin's "storage used" comes from the database, so admin needs no AWS keys | 3 |
 | `CRON_SECRET` | Operator app | 3 |
 
 Each one goes into `.env.example`, the startup checks and `turbo.json`
