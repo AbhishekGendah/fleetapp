@@ -9,6 +9,7 @@ import { CodeInput, TOTP_CODE_LENGTH } from "@fleetapp/ui/code-input";
 import { fieldErrorId, FormField } from "@fleetapp/ui/form-field";
 import { FormError } from "@fleetapp/ui/form-message";
 import { FormattedInput } from "@fleetapp/ui/formatted-input";
+import { ImageUpload } from "@fleetapp/ui/image-upload";
 import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
 import { Logo, LogoMark } from "@fleetapp/ui/logo";
 import { Select } from "@fleetapp/ui/select";
@@ -132,6 +133,25 @@ function CodeEntry() {
   );
 }
 
+/** Shows the chosen image as if it had been saved, without sending it anywhere. */
+function ImageUploadExample() {
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  return (
+    <ImageUpload
+      id="example-image"
+      label="An image"
+      hint="Shrunk on the device before it is sent. Nothing is uploaded from this page."
+      currentImageUrl={imageUrl}
+      accept="image/png,image/jpeg,image/webp"
+      onUpload={async (image) => {
+        setImageUrl(URL.createObjectURL(image));
+        return null;
+      }}
+      onRemove={async () => setImageUrl(null)}
+    />
+  );
+}
+
 /** Each shared piece, shown as it is used. */
 export function ComponentCatalogue() {
   return (
@@ -177,6 +197,13 @@ export function ComponentCatalogue() {
         note="Required boxes carry a red asterisk; problems show once a box is left (rule 28)."
       >
         <FormPieces />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Image upload"
+        note="Choose, replace or remove one image, e.g. the Operator's logo."
+      >
+        <ImageUploadExample />
       </CatalogueSection>
 
       <CatalogueSection title="Code entry" note="Checked as soon as the last digit goes in.">

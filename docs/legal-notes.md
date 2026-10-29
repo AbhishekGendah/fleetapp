@@ -75,6 +75,19 @@ of service) and the countries.
   log with the time and the kind of device. The privacy policy should
   say what is logged and for how long.
 
+## Stored files (logo built; photos and documents later)
+
+- Files are stored with Amazon S3 in Sydney (an American company; already
+  in the overseas table). Both buckets are private; files are only ever
+  shown through links that expire in minutes, issued after checking who
+  is asking.
+- No original file names are kept, because they often contain people's
+  names.
+- Images are redrawn on the device before upload, which also removes the
+  hidden details phones add to photos, such as the GPS location where a
+  photo was taken. Worth saying in the privacy policy.
+- Deleted files are kept 30 days, then removed for good (rule 23).
+
 ## Business details (already built)
 
 - An Operator's ABN, address, phone and email are business information,

@@ -9,11 +9,12 @@ import {
   ACTIVITY_ACTIONS,
   ACTIVITY_ENTITY_TYPES,
   activityLog,
+  files,
   operatorInvites,
   operators,
   users,
 } from "@fleetapp/db/schema";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 
 /** Enough history to see what happened recently; the full log stays in the database. */
 const OPERATOR_HISTORY_LIMIT = 50;
@@ -26,6 +27,8 @@ export interface OperatorSummary {
   status: OperatorStatus;
   /** When one of its Users last signed in. Null if none ever has. */
   lastSignedInAt: Date | null;
+  /** Everything it has in storage, including deleted files not yet purged. */
+  storageUsedBytes: number;
   createdAt: Date;
 }
 
@@ -36,7 +39,7 @@ export interface OperatorSummary {
  * shared list component in Phase 1b brings paging, sorting and export.
  */
 export async function listOperators(database: AnyDatabase, now: Date): Promise<OperatorSummary[]> {
-  const [operatorRows, userRows, latestInvites, latestSignIns] = await Promise.all([
+  const [operatorRows, userRows, latestInvites, latestSignIns, storageRows] = await Promise.all([
     database.select().from(operators).orderBy(desc(operators.createdAt)),
     database
       .selectDistinctOn([users.operatorId], { operatorId: users.operatorId, email: users.email })
@@ -59,11 +62,21 @@ export async function listOperators(database: AnyDatabase, now: Date): Promise<O
         ),
       )
       .orderBy(activityLog.operatorId, desc(activityLog.occurredAt)),
+    // Sizes only: the admin role cannot read what any file is (rule 5).
+    database
+      .select({
+        operatorId: files.operatorId,
+        bytes: sql<number>`coalesce(sum(${files.sizeBytes}), 0)::bigint`.mapWith(Number),
+      })
+      .from(files)
+      .where(and(isNotNull(files.confirmedAt), isNull(files.purgedAt)))
+      .groupBy(files.operatorId),
   ]);
 
   const lastSignInByOperator = new Map(
     latestSignIns.map((row) => [row.operatorId, row.occurredAt]),
   );
+  const storageByOperator = new Map(storageRows.map((row) => [row.operatorId, row.bytes]));
   const emailByOperator = new Map(userRows.map((row) => [row.operatorId, row.email]));
   const inviteByOperator = new Map(latestInvites.map((invite) => [invite.operatorId, invite]));
 
@@ -80,6 +93,7 @@ export async function listOperators(database: AnyDatabase, now: Date): Promise<O
       now,
     ),
     lastSignedInAt: lastSignInByOperator.get(operator.id) ?? null,
+    storageUsedBytes: storageByOperator.get(operator.id) ?? 0,
     createdAt: operator.createdAt,
   }));
 }

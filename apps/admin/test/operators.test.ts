@@ -172,6 +172,16 @@ describe("Operators and invites", () => {
         "invite_expired",
       );
     });
+
+    it("shows how much each Operator stores, from sizes alone", async () => {
+      const result = await createOperator(deps, adminUserId, newOperatorInput());
+
+      const summaries = await listOperators(connection.db, new Date());
+
+      expect(summaries.find((summary) => summary.id === result.operatorId)?.storageUsedBytes).toBe(
+        0,
+      );
+    });
   });
 
   describe("resending an invite", () => {

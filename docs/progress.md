@@ -174,6 +174,16 @@
   shows every shared piece; CI fails on copy-pasted code (`pnpm
   duplicates`, rule 30). Sign-in browser code, sign-out, the health
   check and the shared settings checks now live in one place each.
+- Phase 1b slice 3a, file storage: AWS account (Altus, Paid plan, $10
+  budget alert), buckets `altus-fleetapp-dev-files` and
+  `altus-fleetapp-dev-identity` in Sydney (private, versioned, deleted
+  copies kept 30 days, uploads only from the dev site), app login
+  `fleetapp-web-dev` limited to the two buckets (key in Bitwarden and
+  Vercel). `files` table (migration 0006) under forced row-level
+  security; admin reads sizes only. Upload: server-issued 10-minute
+  permission for one address, then a first-bytes check. Logo upload in
+  Settings, shown in the header; one logo in use per Operator. Admin
+  Operator list shows storage used. Shared ImageUpload in the catalogue.
 - Session timeouts (approved): Users signed out after 7 days without use
   and at 30 days at most; Admins after 30 minutes without use and at 8
   hours at most. The hard limit ends the sign-in for good and the sign-in
@@ -182,10 +192,8 @@
     found after a Next build); fixed, CI green again.
 
 ## Next
-Phase 1b slice 3: file storage (S3 in Sydney), with the Operator's logo
-as the first use. Needs Abhi to set up AWS, one step at a time. Plan to
-be re-checked against what has changed since it was written, then
-started.
+Phase 1b slice 3b: the daily clean-up job (purge files deleted over 30
+days ago, clear unfinished uploads), protected by `CRON_SECRET`.
 
 ## Open items
 - Address lookup: Google Places (New), project `fleetapp-dev-513004` on

@@ -3,6 +3,7 @@ export * from "./account-access";
 export * from "./business-details";
 export * from "./describe-device";
 export * from "./error-for-log";
+export * from "./file-size";
 export * from "./files";
 export * from "./form-text";
 export * from "./format-date-time";

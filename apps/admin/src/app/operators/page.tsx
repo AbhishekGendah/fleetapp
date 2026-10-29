@@ -1,4 +1,4 @@
-import { operatorDisplayName } from "@fleetapp/core";
+import { formatFileSize, operatorDisplayName } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent } from "@fleetapp/ui/card";
 import Link from "next/link";
@@ -40,6 +40,9 @@ function OperatorCards({ operators }: { operators: OperatorSummary[] }) {
                 <span className="text-muted-foreground text-xs">
                   Last sign-in: {formatLastSignIn(operator)}
                 </span>
+                <span className="text-muted-foreground text-xs">
+                  Storage used: {formatFileSize(operator.storageUsedBytes)}
+                </span>
               </CardContent>
             </Card>
           </Link>
@@ -60,6 +63,7 @@ function OperatorTable({ operators }: { operators: OperatorSummary[] }) {
           <th className="py-2 font-medium">User</th>
           <th className="py-2 font-medium">Status</th>
           <th className="py-2 font-medium">Last sign-in</th>
+          <th className="py-2 font-medium">Storage used</th>
           <th className="py-2 font-medium">Created</th>
         </tr>
       </thead>
@@ -76,6 +80,7 @@ function OperatorTable({ operators }: { operators: OperatorSummary[] }) {
               <OperatorStatusBadge status={operator.status} />
             </td>
             <td className="py-3">{formatLastSignIn(operator)}</td>
+            <td className="py-3">{formatFileSize(operator.storageUsedBytes)}</td>
             <td className="py-3">{formatAdminDateTime(operator.createdAt)}</td>
           </tr>
         ))}
