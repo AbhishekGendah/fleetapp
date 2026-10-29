@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./login-policy": "./src/login-policy.ts"
   },
   "scripts": {
     "lint": "eslint .",

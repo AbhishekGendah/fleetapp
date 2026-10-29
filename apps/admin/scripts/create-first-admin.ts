@@ -16,6 +16,7 @@
  * touches the app role's connection, and whoever runs this should have to be
  * handed as little as possible.
  */
+import { MINIMUM_PASSWORD_LENGTH } from "@fleetapp/auth/login-policy";
 import { describeErrorForLog } from "@fleetapp/core";
 import { createInterface, type Interface } from "node:readline/promises";
 
@@ -27,7 +28,6 @@ import {
   AdminAlreadyExistsError,
   createFirstAdmin,
   InvalidAdminDetailsError,
-  MINIMUM_ADMIN_PASSWORD_LENGTH,
   WeakPasswordError,
 } from "../src/lib/create-first-admin";
 
@@ -85,8 +85,8 @@ async function readPassword(): Promise<string> {
     if (password !== confirmation) {
       fail("Those two passwords were not the same. Nothing was created.");
     }
-    if (password.length < MINIMUM_ADMIN_PASSWORD_LENGTH) {
-      fail(`The password must be at least ${MINIMUM_ADMIN_PASSWORD_LENGTH} characters.`);
+    if (password.length < MINIMUM_PASSWORD_LENGTH) {
+      fail(`The password must be at least ${MINIMUM_PASSWORD_LENGTH} characters.`);
     }
     return password;
   } finally {

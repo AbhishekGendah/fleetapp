@@ -1,5 +1,13 @@
 import { describeErrorForLog, SECONDS_PER_DAY } from "@fleetapp/core";
-import { createDrizzleLockoutStore, signInLockout, VERIFY_CODE_PATH } from "@fleetapp/auth";
+import {
+  createDrizzleLockoutStore,
+  MAXIMUM_PASSWORD_LENGTH,
+  MINIMUM_PASSWORD_LENGTH,
+  RECOVERY_CODES,
+  signInLockout,
+  TWO_FACTOR_LOCKOUT,
+  VERIFY_CODE_PATH,
+} from "@fleetapp/auth";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import {
   ACTIVITY_ACTIONS,
@@ -17,6 +25,7 @@ import type { EmailSender } from "@fleetapp/email";
 import { isAllowedToSignIn } from "./sign-in-eligibility";
 import { newDeviceAlert } from "./new-device-alert";
 import { createPasswordResetOptions } from "./password-reset";
+import { TRUSTED_DEVICE_DAYS } from "./trusted-device-policy";
 import { recordUserActivity, type RecordUserActivity } from "./user-activity";
 
 /**
@@ -27,18 +36,7 @@ import { recordUserActivity, type RecordUserActivity } from "./user-activity";
 const SESSION_DURATION_SECONDS = 7 * SECONDS_PER_DAY;
 const SESSION_REFRESH_SECONDS = SECONDS_PER_DAY;
 
-/** "Remember this device": no authenticator code on it for 14 days. See docs/design/01. */
-const TRUSTED_DEVICE_SECONDS = 14 * SECONDS_PER_DAY;
-
-/** Same as Admins: five wrong codes, fifteen minutes. */
-const MAX_FAILED_TWO_FACTOR_ATTEMPTS = 5;
-const LOCKOUT_DURATION_SECONDS = 900;
-
-const RECOVERY_CODE_COUNT = 10;
-const RECOVERY_CODE_LENGTH = 10;
-
-export const MINIMUM_PASSWORD_LENGTH = 12;
-export const MAXIMUM_PASSWORD_LENGTH = 128;
+const TRUSTED_DEVICE_SECONDS = TRUSTED_DEVICE_DAYS * SECONDS_PER_DAY;
 
 export interface UserAuthConfig {
   /** A connection on `web_auth_role`. Injected so the login flow can be tested. */
@@ -141,12 +139,8 @@ function buildUserAuthOptions(config: UserAuthConfig) {
       twoFactor({
         issuer: config.issuerName,
         schema: { twoFactor: { modelName: "user_two_factors" } },
-        backupCodeOptions: { amount: RECOVERY_CODE_COUNT, length: RECOVERY_CODE_LENGTH },
-        accountLockout: {
-          enabled: true,
-          maxFailedAttempts: MAX_FAILED_TWO_FACTOR_ATTEMPTS,
-          durationSeconds: LOCKOUT_DURATION_SECONDS,
-        },
+        backupCodeOptions: RECOVERY_CODES,
+        accountLockout: TWO_FACTOR_LOCKOUT,
         trustDeviceMaxAge: TRUSTED_DEVICE_SECONDS,
       }),
       newDeviceAlert({

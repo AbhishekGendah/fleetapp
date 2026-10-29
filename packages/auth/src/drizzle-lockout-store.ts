@@ -2,11 +2,8 @@ import { MILLISECONDS_PER_MINUTE } from "@fleetapp/core";
 import { sql, type SQL } from "drizzle-orm";
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 
-import {
-  MAX_FAILED_SIGN_INS,
-  SIGN_IN_LOCKOUT_MINUTES,
-  type SignInLockoutStore,
-} from "./sign-in-lockout";
+import { MAX_FAILED_SIGN_INS, SIGN_IN_LOCKOUT_MINUTES } from "./login-policy";
+import type { SignInLockoutStore } from "./sign-in-lockout";
 
 /** Only the password login is locked; it is the only kind there is in v1. */
 const CREDENTIAL_PROVIDER_ID = "credential";

@@ -1,10 +1,6 @@
 import type { BetterAuthPlugin } from "better-auth";
 import { APIError, createAuthMiddleware, isAPIError } from "better-auth/api";
 
-/** Five wrong passwords in a row locks the login for fifteen minutes. */
-export const MAX_FAILED_SIGN_INS = 5;
-export const SIGN_IN_LOCKOUT_MINUTES = 15;
-
 const EMAIL_SIGN_IN_PATH = "/sign-in/email";
 
 /**

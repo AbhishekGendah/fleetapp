@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { authClient } from "../../lib/auth-client";
 import { FORGOT_PASSWORD_PATH } from "../../lib/paths";
 import { HOME_PATH } from "../../lib/paths";
+import { TRUSTED_DEVICE_DAYS } from "../../lib/trusted-device-policy";
 
 async function signInWithPassword(email: string, password: string): Promise<PasswordStepResult> {
   const { data, error } = await authClient.signIn.email({ email, password });
@@ -43,7 +44,7 @@ export default function SignInPage() {
       signInWithPassword={signInWithPassword}
       verifyCode={verifyCode}
       verifyRecoveryCode={verifyRecoveryCode}
-      trustDeviceLabel="Remember this device for 14 days"
+      trustDeviceLabel={`Remember this device for ${TRUSTED_DEVICE_DAYS} days`}
       forgotPasswordHref={FORGOT_PASSWORD_PATH}
       onSignedIn={handleSignedIn}
     />

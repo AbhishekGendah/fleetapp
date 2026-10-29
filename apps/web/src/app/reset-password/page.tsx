@@ -2,7 +2,7 @@ import { AuthPageLayout } from "@fleetapp/ui/auth-page-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import Link from "next/link";
 
-import { MINIMUM_PASSWORD_LENGTH } from "../../lib/auth-options";
+import { MINIMUM_PASSWORD_LENGTH } from "@fleetapp/auth/login-policy";
 import { FORGOT_PASSWORD_PATH } from "../../lib/paths";
 import { ResetPasswordForm } from "./reset-password-form";
 

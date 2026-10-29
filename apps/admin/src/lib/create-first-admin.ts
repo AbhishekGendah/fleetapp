@@ -1,3 +1,4 @@
+import { MINIMUM_PASSWORD_LENGTH } from "@fleetapp/auth/login-policy";
 import { requiredEmail, requiredLine } from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import {
@@ -9,9 +10,6 @@ import {
 
 import type { AdminAuth } from "./auth-options";
 
-/** Long enough to matter, short enough that a passphrase still fits. */
-export const MINIMUM_ADMIN_PASSWORD_LENGTH = 12;
-
 /** Thrown when an Admin already exists. Creating further Admins is the admin app's job. */
 export class AdminAlreadyExistsError extends Error {
   constructor() {
@@ -22,7 +20,7 @@ export class AdminAlreadyExistsError extends Error {
 
 export class WeakPasswordError extends Error {
   constructor() {
-    super(`The password must be at least ${MINIMUM_ADMIN_PASSWORD_LENGTH} characters.`);
+    super(`The password must be at least ${MINIMUM_PASSWORD_LENGTH} characters.`);
     this.name = "WeakPasswordError";
   }
 }
@@ -56,7 +54,7 @@ export interface CreateFirstAdminInput {
 export async function createFirstAdmin(
   input: CreateFirstAdminInput,
 ): Promise<{ adminUserId: string }> {
-  if (input.password.length < MINIMUM_ADMIN_PASSWORD_LENGTH) {
+  if (input.password.length < MINIMUM_PASSWORD_LENGTH) {
     throw new WeakPasswordError();
   }
   // Lower-cased because the login system lower-cases what is typed at sign-in

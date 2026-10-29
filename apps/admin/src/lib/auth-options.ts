@@ -1,35 +1,29 @@
-import { SECONDS_PER_HOUR, SECONDS_PER_MINUTE } from "@fleetapp/core";
+import { SECONDS_PER_HOUR } from "@fleetapp/core";
 import {
   ADMIN_ACTIVITY_ACTIONS,
+  type AdminActivityAction,
   adminAccounts,
   adminSessions,
   adminTwoFactors,
   adminUsers,
   adminVerifications,
 } from "@fleetapp/db/schema";
-import { createDrizzleLockoutStore, signInLockout, VERIFY_CODE_PATH } from "@fleetapp/auth";
+import {
+  createDrizzleLockoutStore,
+  MAXIMUM_PASSWORD_LENGTH,
+  MINIMUM_PASSWORD_LENGTH,
+  RECOVERY_CODES,
+  signInLockout,
+  TWO_FACTOR_LOCKOUT,
+  VERIFY_CODE_PATH,
+} from "@fleetapp/auth";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { twoFactor } from "better-auth/plugins";
 
-/**
- * An Admin is locked out after this many consecutive failed authenticator
- * codes, for this long. Tighter than the library's defaults, because an Admin
- * account reaches every Operator.
- */
-const MAX_FAILED_TWO_FACTOR_ATTEMPTS = 5;
-const LOCKOUT_DURATION_SECONDS = 15 * SECONDS_PER_MINUTE;
-
 /** How long an Admin stays signed in before having to sign in again. */
 const SESSION_DURATION_SECONDS = 8 * SECONDS_PER_HOUR;
-
-/** Recovery codes, shown once at enrolment and never again. */
-const RECOVERY_CODE_COUNT = 10;
-const RECOVERY_CODE_LENGTH = 10;
-
-const MINIMUM_PASSWORD_LENGTH = 12;
-const MAXIMUM_PASSWORD_LENGTH = 128;
 
 /**
  * "Remember this device" is deliberately switched off for Admins: an Admin
@@ -51,7 +45,7 @@ export interface AdminAuthConfig {
   issuerName: string;
   recordActivity: (entry: {
     adminUserId?: string | null;
-    action: string;
+    action: AdminActivityAction;
     ipAddress?: string | null;
   }) => Promise<void>;
   /** Injected so the tests can move the clock past a lockout. */
@@ -132,15 +126,9 @@ function buildAdminAuthOptions(config: AdminAuthConfig) {
             fields: { userId: "adminUserId" },
           },
         },
-        backupCodeOptions: {
-          amount: RECOVERY_CODE_COUNT,
-          length: RECOVERY_CODE_LENGTH,
-        },
-        accountLockout: {
-          enabled: true,
-          maxFailedAttempts: MAX_FAILED_TWO_FACTOR_ATTEMPTS,
-          durationSeconds: LOCKOUT_DURATION_SECONDS,
-        },
+        backupCodeOptions: RECOVERY_CODES,
+        // Tighter than the library's default, as for Users: an Admin reaches every Operator.
+        accountLockout: TWO_FACTOR_LOCKOUT,
         trustDeviceMaxAge: ADMIN_TRUST_DEVICE_MAX_AGE_SECONDS,
       }),
     ],

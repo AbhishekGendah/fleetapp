@@ -31,6 +31,12 @@ async function verifyRecoveryCode(code: string): Promise<boolean> {
 export default function SignInPage() {
   const router = useRouter();
 
+  // Refreshed as well as moved, so no page cached from before signing in is shown.
+  function handleSignedIn(): void {
+    router.push(HOME_PATH);
+    router.refresh();
+  }
+
   return (
     <SignInForm
       description="Altus Global Solutions platform admin."
@@ -38,7 +44,7 @@ export default function SignInPage() {
       signInWithPassword={signInWithPassword}
       verifyCode={verifyCode}
       verifyRecoveryCode={verifyRecoveryCode}
-      onSignedIn={() => router.push(HOME_PATH)}
+      onSignedIn={handleSignedIn}
     />
   );
 }
