@@ -26,6 +26,19 @@ const envSchema = z.object({
    * caps set there.
    */
   GOOGLE_PLACES_API_KEY: z.string().min(1),
+
+  /** The bucket for logos, car photos and every other general file. Private. */
+  STORAGE_BUCKET: z.string().min(1),
+  /** The bucket for identity documents only (rule 8). Private. */
+  IDENTITY_STORAGE_BUCKET: z.string().min(1),
+  /** Where both buckets are: Sydney, `ap-southeast-2`. */
+  FILE_STORAGE_REGION: z.string().min(1),
+  /**
+   * The app's own login to the two buckets and nothing else. Not named
+   * AWS_ACCESS_KEY_ID: Vercel sets that name itself on its servers.
+   */
+  FILE_STORAGE_ACCESS_KEY_ID: z.string().min(1),
+  FILE_STORAGE_SECRET_ACCESS_KEY: z.string().min(1),
 });
 
 export const env = envSchema.parse({
@@ -37,4 +50,9 @@ export const env = envSchema.parse({
   EMAIL_TRANSPORT: process.env.EMAIL_TRANSPORT,
   EMAIL_FROM: process.env.EMAIL_FROM,
   GOOGLE_PLACES_API_KEY: process.env.GOOGLE_PLACES_API_KEY,
+  STORAGE_BUCKET: process.env.STORAGE_BUCKET,
+  IDENTITY_STORAGE_BUCKET: process.env.IDENTITY_STORAGE_BUCKET,
+  FILE_STORAGE_REGION: process.env.FILE_STORAGE_REGION,
+  FILE_STORAGE_ACCESS_KEY_ID: process.env.FILE_STORAGE_ACCESS_KEY_ID,
+  FILE_STORAGE_SECRET_ACCESS_KEY: process.env.FILE_STORAGE_SECRET_ACCESS_KEY,
 });

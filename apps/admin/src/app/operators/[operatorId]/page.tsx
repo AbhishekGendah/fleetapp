@@ -90,6 +90,7 @@ const ENTITY_LABELS: Readonly<Record<string, string>> = {
   [ACTIVITY_ENTITY_TYPES.user]: "User",
   [ACTIVITY_ENTITY_TYPES.operatorInvite]: "Invite",
   [ACTIVITY_ENTITY_TYPES.operatorSettings]: "Settings",
+  [ACTIVITY_ENTITY_TYPES.file]: "File",
 } satisfies Record<ActivityEntityType, string>;
 
 function describeHistoryEntry(entityType: string, action: string): string {
