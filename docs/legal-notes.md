@@ -108,6 +108,10 @@ of service) and the countries.
 - **Retention:** how long Renter data, photos and documents are kept
   after a rental ends, and the scheduled deletion that enforces it
   (rule 13). Tax law needs invoices kept for 5 years.
+  Handover and return photos are evidence (damage, insurance claims,
+  fines), so decide with the lawyer how long full-size photos must be
+  kept; after that, keep only the small copies inside the PDFs, or delete
+  them. The clean-up then runs on its own.
 - **Direct debit (BECS):** Stripe's mandate wording must be shown and
   accepted; check the DDR service agreement rules before building rate
   changes (already an open item).
