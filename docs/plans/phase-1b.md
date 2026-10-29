@@ -198,8 +198,10 @@ the two buckets). Built in two parts:
   JPEG, WebP or PDF. Anything else is deleted and the row marked
   refused.
 - Logo: PNG, JPEG or WebP only (no SVG: it can carry code), 5 MB cap,
-  shrunk in the browser to at most 1600px first. Stored on the Operator
-  as `logo_file_id` (one new column the Operator app may change).
+  shrunk in the browser to at most 1600px first. The logo is the
+  Operator's one confirmed, not-deleted logo file (a database rule allows
+  only one), not a column on the Operator: changed while building, as the
+  two tables would otherwise point at each other.
   Replacing or removing it marks the old file deleted. Shown in the
   Operator app header and in Business details through links that expire
   in 5 minutes.
