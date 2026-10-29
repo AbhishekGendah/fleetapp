@@ -35,6 +35,21 @@ Goal: an Operator can add, find, edit and archive their cars.
     I, O or Q).
   - The same rego in the same state cannot be added twice by one
     Operator (enforced by the database), unless the old car is archived.
+- **Make and model from a built-in list** of cars sold in Australia,
+  kept as a data file in packages/core (no database table, no admin
+  screen). Choose the make, then a model from that make's list; both
+  boxes are searchable. "Other" opens a free-text box for anything
+  missing.
+  - The car stores the make and model as text, not a link to the list,
+    so editing the list later never changes or breaks an existing car,
+    and "Other" cars sit alongside the rest.
+  - Tradeoff: adding a new model means a small code change and deploy.
+    Fine while AGS curates the list; an admin screen can come later.
+  - The list is compiled by AGS from public information (car names are
+    facts, not anyone's property); no paid data provider. Variant
+    (e.g. "Ascent Sport Hybrid") stays a typed box: too many to list.
+  - Needs a new shared piece: a searchable dropdown, added to
+    packages/ui and the catalogue first (rule 29).
 - **Status:** available, in service, off road, sold, written off.
   "In service" and "off road" need a reason and an expected return date.
   "Rented" arrives in Phase 3 and is only ever set by the system.
@@ -88,7 +103,8 @@ private.
   email, home address (with the Google lookup), postal address, emergency
   contact (name, phone, relationship), and dated private notes.
 - **Licence:** number, issuing state or country, class, expiry, type
-  (full, provisional, overseas), front and back scans.
+  (full, provisional, overseas), front and back scans. No card number
+  (decision 1).
 - **Scans** go in the separate identity bucket (rule 8). Shown only
   through links that expire in minutes, and every view is written to the
   activity log with who looked. Never shown on any Renter link page.
@@ -157,10 +173,10 @@ approves.
 
 ## Decisions in this plan (pushed back on easily)
 
-1. **No licence card number for now.** The design lists it, but it is
-   only needed for checking licences against government records (a later
-   version). Privacy law says collect only what you need. Tradeoff:
-   Operators re-ask for it when verification arrives.
+1. **No licence card number** (decided by Abhi). The design lists it, but
+   it is only needed for checking licences against government records (a
+   later version), and privacy law says collect only what you need. The
+   licence number, state, class, expiry, type and both scans are kept.
 2. **The self-onboarding link is always for a Renter the Operator has
    already started.** Tradeoff: one extra step for the Operator (typing a
    name and email first), in return for no anonymous sign-ups and no spam.
@@ -169,9 +185,8 @@ approves.
    scrambled per field. Tradeoff: simpler and searchable; a database leak
    would expose them, which per-field scrambling would limit. Worth
    revisiting with the lawyer before go-live.
-4. **One car table per Operator is enough**: no shared "car models"
-   list, makes and models are typed. Tradeoff: spelling varies; a
-   suggestions list can come later.
+4. **Make and model come from a built-in list** (decided by Abhi), with
+   "Other" for anything missing. See slice 1.
 
 ## Safety checks for every slice
 
