@@ -243,6 +243,16 @@
   takes the highlighted or top suggestion; adding a car asks for the
   odometer reading, saved as its first reading in the same step.
 
+- Test checklist for Abhi: Google Sheet "Fleet app test checklist"
+  (https://docs.google.com/spreadsheets/d/14exg-PBoMuTjVoc0QTXK6mgYSEfB0dSaty7yG1fqjbk/edit),
+  116 rows covering both apps as built so far (A- admin site, O- Operator
+  app), with a Result drop-down, notes, and a Summary tab listing every
+  Issue and "Could be better". Kept up to date with every change
+  (CLAUDE.md, How to work).
+  - Known gap noted in row A-24: the admin New Operator form only checks
+    its boxes on Create, not as you type (rule 28). To fix when next in
+    that area.
+
 ## Next
 Phase 2 step 2: car paperwork, costs and photos (rego renewals,
 insurance policies, purchase and sale, other costs, photos, documents).
