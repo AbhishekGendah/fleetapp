@@ -1,11 +1,7 @@
 import { postcodeMatchesState } from "@fleetapp/core";
+import { recordActivity } from "@fleetapp/db/activity";
 import type { AnyDatabase } from "@fleetapp/db/client";
-import {
-  ACTIVITY_ACTIONS,
-  ACTIVITY_ENTITY_TYPES,
-  activityLog,
-  operators,
-} from "@fleetapp/db/schema";
+import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, operators } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { eq } from "drizzle-orm";
 
@@ -105,10 +101,9 @@ export async function saveBusinessDetails(
     }
 
     await tx.update(operators).set(after).where(eq(operators.id, actor.operatorId));
-    await tx.insert(activityLog).values({
+    await recordActivity(tx, {
       operatorId: actor.operatorId,
-      actorType: "user",
-      actorId: actor.userId,
+      actor: { type: "user", id: actor.userId },
       entityType: ACTIVITY_ENTITY_TYPES.operator,
       entityId: actor.operatorId,
       action: ACTIVITY_ACTIONS.updated,

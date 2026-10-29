@@ -1,4 +1,5 @@
-import { activityLog, type ActivityAction, type ActivityEntityType } from "@fleetapp/db/schema";
+import { recordActivity } from "@fleetapp/db/activity";
+import type { ActivityAction, ActivityEntityType } from "@fleetapp/db/schema";
 
 import type { Transaction } from "./dependencies";
 
@@ -12,23 +13,10 @@ export interface AdminActivityEntry {
   valuesAfter?: Record<string, unknown>;
 }
 
-/**
- * Writes one line of the Operator's history, inside the same transaction as
- * the change it describes, so a change cannot happen without its log line.
- * Never pass a token or a password in the values (rule 7).
- */
+/** A line of the Operator's history written by an Admin, in the same transaction as the change. */
 export async function recordAdminActivity(
   tx: Transaction,
-  entry: AdminActivityEntry,
+  { adminUserId, ...entry }: AdminActivityEntry,
 ): Promise<void> {
-  await tx.insert(activityLog).values({
-    operatorId: entry.operatorId,
-    actorType: "admin",
-    actorId: entry.adminUserId,
-    entityType: entry.entityType,
-    entityId: entry.entityId,
-    action: entry.action,
-    valuesBefore: entry.valuesBefore ?? null,
-    valuesAfter: entry.valuesAfter ?? null,
-  });
+  await recordActivity(tx, { ...entry, actor: { type: "admin", id: adminUserId } });
 }

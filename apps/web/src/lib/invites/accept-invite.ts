@@ -1,8 +1,8 @@
+import { recordActivity } from "@fleetapp/db/activity";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import {
   ACTIVITY_ACTIONS,
   ACTIVITY_ENTITY_TYPES,
-  activityLog,
   operatorInvites,
   userAccounts,
   users,
@@ -76,10 +76,9 @@ export async function acceptInvite(input: AcceptInviteInput): Promise<{ email: s
       .update(users)
       .set({ emailVerified: true, updatedAt: input.now })
       .where(eq(users.id, invite.userId));
-    await tx.insert(activityLog).values({
+    await recordActivity(tx, {
       operatorId: invite.operatorId,
-      actorType: "user",
-      actorId: invite.userId,
+      actor: { type: "user", id: invite.userId },
       entityType: ACTIVITY_ENTITY_TYPES.operatorInvite,
       entityId: invite.inviteId,
       action: ACTIVITY_ACTIONS.accepted,

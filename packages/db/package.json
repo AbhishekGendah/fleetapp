@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./activity": "./src/activity.ts",
     "./client": "./src/client.ts",
     "./health": "./src/health.ts",
     "./schema": "./src/schema/index.ts",
