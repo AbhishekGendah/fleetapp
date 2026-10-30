@@ -24,9 +24,15 @@ import {
   loadPolicy,
   loadVehiclePaperwork,
 } from "../src/lib/vehicles/paperwork-queries";
-import { addRegistration, archiveRegistration } from "../src/lib/vehicles/registrations";
+import {
+  addRegistration,
+  archiveRegistration,
+  stopDirectDebit,
+} from "../src/lib/vehicles/registrations";
 import { listVehiclePage } from "../src/lib/vehicles/vehicle-queries";
 import { addTestCar, seedOperatorWithUser } from "./car-fixtures";
+
+const TODAY = "2026-10-30";
 
 const REGO_FORM = {
   state: "WA",
@@ -126,11 +132,13 @@ describe("rego, insurance and the due-soon setting", () => {
   it("makes the latest-expiring renewal the current rego, and flags one entered out of order", async () => {
     const carId = await addTestCar(web, actor);
 
-    expect(await addRegistration(web.db, actor, carId, rego())).toEqual({
+    expect(await addRegistration(web.db, actor, carId, rego(), TODAY)).toEqual({
       status: "added",
       isEarlierThanCurrent: false,
     });
-    expect(await addRegistration(web.db, actor, carId, rego({ expiresOn: "2026-10-29" }))).toEqual({
+    expect(
+      await addRegistration(web.db, actor, carId, rego({ expiresOn: "2026-10-29" }), TODAY),
+    ).toEqual({
       status: "added",
       isEarlierThanCurrent: true,
     });
@@ -154,9 +162,44 @@ describe("rego, insurance and the due-soon setting", () => {
   it("refuses rego for another Operator's car", async () => {
     const carId = await addTestCar(web, actor);
 
-    expect(await addRegistration(web.db, otherActor, carId, rego())).toEqual({
+    expect(await addRegistration(web.db, otherActor, carId, rego(), TODAY)).toEqual({
       status: "not_found",
     });
+  });
+
+  it("keeps a monthly direct debit running with no expiry until a fixed term replaces it", async () => {
+    const listActor = await seedOperatorWithUser(admin, "Direct Debit Pty Ltd");
+    const carId = await addTestCar(web, listActor);
+    const monthly = rego({ termMonths: "1", expiresOn: "2027-01-01", costCents: "75" });
+    expect(monthly.expiresOn).toBeNull();
+    expect(parseRegoForm({ ...REGO_FORM, expiresOn: "" }).success).toBe(false);
+
+    await addRegistration(web.db, listActor, carId, monthly, TODAY);
+    const listRow = async () =>
+      (await listVehiclePage(web.db, listActor.operatorId, parseListQuery(CAR_LIST, {}))).rows[0];
+    expect(await listRow()).toMatchObject({ isRegoOnDirectDebit: true, regoExpiresOn: null });
+
+    await addRegistration(web.db, listActor, carId, rego(), TODAY);
+    expect(await listRow()).toMatchObject({
+      isRegoOnDirectDebit: false,
+      regoExpiresOn: "2027-10-29",
+    });
+    const paperwork = await loadVehiclePaperwork(web.db, listActor.operatorId, carId);
+    const directDebit = paperwork.registrations.find((row) => row.expiresOn === null);
+    expect(directDebit?.directDebitStoppedOn).toBe(TODAY);
+    expect(await stopDirectDebit(web.db, listActor, directDebit!.id, TODAY)).toBe("not_found");
+  });
+
+  it("stops a direct debit on the date given, only for its own Operator", async () => {
+    const carId = await addTestCar(web, actor);
+    await addRegistration(web.db, actor, carId, rego({ termMonths: "1", expiresOn: "" }), TODAY);
+    const [directDebit] = (await loadVehiclePaperwork(web.db, actor.operatorId, carId))
+      .registrations;
+
+    expect(await stopDirectDebit(web.db, otherActor, directDebit!.id, TODAY)).toBe("not_found");
+    expect(await stopDirectDebit(web.db, actor, directDebit!.id, "2026-10-15")).toBe("stopped");
+    const [stopped] = (await loadVehiclePaperwork(web.db, actor.operatorId, carId)).registrations;
+    expect(stopped?.directDebitStoppedOn).toBe("2026-10-15");
   });
 
   it("insures one car from its page, or several on a fleet policy", async () => {
@@ -224,7 +267,7 @@ describe("rego, insurance and the due-soon setting", () => {
   it("shows each car's rego and insurance expiry on the list, with due-soon badges", async () => {
     const listActor = await seedOperatorWithUser(admin, "Expiry Pty Ltd");
     const carId = await addTestCar(web, listActor);
-    await addRegistration(web.db, listActor, carId, rego({ expiresOn: "2026-11-05" }));
+    await addRegistration(web.db, listActor, carId, rego({ expiresOn: "2026-11-05" }), TODAY);
     await createPolicy(web.db, listActor, policy({ endsOn: "2026-10-20" }), [carId]);
 
     const page = await listVehiclePage(web.db, listActor.operatorId, parseListQuery(CAR_LIST, {}));

@@ -151,6 +151,19 @@ describe("car paperwork", () => {
             .insert(schema.vehicleRegistrations)
             .values({ ...regoRow(operatorBId, carBId), termMonths: 7 }),
         ),
+      // A direct debit has no expiry, and a fixed term must have one.
+      () =>
+        withTenant(web.db, operatorBId, (tx) =>
+          tx
+            .insert(schema.vehicleRegistrations)
+            .values({ ...regoRow(operatorBId, carBId), termMonths: 1 }),
+        ),
+      () =>
+        withTenant(web.db, operatorBId, (tx) =>
+          tx
+            .insert(schema.vehicleRegistrations)
+            .values({ ...regoRow(operatorBId, carBId), expiresOn: null }),
+        ),
       () =>
         withTenant(web.db, operatorBId, (tx) =>
           tx

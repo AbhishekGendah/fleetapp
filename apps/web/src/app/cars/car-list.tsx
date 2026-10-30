@@ -7,7 +7,10 @@ import {
   type VehicleSummary,
 } from "../../lib/vehicles/vehicle-queries";
 import type { WithExpiryStatuses } from "../../lib/vehicles/expiry-columns";
-import { ExpiryDate } from "./expiry-date";
+import { ExpiryDate, RegoExpiry } from "./expiry-date";
+
+/** What an export shows for a car on a rego direct debit, which has no expiry. */
+const REGO_DIRECT_DEBIT_EXPORT = "Direct debit";
 import { VehicleStatusBadge } from "./vehicle-status-badge";
 
 function carName(vehicle: VehicleSummary): string {
@@ -48,8 +51,15 @@ export const CAR_LIST: DataListDefinition<CarListRow> = {
       key: "regoExpires",
       label: "Rego",
       isSortable: true,
-      exportValue: (vehicle) => vehicle.regoExpiresOn,
-      render: (vehicle) => <ExpiryDate date={vehicle.regoExpiresOn} status={vehicle.regoStatus} />,
+      exportValue: (vehicle) =>
+        vehicle.isRegoOnDirectDebit ? REGO_DIRECT_DEBIT_EXPORT : vehicle.regoExpiresOn,
+      render: (vehicle) => (
+        <RegoExpiry
+          isOnDirectDebit={vehicle.isRegoOnDirectDebit}
+          date={vehicle.regoExpiresOn}
+          status={vehicle.regoStatus}
+        />
+      ),
     },
     {
       key: "insuranceEnds",

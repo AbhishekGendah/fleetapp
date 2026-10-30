@@ -14,3 +14,16 @@ export function ExpiryDate({ date, status }: { date: string | null; status: Expi
     </span>
   );
 }
+
+/** The car's current rego: a running direct debit has no expiry, so it shows as such. */
+export function RegoExpiry(props: {
+  isOnDirectDebit: boolean;
+  date: string | null;
+  status: ExpiryStatus;
+}) {
+  return props.isOnDirectDebit ? (
+    <Badge tone="good">Direct debit</Badge>
+  ) : (
+    <ExpiryDate date={props.date} status={props.status} />
+  );
+}

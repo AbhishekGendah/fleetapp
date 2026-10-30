@@ -90,6 +90,7 @@ export function SaleForm(props: {
       <FormSection title="The transfer">
         <p className="text-muted-foreground text-sm">
           Until the transfer is lodged with the transport department, fines can still come to you.
+          Cancel any rego direct debit in DoTDirect before the transfer.
         </p>
         <div className="grid grid-cols-2 gap-4">
           <CostField form={fields} field="transferLodgedOn">

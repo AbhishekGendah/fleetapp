@@ -355,6 +355,15 @@
   - Migration 0012: payment_frequency column, wider rego term check, the
     new cost type.
 
+- Rego direct debit and automatic expiry (built): a monthly direct debit
+  has no expiry, shows a green "Direct debit" badge, never goes Due soon,
+  and stops when a fixed term is added or with "Stop direct debit" (a date).
+  Choosing a term fills in Expires as the current expiry plus the term (from
+  today if there is none); a typed date is kept. Migration 0013: expiry may
+  be empty only for a direct debit (checked by the database), plus
+  `direct_debit_stopped_on`; monthly rows saved earlier had their expiry
+  cleared. The sale form reminds to cancel the direct debit in DoTDirect.
+
 ## Next
 Phase 2 step 2c: photos and documents, including transfer papers and
 receipts for 2a and 2b.

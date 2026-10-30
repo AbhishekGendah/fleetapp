@@ -26,7 +26,7 @@ import {
 import type { VehicleDetail } from "../../../lib/vehicles/vehicle-queries";
 import { ExpiryDate } from "../expiry-date";
 import { PolicyForm } from "../policy-form";
-import { RegoForm } from "../rego-form";
+import { RegoCard } from "./rego-card";
 import {
   addPolicyForCarAction,
   addRegoAction,
@@ -34,77 +34,6 @@ import {
   leavePolicyAction,
   removeRegoAction,
 } from "./paperwork-actions";
-
-function RegoCard(props: {
-  vehicle: VehicleDetail;
-  registrations: readonly Registration[];
-  expiry: ExpiryContext;
-  isGstRegistered: boolean;
-}) {
-  const { vehicle, registrations, expiry } = props;
-  const isEditable = vehicle.archivedAt === null;
-  const current = registrations[0] ?? null;
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Rego</CardTitle>
-        <CardDescription>
-          Current rego expires:{" "}
-          <ExpiryDate
-            date={current?.expiresOn ?? null}
-            status={expiryStatus(current?.expiresOn ?? null, expiry.today, expiry.warningDays)}
-          />
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-6">
-        {registrations.length === 0 ? null : (
-          <ul className="flex flex-col divide-y">
-            {registrations.map((registration) => (
-              <li
-                key={registration.id}
-                className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"
-              >
-                <div>
-                  <p className="font-medium">
-                    {registration.state}, {regoTermLabel(registration.termMonths).toLowerCase()}, to{" "}
-                    {formatCalendarDate(registration.expiresOn)}
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    {formatCents(registration.costCents)}
-                    {registration.gstCents > 0
-                      ? ` incl. ${formatCents(registration.gstCents)} GST`
-                      : ""}
-                    {registration.paidOn
-                      ? ` · paid ${formatCalendarDate(registration.paidOn)}`
-                      : ""}
-                  </p>
-                </div>
-                {isEditable ? (
-                  <ActionButton
-                    action={removeRegoAction.bind(null, vehicle.id, registration.id)}
-                    label="Remove"
-                    pendingLabel="Removing…"
-                    variant="ghost"
-                    size="sm"
-                  />
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
-        {isEditable ? (
-          <FormDialog triggerLabel="Add rego renewal" title="Add a rego renewal">
-            <RegoForm
-              initialValues={{ ...emptyRegoForm(), state: current?.state ?? vehicle.regoState }}
-              action={addRegoAction.bind(null, vehicle.id)}
-              isGstRegistered={props.isGstRegistered}
-            />
-          </FormDialog>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
-}
 
 function PolicyLine(props: { vehicle: VehicleDetail; policy: Policy; expiry: ExpiryContext }) {
   const { vehicle, policy, expiry } = props;

@@ -162,9 +162,17 @@ export function findOdometerDrops(readings: readonly OdometerReadingForCheck[]):
 export const REGO_TERMS_MONTHS = [1, 3, 6, 9, 12] as const;
 export type RegoTermMonths = (typeof REGO_TERMS_MONTHS)[number];
 
+/** The monthly direct debit renewal: it runs until stopped, with no expiry date. */
+export const DIRECT_DEBIT_TERM_MONTHS = 1;
+
+/** Takes any text or number, as a form's term box holds it before it is checked. */
+export function isDirectDebitTerm(months: number | string): boolean {
+  return Number(months) === DIRECT_DEBIT_TERM_MONTHS;
+}
+
 /** "Monthly (direct debit)" or "6 months". */
 export function regoTermLabel(months: number): string {
-  return months === 1 ? "Monthly (direct debit)" : `${months} months`;
+  return isDirectDebitTerm(months) ? "Monthly (direct debit)" : `${months} months`;
 }
 
 /** How often a premium is paid. The amount recorded is one payment. */

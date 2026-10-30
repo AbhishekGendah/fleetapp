@@ -17,7 +17,11 @@ import { qualified } from "@fleetapp/db/qualified";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, asc, count, eq, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 
-import { currentInsuranceEndsOn, currentRegoExpiresOn } from "./expiry-columns";
+import {
+  currentInsuranceEndsOn,
+  currentRegoExpiresOn,
+  isRegoOnDirectDebit,
+} from "./expiry-columns";
 import { countedReading } from "./odometer";
 
 /** The filter value that shows archived cars instead of current ones. */
@@ -43,6 +47,7 @@ const summaryColumns = {
   status: vehicles.status,
   archivedAt: vehicles.archivedAt,
   currentKilometres,
+  isRegoOnDirectDebit,
   regoExpiresOn: currentRegoExpiresOn,
   insuranceEndsOn: currentInsuranceEndsOn,
 };
@@ -59,6 +64,7 @@ export interface VehicleSummary {
   status: VehicleStatus;
   archivedAt: Date | null;
   currentKilometres: number | null;
+  isRegoOnDirectDebit: boolean;
   regoExpiresOn: string | null;
   insuranceEndsOn: string | null;
 }

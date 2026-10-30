@@ -46,7 +46,7 @@ right fix anyway.
 - Driver licence number: capitals and digits, no spaces, 10 at most (the
   longest Australian format).
 
-## Follow-up: monthly direct debit and the expiry date (for approval)
+## Follow-up: monthly direct debit and the expiry date (approved and built)
 
 **Monthly direct debit has no expiry.**
 - Choosing Monthly (direct debit) hides the Expires box; the cost is the

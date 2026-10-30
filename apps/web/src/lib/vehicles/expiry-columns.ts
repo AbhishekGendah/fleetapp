@@ -8,10 +8,25 @@ import {
 import { qualified } from "@fleetapp/db/qualified";
 import { sql } from "drizzle-orm";
 
-/** The expiry of the car's current rego: its renewal that runs latest. */
+const ofThisCarsRegos = sql`${qualified(vehicleRegistrations.vehicleId)} = ${qualified(vehicles.id)} and ${qualified(vehicleRegistrations.archivedAt)} is null`;
+
+/** The car is on a monthly direct debit that has not been stopped: registered, with no expiry. */
+export const isRegoOnDirectDebit = sql<boolean>`exists (
+  select 1 from ${vehicleRegistrations}
+  where ${ofThisCarsRegos}
+    and ${qualified(vehicleRegistrations.expiresOn)} is null
+    and ${qualified(vehicleRegistrations.directDebitStoppedOn)} is null
+)`;
+
+/**
+ * The expiry of the car's current rego: its renewal that runs latest. None
+ * while a direct debit is running, as that has no expiry.
+ */
 export const currentRegoExpiresOn = sql<string | null>`(
-  select max(${qualified(vehicleRegistrations.expiresOn)}) from ${vehicleRegistrations}
-  where ${qualified(vehicleRegistrations.vehicleId)} = ${qualified(vehicles.id)} and ${qualified(vehicleRegistrations.archivedAt)} is null
+  case when ${isRegoOnDirectDebit} then null else (
+    select max(${qualified(vehicleRegistrations.expiresOn)}) from ${vehicleRegistrations}
+    where ${ofThisCarsRegos}
+  ) end
 )`;
 
 /** When the car's cover ends: the latest-ending policy it is on now. */
@@ -30,6 +45,7 @@ export interface ExpiryContext {
 }
 
 export interface ExpiryDates {
+  isRegoOnDirectDebit: boolean;
   regoExpiresOn: string | null;
   insuranceEndsOn: string | null;
 }

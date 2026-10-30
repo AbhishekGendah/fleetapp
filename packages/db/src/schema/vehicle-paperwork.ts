@@ -1,4 +1,5 @@
 import {
+  DIRECT_DEBIT_TERM_MONTHS,
   INSURANCE_COVER_TYPES,
   INSURANCE_PAYMENT_FREQUENCIES,
   REGO_TERMS_MONTHS,
@@ -60,8 +61,11 @@ export const vehicleRegistrations = pgTable(
 
     state: australianStateEnum("state").notNull(),
     termMonths: integer("term_months").notNull(),
-    expiresOn: date("expires_on").notNull(),
+    /** Empty only for a monthly direct debit, which runs until stopped. */
+    expiresOn: date("expires_on"),
+    /** For a direct debit: paid on is when it started. */
     paidOn: date("paid_on"),
+    directDebitStoppedOn: date("direct_debit_stopped_on"),
     costCents: integer("cost_cents").notNull(),
     gstCents: integer("gst_cents").notNull().default(0),
 
@@ -81,6 +85,12 @@ export const vehicleRegistrations = pgTable(
     check(
       "vehicle_registrations_term",
       sql`${table.termMonths} in (${sql.raw(REGO_TERMS_MONTHS.join(", "))})`,
+    ),
+    // A direct debit has no expiry and may be stopped; a fixed term has an expiry.
+    check(
+      "vehicle_registrations_direct_debit",
+      sql`(${table.termMonths} = ${sql.raw(String(DIRECT_DEBIT_TERM_MONTHS))}) = (${table.expiresOn} is null)
+        and (${table.directDebitStoppedOn} is null or ${table.termMonths} = ${sql.raw(String(DIRECT_DEBIT_TERM_MONTHS))})`,
     ),
     ...amountChecks("vehicle_registrations", table.costCents, table.gstCents),
   ],

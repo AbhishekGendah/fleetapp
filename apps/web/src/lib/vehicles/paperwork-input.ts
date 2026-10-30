@@ -4,6 +4,7 @@ import {
   centsForEditing,
   emptyForm,
   INSURANCE_COVER_TYPES,
+  isDirectDebitTerm,
   INSURANCE_PAYMENT_FREQUENCIES,
   optionalDollars,
   REGO_TERMS_MONTHS,
@@ -19,17 +20,32 @@ const refineGst = refineGstWithin("costCents");
 
 const REGO_TERM_TEXTS = REGO_TERMS_MONTHS.map(String) as [string, ...string[]];
 
-/** One rego renewal as entered on a car's Paperwork tab. */
+/**
+ * One rego renewal as entered on a car's Paperwork tab. A fixed term needs
+ * its expiry; a monthly direct debit has none (and its cost is per month).
+ */
 export const regoInputSchema = z
   .object({
     state: z.enum(AUSTRALIAN_STATE_CODES, REQUIRED_MESSAGE),
     termMonths: z.enum(REGO_TERM_TEXTS, REQUIRED_MESSAGE).transform(Number),
-    expiresOn: requiredDate,
+    expiresOn: optionalDate,
     paidOn: optionalDate,
     costCents: requiredDollars,
     gstCents: gstDollars,
   })
-  .superRefine(refineGst);
+  .superRefine(refineGst)
+  .superRefine((input, context) => {
+    if (!isDirectDebitTerm(input.termMonths) && input.expiresOn === null) {
+      context.addIssue({ code: "custom", path: ["expiresOn"], message: REQUIRED_MESSAGE });
+    }
+  })
+  .transform((input) =>
+    isDirectDebitTerm(input.termMonths) ? { ...input, expiresOn: null } : input,
+  );
+
+/** When a direct debit stopped, e.g. the day the car was sold. */
+export const stopDirectDebitInputSchema = z.object({ stoppedOn: requiredDate });
+export const STOP_DIRECT_DEBIT_FIELDS = ["stoppedOn"] as const;
 
 export type RegoInput = z.infer<typeof regoInputSchema>;
 export const REGO_FORM_FIELDS = [

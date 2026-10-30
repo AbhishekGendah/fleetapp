@@ -1,12 +1,8 @@
 "use server";
 
-import { isRecordId } from "@fleetapp/core";
+import { formTextValues, isRecordId, todayInTimeZone } from "@fleetapp/core";
 
-import {
-  failedState,
-  savedState,
-  type ChangeFormState,
-} from "@fleetapp/ui/change-form-state";
+import { failedState, savedState, type ChangeFormState } from "@fleetapp/ui/change-form-state";
 import { appDb } from "../../../lib/app-db";
 import {
   addVehicleToPolicy,
@@ -14,7 +10,15 @@ import {
   removeVehicleFromPolicy,
 } from "../../../lib/vehicles/insurance";
 import { chosenId, policyFromForm, regoFromForm } from "../../../lib/vehicles/paperwork-form-data";
-import { addRegistration, archiveRegistration } from "../../../lib/vehicles/registrations";
+import {
+  STOP_DIRECT_DEBIT_FIELDS,
+  stopDirectDebitInputSchema,
+} from "../../../lib/vehicles/paperwork-input";
+import {
+  addRegistration,
+  archiveRegistration,
+  stopDirectDebit,
+} from "../../../lib/vehicles/registrations";
 import { changeCar, NOT_FOUND_MESSAGE } from "./change-car";
 
 // The browser runs the same checks first, so this is only reached by a request that skipped them.
@@ -32,8 +36,9 @@ export async function addRegoAction(
   if (!parsed.success) {
     return failedState(INVALID_MESSAGE);
   }
-  return changeCar(vehicleId, "Adding a rego renewal", async (actor) => {
-    const result = await addRegistration(appDb, actor, vehicleId, parsed.data);
+  return changeCar(vehicleId, "Adding a rego renewal", async (actor, user) => {
+    const today = todayInTimeZone(new Date(), user.operatorTimezone);
+    const result = await addRegistration(appDb, actor, vehicleId, parsed.data, today);
     if (result.status === "not_found") {
       return failedState(NOT_FOUND_MESSAGE);
     }
@@ -41,6 +46,25 @@ export async function addRegoAction(
       ? savedState(EARLIER_REGO_WARNING, true)
       : savedState("Rego saved.");
   });
+}
+
+export async function stopDirectDebitAction(
+  vehicleId: string,
+  registrationId: string,
+  _previous: ChangeFormState,
+  formData: FormData,
+): Promise<ChangeFormState> {
+  const parsed = stopDirectDebitInputSchema.safeParse(
+    formTextValues(formData, STOP_DIRECT_DEBIT_FIELDS),
+  );
+  if (!isRecordId(registrationId) || !parsed.success) {
+    return failedState(INVALID_MESSAGE);
+  }
+  return changeCar(vehicleId, "Stopping a rego direct debit", async (actor) =>
+    (await stopDirectDebit(appDb, actor, registrationId, parsed.data.stoppedOn)) === "stopped"
+      ? savedState("Direct debit stopped.")
+      : failedState("That direct debit was already stopped."),
+  );
 }
 
 export async function removeRegoAction(

@@ -92,6 +92,13 @@
       "when": 1793334960901,
       "tag": "0012_car_testing_changes",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793338271131,
+      "tag": "0013_rego_direct_debit",
+      "breakpoints": true
     }
   ]
 }

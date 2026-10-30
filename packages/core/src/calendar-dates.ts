@@ -31,6 +31,20 @@ export function daysBetween(from: string, to: string): number {
   );
 }
 
+/**
+ * The same day so many months later, or the month's last day when that month
+ * is shorter: 31 Jan + 1 month is 28 Feb (29 in a leap year).
+ */
+export function addMonths(isoDate: string, months: number): string {
+  const [year = 0, month = 1, day = 1] = isoDate.split("-").map(Number);
+  const firstOfTarget = new Date(Date.UTC(year, month - 1 + months, 1));
+  const daysInTarget = new Date(
+    Date.UTC(firstOfTarget.getUTCFullYear(), firstOfTarget.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  firstOfTarget.setUTCDate(Math.min(day, daysInTarget));
+  return firstOfTarget.toISOString().slice(0, 10);
+}
+
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 /** A real calendar date in "YYYY-MM-DD" form, so "2026-02-30" is refused. */
