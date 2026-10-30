@@ -75,6 +75,10 @@ Status: ✅ done · 🔨 in progress · ⏳ not started. Last checked 30 Oct 202
   handover/return and service-due by km.
 - Reminders engine (email reminders for rego, insurance, servicing;
   Phase 2 shows on-screen badges only).
+- Push notifications on the phone for the same reminders, built with the
+  reminders engine. Each User turns them on with "Allow notifications";
+  on iPhone they only work from the home-screen app (Android works in the
+  browser too). Email stays the backup, as not everyone allows them.
 
 ## Phase 6 — Fines ⏳
 

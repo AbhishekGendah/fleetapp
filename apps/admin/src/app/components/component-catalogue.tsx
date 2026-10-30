@@ -245,6 +245,7 @@ function DataListExample() {
       query={query}
       basePath=""
       rowKey={(car) => car.rego}
+      rowHref={(car) => `#${car.rego}`}
       itemName={{ one: "car", many: "cars" }}
       searchLabel="Search by rego or model"
       emptyMessage="No cars match."

@@ -103,9 +103,20 @@ function SortHeading<Row>(props: DataListProps<Row> & { column: DataListColumn<R
   );
 }
 
+/**
+ * The row's one link, stretched over its whole row or card (which must be
+ * `relative`) so a tap anywhere opens it. Still one link per row, so screen
+ * readers and the keyboard meet it once.
+ */
 function RowLink(props: { href?: string; children: React.ReactNode; className?: string }) {
   return props.href ? (
-    <a href={props.href} className={cn("font-medium hover:underline", props.className)}>
+    <a
+      href={props.href}
+      className={cn(
+        "focus-visible:after:ring-ring font-medium after:absolute after:inset-0 after:rounded-[inherit] after:content-[''] focus-visible:outline-none focus-visible:after:ring-2",
+        props.className,
+      )}
+    >
       {props.children}
     </a>
   ) : (
@@ -138,7 +149,10 @@ function Table<Row>(props: DataListProps<Row>) {
       </thead>
       <tbody>
         {props.page.rows.map((row) => (
-          <tr key={props.rowKey(row)} className="border-b">
+          <tr
+            key={props.rowKey(row)}
+            className={cn("border-b", props.rowHref && "hover:bg-muted/60 relative")}
+          >
             {definition.columns.map((column) => (
               <td key={column.key} className="py-3 pr-4">
                 {column.isCardTitle ? (
@@ -162,7 +176,7 @@ function Cards<Row>(props: DataListProps<Row>) {
     <ul className="flex flex-col gap-3 md:hidden">
       {props.page.rows.map((row) => (
         <li key={props.rowKey(row)}>
-          <Card>
+          <Card className={cn(props.rowHref && "active:bg-muted/60 hover:bg-muted/60 relative")}>
             <CardContent className="flex flex-col gap-1 p-4">
               {title ? (
                 <RowLink href={props.rowHref?.(row)} className="flex min-h-11 items-center">

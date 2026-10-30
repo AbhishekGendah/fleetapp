@@ -405,6 +405,10 @@
   Migration 0017: two new file kinds and a two-column link from `files` to
   each record kind, with database checks. Policy page Log now includes its
   papers.
+- Lists: a tap anywhere on a card (phone) or row (computer) opens it, not
+  just the rego or name; the row tints under the mouse. One change in the
+  shared list piece, so every list has it. Push notifications added to the
+  roadmap (Phase 5, with the email reminders).
 
 ## Next
 Phase 2 slice 3 — Renters (docs/plans/phase-2.md). Plan first.
