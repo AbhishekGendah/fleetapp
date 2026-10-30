@@ -1,4 +1,5 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { Card, CardContent } from "@fleetapp/ui/card";
+import { PageHeader } from "@fleetapp/ui/page-header";
 import { redirect } from "next/navigation";
 
 import { appDb } from "../../../../lib/app-db";
@@ -28,11 +29,13 @@ export default async function EditCarPage(props: { params: Promise<{ vehicleId: 
 
   return (
     <AppShell user={user}>
+      <PageHeader
+        backHref={carPath(vehicle.id)}
+        backLabel={vehicle.rego}
+        title={`Edit ${vehicle.rego}`}
+      />
       <Card>
-        <CardHeader>
-          <CardTitle className="text-xl">Edit {vehicle.rego}</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4 sm:pt-6">
           <CarForm
             catalogue={catalogue}
             isNew={false}

@@ -101,6 +101,9 @@ of service) and the countries.
   file's own name is not. A document showing someone's licence or identity
   (e.g. a transfer form) belongs on the purchase or sale, not here; the
   Documents tab says so.
+- **The in-app photo viewer** shows a photo or image paper only when it is
+  opened, through the same short-lived link; opening a purchase or sale
+  paper there is logged each time, as before.
 - **Attachments** on rego, insurance and costs go in the ordinary storage.
   Papers attached to a purchase or sale go in the separate identity
   storage (rule 8), as they usually show the other person's licence and

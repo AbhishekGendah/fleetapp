@@ -6,6 +6,7 @@ import { CameraCapture } from "@fleetapp/ui/camera-capture";
 import { FilePicker } from "@fleetapp/ui/file-picker";
 import { FormError } from "@fleetapp/ui/form-message";
 import { shrinkImage, THUMBNAIL_EDGE_PX } from "@fleetapp/ui/shrink-image";
+import { Camera, Images } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -101,10 +102,15 @@ export function PhotoUploads({ vehicleId }: { vehicleId: string }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap gap-2">
-        <CameraCapture triggerLabel="Take photos" onPhotosTaken={handlePhotosChosen} />
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+        <CameraCapture
+          triggerLabel="Take photos"
+          triggerIcon={<Camera aria-hidden />}
+          onPhotosTaken={handlePhotosChosen}
+        />
         <FilePicker
           label="Add from gallery"
+          icon={<Images aria-hidden />}
           accept="image/*"
           isMultiple
           onFilesChosen={handlePhotosChosen}
@@ -123,20 +129,10 @@ export function PhotoUploads({ vehicleId }: { vehicleId: string }) {
                 <>
                   <FormError message={item.message} />
                   <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void send(item)}
-                    >
+                    <Button type="button" variant="outline" onClick={() => void send(item)}>
                       Try again
                     </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => update(item.key, null)}
-                    >
+                    <Button type="button" variant="ghost" onClick={() => update(item.key, null)}>
                       Leave it
                     </Button>
                   </div>

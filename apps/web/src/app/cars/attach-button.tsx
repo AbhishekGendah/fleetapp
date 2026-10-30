@@ -3,6 +3,7 @@
 import { FILE_PURPOSE_RULES } from "@fleetapp/core";
 import { FilePicker } from "@fleetapp/ui/file-picker";
 import { FormError } from "@fleetapp/ui/form-message";
+import { Paperclip } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -43,7 +44,7 @@ export function AttachButton({ target }: { target: AttachmentTarget }) {
         accept={ATTACHMENT_RULE.contentTypes.join(",")}
         isMultiple
         isDisabled={isSending}
-        variant="ghost"
+        icon={<Paperclip aria-hidden />}
         onFilesChosen={(chosen) => void handleFilesChosen(chosen)}
       />
       <FormError message={message} />

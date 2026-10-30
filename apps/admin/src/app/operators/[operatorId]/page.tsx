@@ -1,11 +1,13 @@
 import { operatorDisplayName } from "@fleetapp/core";
 import { describeActivity } from "@fleetapp/db/activity";
 import { Card, CardContent, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { PageHeader } from "@fleetapp/ui/page-header";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 
 import { appDb } from "../../../lib/app-db";
 import { formatAdminDateTime } from "../../../lib/format";
+import { OPERATORS_PATH } from "../../../lib/paths";
 import { getOperatorDetail, type OperatorDetail } from "../../../lib/operators/queries";
 import { INVITE_STATUS_LABELS } from "../../../lib/operators/status-labels";
 import { requireAdmin } from "../../../lib/require-admin";
@@ -57,10 +59,12 @@ export default async function OperatorPage(props: OperatorPageProps) {
   return (
     <AdminShell>
       <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-xl font-semibold">{operatorDisplayName(operator)}</h1>
-          <OperatorStatusBadge status={operator.status} />
-        </div>
+        <PageHeader
+          backHref={OPERATORS_PATH}
+          backLabel="Operators"
+          title={operatorDisplayName(operator)}
+          aside={<OperatorStatusBadge status={operator.status} />}
+        />
         {resultMessage ? (
           <p
             className={resultMessage.isProblem ? "text-destructive text-sm" : "text-sm"}

@@ -409,6 +409,20 @@
   just the rego or name; the row tints under the mouse. One change in the
   shared list piece, so every list has it. Push notifications added to the
   roadmap (Phase 5, with the email reminders).
+- Phone feedback (from Abhi's wife's test): a back arrow at the top of
+  every page below a main section (stays put on a phone); the phone's back
+  button now closes pop-ups, the camera and the new in-app photo viewer
+  instead of leaving the page, and switching car tabs no longer piles up
+  in the back history. Photos and image papers open full screen in the app
+  (swipe, arrows, ✕, "Open to save or share"). Buttons have outlines and
+  icons, risky ones in red; each card's main Add button is solid and full
+  width on a phone. Car tabs are icon tiles on a phone, pills on a
+  computer. Renewals, policies, costs, documents and readings show as their
+  own small cards. New shared pieces: PageHeader, RecordList/RecordItem,
+  ImageViewer, a "danger" button style, icons on buttons (packages/ui +
+  catalogue). lucide-react added to packages/ui and the admin app (already
+  used by the Operator app). Checked at 375px against a local copy of the
+  app with test data.
 
 ## Next
 Phase 2 slice 3 — Renters (docs/plans/phase-2.md). Plan first.

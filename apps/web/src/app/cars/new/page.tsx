@@ -1,4 +1,5 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { Card, CardContent } from "@fleetapp/ui/card";
+import { PageHeader } from "@fleetapp/ui/page-header";
 
 import { appDb } from "../../../lib/app-db";
 import { CARS_PATH } from "../../../lib/paths";
@@ -17,11 +18,9 @@ export default async function NewCarPage() {
   const catalogue = await loadVehicleCatalogue(appDb);
   return (
     <AppShell user={user}>
+      <PageHeader backHref={CARS_PATH} backLabel={"Cars"} title="Add a car" />
       <Card>
-        <CardHeader>
-          <CardTitle className="text-xl">Add a car</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4 sm:pt-6">
           <CarForm
             catalogue={catalogue}
             isNew

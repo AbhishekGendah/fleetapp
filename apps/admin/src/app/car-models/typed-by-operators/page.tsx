@@ -1,7 +1,7 @@
 import { AUSTRALIAN_LOCALE } from "@fleetapp/core";
 import { loadVehicleCatalogue } from "@fleetapp/db/vehicle-catalogue";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
-import Link from "next/link";
+import { PageHeader } from "@fleetapp/ui/page-header";
 
 import { appDb } from "../../../lib/app-db";
 import { listUnlistedCars } from "../../../lib/car-models/car-model-queries";
@@ -34,13 +34,7 @@ export default async function TypedByOperatorsPage() {
 
   return (
     <AdminShell>
-      <Link
-        href={CAR_MODELS_PATH}
-        className="text-teal inline-flex min-h-11 items-center text-sm font-semibold"
-      >
-        ← Car models
-      </Link>
-      <h1 className="text-xl font-semibold">Typed by Operators</h1>
+      <PageHeader backHref={CAR_MODELS_PATH} backLabel="Car models" title="Typed by Operators" />
       <p className="text-muted-foreground text-sm">
         Cars whose make or model is not in the list. Fixing one changes only that car, and shows in
         the Operator&rsquo;s history for it as a change by AGS.

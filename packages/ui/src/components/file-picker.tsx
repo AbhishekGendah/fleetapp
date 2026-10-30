@@ -13,6 +13,8 @@ interface FilePickerProps {
   isMultiple?: boolean;
   isDisabled?: boolean;
   variant?: ButtonProps["variant"];
+  /** Before the label, e.g. a paperclip for Attach. */
+  icon?: React.ReactNode;
   onFilesChosen(files: File[]): void;
 }
 
@@ -32,6 +34,7 @@ export function FilePicker(props: FilePickerProps): React.JSX.Element {
         disabled={props.isDisabled}
         onClick={() => inputRef.current?.click()}
       >
+        {props.icon}
         {props.label}
       </Button>
       <input

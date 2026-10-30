@@ -2,6 +2,7 @@ import {
   expiryStatus,
   formatCalendarDate,
   formatCents,
+  formatPremium,
   INSURANCE_COVER_TYPE_LABELS,
   regoTermLabel,
 } from "@fleetapp/core";
@@ -13,6 +14,8 @@ import { ChooseAndApply } from "@fleetapp/ui/choose-and-apply";
 import { listAttachments, type Attachment } from "../../../lib/files/attachments";
 import { Attachments } from "../attachments";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
+import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
+import { ChevronRight, Plus, Unlink } from "lucide-react";
 import { appDb } from "../../../lib/app-db";
 import { carPath, INSURANCE_PATH, policyPath } from "../../../lib/paths";
 import type { SignedInUser } from "../../../lib/require-user";
@@ -44,39 +47,50 @@ function PolicyLine(props: {
   attachments: readonly Attachment[];
 }) {
   const { vehicle, policy, expiry } = props;
+  const isEditable = vehicle.archivedAt === null;
   return (
-    <li className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
-      <div>
-        <Link href={policyPath(policy.id)} className="font-medium hover:underline">
+    <RecordItem
+      title={
+        <Link
+          href={policyPath(policy.id)}
+          className="text-teal inline-flex min-h-11 items-center gap-1 hover:underline"
+        >
           {policy.insurer} · {policy.policyNumber}
+          <ChevronRight className="size-4" aria-hidden />
         </Link>
-        <p className="text-muted-foreground text-xs">
-          {INSURANCE_COVER_TYPE_LABELS[policy.coverType]}
-        </p>
-        <p className="text-xs">
-          Ends{" "}
-          <ExpiryDate
-            date={policy.endsOn}
-            status={expiryStatus(policy.endsOn, expiry.today, expiry.warningDays)}
+      }
+      amount={formatPremium(policy.costCents, policy.paymentFrequency)}
+      details={
+        <>
+          <p>{INSURANCE_COVER_TYPE_LABELS[policy.coverType]}</p>
+          <p>
+            Ends{" "}
+            <ExpiryDate
+              date={policy.endsOn}
+              status={expiryStatus(policy.endsOn, expiry.today, expiry.warningDays)}
+            />
+          </p>
+        </>
+      }
+      actions={
+        isEditable ? (
+          <ActionButton
+            action={leavePolicyAction.bind(null, vehicle.id, policy.id)}
+            label="Take off this policy"
+            pendingLabel="Taking off…"
+            variant="danger"
+            icon={<Unlink aria-hidden />}
           />
-        </p>
-        <Attachments
-          target={{ kind: "policy", id: policy.id }}
-          attachments={props.attachments}
-          isEditable={vehicle.archivedAt === null}
-          pagePath={carPath(vehicle.id)}
-        />
-      </div>
-      {vehicle.archivedAt === null ? (
-        <ActionButton
-          action={leavePolicyAction.bind(null, vehicle.id, policy.id)}
-          label="Take off this policy"
-          pendingLabel="Taking off…"
-          variant="ghost"
-          size="sm"
-        />
-      ) : null}
-    </li>
+        ) : undefined
+      }
+    >
+      <Attachments
+        target={{ kind: "policy", id: policy.id }}
+        attachments={props.attachments}
+        isEditable={isEditable}
+        pagePath={carPath(vehicle.id)}
+      />
+    </RecordItem>
   );
 }
 
@@ -103,7 +117,7 @@ function InsuranceCard(props: {
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
         {policies.length === 0 ? null : (
-          <ul className="flex flex-col divide-y">
+          <RecordList label="Policies">
             {policies.map((policy) => (
               <PolicyLine
                 key={policy.id}
@@ -113,7 +127,7 @@ function InsuranceCard(props: {
                 attachments={props.attachments}
               />
             ))}
-          </ul>
+          </RecordList>
         )}
         {isEditable && policiesToJoin.length > 0 ? (
           <ChooseAndApply
@@ -127,7 +141,12 @@ function InsuranceCard(props: {
           />
         ) : null}
         {isEditable ? (
-          <FormDialog triggerLabel="Add insurance" title="Add insurance for this car">
+          <FormDialog
+            triggerLabel="Add insurance"
+            triggerIcon={<Plus aria-hidden />}
+            isMainAction
+            title="Add insurance for this car"
+          >
             <PolicyForm
               initialValues={emptyPolicyForm()}
               action={addPolicyForCarAction.bind(null, vehicle.id)}

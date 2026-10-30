@@ -30,12 +30,17 @@ import { Logo, LogoMark } from "@fleetapp/ui/logo";
 import { Select } from "@fleetapp/ui/select";
 import { Textarea } from "@fleetapp/ui/textarea";
 import { TabLinks } from "@fleetapp/ui/tab-links";
+import { ImageViewer, ImageViewerOpener } from "@fleetapp/ui/image-viewer";
+import { PageHeader } from "@fleetapp/ui/page-header";
+import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
+import { Camera, Gauge, History, Paperclip, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { ADMIN_LABEL } from "../admin-label";
 
 const BUTTON_VARIANTS = [
   "default",
+  "danger",
   "secondary",
   "outline",
   "ghost",
@@ -291,6 +296,23 @@ export function ComponentCatalogue() {
           ))}
           <Button disabled>disabled</Button>
         </div>
+        <div className="flex flex-wrap gap-3">
+          <Button>
+            <Plus aria-hidden />
+            Main action with an icon
+          </Button>
+          <Button variant="outline">
+            <Paperclip aria-hidden />
+            Attach
+          </Button>
+          <Button variant="danger">
+            <Trash2 aria-hidden />
+            Remove
+          </Button>
+          <Button variant="danger" size="icon" aria-label="Remove (icon only)">
+            <Trash2 aria-hidden />
+          </Button>
+        </div>
       </CatalogueSection>
 
       <CatalogueSection
@@ -311,16 +333,63 @@ export function ComponentCatalogue() {
 
       <CatalogueSection
         title="Tabs"
-        note="Sections of one record, each with its own address. Scrolls sideways on a narrow phone."
+        note="Sections of one record, each with its own address. Icon tiles on a phone, pills on a computer; switching does not add to the back history."
       >
         <TabLinks
           label="Example sections"
           tabs={[
-            { href: "#details", label: "Details", isCurrent: true },
-            { href: "#odometer", label: "Odometer", isCurrent: false },
-            { href: "#log", label: "Log", isCurrent: false },
+            { href: "#photos", label: "Photos", isCurrent: true, icon: <Camera aria-hidden /> },
+            { href: "#odometer", label: "Odometer", isCurrent: false, icon: <Gauge aria-hidden /> },
+            { href: "#log", label: "Log", isCurrent: false, icon: <History aria-hidden /> },
           ]}
         />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Page header"
+        note="Every page below a main section: a back arrow one level up, and the title. Stays at the top on a phone."
+      >
+        <PageHeader backHref="#" backLabel="Cars" title="1ABC234" aside={<Badge>Sold</Badge>} />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Record cards"
+        note="Each record on a card as its own small card: title, amount, details, then its buttons."
+      >
+        <RecordList label="Example records">
+          <RecordItem
+            title="WA · 12 months"
+            amount="$912.50"
+            details={<p>to 10 Nov 2027 · paid 8 Nov 2026</p>}
+            actions={
+              <Button variant="danger">
+                <Trash2 aria-hidden />
+                Remove renewal
+              </Button>
+            }
+          />
+        </RecordList>
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Image viewer"
+        note="Photos open full screen in the app. ✕, Escape or the phone's back button closes it; swipe or arrows move."
+      >
+        <ImageViewer
+          images={[
+            { src: "/icon.svg", label: "Example 001" },
+            { src: "/icon.svg", label: "Example 002" },
+          ]}
+        >
+          <div className="flex gap-2">
+            <ImageViewerOpener index={0} label="Open Example 001" className="border p-3">
+              Example 001
+            </ImageViewerOpener>
+            <ImageViewerOpener index={1} label="Open Example 002" className="border p-3">
+              Example 002
+            </ImageViewerOpener>
+          </div>
+        </ImageViewer>
       </CatalogueSection>
 
       <CatalogueSection

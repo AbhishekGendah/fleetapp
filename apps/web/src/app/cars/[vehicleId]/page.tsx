@@ -4,7 +4,24 @@ import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
+import { PageHeader } from "@fleetapp/ui/page-header";
+import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
 import { TabLinks } from "@fleetapp/ui/tab-links";
+import {
+  Archive,
+  ArchiveRestore,
+  Camera,
+  Car,
+  FileText,
+  Gauge,
+  History,
+  Pencil,
+  ReceiptText,
+  Plus,
+  ShieldCheck,
+  Undo2,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 
 import { AppShell } from "../../app-shell";
@@ -41,14 +58,14 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const TABS = [
-  { key: "details", label: "Details" },
-  { key: "paperwork", label: "Rego & insurance" },
-  { key: "costs", label: "Costs" },
-  { key: "photos", label: "Photos" },
-  { key: "documents", label: "Documents" },
-  { key: "odometer", label: "Odometer" },
-  { key: "log", label: "Log" },
-] as const;
+  { key: "details", label: "Details", icon: Car },
+  { key: "paperwork", label: "Rego & insurance", icon: ShieldCheck },
+  { key: "costs", label: "Costs", icon: ReceiptText },
+  { key: "photos", label: "Photos", icon: Camera },
+  { key: "documents", label: "Documents", icon: FileText },
+  { key: "odometer", label: "Odometer", icon: Gauge },
+  { key: "log", label: "Log", icon: History },
+] as const satisfies readonly { key: string; label: string; icon: LucideIcon }[];
 type TabKey = (typeof TABS)[number]["key"];
 const TAB_PARAM = "tab";
 
@@ -83,8 +100,11 @@ function DetailsTab({ vehicle }: { vehicle: VehicleDetail }) {
         <CardHeader className="flex-row items-center justify-between gap-2">
           <CardTitle>Details</CardTitle>
           {isArchived ? null : (
-            <Button asChild variant="outline" size="sm">
-              <Link href={editCarPath(vehicle.id)}>Edit</Link>
+            <Button asChild variant="outline">
+              <Link href={editCarPath(vehicle.id)}>
+                <Pencil aria-hidden />
+                Edit
+              </Link>
             </Button>
           )}
         </CardHeader>
@@ -135,6 +155,7 @@ function DetailsTab({ vehicle }: { vehicle: VehicleDetail }) {
             action={setArchivedAction.bind(null, vehicle.id, !isArchived)}
             label={isArchived ? "Restore this car" : "Archive this car"}
             pendingLabel={isArchived ? "Restoring…" : "Archiving…"}
+            icon={isArchived ? <ArchiveRestore aria-hidden /> : <Archive aria-hidden />}
           />
         </CardContent>
       </Card>
@@ -155,46 +176,50 @@ function OdometerTab({ vehicle, timezone }: { vehicle: VehicleDetail; timezone: 
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {vehicle.archivedAt ? null : (
-            <FormDialog triggerLabel="Add a reading" title="Add an odometer reading">
+            <FormDialog
+              triggerLabel="Add a reading"
+              triggerIcon={<Plus aria-hidden />}
+              isMainAction
+              title="Add an odometer reading"
+            >
               <OdometerForm action={recordReadingAction.bind(null, vehicle.id)} />
             </FormDialog>
           )}
           {vehicle.readings.length === 0 ? (
             <p className="text-muted-foreground text-sm">No readings yet.</p>
           ) : (
-            <ul className="flex flex-col divide-y">
+            <RecordList label="Readings">
               {vehicle.readings.map((reading) => (
-                <li
+                <RecordItem
                   key={reading.id}
-                  className="flex flex-wrap items-center justify-between gap-2 py-3"
-                >
-                  <div
-                    className={
-                      reading.withdrawnAt ? "text-muted-foreground line-through" : undefined
-                    }
-                  >
-                    <p className="font-medium">{formatKilometres(reading.kilometres)}</p>
-                    <p className="text-muted-foreground text-xs">
-                      {formatDateTimeInTimeZone(reading.recordedAt, timezone)}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {reading.isDrop ? <Badge tone="attention">Lower than before</Badge> : null}
-                    {reading.withdrawnAt ? (
+                  className={reading.withdrawnAt ? "text-muted-foreground" : undefined}
+                  title={
+                    <span className={reading.withdrawnAt ? "line-through" : undefined}>
+                      {formatKilometres(reading.kilometres)}
+                    </span>
+                  }
+                  aside={
+                    reading.withdrawnAt ? (
                       <Badge>Withdrawn</Badge>
-                    ) : vehicle.archivedAt ? null : (
+                    ) : reading.isDrop ? (
+                      <Badge tone="attention">Lower than before</Badge>
+                    ) : null
+                  }
+                  details={<p>{formatDateTimeInTimeZone(reading.recordedAt, timezone)}</p>}
+                  actions={
+                    reading.withdrawnAt || vehicle.archivedAt ? undefined : (
                       <ActionButton
                         action={withdrawReadingAction.bind(null, vehicle.id, reading.id)}
                         label="Withdraw"
                         pendingLabel="Withdrawing…"
-                        variant="ghost"
-                        size="sm"
+                        variant="danger"
+                        icon={<Undo2 aria-hidden />}
                       />
-                    )}
-                  </div>
-                </li>
+                    )
+                  }
+                />
               ))}
-            </ul>
+            </RecordList>
           )}
         </CardContent>
       </Card>
@@ -239,19 +264,21 @@ function CarHeader({ vehicle }: { vehicle: VehicleDetail }) {
     .join(" ");
   return (
     <>
-      <Link
-        href={CARS_PATH}
-        className="text-teal inline-flex min-h-11 items-center text-sm font-semibold"
-      >
-        ← All cars
-      </Link>
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-primary text-2xl font-extrabold">
-          {vehicle.rego}{" "}
-          <span className="text-muted-foreground text-base font-semibold">{vehicle.regoState}</span>
-        </h1>
-        <VehicleStatusBadge status={vehicle.status} isArchived={vehicle.archivedAt !== null} />
-      </div>
+      <PageHeader
+        backHref={CARS_PATH}
+        backLabel="Cars"
+        title={
+          <>
+            {vehicle.rego}{" "}
+            <span className="text-muted-foreground text-base font-semibold">
+              {vehicle.regoState}
+            </span>
+          </>
+        }
+        aside={
+          <VehicleStatusBadge status={vehicle.status} isArchived={vehicle.archivedAt !== null} />
+        }
+      />
       <p className="text-muted-foreground -mt-2 text-sm">
         {carName}
         {vehicle.currentKilometres === null
@@ -291,6 +318,7 @@ export default async function CarPage(props: {
           href: tabHref(vehicle.id, item.key),
           label: item.label,
           isCurrent: item.key === tab,
+          icon: <item.icon aria-hidden />,
         }))}
       />
 

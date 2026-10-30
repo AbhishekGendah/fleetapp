@@ -1,9 +1,9 @@
 import { isRecordId, pageOfRows, parseListQuery } from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
+import { PageHeader } from "@fleetapp/ui/page-header";
 import { Badge } from "@fleetapp/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { DataList } from "@fleetapp/ui/data-list";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { appDb } from "../../../lib/app-db";
@@ -36,16 +36,12 @@ export default async function CarMakePage(props: {
 
   return (
     <AdminShell>
-      <Link
-        href={CAR_MODELS_PATH}
-        className="text-teal inline-flex min-h-11 items-center text-sm font-semibold"
-      >
-        ← All makes
-      </Link>
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold">{make.name}</h1>
-        {isHidden ? <Badge>Hidden</Badge> : null}
-      </div>
+      <PageHeader
+        backHref={CAR_MODELS_PATH}
+        backLabel="Car models"
+        title={make.name}
+        aside={isHidden ? <Badge>Hidden</Badge> : null}
+      />
 
       <Card>
         <CardHeader>

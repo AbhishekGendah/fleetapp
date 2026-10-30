@@ -8,6 +8,8 @@ import {
 import { ActionButton } from "@fleetapp/ui/action-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
+import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
+import { CircleStop, Plus, Trash2 } from "lucide-react";
 
 import type { ExpiryContext } from "../../../lib/vehicles/expiry-columns";
 import { emptyRegoForm } from "../../../lib/vehicles/paperwork-input";
@@ -62,40 +64,43 @@ function RegoLine(props: {
   const { vehicle, registration } = props;
   const isEditable = vehicle.archivedAt === null;
   return (
-    <li className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
-      <div>
-        <p className="font-medium">
-          {registration.state}, {regoTermLabel(registration.termMonths).toLowerCase()},{" "}
-          {datesText(registration)}
-        </p>
-        <p className="text-muted-foreground text-xs">{amountText(registration)}</p>
-        <Attachments
-          target={{ kind: "registration", id: registration.id }}
-          attachments={props.attachments}
-          isEditable={isEditable}
-          pagePath={carPath(vehicle.id)}
-        />
-      </div>
-      {isEditable ? (
-        <div className="flex flex-wrap gap-2">
-          {isRunningDirectDebit(registration) ? (
-            <FormDialog triggerLabel="Stop direct debit" title="Stop the direct debit">
-              <StopDirectDebitForm
-                today={props.today}
-                action={stopDirectDebitAction.bind(null, vehicle.id, registration.id)}
-              />
-            </FormDialog>
-          ) : null}
-          <ActionButton
-            action={removeRegoAction.bind(null, vehicle.id, registration.id)}
-            label="Remove"
-            pendingLabel="Removing…"
-            variant="ghost"
-            size="sm"
-          />
-        </div>
-      ) : null}
-    </li>
+    <RecordItem
+      title={`${registration.state} · ${regoTermLabel(registration.termMonths)}`}
+      amount={amountText(registration)}
+      details={<p>{datesText(registration)}</p>}
+      actions={
+        isEditable ? (
+          <>
+            {isRunningDirectDebit(registration) ? (
+              <FormDialog
+                triggerLabel="Stop direct debit"
+                triggerIcon={<CircleStop aria-hidden />}
+                title="Stop the direct debit"
+              >
+                <StopDirectDebitForm
+                  today={props.today}
+                  action={stopDirectDebitAction.bind(null, vehicle.id, registration.id)}
+                />
+              </FormDialog>
+            ) : null}
+            <ActionButton
+              action={removeRegoAction.bind(null, vehicle.id, registration.id)}
+              label="Remove renewal"
+              pendingLabel="Removing…"
+              variant="danger"
+              icon={<Trash2 aria-hidden />}
+            />
+          </>
+        ) : undefined
+      }
+    >
+      <Attachments
+        target={{ kind: "registration", id: registration.id }}
+        attachments={props.attachments}
+        isEditable={isEditable}
+        pagePath={carPath(vehicle.id)}
+      />
+    </RecordItem>
   );
 }
 
@@ -128,7 +133,7 @@ export function RegoCard(props: {
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
         {registrations.length === 0 ? null : (
-          <ul className="flex flex-col divide-y">
+          <RecordList label="Rego renewals">
             {registrations.map((registration) => (
               <RegoLine
                 key={registration.id}
@@ -138,10 +143,15 @@ export function RegoCard(props: {
                 attachments={props.attachments}
               />
             ))}
-          </ul>
+          </RecordList>
         )}
         {vehicle.archivedAt === null ? (
-          <FormDialog triggerLabel="Add rego renewal" title="Add a rego renewal">
+          <FormDialog
+            triggerLabel="Add rego renewal"
+            triggerIcon={<Plus aria-hidden />}
+            isMainAction
+            title="Add a rego renewal"
+          >
             <RegoForm
               initialValues={{ ...emptyRegoForm(), state: current?.state ?? vehicle.regoState }}
               runsOnFrom={latestExpiry ?? expiry.today}

@@ -6,7 +6,9 @@ import {
 } from "@fleetapp/core";
 import { ACTIVITY_ENTITY_TYPES } from "@fleetapp/db/schema";
 import { Badge } from "@fleetapp/ui/badge";
+import { PageHeader } from "@fleetapp/ui/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { Archive, Unlink } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -67,8 +69,8 @@ function CoveredCarsCard({ detail }: { detail: PolicyDetail }) {
                     action={removeCarFromPolicyAction.bind(null, policy.id, car.id)}
                     label="Take off"
                     pendingLabel="Taking off…"
-                    variant="ghost"
-                    size="sm"
+                    variant="danger"
+                    icon={<Unlink aria-hidden />}
                   />
                 ) : null}
               </li>
@@ -106,16 +108,12 @@ export default async function PolicyPage(props: { params: Promise<{ policyId: st
 
   return (
     <AppShell user={user}>
-      <Link
-        href={INSURANCE_PATH}
-        className="text-teal inline-flex min-h-11 items-center text-sm font-semibold"
-      >
-        ← All policies
-      </Link>
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-primary text-2xl font-extrabold">{policy.insurer}</h1>
-        {isArchived ? <Badge>Archived</Badge> : null}
-      </div>
+      <PageHeader
+        backHref={INSURANCE_PATH}
+        backLabel="Insurance"
+        title={policy.insurer}
+        aside={isArchived ? <Badge>Archived</Badge> : null}
+      />
       <p className="text-muted-foreground -mt-2 flex flex-wrap items-center gap-2 text-sm">
         {policy.policyNumber} · {INSURANCE_COVER_TYPE_LABELS[policy.coverType]} ·{" "}
         {formatPremium(policy.costCents, policy.paymentFrequency)} · ends{" "}
@@ -172,6 +170,7 @@ export default async function PolicyPage(props: { params: Promise<{ policyId: st
               action={archivePolicyAction.bind(null, policy.id)}
               label="Archive this policy"
               pendingLabel="Archiving…"
+              icon={<Archive aria-hidden />}
             />
           </CardContent>
         </Card>

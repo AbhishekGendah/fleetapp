@@ -1,5 +1,6 @@
 import { expiryStatus, parseListQuery } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
+import { PageHeader } from "@fleetapp/ui/page-header";
 import { Card, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { DataList } from "@fleetapp/ui/data-list";
 import Link from "next/link";
@@ -32,15 +33,9 @@ export default async function InsurancePage(props: {
 
   return (
     <AppShell user={user}>
-      <Link
-        href={CARS_PATH}
-        className="text-teal inline-flex min-h-11 items-center text-sm font-semibold"
-      >
-        ← All cars
-      </Link>
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-primary text-2xl font-extrabold">Insurance</h1>
-        <Button asChild>
+      <PageHeader backHref={CARS_PATH} backLabel="Cars" title="Insurance" />
+      <div className="flex items-center justify-end gap-2">
+        <Button asChild className="w-full sm:w-auto">
           <Link href={NEW_POLICY_PATH}>Add a policy</Link>
         </Button>
       </div>

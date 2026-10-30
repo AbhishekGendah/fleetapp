@@ -1,9 +1,12 @@
 import { ActionButton } from "@fleetapp/ui/action-button";
+import { ImageViewer } from "@fleetapp/ui/image-viewer";
+import { Trash2 } from "lucide-react";
 
 import type { Attachment, AttachmentTarget } from "../../lib/files/attachments";
 import { attachmentPath } from "../../lib/paths";
 import { AttachButton } from "./attach-button";
 import { removeAttachmentAction } from "./attachment-actions";
+import { FileLink, isPdf } from "./file-link";
 
 /** The attachments for one record, from all those loaded for the page. */
 export function attachmentsOf(
@@ -15,9 +18,23 @@ export function attachmentsOf(
   );
 }
 
+function RemoveAttachment(props: { pagePath: string; attachment: Attachment }) {
+  return (
+    <ActionButton
+      action={removeAttachmentAction.bind(null, props.pagePath, props.attachment.id)}
+      label={`Remove ${props.attachment.label}`}
+      pendingLabel="Removing…"
+      variant="danger"
+      icon={<Trash2 aria-hidden />}
+      isIconOnly
+    />
+  );
+}
+
 /**
- * A record's attached papers, each opening through a short-lived link, with
- * Remove and an Attach button when the record can still be changed.
+ * A record's attached papers. Photos open full screen inside the app; PDFs
+ * open in the phone's own viewer. Each goes through a short-lived link.
+ * Remove and Attach show while the record can still be changed.
  */
 export function Attachments(props: {
   target: AttachmentTarget;
@@ -27,32 +44,29 @@ export function Attachments(props: {
   pagePath: string;
 }) {
   const own = attachmentsOf(props.attachments, props.target);
+  const images = own.filter((attachment) => !isPdf(attachment.contentType));
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-2">
       {own.length === 0 ? null : (
-        <ul className="flex flex-col gap-1">
-          {own.map((attachment) => (
-            <li key={attachment.id} className="flex flex-wrap items-center gap-2 text-xs">
-              <a
-                href={attachmentPath(attachment.id)}
-                target="_blank"
-                rel="noopener"
-                className="text-teal font-medium hover:underline"
-              >
-                📎 {attachment.label}
-              </a>
-              {props.isEditable ? (
-                <ActionButton
-                  action={removeAttachmentAction.bind(null, props.pagePath, attachment.id)}
-                  label="Remove"
-                  pendingLabel="Removing…"
-                  variant="ghost"
-                  size="sm"
+        <ImageViewer
+          images={images.map((image) => ({ src: attachmentPath(image.id), label: image.label }))}
+        >
+          <ul className="flex flex-col gap-2">
+            {own.map((attachment) => (
+              <li key={attachment.id} className="flex items-center gap-2">
+                <FileLink
+                  href={attachmentPath(attachment.id)}
+                  label={attachment.label}
+                  contentType={attachment.contentType}
+                  imageIndex={images.indexOf(attachment)}
                 />
-              ) : null}
-            </li>
-          ))}
-        </ul>
+                {props.isEditable ? (
+                  <RemoveAttachment pagePath={props.pagePath} attachment={attachment} />
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </ImageViewer>
       )}
       {props.isEditable ? <AttachButton target={props.target} /> : null}
     </div>

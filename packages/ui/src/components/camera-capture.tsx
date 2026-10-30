@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { useCloseOnBack } from "../lib/use-close-on-back";
 import { Button } from "./button";
 import { FormError } from "./form-message";
 
@@ -23,6 +24,8 @@ interface TakenPhoto {
 interface CameraCaptureProps {
   /** On the button that opens the camera, e.g. "Take photos". */
   triggerLabel: string;
+  /** Before the label, e.g. a camera. */
+  triggerIcon?: React.ReactNode;
   /** The photos taken, in order, once Done is pressed. */
   onPhotosTaken(photos: Blob[]): void;
 }
@@ -92,6 +95,7 @@ export function CameraCapture(props: CameraCaptureProps): React.JSX.Element {
   const [photos, setPhotos] = React.useState<TakenPhoto[]>([]);
   const [isFlashing, setIsFlashing] = React.useState(false);
   const problem = useCamera(isOpen, videoRef);
+  useCloseOnBack(isOpen, () => dialogRef.current?.close());
 
   React.useEffect(() => {
     if (isOpen && dialogRef.current && !dialogRef.current.open) {
@@ -138,12 +142,8 @@ export function CameraCapture(props: CameraCaptureProps): React.JSX.Element {
 
   return (
     <>
-      <Button
-        type="button"
-        variant="outline"
-        className="sm:self-start"
-        onClick={() => setIsOpen(true)}
-      >
+      <Button type="button" className="sm:self-start" onClick={() => setIsOpen(true)}>
+        {props.triggerIcon}
         {props.triggerLabel}
       </Button>
       <dialog

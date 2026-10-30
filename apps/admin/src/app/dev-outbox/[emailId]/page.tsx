@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PageHeader } from "@fleetapp/ui/page-header";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 
@@ -38,10 +38,7 @@ export default async function OutboxEmailPage(props: OutboxEmailPageProps) {
 
   return (
     <AdminShell>
-      <Link href={DEV_OUTBOX_PATH} className="text-sm hover:underline">
-        ← Test inbox
-      </Link>
-      <h1 className="text-xl font-semibold break-words">{email.subject}</h1>
+      <PageHeader backHref={DEV_OUTBOX_PATH} backLabel="Test inbox" title={email.subject} />
       <dl className="grid gap-1 text-sm sm:grid-cols-[4rem_1fr]">
         <dt className="text-muted-foreground">From</dt>
         <dd className="break-all">{email.fromAddress}</dd>

@@ -2,6 +2,8 @@
 
 import * as React from "react";
 
+import { useCloseOnBack } from "../lib/use-close-on-back";
+import { cn } from "../lib/utils";
 import { Button, type ButtonProps } from "./button";
 
 interface DialogControls {
@@ -20,6 +22,10 @@ interface FormDialogProps {
   triggerLabel: string;
   title: string;
   triggerVariant?: ButtonProps["variant"];
+  /** Before the label, e.g. a plus. */
+  triggerIcon?: React.ReactNode;
+  /** Full width on a phone: the card's main action. */
+  isMainAction?: boolean;
   children: React.ReactNode;
 }
 
@@ -27,7 +33,7 @@ interface FormDialogProps {
  * A button that opens a form in a pop-up: full screen on a phone, a centred
  * panel on a computer. The form is built fresh each time it opens, so it
  * always starts empty, and a form inside closes it once it has saved.
- * Escape or Close shuts it without saving. Uses the browser's own dialog,
+ * Escape, Close or the phone's back button shuts it without saving. Uses the browser's own dialog,
  * which keeps keyboard focus inside and is read out as a dialog.
  */
 export function FormDialog(props: FormDialogProps) {
@@ -46,15 +52,17 @@ export function FormDialog(props: FormDialogProps) {
     () => ({ close: () => dialogRef.current?.close() }),
     [],
   );
+  useCloseOnBack(isOpen, controls.close);
 
   return (
     <>
       <Button
         type="button"
-        variant={props.triggerVariant ?? "outline"}
-        className="sm:self-start"
+        variant={props.triggerVariant ?? (props.isMainAction ? "default" : "outline")}
+        className={cn("sm:self-start", props.isMainAction && "w-full sm:w-auto")}
         onClick={() => setIsOpen(true)}
       >
+        {props.triggerIcon}
         {props.triggerLabel}
       </Button>
       <dialog

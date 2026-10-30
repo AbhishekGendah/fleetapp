@@ -8,6 +8,8 @@ import {
 } from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
+import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
+import { Archive, Pencil, Plus, Trash2, Undo2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 
 import { appDb } from "../../../lib/app-db";
@@ -119,6 +121,8 @@ function PurchaseCard({ vehicle, costs, user, attachments }: CostsCardProps) {
           {isEditable ? (
             <FormDialog
               triggerLabel={purchase ? "Edit purchase" : "Add purchase"}
+              triggerIcon={purchase ? <Pencil aria-hidden /> : <Plus aria-hidden />}
+              isMainAction={!purchase}
               title={purchase ? "Edit the purchase" : "Add the purchase"}
             >
               <PurchaseForm
@@ -152,40 +156,46 @@ function OtherCostsCard({ vehicle, costs, user, attachments }: CostsCardProps) {
         {costs.costs.length === 0 ? (
           <p className="text-muted-foreground text-sm">No costs yet.</p>
         ) : (
-          <ul className="flex flex-col divide-y">
+          <RecordList label="Costs">
             {costs.costs.map((cost) => (
-              <li
+              <RecordItem
                 key={cost.id}
-                className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"
-              >
-                <div>
-                  <p className="font-medium">{cost.description}</p>
-                  <p className="text-muted-foreground text-xs">
-                    {VEHICLE_COST_KIND_LABELS[cost.kind]} · {formatCalendarDate(cost.incurredOn)} ·{" "}
-                    {amountInWords({ amountCents: cost.costCents, gstCents: cost.gstCents })}
+                title={cost.description}
+                amount={amountInWords({ amountCents: cost.costCents, gstCents: cost.gstCents })}
+                details={
+                  <p>
+                    {VEHICLE_COST_KIND_LABELS[cost.kind]} · {formatCalendarDate(cost.incurredOn)}
                   </p>
-                  <Attachments
-                    target={{ kind: "cost", id: cost.id }}
-                    attachments={attachments}
-                    isEditable={isEditable}
-                    pagePath={carPath(vehicle.id)}
-                  />
-                </div>
-                {isEditable ? (
-                  <ActionButton
-                    action={removeCostAction.bind(null, vehicle.id, cost.id)}
-                    label="Remove"
-                    pendingLabel="Removing…"
-                    variant="ghost"
-                    size="sm"
-                  />
-                ) : null}
-              </li>
+                }
+                actions={
+                  isEditable ? (
+                    <ActionButton
+                      action={removeCostAction.bind(null, vehicle.id, cost.id)}
+                      label="Remove cost"
+                      pendingLabel="Removing…"
+                      variant="danger"
+                      icon={<Trash2 aria-hidden />}
+                    />
+                  ) : undefined
+                }
+              >
+                <Attachments
+                  target={{ kind: "cost", id: cost.id }}
+                  attachments={attachments}
+                  isEditable={isEditable}
+                  pagePath={carPath(vehicle.id)}
+                />
+              </RecordItem>
             ))}
-          </ul>
+          </RecordList>
         )}
         {isEditable ? (
-          <FormDialog triggerLabel="Add a cost" title="Add a cost">
+          <FormDialog
+            triggerLabel="Add a cost"
+            triggerIcon={<Plus aria-hidden />}
+            isMainAction
+            title="Add a cost"
+          >
             <CostForm
               action={addCostAction.bind(null, vehicle.id)}
               isGstRegistered={user.isGstRegistered}
@@ -235,12 +245,14 @@ function SaleSummary({ vehicle, costs, user, attachments }: CostsCardProps) {
             action={setArchivedAction.bind(null, vehicle.id, true)}
             label="Archive this car"
             pendingLabel="Archiving…"
+            icon={<Archive aria-hidden />}
           />
           <ActionButton
             action={cancelSaleAction.bind(null, vehicle.id)}
             label="Cancel this sale"
             pendingLabel="Cancelling…"
-            variant="ghost"
+            variant="danger"
+            icon={<Undo2 aria-hidden />}
           />
         </div>
       )}
@@ -266,6 +278,8 @@ function SaleCard(props: CostsCardProps) {
         {vehicle.archivedAt ? null : (
           <FormDialog
             triggerLabel={sale ? "Edit sale" : "Record sale"}
+            triggerIcon={sale ? <Pencil aria-hidden /> : <Plus aria-hidden />}
+            isMainAction={!sale}
             title={sale ? "Edit the sale" : "Record the sale"}
           >
             <SaleForm
