@@ -45,3 +45,31 @@ right fix anyway.
 - Transfer reference: capitals only, same reason.
 - Driver licence number: capitals and digits, no spaces, 10 at most (the
   longest Australian format).
+
+## Follow-up: monthly direct debit and the expiry date (for approval)
+
+**Monthly direct debit has no expiry.**
+- Choosing Monthly (direct debit) hides the Expires box; the cost is the
+  monthly amount ("$75.00 a month").
+- While it is on, the car counts as registered: the Rego column and the
+  car page show a green "Direct debit" badge instead of a date, and it never
+  turns "Due soon".
+- It stops when a fixed-term renewal (3, 6, 9 or 12 months) is added for
+  the car, or with a "Stop direct debit" button (asks for the date it
+  stopped, e.g. when the car is sold). Stopped ones stay in the list and
+  the log.
+- The sale form's transfer note adds "Cancel any rego direct debit in
+  DoTDirect before the transfer", as WA Transport asks.
+- Database (migration): `expires_on` may be empty only for a monthly
+  renewal (checked by the database), plus a `direct_debit_stopped_on` date.
+  The "current rego" lookup puts an active direct debit first.
+
+**Expires fills itself in.**
+- Choosing a term sets Expires to the current rego's expiry plus that term,
+  e.g. current expiry 15 Nov 2026 + 6 months = 15 May 2027. With no
+  current rego (or only a direct debit), it starts from today.
+- Month ends are handled: 31 Jan + 1 month = 28 Feb (29 in a leap year).
+- The date stays editable, for a lapsed rego or a car bought unregistered.
+  Once you type your own date, changing the term no longer overwrites it.
+- Tested: month-end and leap-year sums, the database rule, the current-rego
+  choice with and without a direct debit.
