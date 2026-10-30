@@ -8,6 +8,9 @@
 @theme {
   --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
 
+  /* A typing cursor's on-off blink, for boxes that draw their own cursor. */
+  --animate-caret-blink: caret-blink 1s step-end infinite;
+
   --color-border: #e2e8f0;
   --color-input: #e2e8f0;
   --color-ring: #167884;
@@ -63,5 +66,15 @@
   input[type="checkbox"],
   input[type="radio"] {
     accent-color: var(--color-teal);
+  }
+}
+
+@keyframes caret-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
   }
 }

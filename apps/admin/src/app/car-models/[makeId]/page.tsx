@@ -47,6 +47,15 @@ export default async function CarMakePage(props: {
         {isHidden ? <Badge>Hidden</Badge> : null}
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Add models</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AddModelsForm action={addModelsAction.bind(null, make.id)} />
+        </CardContent>
+      </Card>
+
       <DataList
         definition={MODEL_LIST}
         page={pageOfRows(make.models, MODEL_LIST_RULES, query)}
@@ -58,15 +67,6 @@ export default async function CarMakePage(props: {
         searchLabel="Search models"
         emptyMessage="No models yet. Add some below."
       />
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Add models</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <AddModelsForm action={addModelsAction.bind(null, make.id)} />
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>

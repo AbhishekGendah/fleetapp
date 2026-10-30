@@ -48,18 +48,6 @@ export default async function CarModelsPage(props: {
         </CardHeader>
       </Card>
 
-      <DataList
-        definition={MAKE_LIST}
-        page={pageOfRows(makes, MAKE_LIST_RULES, query)}
-        query={query}
-        basePath={CAR_MODELS_PATH}
-        rowKey={(make) => make.id}
-        rowHref={(make) => carMakePath(make.id)}
-        itemName={{ one: "make", many: "makes" }}
-        searchLabel="Search makes and their other names"
-        emptyMessage="No makes match."
-      />
-
       <Card>
         <CardHeader>
           <CardTitle>Add a make</CardTitle>
@@ -73,6 +61,18 @@ export default async function CarModelsPage(props: {
           />
         </CardContent>
       </Card>
+
+      <DataList
+        definition={MAKE_LIST}
+        page={pageOfRows(makes, MAKE_LIST_RULES, query)}
+        query={query}
+        basePath={CAR_MODELS_PATH}
+        rowKey={(make) => make.id}
+        rowHref={(make) => carMakePath(make.id)}
+        itemName={{ one: "make", many: "makes" }}
+        searchLabel="Search makes and their other names"
+        emptyMessage="No makes match."
+      />
     </AdminShell>
   );
 }

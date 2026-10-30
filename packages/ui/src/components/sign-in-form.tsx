@@ -104,10 +104,17 @@ function PasswordStep(props: SignInFormProps & { onNeedsCode(): void }) {
   const [password, setPassword] = useState("");
   const { errorMessage, isSubmitting, run } = useSubmission();
 
-  async function handleSubmit(event: React.FormEvent): Promise<void> {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    // Read from the boxes, not from what was typed: a browser filling in a
+    // saved login (Firefox does this on page load) does not always say so,
+    // and the boxes would otherwise be sent, and then shown, as empty.
+    const formData = new FormData(event.currentTarget);
+    const typedEmail = String(formData.get("email") ?? "");
+    const typedPassword = String(formData.get("password") ?? "");
+    setEmail(typedEmail);
     const result = await run(
-      () => props.signInWithPassword(email, password),
+      () => props.signInWithPassword(typedEmail, typedPassword),
       (outcome) => outcome !== "refused",
       SIGN_IN_FAILED_MESSAGE,
     );
@@ -137,7 +144,9 @@ function PasswordStep(props: SignInFormProps & { onNeedsCode(): void }) {
       </FormField>
       <CurrentPasswordField label="Password" value={password} onValueChange={setPassword} />
       <FormError message={errorMessage} />
-      <SubmitButton disabled={isSubmitting}>{isSubmitting ? "Checking…" : "Continue"}</SubmitButton>
+      <SubmitButton disabled={isSubmitting}>
+        {isSubmitting ? "Signing in…" : "Sign in"}
+      </SubmitButton>
       {props.forgotPasswordHref ? (
         <a href={props.forgotPasswordHref} className="text-center text-sm hover:underline">
           Forgot your password?

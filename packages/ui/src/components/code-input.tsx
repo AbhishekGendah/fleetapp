@@ -104,7 +104,7 @@ export function CodeInput(props: CodeInputProps) {
               )}
             >
               {props.value[index] ??
-                (isActive ? <span className="bg-teal h-6 w-px animate-pulse" /> : null)}
+                (isActive ? <span className="bg-teal animate-caret-blink h-6 w-0.5" /> : null)}
             </span>
           );
         })}
