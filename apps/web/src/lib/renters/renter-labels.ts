@@ -1,8 +1,9 @@
 import { formatCalendarDate, RENTER_STATUS_LABELS, WITHHELD_VALUE } from "@fleetapp/core";
 
+import type { LicenceFormField } from "./licence-input";
 import type { RenterFormField } from "./renter-input";
 
-type RenterLabelledField = RenterFormField | "status" | "doNotRentReason";
+type RenterLabelledField = RenterFormField | LicenceFormField | "status" | "doNotRentReason";
 
 /** What each Renter field is called, on the forms, the Details tab and in the Log. */
 export const RENTER_FIELD_LABELS: Readonly<Record<RenterLabelledField, string>> = {
@@ -19,6 +20,12 @@ export const RENTER_FIELD_LABELS: Readonly<Record<RenterLabelledField, string>> 
   emergencyContactRelationship: "Relationship to the Renter",
   status: "Status",
   doNotRentReason: "Why not rent to them",
+  licenceIssuedIn: "Issued in",
+  licenceCountry: "Country",
+  licenceNumber: "Licence number",
+  licenceClass: "Class",
+  licenceType: "Type",
+  licenceExpiresOn: "Expires",
 };
 
 function isLabelledField(field: string): field is RenterLabelledField {

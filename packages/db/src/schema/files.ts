@@ -1,4 +1,4 @@
-import { FILE_PURPOSES, STORAGE_AREAS } from "@fleetapp/core";
+import { FILE_PURPOSES, LICENCE_SIDES, STORAGE_AREAS } from "@fleetapp/core";
 import { sql } from "drizzle-orm";
 import {
   bigint,
@@ -17,6 +17,7 @@ import {
 
 import { primaryKeyColumn, timestampColumns } from "./columns";
 import { operatorIdColumn } from "./operators";
+import { renters } from "./renters";
 import { users } from "./users";
 import { vehicleCosts, vehiclePurchases, vehicleSales } from "./vehicle-costs";
 import { insurancePolicies, vehicleRegistrations } from "./vehicle-paperwork";
@@ -38,6 +39,7 @@ function recordLink(
 
 export const filePurposeEnum = pgEnum("file_purpose", FILE_PURPOSES);
 export const storageAreaEnum = pgEnum("storage_area", STORAGE_AREAS);
+export const licenceSideEnum = pgEnum("licence_side", LICENCE_SIDES);
 
 /**
  * One row per stored file (rules 21 to 23). The file itself is in storage;
@@ -76,6 +78,9 @@ export const files = pgTable(
     costId: uuid("cost_id"),
     purchaseId: uuid("purchase_id"),
     saleId: uuid("sale_id"),
+    /** A licence scan's Renter, and which side of the card it shows. */
+    renterId: uuid("renter_id"),
+    licenceSide: licenceSideEnum("licence_side"),
 
     /** The upload arrived and really is the type it claimed. */
     confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
@@ -107,6 +112,7 @@ export const files = pgTable(
     recordLink("cost", table.costId, table.operatorId, vehicleCosts),
     recordLink("purchase", table.purchaseId, table.operatorId, vehiclePurchases),
     recordLink("sale", table.saleId, table.operatorId, vehicleSales),
+    recordLink("renter", table.renterId, table.operatorId, renters),
     index("files_vehicle_idx").on(table.operatorId, table.vehicleId, table.purpose),
     // Compared as text: Postgres will not use an enum value in the same
     // migration that adds it.
@@ -128,6 +134,22 @@ export const files = pgTable(
         and (${table.purpose}::text <> 'vehicle_attachment' or num_nonnulls(${table.purchaseId}, ${table.saleId}) = 0)
         and (${table.purpose}::text not in ('vehicle_attachment', 'vehicle_identity_attachment') or (${table.policyId} is null) = (${table.vehicleId} is not null))`,
     ),
+    // A licence scan names its Renter and side; nothing else does.
+    check(
+      "files_licence_scan_links",
+      sql`(${table.purpose}::text = 'renter_licence_scan') = (${table.renterId} is not null)
+        and (${table.renterId} is null) = (${table.licenceSide} is null)
+        and (${table.purpose}::text <> 'renter_licence_scan' or ${table.vehicleId} is null)`,
+    ),
+    // One scan in use per side: a new one marks the old one deleted in the
+    // same transaction that confirms it, as for logos.
+    uniqueIndex("files_one_licence_scan_per_side")
+      .on(table.operatorId, table.renterId, table.licenceSide)
+      // Keyed on the Renter link, which only licence scans have (checked
+      // above): the new file kind cannot be named in the migration adding it.
+      .where(
+        sql`${table.renterId} is not null and ${table.confirmedAt} is not null and ${table.deletedAt} is null`,
+      ),
     // Photo names ("1ABC234 2026-10-30 001") are numbered per car per day, never reused.
     uniqueIndex("files_one_photo_name_per_car")
       .on(table.operatorId, table.vehicleId, table.label)

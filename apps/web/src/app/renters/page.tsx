@@ -10,7 +10,8 @@ import { NEW_RENTER_PATH, RENTERS_EXPORT_PATH, RENTERS_PATH, renterPath } from "
 import { requireUser } from "../../lib/require-user";
 import { hasAnyRenter, listRenterPage } from "../../lib/renters/renter-queries";
 import { AppShell } from "../app-shell";
-import { RENTER_LIST } from "./renter-list";
+import { loadExpiryContext } from "../../lib/vehicles/expiry-context";
+import { RENTER_LIST, withLicenceStatuses } from "./renter-list";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,9 +21,10 @@ export default async function RentersPage(props: {
 }) {
   const user = await requireUser();
   const query = parseListQuery(RENTER_LIST, await props.searchParams);
-  const [hasRenters, page] = await Promise.all([
+  const [hasRenters, page, licenceExpiry] = await Promise.all([
     hasAnyRenter(appDb, user.operatorId),
     listRenterPage(appDb, user.operatorId, query),
+    loadExpiryContext(user, "licenceExpiryWarningDays"),
   ]);
   const queryString = listQueryString(RENTER_LIST, query, { page: 1 });
 
@@ -41,13 +43,13 @@ export default async function RentersPage(props: {
       {hasRenters ? (
         <DataList
           definition={RENTER_LIST}
-          page={page}
+          page={{ ...page, rows: withLicenceStatuses(page.rows, licenceExpiry) }}
           query={query}
           basePath={RENTERS_PATH}
           rowKey={(renter) => renter.id}
           rowHref={(renter) => renterPath(renter.id)}
           itemName={{ one: "Renter", many: "Renters" }}
-          searchLabel="Search by name, phone or email"
+          searchLabel="Search by name, phone, email or licence number"
           exportHrefs={{
             csv: `${RENTERS_EXPORT_PATH}/csv${queryString}`,
             xlsx: `${RENTERS_EXPORT_PATH}/xlsx${queryString}`,

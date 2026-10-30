@@ -25,6 +25,13 @@ export const operatorSettingsSchema = z.object({
     .min(MINIMUM_EXPIRY_WARNING_DAYS)
     .max(MAXIMUM_EXPIRY_WARNING_DAYS)
     .default(DEFAULT_EXPIRY_WARNING_DAYS),
+  /** Renters: how many days before a licence expires it shows "Due soon". */
+  licenceExpiryWarningDays: z
+    .number()
+    .int()
+    .min(MINIMUM_EXPIRY_WARNING_DAYS)
+    .max(MAXIMUM_EXPIRY_WARNING_DAYS)
+    .default(DEFAULT_EXPIRY_WARNING_DAYS),
 });
 
 export type OperatorSettings = z.infer<typeof operatorSettingsSchema>;

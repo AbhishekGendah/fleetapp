@@ -55,7 +55,9 @@ export function RecordHistory(props: RecordHistoryProps) {
       {props.entries.map((entry) => (
         <li key={entry.id} className="py-3 text-sm">
           <p>
-            <span className="font-medium">{describeActivity(entry.entityType, entry.action)}</span>{" "}
+            <span className="font-medium">
+              {describeActivity(entry.entityType, entry.action, entry.valuesAfter)}
+            </span>{" "}
             by {whoDidIt(entry)}
           </p>
           <p className="text-muted-foreground text-xs">

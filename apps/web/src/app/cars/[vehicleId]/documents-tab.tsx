@@ -12,7 +12,7 @@ import { carFilePath } from "../../../lib/paths";
 import type { SignedInUser } from "../../../lib/require-user";
 import type { VehicleDetail } from "../../../lib/vehicles/vehicle-queries";
 import { DocumentUploadForm } from "./document-upload-form";
-import { FileLink, isPdf } from "../file-link";
+import { FileLink, isPdf } from "../../../components/file-link";
 import { removeCarFileAction } from "./file-actions";
 
 /** A car's documents: inspection reports and anything else, each with the name it was given. */

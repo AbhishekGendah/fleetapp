@@ -23,7 +23,7 @@ import {
 } from "../../lib/vehicles/paperwork-input";
 import type { CoveredCar } from "../../lib/vehicles/paperwork-queries";
 import { AmountWithGst } from "./amount-with-gst";
-import { ChangeFormShell, useChangeForm } from "./change-form-shell";
+import { ChangeFormShell, useChangeForm } from "../../components/change-form-shell";
 
 export const POLICY_CARS_FIELD = "vehicleIds";
 

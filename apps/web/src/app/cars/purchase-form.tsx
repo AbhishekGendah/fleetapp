@@ -20,7 +20,7 @@ import {
   type PurchaseFormValues,
 } from "../../lib/vehicles/cost-input";
 import { AmountWithGst } from "./amount-with-gst";
-import { ChangeFormShell, useChangeForm } from "./change-form-shell";
+import { ChangeFormShell, useChangeForm } from "../../components/change-form-shell";
 import { CostField } from "./cost-field";
 import { PersonContactFields } from "./person-contact-fields";
 

@@ -9,7 +9,7 @@ import { loadBusinessDetails } from "../../lib/settings/business-details";
 import { AppShell } from "../app-shell";
 import { loadOperatorSettings } from "../../lib/settings/operator-settings";
 import { BusinessDetailsForm } from "./business-details-form";
-import { CarSettingsForm } from "./car-settings-form";
+import { WarningDaysForm } from "./warning-days-form";
 import { LogoUpload } from "./logo-upload";
 
 export const runtime = "nodejs";
@@ -46,7 +46,24 @@ export default async function SettingsPage() {
           <CardDescription>Shown on the cars list and each car&rsquo;s page.</CardDescription>
         </CardHeader>
         <CardContent>
-          <CarSettingsForm warningDays={settings.vehicleExpiryWarningDays} />
+          <WarningDaysForm
+            setting="vehicleExpiryWarningDays"
+            label="Show “Due soon” this many days before rego or insurance expires"
+            warningDays={settings.vehicleExpiryWarningDays}
+          />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Renters</CardTitle>
+          <CardDescription>Shown on the Renters list and each Renter&rsquo;s page.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <WarningDaysForm
+            setting="licenceExpiryWarningDays"
+            label="Show “Due soon” this many days before a licence expires"
+            warningDays={settings.licenceExpiryWarningDays}
+          />
         </CardContent>
       </Card>
     </AppShell>

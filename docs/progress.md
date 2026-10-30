@@ -436,9 +436,23 @@
   pieces pulled out on the way: the Log card, the "Save status" ending and
   list exports.
 
+- **Phase 2 step 3, part 2 — licences:** a Licence tab with the licence
+  (issued in a state or overseas with its country, number tidied as typed,
+  class, type, expiry) in a pop-up, refused if another Renter has it
+  (archived ones included, with a link); front and back scans (camera or
+  file) in the identity storage, no previews, every View logged; the
+  licence expiry badge on the page and a Licence column on the list (search
+  by licence number); Settings → Renters "Due soon" days; "Still needed
+  before renting" now puts the licence first and treats an expired licence as
+  missing. The Log names files by what they are ("Licence scan opened").
+  Migration 0019: licence columns with checks and a one-licence rule, the
+  scan file kind with a two-column link to its Renter and one scan per side.
+  Shared pieces on the way: one "Due soon" settings form, record-upload steps,
+  the pop-up form frame and file link moved to shared components.
+
 ## Next
-Phase 2 step 3, part 2: the licence (details, front and back scans in
-private storage, every view logged, expiry badge and setting).
+Phase 2 step 3, part 3: notes, and "Download everything we hold" for a
+Renter.
 
 ## Open items
 - **Before launch: docs/launch-checklist.md** (relaxed admin sign-in, full

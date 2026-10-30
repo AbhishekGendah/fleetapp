@@ -2,6 +2,8 @@ import {
   ageOn,
   DETAIL_NEEDED_LABELS,
   detailsStillNeeded,
+  expiryStatus,
+  type DetailNeededBeforeRenting,
   formatCalendarDate,
   todayInTimeZone,
 } from "@fleetapp/core";
@@ -11,7 +13,15 @@ import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { PageHeader } from "@fleetapp/ui/page-header";
 import { TabLinks } from "@fleetapp/ui/tab-links";
-import { Archive, ArchiveRestore, History, Pencil, UserRound, type LucideIcon } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  History,
+  IdCard,
+  Pencil,
+  UserRound,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 
 import { HistoryCard } from "../../../components/history-card";
@@ -29,9 +39,13 @@ import {
   type RenterDetail,
   type SharedContact,
 } from "../../../lib/renters/renter-queries";
+import { listLicenceScans, listRenterFileIds } from "../../../lib/renters/licence-scans";
+import { loadExpiryContext } from "../../../lib/vehicles/expiry-context";
 import { AppShell } from "../../app-shell";
+import { ExpiryDate } from "../../cars/expiry-date";
 import { RenterStatusBadge } from "../renter-status-badge";
 import { changeRenterStatusAction, setRenterArchivedAction } from "./actions";
+import { LicenceTab } from "./licence-tab";
 import { loadRenterOrNotFound } from "./load-renter";
 import { RenterStatusForm } from "./status-form";
 
@@ -40,6 +54,7 @@ export const dynamic = "force-dynamic";
 
 const TABS = [
   { key: "details", label: "Details", icon: UserRound },
+  { key: "licence", label: "Licence", icon: IdCard },
   { key: "log", label: "Log", icon: History },
 ] as const satisfies readonly { key: string; label: string; icon: LucideIcon }[];
 type TabKey = (typeof TABS)[number]["key"];
@@ -54,14 +69,28 @@ function tabHref(renterId: string, tab: TabKey): string {
   return tab === "details" ? renterPath(renterId) : `${renterPath(renterId)}?${TAB_PARAM}=${tab}`;
 }
 
-function StillNeededCard({ renter, isEditable }: { renter: RenterDetail; isEditable: boolean }) {
+const LICENCE_DETAILS: readonly DetailNeededBeforeRenting[] = [
+  "licence",
+  "currentLicence",
+  "licenceScans",
+];
+
+function StillNeededCard(props: {
+  renter: RenterDetail;
+  isEditable: boolean;
+  hasBothLicenceScans: boolean;
+  today: string;
+}) {
+  const { renter, isEditable } = props;
   const missing = detailsStillNeeded({
     dateOfBirth: renter.dateOfBirth,
     residentialAddress: renter.residentialAddress,
-    // TODO(Renters part 2): from the licence and its scans, once they can be added.
-    hasLicence: true,
-    hasBothLicenceScans: true,
+    licenceExpiresOn: renter.licenceExpiresOn,
+    hasBothLicenceScans: props.hasBothLicenceScans,
+    today: props.today,
   });
+  const isLicenceMissing = missing.some((detail) => LICENCE_DETAILS.includes(detail));
+  const isDetailMissing = missing.some((detail) => !LICENCE_DETAILS.includes(detail));
   if (missing.length === 0) {
     return null;
   }
@@ -78,12 +107,28 @@ function StillNeededCard({ renter, isEditable }: { renter: RenterDetail; isEdita
           ))}
         </ul>
         {isEditable ? (
-          <Button asChild className="w-full sm:w-auto sm:self-start">
-            <Link href={editRenterPath(renter.id)}>
-              <Pencil aria-hidden />
-              Add them
-            </Link>
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {isLicenceMissing ? (
+              <Button asChild className="w-full sm:w-auto">
+                <Link href={tabHref(renter.id, "licence")}>
+                  <IdCard aria-hidden />
+                  Go to the licence
+                </Link>
+              </Button>
+            ) : null}
+            {isDetailMissing ? (
+              <Button
+                asChild
+                variant={isLicenceMissing ? "outline" : "default"}
+                className="w-full sm:w-auto"
+              >
+                <Link href={editRenterPath(renter.id)}>
+                  <Pencil aria-hidden />
+                  Add the details
+                </Link>
+              </Button>
+            ) : null}
+          </div>
         ) : null}
       </CardContent>
     </Card>
@@ -184,10 +229,18 @@ function DetailsCard({ renter, today }: { renter: RenterDetail; today: string })
 async function DetailsTab({ renter, user }: { renter: RenterDetail; user: SignedInUser }) {
   const isArchived = renter.archivedAt !== null;
   const today = todayInTimeZone(new Date(), user.operatorTimezone);
-  const sharedContacts = await findRentersSharingContact(appDb, user.operatorId, renter);
+  const [sharedContacts, scans] = await Promise.all([
+    findRentersSharingContact(appDb, user.operatorId, renter),
+    listLicenceScans(appDb, user.operatorId, renter.id),
+  ]);
   return (
     <>
-      <StillNeededCard renter={renter} isEditable={!isArchived} />
+      <StillNeededCard
+        renter={renter}
+        isEditable={!isArchived}
+        hasBothLicenceScans={scans.front !== null && scans.back !== null}
+        today={today}
+      />
       <SharedContactNote contacts={sharedContacts} />
       <DetailsCard renter={renter} today={today} />
       {isArchived ? null : (
@@ -237,6 +290,10 @@ export default async function RenterPage(props: {
   const [{ renterId }, searchParams] = await Promise.all([props.params, props.searchParams]);
   const renter = await loadRenterOrNotFound(user, renterId);
   const tab = chosenTab(searchParams[TAB_PARAM]);
+  const [licenceExpiry, fileIds] = await Promise.all([
+    loadExpiryContext(user, "licenceExpiryWarningDays"),
+    listRenterFileIds(appDb, user.operatorId, renter.id),
+  ]);
 
   return (
     <AppShell user={user}>
@@ -246,9 +303,22 @@ export default async function RenterPage(props: {
         title={renter.fullName}
         aside={<RenterStatusBadge status={renter.status} isArchived={renter.archivedAt !== null} />}
       />
-      {renter.preferredName && renter.preferredName !== renter.fullName ? (
-        <p className="text-muted-foreground -mt-2 text-sm">Goes by {renter.preferredName}</p>
-      ) : null}
+      <div className="text-muted-foreground -mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+        {renter.preferredName && renter.preferredName !== renter.fullName ? (
+          <span>Goes by {renter.preferredName}</span>
+        ) : null}
+        <span className="inline-flex items-center gap-1">
+          Licence:{" "}
+          <ExpiryDate
+            date={renter.licenceExpiresOn}
+            status={expiryStatus(
+              renter.licenceExpiresOn,
+              licenceExpiry.today,
+              licenceExpiry.warningDays,
+            )}
+          />
+        </span>
+      </div>
       <TabLinks
         label="Renter sections"
         tabs={TABS.map((item) => ({
@@ -259,10 +329,14 @@ export default async function RenterPage(props: {
         }))}
       />
       {tab === "details" ? <DetailsTab renter={renter} user={user} /> : null}
+      {tab === "licence" ? <LicenceTab renter={renter} user={user} expiry={licenceExpiry} /> : null}
       {tab === "log" ? (
         <HistoryCard
           user={user}
-          subjects={[{ entityType: ACTIVITY_ENTITY_TYPES.renter, entityIds: [renter.id] }]}
+          subjects={[
+            { entityType: ACTIVITY_ENTITY_TYPES.renter, entityIds: [renter.id] },
+            { entityType: ACTIVITY_ENTITY_TYPES.file, entityIds: fileIds },
+          ]}
           fieldLabel={renterFieldLabel}
           describeValue={describeRenterValue}
         />

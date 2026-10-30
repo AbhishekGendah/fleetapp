@@ -194,7 +194,7 @@ of service) and the countries.
   only one. Decide with the accountant whether removal should be blocked
   for 5 years instead.
 
-## Renters (Phase 2 step 3, part 1 built)
+## Renters (Phase 2 step 3, parts 1 and 2 built)
 
 - **Renters' personal information is now collected:** name, preferred name,
   phone, email, date of birth, home and postal address, and an emergency
@@ -210,6 +210,19 @@ of service) and the countries.
   about a crime or health would be "sensitive information". The screen
   says: private to your business, facts only, the Renter can ask to see it.
 - **Same phone or email** is only a note, not a block, so families can share.
+- **Licences (part 2):** number, where issued (state or country), class, type
+  and expiry. The licence number is never in the Log or the list export
+  (rule 7). One Renter per licence, archived ones included.
+- **Licence scans** are identity documents (rule 8): kept in the private
+  identity storage, never shown as previews, opened only by pressing View
+  through a 5-minute link, and every View is written to the Renter's Log with
+  who looked. A replaced or removed scan is kept 30 days, then deleted.
+  Slice 5 deletes scans on a timer after the Renter's last rental.
+- **Overseas licences:** the form says visitors can drive on one only for a
+  limited time and it must be in English or come with an International
+  Driving Permit. The exact limits differ by state (e.g. three months after
+  becoming a resident in most): check each before go-live, and whether the
+  app should ask when the Renter arrived in Australia.
 
 ## Business details (already built)
 

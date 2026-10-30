@@ -9,7 +9,7 @@ import {
   STOP_DIRECT_DEBIT_FIELDS,
   stopDirectDebitInputSchema,
 } from "../../../lib/vehicles/paperwork-input";
-import { ChangeFormShell, useChangeForm } from "../change-form-shell";
+import { ChangeFormShell, useChangeForm } from "../../../components/change-form-shell";
 
 /** When a rego direct debit stopped: today unless changed, e.g. to the day the car was sold. */
 export function StopDirectDebitForm(props: {

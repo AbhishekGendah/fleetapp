@@ -25,6 +25,7 @@ const summaryColumns = {
   email: renters.email,
   status: renters.status,
   archivedAt: renters.archivedAt,
+  licenceExpiresOn: renters.licenceExpiresOn,
 };
 
 export interface RenterSummary {
@@ -35,12 +36,20 @@ export interface RenterSummary {
   email: string | null;
   status: RenterStatus;
   archivedAt: Date | null;
+  licenceExpiresOn: string | null;
 }
 
 export const RENTER_LIST_RULES: DatabaseListRules = {
-  searchIn: [renters.fullName, renters.preferredName, renters.phone, renters.email],
+  searchIn: [
+    renters.fullName,
+    renters.preferredName,
+    renters.phone,
+    renters.email,
+    renters.licenceNumber,
+  ],
   sortBy: {
     name: sql`lower(${renters.fullName})`,
+    licenceExpires: renters.licenceExpiresOn,
     status: renters.status,
   },
   filterBy: {

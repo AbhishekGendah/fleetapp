@@ -1,4 +1,10 @@
-import { RENTER_STATUS_LABELS, RENTER_STATUSES, renterDisplayName } from "@fleetapp/core";
+import {
+  expiryStatus,
+  RENTER_STATUS_LABELS,
+  RENTER_STATUSES,
+  renterDisplayName,
+  type ExpiryStatus,
+} from "@fleetapp/core";
 import type { DataListDefinition } from "@fleetapp/ui/data-list";
 
 import {
@@ -6,15 +12,31 @@ import {
   STATUS_FILTER_KEY,
   type RenterSummary,
 } from "../../lib/renters/renter-queries";
+import type { ExpiryContext } from "../../lib/vehicles/expiry-columns";
+import { ExpiryDate } from "../cars/expiry-date";
 import { RenterStatusBadge } from "./renter-status-badge";
 
 const NOT_GIVEN = "Not given";
 
+export type RenterListRow = RenterSummary & { licenceStatus: ExpiryStatus };
+
+/** Adds each Renter's licence badge: Due soon inside the Operator's window, Expired after. */
+export function withLicenceStatuses(
+  rows: readonly RenterSummary[],
+  context: ExpiryContext,
+): RenterListRow[] {
+  return rows.map((row) => ({
+    ...row,
+    licenceStatus: expiryStatus(row.licenceExpiresOn, context.today, context.warningDays),
+  }));
+}
+
 /**
  * The Renters list, for the screen and both exports. Exports hold only what
- * is shown here: never a date of birth, address or licence number.
+ * is shown here: never a date of birth, address or licence number (the
+ * licence's expiry date only).
  */
-export const RENTER_LIST: DataListDefinition<RenterSummary> = {
+export const RENTER_LIST: DataListDefinition<RenterListRow> = {
   columns: [
     {
       key: "name",
@@ -34,6 +56,15 @@ export const RENTER_LIST: DataListDefinition<RenterSummary> = {
       label: "Email",
       exportValue: (renter) => renter.email,
       render: (renter) => <span className="break-all">{renter.email ?? NOT_GIVEN}</span>,
+    },
+    {
+      key: "licenceExpires",
+      label: "Licence",
+      isSortable: true,
+      exportValue: (renter) => renter.licenceExpiresOn,
+      render: (renter) => (
+        <ExpiryDate date={renter.licenceExpiresOn} status={renter.licenceStatus} />
+      ),
     },
     {
       key: "status",

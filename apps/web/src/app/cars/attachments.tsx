@@ -6,7 +6,7 @@ import type { Attachment, AttachmentTarget } from "../../lib/files/attachments";
 import { attachmentPath } from "../../lib/paths";
 import { AttachButton } from "./attach-button";
 import { removeAttachmentAction } from "./attachment-actions";
-import { FileLink, isPdf } from "./file-link";
+import { FileLink, isPdf } from "../../components/file-link";
 
 /** The attachments for one record, from all those loaded for the page. */
 export function attachmentsOf(

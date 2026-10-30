@@ -55,3 +55,8 @@ export function renterPath(renterId: string): string {
 export function editRenterPath(renterId: string): string {
   return `${renterPath(renterId)}/edit`;
 }
+
+/** Opens one side of a Renter's licence through a short-lived link; every opening is logged. */
+export function licenceScanPath(renterId: string, fileId: string): string {
+  return `${renterPath(renterId)}/licence/${fileId}`;
+}

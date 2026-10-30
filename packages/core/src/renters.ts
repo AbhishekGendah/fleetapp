@@ -22,39 +22,49 @@ export function ageOn(dateOfBirth: string, today: string): number {
   return hasHadBirthday ? years : years - 1;
 }
 
-/** What a Renter record must hold before they can rent (Phase 3 refuses until then). */
+/**
+ * What a Renter record must hold before they can rent (Phase 3 refuses until
+ * then), most important first: a licence that is current comes before all else.
+ */
 export const DETAILS_NEEDED_BEFORE_RENTING = [
+  "licence",
+  "currentLicence",
+  "licenceScans",
   "dateOfBirth",
   "residentialAddress",
-  "licence",
-  "licenceScans",
 ] as const;
 export type DetailNeededBeforeRenting = (typeof DETAILS_NEEDED_BEFORE_RENTING)[number];
 
 export const DETAIL_NEEDED_LABELS: Readonly<Record<DetailNeededBeforeRenting, string>> = {
+  licence: "Licence details",
+  currentLicence: "A current licence: the one on file has expired",
+  licenceScans: "Licence front and back",
   dateOfBirth: "Date of birth",
   residentialAddress: "Home address",
-  licence: "Licence details",
-  licenceScans: "Licence front and back",
 };
 
 /** What is on file, as far as renting needs to know. */
 export interface RenterCompleteness {
   dateOfBirth: string | null;
   residentialAddress: string | null;
-  hasLicence: boolean;
+  /** Null when no licence is on file. */
+  licenceExpiresOn: string | null;
   hasBothLicenceScans: boolean;
+  /** The Operator's today: a licence expiring today still counts. */
+  today: string;
 }
 
-/** The details still missing, in the order the form asks for them. Empty when ready. */
+/** The details still missing, most important first. Empty when ready to rent. */
 export function detailsStillNeeded(renter: RenterCompleteness): DetailNeededBeforeRenting[] {
-  const isPresent: Record<DetailNeededBeforeRenting, boolean> = {
-    dateOfBirth: renter.dateOfBirth !== null,
-    residentialAddress: renter.residentialAddress !== null,
-    licence: renter.hasLicence,
-    licenceScans: renter.hasBothLicenceScans,
+  const { licenceExpiresOn } = renter;
+  const isMissing: Record<DetailNeededBeforeRenting, boolean> = {
+    licence: licenceExpiresOn === null,
+    currentLicence: licenceExpiresOn !== null && licenceExpiresOn < renter.today,
+    licenceScans: !renter.hasBothLicenceScans,
+    dateOfBirth: renter.dateOfBirth === null,
+    residentialAddress: renter.residentialAddress === null,
   };
-  return DETAILS_NEEDED_BEFORE_RENTING.filter((detail) => !isPresent[detail]);
+  return DETAILS_NEEDED_BEFORE_RENTING.filter((detail) => isMissing[detail]);
 }
 
 /** "Sam Example (Sammy)": the preferred name only when it differs. */

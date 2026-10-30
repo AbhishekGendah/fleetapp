@@ -1,6 +1,7 @@
 import {
   describeErrorForLog,
   FILE_PURPOSE_RULES,
+  isRecordId,
   UPLOAD_PROBLEM_MESSAGES,
   type FilePurpose,
 } from "@fleetapp/core";
@@ -9,11 +10,13 @@ import { z } from "zod";
 import { appDb } from "../app-db";
 import { requireUser } from "../require-user";
 import { appFileStorage } from "../storage/app-file-storage";
-import type {
-  ConfirmResult,
-  FileActor,
-  FileDependencies,
-  UploadRequestResult,
+import type { UploadPermission } from "../storage/file-storage";
+import {
+  confirmUpload,
+  type ConfirmResult,
+  type FileActor,
+  type FileDependencies,
+  type UploadRequestResult,
 } from "./stored-files";
 
 /** What the upload actions share: their dependencies, who is acting, and what to say. */
@@ -68,4 +71,50 @@ export async function orUploadFailed<Result>(
     console.error(`${description} failed`, describeErrorForLog(error));
     return failed;
   }
+}
+
+/** What the browser gets back when it asks to send a file to a record. */
+export type RecordUploadStart =
+  | { status: "allowed"; fileId: string; permission: UploadPermission }
+  | { status: "refused"; message: string };
+
+/**
+ * Step one of sending a file to a record (an attachment, a licence scan):
+ * the record may be gone or not the Operator's, the file may be refused.
+ */
+export function startRecordUpload(
+  description: string,
+  notFoundMessage: string,
+  start: () => Promise<UploadRequestResult | { status: "not_found" }>,
+): Promise<RecordUploadStart> {
+  return orUploadFailed(
+    description,
+    async (): Promise<RecordUploadStart> => {
+      const result = await start();
+      if (result.status === "not_found") {
+        return { status: "refused", message: notFoundMessage };
+      }
+      return result.status === "refused"
+        ? { status: "refused", message: refusedMessage(result) }
+        : { status: "allowed", fileId: result.fileId, permission: result.permission };
+    },
+    { status: "refused", message: UPLOAD_FAILED_MESSAGE },
+  );
+}
+
+/** Step two: null once saved; otherwise what to tell the person. */
+export async function finishRecordUpload(
+  description: string,
+  fileId: string,
+  purpose: FilePurpose,
+): Promise<string | null> {
+  const actor = await currentFileActor();
+  if (!isRecordId(fileId)) {
+    return UPLOAD_FAILED_MESSAGE;
+  }
+  return orUploadFailed(
+    description,
+    async () => finishMessage(await confirmUpload(fileDependencies(), actor, fileId), purpose),
+    UPLOAD_FAILED_MESSAGE,
+  );
 }

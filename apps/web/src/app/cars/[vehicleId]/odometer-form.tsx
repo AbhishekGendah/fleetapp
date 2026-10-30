@@ -7,7 +7,7 @@ import { FormField } from "@fleetapp/ui/form-field";
 import { FormattedInput } from "@fleetapp/ui/formatted-input";
 
 import { ODOMETER_REPLACED_FIELD, odometerInputSchema } from "../../../lib/vehicles/vehicle-input";
-import { ChangeFormShell, useChangeForm } from "../change-form-shell";
+import { ChangeFormShell, useChangeForm } from "../../../components/change-form-shell";
 
 const ODOMETER_FIELDS = ["kilometres"] as const;
 

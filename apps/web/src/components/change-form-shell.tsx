@@ -27,7 +27,7 @@ export interface ChangeForm<Field extends string> {
   isPending: boolean;
 }
 
-/** A small form on a car's page that saves through a server action and shows its answer. */
+/** A small form on a record's page (a car, a Renter) that saves through a server action and shows its answer. */
 export function useChangeForm<Field extends string>(
   options: ChangeFormOptions<Field>,
 ): ChangeForm<Field> {

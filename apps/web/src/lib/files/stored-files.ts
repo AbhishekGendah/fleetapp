@@ -5,6 +5,7 @@ import {
   FILE_PURPOSE_RULES,
   FILE_SIGNATURE_LENGTH,
   type FilePurpose,
+  type LicenceSide,
   type UploadProblem,
 } from "@fleetapp/core";
 import { recordActivity } from "@fleetapp/db/activity";
@@ -48,6 +49,8 @@ export interface FileLinks {
   costId?: string;
   purchaseId?: string;
   saleId?: string;
+  renterId?: string;
+  licenceSide?: LicenceSide;
 }
 
 export type UploadRequestResult =
@@ -137,7 +140,8 @@ async function findPendingFile(deps: FileDependencies, actor: FileActor, fileId:
  * Step two, once the browser has sent the file: reads its first bytes from
  * storage and checks it really is the type it claimed (rule 22). Anything
  * else is removed from storage and marked refused. A logo replaces the
- * Operator's previous one, which is marked deleted in the same step.
+ * Operator's previous one, and a licence scan the Renter's previous scan of
+ * that side, which is marked deleted in the same step.
  */
 export async function confirmUpload(
   deps: FileDependencies,
@@ -175,6 +179,14 @@ export async function confirmUpload(
     if (file.purpose === "operator_logo") {
       await markLogoDeleted(tx, actor, now);
     }
+    if (file.renterId && file.licenceSide) {
+      await markScansDeleted(
+        tx,
+        actor,
+        now,
+        and(eq(files.renterId, file.renterId), eq(files.licenceSide, file.licenceSide)),
+      );
+    }
     await tx
       .update(files)
       .set({ confirmedAt: now, sizeBytes: storedSize })
@@ -205,6 +217,34 @@ async function markLogoDeleted(tx: AnyTransaction, actor: FileActor, now: Date):
     await logFile(tx, actor, logo.id, "deleted", "operator_logo");
   }
   return removed.length > 0;
+}
+
+/** A licence scan that is in use: confirmed and not deleted. */
+export function licenceScanInUse(operatorId: string): SQL | undefined {
+  return and(
+    eq(files.operatorId, operatorId),
+    eq(files.purpose, "renter_licence_scan"),
+    isNotNull(files.confirmedAt),
+    isNull(files.deletedAt),
+  );
+}
+
+/** Hides the matching scans at once; storage keeps them 30 days (rule 23). */
+export async function markScansDeleted(
+  tx: AnyTransaction,
+  actor: FileActor,
+  now: Date,
+  which: SQL | undefined,
+): Promise<number> {
+  const removed = await tx
+    .update(files)
+    .set({ deletedAt: now })
+    .where(and(licenceScanInUse(actor.operatorId), which))
+    .returning({ id: files.id });
+  for (const scan of removed) {
+    await logFile(tx, actor, scan.id, "deleted", "renter_licence_scan");
+  }
+  return removed.length;
 }
 
 export async function removeLogo(deps: FileDependencies, actor: FileActor): Promise<boolean> {

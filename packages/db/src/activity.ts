@@ -1,3 +1,5 @@
+import type { FilePurpose } from "@fleetapp/core";
+
 import type { AnyDatabase } from "./client";
 import {
   ACTIVITY_ACTIONS,
@@ -90,7 +92,40 @@ function labelFor(labels: Readonly<Record<string, string>>, key: string): string
   return Object.hasOwn(labels, key) ? labels[key]! : key;
 }
 
-/** One line of history in words, e.g. "Car status changed". Unknown values are shown as stored. */
-export function describeActivity(entityType: string, action: string): string {
-  return `${labelFor(ACTIVITY_ENTITY_LABELS, entityType)} ${labelFor(ACTIVITY_ACTION_LABELS, action)}`;
+/** What a file is called in a history list, by what it is for: "Licence scan opened". */
+const FILE_PURPOSE_LABELS = {
+  operator_logo: "Logo",
+  vehicle_photo: "Photo",
+  vehicle_photo_thumbnail: "Photo's small copy",
+  vehicle_document: "Document",
+  vehicle_attachment: "Attachment",
+  vehicle_identity_attachment: "Private paper",
+  renter_licence_scan: "Licence scan",
+} satisfies Record<FilePurpose, string>;
+
+/** A file's log lines carry its purpose; anything else has none. */
+function purposeOf(values: unknown): string | null {
+  if (typeof values !== "object" || values === null) {
+    return null;
+  }
+  const purpose: unknown = Reflect.get(values, "purpose");
+  return typeof purpose === "string" ? purpose : null;
+}
+
+/**
+ * One line of history in words, e.g. "Car status changed", or for a file
+ * what it is ("Licence scan opened") when its log line says. Unknown values
+ * are shown as stored.
+ */
+export function describeActivity(
+  entityType: string,
+  action: string,
+  valuesAfter?: unknown,
+): string {
+  const purpose = entityType === ACTIVITY_ENTITY_TYPES.file ? purposeOf(valuesAfter) : null;
+  const subject =
+    purpose && Object.hasOwn(FILE_PURPOSE_LABELS, purpose)
+      ? labelFor(FILE_PURPOSE_LABELS, purpose)
+      : labelFor(ACTIVITY_ENTITY_LABELS, entityType);
+  return `${subject} ${labelFor(ACTIVITY_ACTION_LABELS, action)}`;
 }

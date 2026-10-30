@@ -12,15 +12,12 @@ import {
 import {
   currentFileActor,
   fileDependencies,
-  finishMessage,
-  orUploadFailed,
+  finishRecordUpload,
   plannedFileSchema,
-  refusedMessage,
-  UPLOAD_FAILED_MESSAGE,
+  startRecordUpload,
+  type RecordUploadStart,
 } from "../../lib/files/file-action-support";
-import { confirmUpload } from "../../lib/files/stored-files";
 import { runUserChange } from "../../lib/run-change";
-import type { UploadPermission } from "../../lib/storage/file-storage";
 
 const NOT_FOUND_MESSAGE = "That record could not be found. It may have been removed or archived.";
 
@@ -28,46 +25,23 @@ const attachRequestSchema = plannedFileSchema.extend({
   target: z.object({ kind: z.enum(ATTACHMENT_KINDS), id: z.uuid() }),
 });
 
-export type AttachmentUploadStart =
-  | { status: "allowed"; fileId: string; permission: UploadPermission }
-  | { status: "refused"; message: string };
-
 export async function startAttachmentUploadAction(
   request: z.input<typeof attachRequestSchema>,
-): Promise<AttachmentUploadStart> {
+): Promise<RecordUploadStart> {
   const actor = await currentFileActor();
   const parsed = attachRequestSchema.safeParse(request);
   if (!parsed.success) {
     return { status: "refused", message: UPLOAD_PROBLEM_MESSAGES.type_not_allowed };
   }
   const { target, ...planned } = parsed.data;
-  return orUploadFailed(
-    "Starting an attachment upload",
-    async (): Promise<AttachmentUploadStart> => {
-      const result = await startAttachmentUpload(fileDependencies(), actor, target, planned);
-      if (result.status === "not_found") {
-        return { status: "refused", message: NOT_FOUND_MESSAGE };
-      }
-      return result.status === "refused"
-        ? { status: "refused", message: refusedMessage(result) }
-        : { status: "allowed", fileId: result.fileId, permission: result.permission };
-    },
-    { status: "refused", message: UPLOAD_FAILED_MESSAGE },
+  return startRecordUpload("Starting an attachment upload", NOT_FOUND_MESSAGE, () =>
+    startAttachmentUpload(fileDependencies(), actor, target, planned),
   );
 }
 
 /** Null once attached; otherwise what to tell the person. The page refreshes itself. */
 export async function finishAttachmentUploadAction(fileId: string): Promise<string | null> {
-  const actor = await currentFileActor();
-  if (!isRecordId(fileId)) {
-    return UPLOAD_FAILED_MESSAGE;
-  }
-  return orUploadFailed(
-    "Finishing an attachment upload",
-    async () =>
-      finishMessage(await confirmUpload(fileDependencies(), actor, fileId), "vehicle_attachment"),
-    UPLOAD_FAILED_MESSAGE,
-  );
+  return finishRecordUpload("Finishing an attachment upload", fileId, "vehicle_attachment");
 }
 
 /** `pagePath` is the page showing it, refreshed afterwards. */

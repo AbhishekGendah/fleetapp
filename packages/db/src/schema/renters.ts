@@ -1,11 +1,32 @@
-import { RENTER_STATUSES } from "@fleetapp/core";
+import {
+  LICENCE_CLASSES,
+  LICENCE_ISSUERS,
+  LICENCE_TYPES,
+  MAXIMUM_OVERSEAS_LICENCE_NUMBER_LENGTH,
+  RENTER_STATUSES,
+} from "@fleetapp/core";
 import { sql } from "drizzle-orm";
-import { check, date, index, pgEnum, pgTable, text, unique } from "drizzle-orm/pg-core";
+import {
+  check,
+  date,
+  index,
+  pgEnum,
+  pgTable,
+  text,
+  unique,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 
 import { auditColumns, primaryKeyColumn } from "./columns";
 import { operatorIdColumn } from "./operators";
 
 export const renterStatusEnum = pgEnum("renter_status", RENTER_STATUSES);
+export const licenceIssuerEnum = pgEnum("licence_issuer", LICENCE_ISSUERS);
+export const licenceClassEnum = pgEnum("licence_class", LICENCE_CLASSES);
+export const licenceTypeEnum = pgEnum("licence_type", LICENCE_TYPES);
+
+/** Named so the app can tell a licence already on file from any other failure. */
+export const RENTER_LICENCE_UNIQUE_INDEX = "renters_one_licence_per_operator";
 
 /**
  * An Operator's customer (docs/design/03). Personal information: the admin
@@ -37,6 +58,19 @@ export const renters = pgTable(
     emergencyContactPhone: text("emergency_contact_phone"),
     emergencyContactRelationship: text("emergency_contact_relationship"),
 
+    /**
+     * The current licence (one per Renter: a renewal is an edit). All of it
+     * or none. Never written into the log (rule 7).
+     */
+    licenceIssuedIn: licenceIssuerEnum("licence_issued_in"),
+    /** ISO code, only for an overseas licence. */
+    licenceCountry: text("licence_country"),
+    /** Capitals and digits only: see `normaliseLicenceNumber`. */
+    licenceNumber: text("licence_number"),
+    licenceClass: licenceClassEnum("licence_class"),
+    licenceType: licenceTypeEnum("licence_type"),
+    licenceExpiresOn: date("licence_expires_on"),
+
     status: renterStatusEnum("status").notNull().default("active"),
     /** Private to the Operator. Required for, and only for, "do not rent". */
     doNotRentReason: text("do_not_rent_reason"),
@@ -50,6 +84,22 @@ export const renters = pgTable(
     index("renters_operator_name_idx").on(table.operatorId, table.fullName),
     check("renters_has_contact", sql`num_nonnulls(${table.phone}, ${table.email}) > 0`),
     check("renters_email_lower_case", sql`${table.email} = lower(${table.email})`),
+    // One Renter per licence, archived ones included, so a returning Renter
+    // is brought back rather than entered twice.
+    uniqueIndex(RENTER_LICENCE_UNIQUE_INDEX)
+      .on(
+        table.operatorId,
+        table.licenceIssuedIn,
+        sql`coalesce(${table.licenceCountry}, '')`,
+        table.licenceNumber,
+      )
+      .where(sql`${table.licenceNumber} is not null`),
+    check(
+      "renters_licence_complete",
+      sql`num_nonnulls(${table.licenceIssuedIn}, ${table.licenceNumber}, ${table.licenceClass}, ${table.licenceType}, ${table.licenceExpiresOn}) in (0, 5)
+        and (${table.licenceCountry} is not null) = coalesce(${table.licenceIssuedIn}::text = 'overseas', false)
+        and ${table.licenceNumber} ~ ${sql.raw(`'^[A-Z0-9]{1,${MAXIMUM_OVERSEAS_LICENCE_NUMBER_LENGTH}}$'`)}`,
+    ),
     check(
       "renters_do_not_rent_reason",
       sql`(${table.status} = 'do_not_rent') = (${table.doNotRentReason} is not null)`,

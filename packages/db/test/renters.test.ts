@@ -12,6 +12,8 @@ import {
 } from "./fixtures";
 
 const CHECK_VIOLATION = "23514";
+const FOREIGN_KEY_VIOLATION = "23503";
+const UNIQUE_VIOLATION = "23505";
 
 /** Renters stay within their Operator, are never deleted, and the admin app cannot see them. */
 describe("Renters", () => {
@@ -75,6 +77,94 @@ describe("Renters", () => {
       );
       expect(code).toBe(CHECK_VIOLATION);
     }
+  });
+
+  it("keeps a licence whole, one Renter per licence, archived ones included", async () => {
+    const licence = {
+      licenceIssuedIn: "WA" as const,
+      licenceNumber: "1234567",
+      licenceClass: "C" as const,
+      licenceType: "full" as const,
+      licenceExpiresOn: "2028-01-01",
+    };
+    await withTenant(web.db, operatorBId, async (tx) => {
+      await tx
+        .update(schema.renters)
+        .set({ ...licence, archivedAt: new Date() })
+        .where(eq(schema.renters.id, renterBId));
+    });
+    const attempts = [
+      { ...renterRow(operatorBId), ...licence },
+      { ...renterRow(operatorBId), ...licence, licenceNumber: "12 34" },
+      { ...renterRow(operatorBId), licenceNumber: "7654321" },
+      { ...renterRow(operatorBId), ...licence, licenceNumber: "999", licenceCountry: "NZ" },
+      {
+        ...renterRow(operatorBId),
+        ...licence,
+        licenceNumber: "998",
+        licenceIssuedIn: "overseas" as const,
+      },
+    ];
+    const codes = [];
+    for (const values of attempts) {
+      codes.push(
+        await postgresErrorCodeOf(
+          withTenant(web.db, operatorBId, (tx) => tx.insert(schema.renters).values(values)),
+        ),
+      );
+    }
+    expect(codes).toEqual([
+      UNIQUE_VIOLATION,
+      CHECK_VIOLATION,
+      CHECK_VIOLATION,
+      CHECK_VIOLATION,
+      CHECK_VIOLATION,
+    ]);
+
+    // The same number from another state, or another Operator, is someone else.
+    await withTenant(web.db, operatorBId, (tx) =>
+      tx
+        .insert(schema.renters)
+        .values({ ...renterRow(operatorBId), ...licence, licenceIssuedIn: "NSW" }),
+    );
+    await withTenant(web.db, operatorAId, (tx) =>
+      tx.insert(schema.renters).values({ ...renterRow(operatorAId), ...licence }),
+    );
+  });
+
+  it("links a licence scan only to the same Operator's Renter, one per side", async () => {
+    const scan = (operatorId: string, renterId: string) => ({
+      operatorId,
+      purpose: "renter_licence_scan" as const,
+      storageArea: "identity" as const,
+      objectKey: `${operatorId}/renter_licence_scan/${crypto.randomUUID()}`,
+      contentType: "image/jpeg",
+      sizeBytes: 300_000,
+      renterId,
+      licenceSide: "front" as const,
+      confirmedAt: new Date(),
+    });
+    await withTenant(web.db, operatorBId, (tx) =>
+      tx.insert(schema.files).values(scan(operatorBId, renterBId)),
+    );
+    const codes = [
+      await postgresErrorCodeOf(
+        withTenant(web.db, operatorBId, (tx) =>
+          tx.insert(schema.files).values(scan(operatorBId, renterBId)),
+        ),
+      ),
+      await postgresErrorCodeOf(
+        withTenant(web.db, operatorAId, (tx) =>
+          tx.insert(schema.files).values(scan(operatorAId, renterBId)),
+        ),
+      ),
+      await postgresErrorCodeOf(
+        withTenant(web.db, operatorBId, (tx) =>
+          tx.insert(schema.files).values({ ...scan(operatorBId, renterBId), licenceSide: null }),
+        ),
+      ),
+    ];
+    expect(codes).toEqual([UNIQUE_VIOLATION, FOREIGN_KEY_VIOLATION, CHECK_VIOLATION]);
   });
 
   it("never lets the Operator app delete one", async () => {

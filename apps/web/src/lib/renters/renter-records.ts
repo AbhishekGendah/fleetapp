@@ -35,7 +35,7 @@ type Renter = typeof renters.$inferSelect;
 /** Archived Renters are read-only until restored, as for cars. */
 export type ChangeRenterResult = "changed" | "unchanged" | "not_found";
 
-function logRenterActivity(
+export function logRenterActivity(
   tx: AnyTransaction,
   actor: ActingUser,
   renterId: string,
@@ -51,7 +51,7 @@ function logRenterActivity(
 }
 
 /** The Operator's Renter, locked for this transaction, if they are theirs and not archived. */
-async function lockCurrentRenter(
+export async function lockCurrentRenter(
   tx: AnyTransaction,
   operatorId: string,
   renterId: string,

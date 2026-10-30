@@ -21,7 +21,7 @@ import {
   type RegoFormValues,
 } from "../../lib/vehicles/paperwork-input";
 import { AmountWithGst } from "./amount-with-gst";
-import { ChangeFormShell, useChangeForm } from "./change-form-shell";
+import { ChangeFormShell, useChangeForm } from "../../components/change-form-shell";
 
 /**
  * Records one rego renewal for a car. Choosing a term fills in Expires as the
