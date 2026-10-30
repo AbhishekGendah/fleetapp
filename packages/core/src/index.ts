@@ -36,4 +36,5 @@ export * from "./timezones";
 export * from "./urls";
 export * from "./vehicle-catalogue";
 export * from "./vehicle-costs";
+export * from "./renters";
 export * from "./vehicles";

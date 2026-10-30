@@ -424,8 +424,21 @@
   used by the Operator app). Checked at 375px against a local copy of the
   app with test data.
 
+- **Phase 2 step 3, part 1 — Renters** (plan:
+  docs/plans/phase-2-step-3.md): Renters in the menu; a list (search,
+  status filter, export logged); Add/Edit with name, preferred name, phone or
+  email (one needed), date of birth (16 or older), home and postal address
+  (Google search, "same as home"), emergency contact; a Renter page with
+  "Still needed before renting", a note for other Renters sharing a phone or
+  email, Status (Do not rent needs a private reason), Archive/Restore and a
+  Log that never shows the details themselves. Migration 0018: `renters`,
+  forced row-level security, no deletes, no admin access (tested). Shared
+  pieces pulled out on the way: the Log card, the "Save status" ending and
+  list exports.
+
 ## Next
-Phase 2 slice 3 — Renters (docs/plans/phase-2.md). Plan first.
+Phase 2 step 3, part 2: the licence (details, front and back scans in
+private storage, every view logged, expiry badge and setting).
 
 ## Open items
 - **Before launch: docs/launch-checklist.md** (relaxed admin sign-in, full

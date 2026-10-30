@@ -1,11 +1,11 @@
 "use client";
 
 import { cn } from "@fleetapp/ui/cn";
-import { Car, House, Settings, type LucideIcon } from "lucide-react";
+import { Car, House, Settings, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { CARS_PATH, HOME_PATH, SETTINGS_PATH } from "../lib/paths";
+import { CARS_PATH, HOME_PATH, RENTERS_PATH, SETTINGS_PATH } from "../lib/paths";
 
 interface NavigationItem {
   href: string;
@@ -20,6 +20,7 @@ interface NavigationItem {
 const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   { href: HOME_PATH, label: "Home", icon: House },
   { href: CARS_PATH, label: "Cars", icon: Car },
+  { href: RENTERS_PATH, label: "Renters", icon: Users },
   { href: SETTINGS_PATH, label: "Settings", icon: Settings },
 ];
 

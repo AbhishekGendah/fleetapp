@@ -1,32 +1,16 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@fleetapp/ui/card";
-
-import { RecordHistory } from "../../components/record-history";
-import { appDb } from "../../lib/app-db";
-import { loadRecordHistory, type HistorySubject } from "../../lib/record-history";
+import { HistoryCard } from "../../components/history-card";
+import type { HistorySubject } from "../../lib/record-history";
 import type { SignedInUser } from "../../lib/require-user";
 import { describeVehicleValue, vehicleFieldLabel } from "../../lib/vehicles/vehicle-labels";
 
 /** A Log card for a car or its paperwork, with car fields named and valued in words. */
-export async function CarHistoryCard(props: {
-  user: SignedInUser;
-  subjects: readonly HistorySubject[];
-}) {
-  const entries = await loadRecordHistory(appDb, props.user.operatorId, props.subjects);
+export function CarHistoryCard(props: { user: SignedInUser; subjects: readonly HistorySubject[] }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Log</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <RecordHistory
-          entries={entries}
-          timezone={props.user.operatorTimezone}
-          fieldLabel={vehicleFieldLabel}
-          describeValue={(field, value) =>
-            describeVehicleValue(field, value, props.user.operatorTimezone)
-          }
-        />
-      </CardContent>
-    </Card>
+    <HistoryCard
+      user={props.user}
+      subjects={props.subjects}
+      fieldLabel={vehicleFieldLabel}
+      describeValue={describeVehicleValue}
+    />
   );
 }

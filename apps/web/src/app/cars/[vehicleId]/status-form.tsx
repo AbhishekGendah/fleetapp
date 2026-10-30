@@ -6,12 +6,13 @@ import {
   VEHICLE_STATUS_LABELS,
   VEHICLE_STATUSES,
 } from "@fleetapp/core";
-import { Button } from "@fleetapp/ui/button";
 import { FormField } from "@fleetapp/ui/form-field";
 import { Input } from "@fleetapp/ui/input";
 import { Select } from "@fleetapp/ui/select";
 import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import { useActionState } from "react";
+
+import { SaveStatusButton } from "../../../components/save-status-button";
 
 import {
   vehicleStatusInputSchema,
@@ -19,7 +20,6 @@ import {
 } from "../../../lib/vehicles/vehicle-input";
 import { VEHICLE_FIELD_LABELS } from "../../../lib/vehicles/vehicle-labels";
 import { INITIAL_CHANGE_STATE, type ChangeFormState } from "@fleetapp/ui/change-form-state";
-import { FormResult } from "@fleetapp/ui/form-result";
 
 const STATUS_FIELDS = ["status", "statusReason", "statusExpectedBack"] as const;
 
@@ -76,10 +76,7 @@ export function StatusForm(props: {
           </FormField>
         </>
       ) : null}
-      {form.isResultShown && !isPending ? <FormResult state={state} /> : null}
-      <Button type="submit" variant="outline" disabled={isPending} className="sm:self-start">
-        {isPending ? "Saving…" : "Save status"}
-      </Button>
+      <SaveStatusButton state={state} isPending={isPending} isResultShown={form.isResultShown} />
     </form>
   );
 }

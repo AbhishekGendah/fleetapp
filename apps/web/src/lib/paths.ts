@@ -42,3 +42,16 @@ export function policyPath(policyId: string): string {
 export function attachmentPath(fileId: string): string {
   return `/attachments/${fileId}`;
 }
+
+/** The Operator's customers. */
+export const RENTERS_PATH = "/renters";
+export const NEW_RENTER_PATH = `${RENTERS_PATH}/new`;
+export const RENTERS_EXPORT_PATH = `${RENTERS_PATH}/export`;
+
+export function renterPath(renterId: string): string {
+  return `${RENTERS_PATH}/${renterId}`;
+}
+
+export function editRenterPath(renterId: string): string {
+  return `${renterPath(renterId)}/edit`;
+}

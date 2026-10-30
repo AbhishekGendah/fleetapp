@@ -123,10 +123,10 @@ of service) and the countries.
   no longer control it. Exports are never cached by browsers or proxies,
   and cells that look like formulas are made plain text so a file cannot
   run anything when opened.
-- **When Renter lists get exports (Phase 2):** record each export in the
-  activity log (who, when, which list and filters), and say in the
-  privacy policy and the Operator terms that Operators are responsible
-  for what they export.
+- **Renters list export (built):** each download is recorded in the
+  Operator's activity log (who, when, CSV or Excel, how many rows). It holds
+  name, phone, email and status only. The privacy policy and the Operator
+  terms should still say Operators are responsible for what they export.
 
 ## Cars (Phase 2 step 1, built)
 
@@ -193,6 +193,23 @@ of service) and the countries.
   one hides it and keeps it 30 days, so keep a copy elsewhere if it is the
   only one. Decide with the accountant whether removal should be blocked
   for 5 years instead.
+
+## Renters (Phase 2 step 3, part 1 built)
+
+- **Renters' personal information is now collected:** name, preferred name,
+  phone, email, date of birth, home and postal address, and an emergency
+  contact (a third person's details: the privacy policy should say they are
+  kept only to reach someone in an emergency). Before the first real
+  Operator, the privacy policy, the Renter privacy notice and the Operator
+  terms need the lawyer.
+- **The admin app has no access to Renters at all** (no database grant), and
+  a test proves it. Renters are never shared between Operators.
+- **The Log never holds Renter details**, only which one changed. Status
+  changes show Active / Do not rent, but not the reason.
+- **Do not rent reasons** can be asked for by the Renter (APP 12), and one
+  about a crime or health would be "sensitive information". The screen
+  says: private to your business, facts only, the Renter can ask to see it.
+- **Same phone or email** is only a note, not a block, so families can share.
 
 ## Business details (already built)
 

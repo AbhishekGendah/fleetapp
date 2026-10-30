@@ -67,6 +67,7 @@ export const ACTIVITY_ENTITY_TYPES = {
   vehiclePurchase: "vehicle_purchase",
   vehicleSale: "vehicle_sale",
   vehicleCost: "vehicle_cost",
+  renter: "renter",
 } as const;
 
 /** What happened to it. No free text at call sites. */
@@ -95,6 +96,8 @@ export const ACTIVITY_ACTIONS = {
   vehicleAdded: "vehicle_added",
   vehicleRemoved: "vehicle_removed",
   cancelled: "cancelled",
+  /** A list of personal information downloaded (CSV or Excel). */
+  exported: "exported",
 } as const;
 
 export type ActivityEntityType = (typeof ACTIVITY_ENTITY_TYPES)[keyof typeof ACTIVITY_ENTITY_TYPES];

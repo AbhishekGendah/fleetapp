@@ -1,6 +1,6 @@
 # Phase 2 step 3 plan — Renters
 
-Status: for Abhi's approval (30 Oct 2026). Detail for slice 3 of
+Status: approved (30 Oct 2026). Part 3a built. Detail for slice 3 of
 docs/plans/phase-2.md (already approved in outline). Slice 4 (the link a
 Renter fills in on their phone) and slice 5 (deleting old licence scans)
 come after, each with its own plan.

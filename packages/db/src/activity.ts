@@ -54,6 +54,7 @@ const ACTIVITY_ENTITY_LABELS = {
   [ACTIVITY_ENTITY_TYPES.vehiclePurchase]: "Purchase",
   [ACTIVITY_ENTITY_TYPES.vehicleSale]: "Sale",
   [ACTIVITY_ENTITY_TYPES.vehicleCost]: "Cost",
+  [ACTIVITY_ENTITY_TYPES.renter]: "Renter",
 } satisfies Record<ActivityEntityType, string>;
 
 /** What each action reads as after the record's name: "Car archived". */
@@ -82,6 +83,7 @@ const ACTIVITY_ACTION_LABELS = {
   [ACTIVITY_ACTIONS.vehicleAdded]: "car added",
   [ACTIVITY_ACTIONS.vehicleRemoved]: "car taken off",
   [ACTIVITY_ACTIONS.cancelled]: "cancelled",
+  [ACTIVITY_ACTIONS.exported]: "list downloaded",
 } satisfies Record<ActivityAction, string>;
 
 function labelFor(labels: Readonly<Record<string, string>>, key: string): string {
