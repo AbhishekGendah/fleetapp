@@ -1,7 +1,14 @@
-import type { FilePurpose } from "@fleetapp/core";
-import { files } from "@fleetapp/db/schema";
+import {
+  downloadName,
+  photoName,
+  photoNamePrefix,
+  todayInTimeZone,
+  type FilePurpose,
+} from "@fleetapp/core";
+import type { AnyTransaction } from "@fleetapp/db/client";
+import { files, vehicles } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, desc, eq, inArray, isNotNull, isNull, or } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNotNull, isNull, like, or } from "drizzle-orm";
 
 import { findCurrentVehicle } from "../vehicles/current-vehicle";
 import {
@@ -33,23 +40,60 @@ async function isCurrentCar(deps: FileDependencies, actor: FileActor, vehicleId:
 }
 
 /**
+ * The photo's name: the car's rego, today on the Operator's clock, and the
+ * next number that day. The car is locked first, so photos sent at the same
+ * moment still get a number each.
+ */
+async function nextPhotoName(
+  tx: AnyTransaction,
+  operatorId: string,
+  vehicleId: string,
+  today: string,
+): Promise<string> {
+  const [car] = await tx
+    .select({ rego: vehicles.rego })
+    .from(vehicles)
+    .where(and(eq(vehicles.id, vehicleId), eq(vehicles.operatorId, operatorId)))
+    .for("update");
+  const rego = car?.rego ?? "";
+  const [taken] = await tx
+    .select({ count: count() })
+    .from(files)
+    .where(
+      and(
+        eq(files.operatorId, operatorId),
+        eq(files.vehicleId, vehicleId),
+        eq(files.purpose, "vehicle_photo"),
+        // Regos are capitals and digits only, so nothing in them acts as a wildcard.
+        like(files.label, `${photoNamePrefix(rego, today)}%`),
+      ),
+    );
+  return photoName(rego, today, (taken?.count ?? 0) + 1);
+}
+
+/**
  * Starts sending a photo and its small copy, both shrunk on the phone. The
- * photo is recorded first, as its small copy points at it. Archived cars take
- * no new files.
+ * photo is recorded first, as its small copy points at it, and named
+ * "1ABC234 2026-10-30 001". Archived cars take no new files.
  */
 export async function startCarPhotoUpload(
   deps: FileDependencies,
   actor: FileActor,
   vehicleId: string,
   planned: { photo: PlannedFile; thumbnail: PlannedFile },
+  timeZone: string,
 ): Promise<CarPhotoUploadStart> {
   if (!(await isCurrentCar(deps, actor, vehicleId))) {
     return { status: "not_found" };
   }
+  const today = todayInTimeZone(deps.now(), timeZone);
   const photo = await requestUpload(deps, actor, {
     purpose: "vehicle_photo",
     ...planned.photo,
-    links: { vehicleId },
+    links: async (tx) => ({
+      vehicleId,
+      label: await nextPhotoName(tx, actor.operatorId, vehicleId, today),
+    }),
   });
   if (photo.status === "refused") {
     return photo;
@@ -93,6 +137,8 @@ function carFileInUse(operatorId: string, vehicleId: string, purposes: readonly 
 
 export interface CarPhoto {
   id: string;
+  /** "1ABC234 2026-10-30 001". */
+  label: string;
   createdAt: Date;
   /** A 5-minute link to the small copy, or null if it did not arrive (the photo is shown instead). */
   thumbnailUrl: string | null;
@@ -109,6 +155,7 @@ export async function listCarPhotos(
       .select({
         id: files.id,
         purpose: files.purpose,
+        label: files.label,
         thumbnailOfFileId: files.thumbnailOfFileId,
         storageArea: files.storageArea,
         objectKey: files.objectKey,
@@ -124,6 +171,7 @@ export async function listCarPhotos(
       const small = rows.find((row) => row.thumbnailOfFileId === photo.id) ?? photo;
       return {
         id: photo.id,
+        label: photo.label ?? "",
         createdAt: photo.createdAt,
         thumbnailUrl: await deps.storage.createViewUrl(small.storageArea, small.objectKey),
       };
@@ -171,7 +219,12 @@ export async function findCarFileViewUrl(
 ): Promise<string | null> {
   const [file] = await withTenant(deps.database, operatorId, (tx) =>
     tx
-      .select({ storageArea: files.storageArea, objectKey: files.objectKey })
+      .select({
+        storageArea: files.storageArea,
+        objectKey: files.objectKey,
+        label: files.label,
+        contentType: files.contentType,
+      })
       .from(files)
       .where(
         and(
@@ -180,7 +233,14 @@ export async function findCarFileViewUrl(
         ),
       ),
   );
-  return file ? deps.storage.createViewUrl(file.storageArea, file.objectKey) : null;
+  if (!file) {
+    return null;
+  }
+  return deps.storage.createViewUrl(
+    file.storageArea,
+    file.objectKey,
+    downloadName(file.label ?? "", file.contentType),
+  );
 }
 
 /**

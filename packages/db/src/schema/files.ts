@@ -49,7 +49,7 @@ export const files = pgTable(
     uploadedByUserId: uuid("uploaded_by_user_id").references(() => users.id),
     /** The car a photo or document belongs to. */
     vehicleId: uuid("vehicle_id"),
-    /** A document's name, typed by the Operator. */
+    /** A document's name typed by the Operator, or a photo's given name ("1ABC234 2026-10-30 001"). */
     label: text("label"),
     /** A photo's small copy points at the photo, and goes when it goes. */
     thumbnailOfFileId: uuid("thumbnail_of_file_id"),
@@ -86,8 +86,12 @@ export const files = pgTable(
       "files_vehicle_purposes",
       sql`(${table.purpose}::text in ('vehicle_photo', 'vehicle_photo_thumbnail', 'vehicle_document')) = (${table.vehicleId} is not null)
         and (${table.purpose}::text = 'vehicle_photo_thumbnail') = (${table.thumbnailOfFileId} is not null)
-        and (${table.purpose}::text = 'vehicle_document') = (${table.label} is not null)`,
+        and (${table.purpose}::text in ('vehicle_photo', 'vehicle_document')) = (${table.label} is not null)`,
     ),
+    // Photo names ("1ABC234 2026-10-30 001") are numbered per car per day, never reused.
+    uniqueIndex("files_one_photo_name_per_car")
+      .on(table.operatorId, table.vehicleId, table.label)
+      .where(sql`${table.purpose} = 'vehicle_photo'`),
     // An Operator has at most one logo in use: replacing it marks the old one
     // deleted in the same transaction that confirms the new one.
     uniqueIndex("files_one_logo_per_operator")

@@ -45,11 +45,12 @@ export async function PhotosTab({ vehicle, user }: { vehicle: VehicleDetail; use
                   {photo.thumbnailUrl ? (
                     <ExpiringImage
                       src={photo.thumbnailUrl}
-                      alt="Car photo"
+                      alt={photo.label}
                       className="size-full object-cover"
                     />
                   ) : null}
                 </a>
+                <p className="text-muted-foreground truncate text-xs">{photo.label}</p>
                 {isEditable ? (
                   <ActionButton
                     action={removeCarFileAction.bind(null, vehicle.id, photo.id)}

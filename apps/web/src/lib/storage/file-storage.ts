@@ -30,6 +30,9 @@ export interface FileStorage {
   /** The first bytes of a stored file, to check what it really is. */
   readStart(area: StorageArea, key: string, length: number): Promise<Uint8Array>;
   remove(area: StorageArea, key: string): Promise<void>;
-  /** A link that works for VIEW_LINK_SECONDS. */
-  createViewUrl(area: StorageArea, key: string): Promise<string>;
+  /**
+   * A link that works for VIEW_LINK_SECONDS. With a name, saving or sharing
+   * the file uses it rather than the storage address.
+   */
+  createViewUrl(area: StorageArea, key: string, downloadName?: string): Promise<string>;
 }

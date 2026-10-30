@@ -2,6 +2,7 @@
 
 import { PICKED_PHOTO_MAX_BYTES } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
+import { CameraCapture } from "@fleetapp/ui/camera-capture";
 import { FilePicker } from "@fleetapp/ui/file-picker";
 import { FormError } from "@fleetapp/ui/form-message";
 import { shrinkImage, THUMBNAIL_EDGE_PX } from "@fleetapp/ui/shrink-image";
@@ -17,13 +18,13 @@ const UNREADABLE_MESSAGE = "This photo could not be opened here. Save it as a JP
 /** One chosen photo on its way: shown until it is saved, with Try again if it fails. */
 interface PendingPhoto {
   key: string;
-  file: File;
+  file: Blob;
   status: "sending" | "failed";
   message: string | null;
 }
 
 /** Shrinks a photo on the phone (rule 21) and sends it and its small copy. Null when saved. */
-async function sendPhoto(vehicleId: string, file: File): Promise<string | null> {
+async function sendPhoto(vehicleId: string, file: Blob): Promise<string | null> {
   if (file.size > PICKED_PHOTO_MAX_BYTES) {
     return TOO_LARGE_MESSAGE;
   }
@@ -80,27 +81,35 @@ export function PhotoUploads({ vehicleId }: { vehicleId: string }) {
     router.refresh();
   }
 
-  function handleFilesChosen(chosen: File[]): void {
+  // One after another, so photos are numbered in the order they were taken.
+  async function sendInTurn(items: readonly PendingPhoto[]): Promise<void> {
+    for (const item of items) {
+      await send(item);
+    }
+  }
+
+  function handlePhotosChosen(chosen: readonly Blob[]): void {
     const items = chosen.map((file) => ({
       key: crypto.randomUUID(),
       file,
       status: "sending" as const,
       message: null,
     }));
-    setPending((previous) => [...items, ...previous]);
-    for (const item of items) {
-      void send(item);
-    }
+    setPending((previous) => [...previous, ...items]);
+    void sendInTurn(items);
   }
 
   return (
     <div className="flex flex-col gap-3">
-      <FilePicker
-        label="Add photos"
-        accept="image/*"
-        isMultiple
-        onFilesChosen={handleFilesChosen}
-      />
+      <div className="flex flex-wrap gap-2">
+        <CameraCapture triggerLabel="Take photos" onPhotosTaken={handlePhotosChosen} />
+        <FilePicker
+          label="Add from gallery"
+          accept="image/*"
+          isMultiple
+          onFilesChosen={handlePhotosChosen}
+        />
+      </div>
       {pending.length === 0 ? null : (
         <ul className="flex flex-col gap-2">
           {pending.map((item) => (

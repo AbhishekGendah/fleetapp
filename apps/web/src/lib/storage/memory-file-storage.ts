@@ -34,8 +34,9 @@ export function createMemoryFileStorage(): MemoryFileStorage {
     async remove(area, key) {
       stored.delete(address(area, key));
     },
-    async createViewUrl(area, key) {
-      return `${STAND_IN_VIEW_URL}/${area}/${key}`;
+    async createViewUrl(area, key, downloadName) {
+      const name = downloadName ? `?name=${encodeURIComponent(downloadName)}` : "";
+      return `${STAND_IN_VIEW_URL}/${area}/${key}${name}`;
     },
     receive(area, key, bytes) {
       stored.set(address(area, key), bytes);

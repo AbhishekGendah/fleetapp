@@ -17,6 +17,7 @@ import { ComboBox } from "@fleetapp/ui/combo-box";
 import { CodeInput, TOTP_CODE_LENGTH } from "@fleetapp/ui/code-input";
 import { fieldErrorId, FormField } from "@fleetapp/ui/form-field";
 import { FormError } from "@fleetapp/ui/form-message";
+import { CameraCapture } from "@fleetapp/ui/camera-capture";
 import { FilePicker } from "@fleetapp/ui/file-picker";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { FormattedInput } from "@fleetapp/ui/formatted-input";
@@ -342,6 +343,7 @@ export function ComponentCatalogue() {
           isMultiple
           onFilesChosen={() => undefined}
         />
+        <CameraCapture triggerLabel="Take photos" onPhotosTaken={() => undefined} />
       </CatalogueSection>
 
       <CatalogueSection

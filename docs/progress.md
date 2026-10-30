@@ -386,6 +386,16 @@
   - Shared pieces: FilePicker (packages/ui + catalogue), shrinking to any
     size, shared upload action helpers (the logo now uses them too).
 
+- In-app camera and photo names (Abhi's request): "Take photos" opens a
+  camera inside the app for many shots in a row (strip with take-out, Done
+  sends all); "Add from gallery" still picks from the phone. Photos are sent
+  one after another and named "1ABC234 2026-10-30 001" (rego, day on the
+  Operator's clock, number per car per day, locked so two at once never
+  share a number). Opened or shared files use their name. Migration 0016
+  named photos already uploaded and added a one-name-per-car rule. No
+  in-app PDF reader: the phone's own viewer is used (decided with Abhi).
+  New shared piece: CameraCapture (packages/ui + catalogue).
+
 ## Next
 Phase 2 step 2c, part 2: attachments on rego, insurance, costs, purchase
 and sale (purchase and sale papers in the identity storage).

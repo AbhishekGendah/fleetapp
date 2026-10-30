@@ -11,6 +11,7 @@
     "./badge": "./src/components/badge.tsx",
     "./brand": "./src/brand.ts",
     "./button": "./src/components/button.tsx",
+    "./camera-capture": "./src/components/camera-capture.tsx",
     "./card": "./src/components/card.tsx",
     "./change-form-state": "./src/components/change-form-state.ts",
     "./checkbox": "./src/components/checkbox.tsx",

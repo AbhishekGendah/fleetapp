@@ -70,10 +70,16 @@ export function createS3FileStorage(config: S3FileStorageConfig): FileStorage {
       await client.send(new DeleteObjectCommand({ Bucket: bucketFor(area), Key: key }));
     },
 
-    async createViewUrl(area, key) {
-      return getSignedUrl(client, new GetObjectCommand({ Bucket: bucketFor(area), Key: key }), {
-        expiresIn: VIEW_LINK_SECONDS,
+    async createViewUrl(area, key, downloadName) {
+      const command = new GetObjectCommand({
+        Bucket: bucketFor(area),
+        Key: key,
+        // Shown in the browser, and saved or shared under this name.
+        ResponseContentDisposition: downloadName
+          ? `inline; filename*=UTF-8''${encodeURIComponent(downloadName)}`
+          : undefined,
       });
+      return getSignedUrl(client, command, { expiresIn: VIEW_LINK_SECONDS });
     },
   };
 }

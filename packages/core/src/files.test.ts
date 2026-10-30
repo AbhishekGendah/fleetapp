@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { buildFileKey, checkUpload, detectFileType, FILE_CONTENT_TYPES } from "./files";
+import {
+  buildFileKey,
+  checkUpload,
+  detectFileType,
+  downloadName,
+  FILE_CONTENT_TYPES,
+  photoName,
+} from "./files";
 
 const MEGABYTE = 1024 * 1024;
 
@@ -46,5 +53,18 @@ describe("recognising a file from its first bytes", () => {
 describe("where a file lives", () => {
   it("always sits under its own Operator", () => {
     expect(buildFileKey("op-1", "operator_logo", "file-9")).toBe("op-1/operator_logo/file-9");
+  });
+});
+
+describe("photo and download names", () => {
+  it("names a photo by rego, day and number", () => {
+    expect(photoName("1ABC234", "2026-10-30", 7)).toBe("1ABC234 2026-10-30 007");
+    expect(photoName("1ABC234", "2026-10-30", 1234)).toBe("1ABC234 2026-10-30 1234");
+  });
+
+  it("gives a download its extension and drops characters that break headers", () => {
+    expect(downloadName("1ABC234 2026-10-30 001", "image/jpeg")).toBe("1ABC234 2026-10-30 001.jpg");
+    expect(downloadName('Report "final"\r\n', "application/pdf")).toBe("Report final.pdf");
+    expect(downloadName("***", "application/pdf")).toBe("file.pdf");
   });
 });

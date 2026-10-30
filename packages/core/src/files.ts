@@ -144,3 +144,33 @@ export function detectFileType(firstBytes: Uint8Array): FileContentType | null {
 export function buildFileKey(operatorId: string, purpose: FilePurpose, fileId: string): string {
   return `${operatorId}/${purpose}/${fileId}`;
 }
+
+/** Photo numbers run 001, 002… per car per day. */
+const PHOTO_NUMBER_DIGITS = 3;
+
+/** The start every photo's name shares on a day: "1ABC234 2026-10-30 ". */
+export function photoNamePrefix(rego: string, localDate: string): string {
+  return `${rego} ${localDate} `;
+}
+
+/** "1ABC234 2026-10-30 001": a photo's name, from the car's rego, the day and its number that day. */
+export function photoName(rego: string, localDate: string, number: number): string {
+  return `${photoNamePrefix(rego, localDate)}${String(number).padStart(PHOTO_NUMBER_DIGITS, "0")}`;
+}
+
+const EXTENSIONS: Readonly<Record<FileContentType, string>> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+  "application/pdf": "pdf",
+};
+
+/**
+ * The name a file is saved or shared under: its label with the right
+ * extension, and nothing that could break the download header.
+ */
+export function downloadName(label: string, contentType: string): string {
+  const safe = label.replace(/[^\p{L}\p{N} ._-]/gu, "").trim() || "file";
+  const extension = EXTENSIONS[contentType as FileContentType];
+  return extension ? `${safe}.${extension}` : safe;
+}

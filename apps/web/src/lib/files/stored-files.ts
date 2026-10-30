@@ -31,8 +31,18 @@ export interface UploadRequest {
   purpose: FilePurpose;
   contentType: string;
   sizeBytes: number;
-  /** For a car's files: which car, a document's name, a small copy's photo. */
-  links?: { vehicleId?: string; label?: string; thumbnailOfFileId?: string };
+  /**
+   * For a car's files: which car, its name, a small copy's photo. Given as a
+   * step when it must be worked out in the same transaction as the record,
+   * e.g. a photo's next number.
+   */
+  links?: FileLinks | ((tx: AnyTransaction) => Promise<FileLinks>);
+}
+
+export interface FileLinks {
+  vehicleId?: string;
+  label?: string;
+  thumbnailOfFileId?: string;
 }
 
 export type UploadRequestResult =
@@ -74,8 +84,9 @@ export async function requestUpload(
   const fileId = crypto.randomUUID();
   const objectKey = buildFileKey(actor.operatorId, request.purpose, fileId);
 
-  await withTenant(deps.database, actor.operatorId, (tx) =>
-    tx.insert(files).values({
+  await withTenant(deps.database, actor.operatorId, async (tx) => {
+    const links = typeof request.links === "function" ? await request.links(tx) : request.links;
+    await tx.insert(files).values({
       id: fileId,
       operatorId: actor.operatorId,
       purpose: request.purpose,
@@ -84,9 +95,9 @@ export async function requestUpload(
       contentType: request.contentType,
       sizeBytes: request.sizeBytes,
       uploadedByUserId: actor.userId,
-      ...request.links,
-    }),
-  );
+      ...links,
+    });
+  });
 
   const permission = await deps.storage.createUploadPermission({
     area: rule.area,

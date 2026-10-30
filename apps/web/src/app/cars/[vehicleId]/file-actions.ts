@@ -21,6 +21,7 @@ import {
 } from "../../../lib/files/file-action-support";
 import { confirmUpload } from "../../../lib/files/stored-files";
 import { carPath } from "../../../lib/paths";
+import { requireUser } from "../../../lib/require-user";
 import type { UploadPermission } from "../../../lib/storage/file-storage";
 import { changeCar, NOT_FOUND_MESSAGE } from "./change-car";
 
@@ -46,7 +47,8 @@ export async function startCarPhotoUploadAction(
   vehicleId: string,
   request: z.input<typeof photoRequestSchema>,
 ): Promise<CarPhotoUploadStart> {
-  const actor = await currentFileActor();
+  const user = await requireUser();
+  const actor = { userId: user.id, operatorId: user.operatorId };
   const parsed = photoRequestSchema.safeParse(request);
   if (!isRecordId(vehicleId) || !parsed.success) {
     return { status: "refused", message: UPLOAD_PROBLEM_MESSAGES.type_not_allowed };
@@ -54,7 +56,13 @@ export async function startCarPhotoUploadAction(
   return orUploadFailed(
     "Starting a car photo upload",
     async (): Promise<CarPhotoUploadStart> => {
-      const result = await startCarPhotoUpload(fileDependencies(), actor, vehicleId, parsed.data);
+      const result = await startCarPhotoUpload(
+        fileDependencies(),
+        actor,
+        vehicleId,
+        parsed.data,
+        user.operatorTimezone,
+      );
       if (result.status === "not_found") {
         return NOT_A_CAR;
       }

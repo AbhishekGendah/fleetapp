@@ -1,4 +1,7 @@
+import { files } from "@fleetapp/db/schema";
+import { withTenant } from "@fleetapp/db/tenant-context";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
+import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import type { ActingUser } from "../src/lib/acting-user";
@@ -20,6 +23,7 @@ import { addTestCar, seedOperatorWithUser } from "./car-fixtures";
 
 const JPEG_START = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0]);
 const PDF_START = new TextEncoder().encode("%PDF-1.7\n%âãÏÓ");
+const PERTH = "Australia/Perth";
 const PHOTO = { contentType: "image/jpeg", sizeBytes: 400_000 };
 const THUMBNAIL = { contentType: "image/jpeg", sizeBytes: 30_000 };
 
@@ -37,10 +41,13 @@ describe("car photos and documents", () => {
   }
 
   async function addPhoto(vehicleId: string): Promise<string> {
-    const start = await startCarPhotoUpload(deps, actor, vehicleId, {
-      photo: PHOTO,
-      thumbnail: THUMBNAIL,
-    });
+    const start = await startCarPhotoUpload(
+      deps,
+      actor,
+      vehicleId,
+      { photo: PHOTO, thumbnail: THUMBNAIL },
+      PERTH,
+    );
     if (start.status !== "allowed") {
       throw new Error("The photo was refused.");
     }
@@ -72,7 +79,34 @@ describe("car photos and documents", () => {
 
     const photos = await listCarPhotos(deps, actor.operatorId, carId);
     expect(photos.map((photo) => photo.id)).toEqual([second, first]);
+    // Named by rego, today in Perth, and number; the open link carries the name.
+    const [rego, day] = photos[0]!.label.split(" ");
+    expect(photos.map((photo) => photo.label)).toEqual([
+      `${rego} ${day} 002`,
+      `${rego} ${day} 001`,
+    ]);
+    expect(await findCarFileViewUrl(deps, actor.operatorId, carId, first)).toContain(
+      encodeURIComponent(`${rego} ${day} 001.jpg`),
+    );
     expect(photos[0]?.thumbnailUrl).toContain("vehicle_photo_thumbnail");
+  });
+
+  it("gives photos sent at the same moment a number each", async () => {
+    const carId = await addTestCar(web, actor);
+    const starts = await Promise.all(
+      [1, 2, 3].map(() =>
+        startCarPhotoUpload(deps, actor, carId, { photo: PHOTO, thumbnail: THUMBNAIL }, PERTH),
+      ),
+    );
+    expect(starts.every((start) => start.status === "allowed")).toBe(true);
+    const rows = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx
+        .select({ label: files.label })
+        .from(files)
+        .where(and(eq(files.vehicleId, carId), eq(files.purpose, "vehicle_photo"))),
+    );
+    const numbers = rows.map((row) => row.label?.split(" ").at(-1)).sort();
+    expect(numbers).toEqual(["001", "002", "003"]);
   });
 
   it("keeps a document's name and refuses one that is not what it claims", async () => {
@@ -129,11 +163,17 @@ describe("car photos and documents", () => {
   it("takes no files for another Operator's car or an archived car", async () => {
     const carId = await addTestCar(web, actor);
     expect(
-      await startCarPhotoUpload(deps, otherActor, carId, { photo: PHOTO, thumbnail: THUMBNAIL }),
+      await startCarPhotoUpload(
+        deps,
+        otherActor,
+        carId,
+        { photo: PHOTO, thumbnail: THUMBNAIL },
+        PERTH,
+      ),
     ).toEqual({ status: "not_found" });
     await archiveVehicle(web.db, actor, carId);
     expect(
-      await startCarPhotoUpload(deps, actor, carId, { photo: PHOTO, thumbnail: THUMBNAIL }),
+      await startCarPhotoUpload(deps, actor, carId, { photo: PHOTO, thumbnail: THUMBNAIL }, PERTH),
     ).toEqual({ status: "not_found" });
   });
 });

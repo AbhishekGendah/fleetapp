@@ -94,6 +94,9 @@ of service) and the countries.
   in the background. They are the Operator's records; the privacy policy
   should say photos of cars are kept to record their condition. Operators
   should avoid photographing people.
+- **The in-app camera** asks the phone for permission once and only runs
+  while it is open; nothing is recorded but the photos taken. Photo names
+  use only the rego, date and a number.
 - **Car documents** are named by the Operator; the name is kept, the
   file's own name is not. A document showing someone's licence or identity
   (e.g. a transfer form) belongs on the purchase or sale (part 2c-2, kept
