@@ -71,6 +71,7 @@ const ACTIVITY_ACTION_LABELS = {
   [ACTIVITY_ACTIONS.passwordReset]: "password reset",
   [ACTIVITY_ACTIONS.updated]: "changed",
   [ACTIVITY_ACTIONS.uploaded]: "uploaded",
+  [ACTIVITY_ACTIONS.viewed]: "opened",
   [ACTIVITY_ACTIONS.refused]: "refused",
   [ACTIVITY_ACTIONS.deleted]: "deleted",
   [ACTIVITY_ACTIONS.purged]: "removed for good",

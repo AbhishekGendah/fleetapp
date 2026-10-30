@@ -11,6 +11,8 @@ import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 
 import { appDb } from "../../../lib/app-db";
+import { listAttachments, type Attachment } from "../../../lib/files/attachments";
+import { carPath } from "../../../lib/paths";
 import type { SignedInUser } from "../../../lib/require-user";
 import {
   emptyPurchaseForm,
@@ -20,6 +22,7 @@ import {
 } from "../../../lib/vehicles/cost-input";
 import { loadCarCosts, type CarCosts } from "../../../lib/vehicles/cost-queries";
 import type { VehicleDetail } from "../../../lib/vehicles/vehicle-queries";
+import { Attachments } from "../attachments";
 import { CostForm } from "../cost-form";
 import { PurchaseForm } from "../purchase-form";
 import { SaleForm } from "../sale-form";
@@ -81,10 +84,15 @@ interface CostsCardProps {
   vehicle: VehicleDetail;
   costs: CarCosts;
   user: SignedInUser;
+  attachments: readonly Attachment[];
 }
 
-function PurchaseCard({ vehicle, costs, user }: CostsCardProps) {
+/** Purchase and sale papers show another person's licence and details. */
+const PRIVATE_PAPERS_NOTE = "Papers attached here are kept privately, and every opening is logged.";
+
+function PurchaseCard({ vehicle, costs, user, attachments }: CostsCardProps) {
   const { purchase } = costs;
+  const isEditable = vehicle.archivedAt === null;
   return (
     <Card>
       <CardHeader>
@@ -95,31 +103,44 @@ function PurchaseCard({ vehicle, costs, user }: CostsCardProps) {
             : "Who you bought the car from, and for how much."}
         </CardDescription>
       </CardHeader>
-      {vehicle.archivedAt ? null : (
-        <CardContent>
-          <FormDialog
-            triggerLabel={purchase ? "Edit purchase" : "Add purchase"}
-            title={purchase ? "Edit the purchase" : "Add the purchase"}
-          >
-            <PurchaseForm
-              initialValues={
-                purchase
-                  ? purchaseFormValues(purchase, costs.purchaseKilometres)
-                  : emptyPurchaseForm()
-              }
-              action={savePurchaseAction.bind(null, vehicle.id)}
-              isGstRegistered={user.isGstRegistered}
-              nearState={vehicle.regoState}
-              submitLabel={purchase ? "Save changes" : "Save purchase"}
-            />
-          </FormDialog>
+      {!isEditable && !purchase ? null : (
+        <CardContent className="flex flex-col gap-4">
+          {purchase ? (
+            <div className="flex flex-col gap-1">
+              <p className="text-muted-foreground text-xs">{PRIVATE_PAPERS_NOTE}</p>
+              <Attachments
+                target={{ kind: "purchase", id: purchase.id }}
+                attachments={attachments}
+                isEditable={isEditable}
+                pagePath={carPath(vehicle.id)}
+              />
+            </div>
+          ) : null}
+          {isEditable ? (
+            <FormDialog
+              triggerLabel={purchase ? "Edit purchase" : "Add purchase"}
+              title={purchase ? "Edit the purchase" : "Add the purchase"}
+            >
+              <PurchaseForm
+                initialValues={
+                  purchase
+                    ? purchaseFormValues(purchase, costs.purchaseKilometres)
+                    : emptyPurchaseForm()
+                }
+                action={savePurchaseAction.bind(null, vehicle.id)}
+                isGstRegistered={user.isGstRegistered}
+                nearState={vehicle.regoState}
+                submitLabel={purchase ? "Save changes" : "Save purchase"}
+              />
+            </FormDialog>
+          ) : null}
         </CardContent>
       )}
     </Card>
   );
 }
 
-function OtherCostsCard({ vehicle, costs, user }: CostsCardProps) {
+function OtherCostsCard({ vehicle, costs, user, attachments }: CostsCardProps) {
   const isEditable = vehicle.archivedAt === null;
   return (
     <Card>
@@ -143,6 +164,12 @@ function OtherCostsCard({ vehicle, costs, user }: CostsCardProps) {
                     {VEHICLE_COST_KIND_LABELS[cost.kind]} · {formatCalendarDate(cost.incurredOn)} ·{" "}
                     {amountInWords({ amountCents: cost.costCents, gstCents: cost.gstCents })}
                   </p>
+                  <Attachments
+                    target={{ kind: "cost", id: cost.id }}
+                    attachments={attachments}
+                    isEditable={isEditable}
+                    pagePath={carPath(vehicle.id)}
+                  />
                 </div>
                 {isEditable ? (
                   <ActionButton
@@ -170,7 +197,7 @@ function OtherCostsCard({ vehicle, costs, user }: CostsCardProps) {
   );
 }
 
-function SaleSummary({ vehicle, costs, user }: CostsCardProps) {
+function SaleSummary({ vehicle, costs, user, attachments }: CostsCardProps) {
   const { sale } = costs;
   if (!sale) {
     return null;
@@ -193,6 +220,15 @@ function SaleSummary({ vehicle, costs, user }: CostsCardProps) {
           is.
         </p>
       )}
+      <div className="flex flex-col gap-1">
+        <p className="text-muted-foreground text-xs">{PRIVATE_PAPERS_NOTE}</p>
+        <Attachments
+          target={{ kind: "sale", id: sale.id }}
+          attachments={attachments}
+          isEditable={vehicle.archivedAt === null}
+          pagePath={carPath(vehicle.id)}
+        />
+      </div>
       {vehicle.archivedAt ? null : (
         <div className="flex flex-wrap gap-2">
           <ActionButton
@@ -249,8 +285,11 @@ function SaleCard(props: CostsCardProps) {
 
 /** A car's Costs tab: what it cost, what was spent on it, and what it sold for. */
 export async function CostsTab({ vehicle, user }: { vehicle: VehicleDetail; user: SignedInUser }) {
-  const costs = await loadCarCosts(appDb, user.operatorId, vehicle.id);
-  const props = { vehicle, costs, user };
+  const [costs, attachments] = await Promise.all([
+    loadCarCosts(appDb, user.operatorId, vehicle.id),
+    listAttachments(appDb, user.operatorId, { vehicleId: vehicle.id }),
+  ]);
+  const props = { vehicle, costs, user, attachments };
   return (
     <>
       <TotalsCard costs={costs} />

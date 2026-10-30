@@ -1,4 +1,9 @@
-import { expiryStatus, formatPremium, INSURANCE_COVER_TYPE_LABELS, isRecordId } from "@fleetapp/core";
+import {
+  expiryStatus,
+  formatPremium,
+  INSURANCE_COVER_TYPE_LABELS,
+  isRecordId,
+} from "@fleetapp/core";
 import { ACTIVITY_ENTITY_TYPES } from "@fleetapp/db/schema";
 import { Badge } from "@fleetapp/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
@@ -8,12 +13,14 @@ import { notFound } from "next/navigation";
 import { ActionButton } from "@fleetapp/ui/action-button";
 import { ChooseAndApply } from "@fleetapp/ui/choose-and-apply";
 import { appDb } from "../../../../lib/app-db";
-import { carPath, INSURANCE_PATH } from "../../../../lib/paths";
+import { listAttachments, listPolicyFileIds } from "../../../../lib/files/attachments";
+import { carPath, INSURANCE_PATH, policyPath } from "../../../../lib/paths";
 import { requireUser } from "../../../../lib/require-user";
 import { loadExpiryContext } from "../../../../lib/vehicles/expiry-context";
 import { policyFormValues } from "../../../../lib/vehicles/paperwork-input";
 import { loadPolicy, type PolicyDetail } from "../../../../lib/vehicles/paperwork-queries";
 import { AppShell } from "../../../app-shell";
+import { Attachments } from "../../attachments";
 import { CarHistoryCard } from "../../car-history-card";
 import { ExpiryDate } from "../../expiry-date";
 import { PolicyForm } from "../../policy-form";
@@ -90,7 +97,11 @@ export default async function PolicyPage(props: { params: Promise<{ policyId: st
     notFound();
   }
   const { policy } = detail;
-  const expiry = await loadExpiryContext(user);
+  const [expiry, attachments, fileIds] = await Promise.all([
+    loadExpiryContext(user),
+    listAttachments(appDb, user.operatorId, { policyIds: [policy.id] }),
+    listPolicyFileIds(appDb, user.operatorId, policy.id),
+  ]);
   const isArchived = policy.archivedAt !== null;
 
   return (
@@ -115,6 +126,21 @@ export default async function PolicyPage(props: { params: Promise<{ policyId: st
       </p>
 
       <CoveredCarsCard detail={detail} />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Papers</CardTitle>
+          <CardDescription>The certificate of currency, schedule or invoice.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Attachments
+            target={{ kind: "policy", id: policy.id }}
+            attachments={attachments}
+            isEditable={!isArchived}
+            pagePath={policyPath(policy.id)}
+          />
+        </CardContent>
+      </Card>
 
       {isArchived ? null : (
         <Card>
@@ -153,7 +179,10 @@ export default async function PolicyPage(props: { params: Promise<{ policyId: st
 
       <CarHistoryCard
         user={user}
-        subjects={[{ entityType: ACTIVITY_ENTITY_TYPES.insurancePolicy, entityIds: [policy.id] }]}
+        subjects={[
+          { entityType: ACTIVITY_ENTITY_TYPES.insurancePolicy, entityIds: [policy.id] },
+          { entityType: ACTIVITY_ENTITY_TYPES.file, entityIds: fileIds },
+        ]}
       />
     </AppShell>
   );

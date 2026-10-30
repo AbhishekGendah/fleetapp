@@ -396,9 +396,18 @@
   in-app PDF reader: the phone's own viewer is used (decided with Abhi).
   New shared piece: CameraCapture (packages/ui + catalogue).
 
+- **Phase 2 step 2c, part 2 — attachments:** "Attach" on each rego
+  renewal, insurance policy (car page and policy page), cost, the purchase
+  and the sale. Several files at once, images shrunk on the phone, named
+  after the record ("1ABC234 rego 2027-10-29 1"). Purchase and sale papers
+  go in the private identity storage and every opening is logged. Files
+  open through `/attachments/<file>`, which checks the Operator first.
+  Migration 0017: two new file kinds and a two-column link from `files` to
+  each record kind, with database checks. Policy page Log now includes its
+  papers.
+
 ## Next
-Phase 2 step 2c, part 2: attachments on rego, insurance, costs, purchase
-and sale (purchase and sale papers in the identity storage).
+Phase 2 slice 3 — Renters (docs/plans/phase-2.md). Plan first.
 
 ## Open items
 - **Before launch: docs/launch-checklist.md** (relaxed admin sign-in, full

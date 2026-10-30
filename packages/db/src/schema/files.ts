@@ -12,12 +12,29 @@ import {
   unique,
   uniqueIndex,
   uuid,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 import { primaryKeyColumn, timestampColumns } from "./columns";
 import { operatorIdColumn } from "./operators";
 import { users } from "./users";
+import { vehicleCosts, vehiclePurchases, vehicleSales } from "./vehicle-costs";
+import { insurancePolicies, vehicleRegistrations } from "./vehicle-paperwork";
 import { vehicles } from "./vehicles";
+
+/** The two-column link to an attachment's record, so it can only be the same Operator's. */
+function recordLink(
+  name: string,
+  column: AnyPgColumn,
+  operatorId: AnyPgColumn,
+  record: { id: AnyPgColumn; operatorId: AnyPgColumn },
+) {
+  return foreignKey({
+    name: `files_${name}_fk`,
+    columns: [column, operatorId],
+    foreignColumns: [record.id, record.operatorId],
+  });
+}
 
 export const filePurposeEnum = pgEnum("file_purpose", FILE_PURPOSES);
 export const storageAreaEnum = pgEnum("storage_area", STORAGE_AREAS);
@@ -53,6 +70,12 @@ export const files = pgTable(
     label: text("label"),
     /** A photo's small copy points at the photo, and goes when it goes. */
     thumbnailOfFileId: uuid("thumbnail_of_file_id"),
+    /** An attachment belongs to exactly one of these records. */
+    registrationId: uuid("registration_id"),
+    policyId: uuid("policy_id"),
+    costId: uuid("cost_id"),
+    purchaseId: uuid("purchase_id"),
+    saleId: uuid("sale_id"),
 
     /** The upload arrived and really is the type it claimed. */
     confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
@@ -79,14 +102,31 @@ export const files = pgTable(
       columns: [table.thumbnailOfFileId, table.operatorId],
       foreignColumns: [table.id, table.operatorId],
     }),
+    recordLink("registration", table.registrationId, table.operatorId, vehicleRegistrations),
+    recordLink("policy", table.policyId, table.operatorId, insurancePolicies),
+    recordLink("cost", table.costId, table.operatorId, vehicleCosts),
+    recordLink("purchase", table.purchaseId, table.operatorId, vehiclePurchases),
+    recordLink("sale", table.saleId, table.operatorId, vehicleSales),
     index("files_vehicle_idx").on(table.operatorId, table.vehicleId, table.purpose),
     // Compared as text: Postgres will not use an enum value in the same
     // migration that adds it.
     check(
       "files_vehicle_purposes",
-      sql`(${table.purpose}::text in ('vehicle_photo', 'vehicle_photo_thumbnail', 'vehicle_document')) = (${table.vehicleId} is not null)
+      sql`(${table.purpose}::text not in ('vehicle_photo', 'vehicle_photo_thumbnail', 'vehicle_document') or ${table.vehicleId} is not null)
+        and (${table.purpose}::text <> 'operator_logo' or ${table.vehicleId} is null)
         and (${table.purpose}::text = 'vehicle_photo_thumbnail') = (${table.thumbnailOfFileId} is not null)
-        and (${table.purpose}::text in ('vehicle_photo', 'vehicle_document')) = (${table.label} is not null)`,
+        and (${table.purpose}::text in ('vehicle_photo', 'vehicle_document', 'vehicle_attachment', 'vehicle_identity_attachment')) = (${table.label} is not null)`,
+    ),
+    // An attachment belongs to exactly one record; purchase and sale papers
+    // are identity attachments, the rest are not. A fleet policy's
+    // attachment has no single car.
+    check(
+      "files_attachment_links",
+      sql`num_nonnulls(${table.registrationId}, ${table.policyId}, ${table.costId}, ${table.purchaseId}, ${table.saleId})
+          = (case when ${table.purpose}::text in ('vehicle_attachment', 'vehicle_identity_attachment') then 1 else 0 end)
+        and (${table.purpose}::text <> 'vehicle_identity_attachment' or num_nonnulls(${table.purchaseId}, ${table.saleId}) = 1)
+        and (${table.purpose}::text <> 'vehicle_attachment' or num_nonnulls(${table.purchaseId}, ${table.saleId}) = 0)
+        and (${table.purpose}::text not in ('vehicle_attachment', 'vehicle_identity_attachment') or (${table.policyId} is null) = (${table.vehicleId} is not null))`,
     ),
     // Photo names ("1ABC234 2026-10-30 001") are numbered per car per day, never reused.
     uniqueIndex("files_one_photo_name_per_car")

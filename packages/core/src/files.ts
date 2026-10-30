@@ -12,6 +12,8 @@ export const FILE_PURPOSES = [
   "vehicle_photo",
   "vehicle_photo_thumbnail",
   "vehicle_document",
+  "vehicle_attachment",
+  "vehicle_identity_attachment",
 ] as const;
 export type FilePurpose = (typeof FILE_PURPOSES)[number];
 
@@ -36,6 +38,14 @@ export interface FilePurposeRule {
   describedAs: string;
 }
 
+/** A paper as a PDF, or a photo of it. */
+const DOCUMENT_CONTENT_TYPES: readonly FileContentType[] = [
+  FILE_CONTENT_TYPES.pdf,
+  FILE_CONTENT_TYPES.jpeg,
+  FILE_CONTENT_TYPES.png,
+  FILE_CONTENT_TYPES.webp,
+];
+
 export const FILE_PURPOSE_RULES: Readonly<Record<FilePurpose, FilePurposeRule>> = {
   // No SVG: it can carry code that would run wherever the logo is shown.
   operator_logo: {
@@ -59,12 +69,22 @@ export const FILE_PURPOSE_RULES: Readonly<Record<FilePurpose, FilePurposeRule>> 
   },
   vehicle_document: {
     area: "general",
-    contentTypes: [
-      FILE_CONTENT_TYPES.pdf,
-      FILE_CONTENT_TYPES.jpeg,
-      FILE_CONTENT_TYPES.png,
-      FILE_CONTENT_TYPES.webp,
-    ],
+    contentTypes: DOCUMENT_CONTENT_TYPES,
+    maxBytes: 10 * BYTES_PER_MEGABYTE,
+    describedAs: "a PDF or image up to 10 MB",
+  },
+  // Rego papers, insurance certificates, receipts.
+  vehicle_attachment: {
+    area: "general",
+    contentTypes: DOCUMENT_CONTENT_TYPES,
+    maxBytes: 10 * BYTES_PER_MEGABYTE,
+    describedAs: "a PDF or image up to 10 MB",
+  },
+  // Purchase and sale papers: they usually show someone's licence and date
+  // of birth, so they are kept with identity documents (rule 8).
+  vehicle_identity_attachment: {
+    area: "identity",
+    contentTypes: DOCUMENT_CONTENT_TYPES,
     maxBytes: 10 * BYTES_PER_MEGABYTE,
     describedAs: "a PDF or image up to 10 MB",
   },

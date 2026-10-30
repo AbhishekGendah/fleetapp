@@ -84,6 +84,7 @@ export const ACTIVITY_ACTIONS = {
   passwordReset: "password_reset",
   updated: "updated",
   uploaded: "uploaded",
+  viewed: "viewed",
   refused: "refused",
   deleted: "deleted",
   purged: "purged",

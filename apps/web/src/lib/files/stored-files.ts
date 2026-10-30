@@ -11,7 +11,7 @@ import { recordActivity } from "@fleetapp/db/activity";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, files } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, type SQL } from "drizzle-orm";
 
 import type { FileStorage, UploadPermission } from "../storage/file-storage";
 
@@ -43,6 +43,11 @@ export interface FileLinks {
   vehicleId?: string;
   label?: string;
   thumbnailOfFileId?: string;
+  registrationId?: string;
+  policyId?: string;
+  costId?: string;
+  purchaseId?: string;
+  saleId?: string;
 }
 
 export type UploadRequestResult =
@@ -53,7 +58,7 @@ export function logFile(
   tx: AnyTransaction,
   actor: FileActor,
   fileId: string,
-  action: "uploaded" | "refused" | "deleted",
+  action: "uploaded" | "refused" | "deleted" | "viewed",
   purpose: FilePurpose,
 ): Promise<void> {
   return recordActivity(tx, {
@@ -223,4 +228,25 @@ export async function findLogoViewUrl(
     return null;
   }
   return deps.storage.createViewUrl(logo.storageArea, logo.objectKey);
+}
+
+/**
+ * Every file of these kinds belonging to something, removed ones too, so
+ * its Log can show their uploads, openings and removals.
+ */
+export async function listLoggedFileIds(
+  database: FileDependencies["database"],
+  operatorId: string,
+  belongingTo: SQL,
+  purposes: readonly FilePurpose[],
+): Promise<string[]> {
+  const rows = await withTenant(database, operatorId, (tx) =>
+    tx
+      .select({ id: files.id })
+      .from(files)
+      .where(
+        and(eq(files.operatorId, operatorId), belongingTo, inArray(files.purpose, [...purposes])),
+      ),
+  );
+  return rows.map((row) => row.id);
 }

@@ -37,3 +37,8 @@ export const NEW_POLICY_PATH = `${INSURANCE_PATH}/new`;
 export function policyPath(policyId: string): string {
   return `${INSURANCE_PATH}/${policyId}`;
 }
+
+/** Opens an attachment through a short-lived link, after checking who asks (and logging papers). */
+export function attachmentPath(fileId: string): string {
+  return `/attachments/${fileId}`;
+}

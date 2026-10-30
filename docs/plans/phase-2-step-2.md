@@ -1,6 +1,6 @@
 # Phase 2 step 2 plan — car paperwork, costs and photos
 
-Status: approved. 2a, 2b and 2c part 1 built; 2c part 2 next. Detail for step 2 of
+Status: approved. 2a, 2b and 2c built. Detail for step 2 of
 docs/plans/phase-2.md. Built and deployed in three parts (2a, 2b, 2c),
 each tested on the dev site before the next.
 

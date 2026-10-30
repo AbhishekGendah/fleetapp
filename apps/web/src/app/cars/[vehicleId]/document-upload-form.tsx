@@ -7,39 +7,21 @@ import { useDialogClose } from "@fleetapp/ui/form-dialog";
 import { FormField } from "@fleetapp/ui/form-field";
 import { FormError } from "@fleetapp/ui/form-message";
 import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
-import { shrinkImage } from "@fleetapp/ui/shrink-image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { SEND_FAILED_MESSAGE, sendToStorage } from "../../../lib/files/send-to-storage";
+import { sendPaper } from "../../../lib/files/send-paper";
 import { finishCarDocumentUploadAction, startCarDocumentUploadAction } from "./file-actions";
 
 const DOCUMENT_RULE = FILE_PURPOSE_RULES.vehicle_document;
 const CHOOSE_FILE_MESSAGE = "Choose a file.";
-const UNREADABLE_MESSAGE = "This image could not be opened here. Save it as a PDF and try again.";
 
-/** Images are shrunk on the phone like photos (rule 21); PDFs go as they are. */
-async function prepared(file: File): Promise<Blob | null> {
-  return file.type.startsWith("image/") ? shrinkImage(file) : file;
-}
-
-async function sendDocument(vehicleId: string, label: string, file: File): Promise<string | null> {
-  const upload = await prepared(file);
-  if (!upload) {
-    return UNREADABLE_MESSAGE;
-  }
-  const start = await startCarDocumentUploadAction(vehicleId, {
-    label,
-    contentType: upload.type,
-    sizeBytes: upload.size,
-  });
-  if (start.status === "refused") {
-    return start.message;
-  }
-  if (!(await sendToStorage(start.permission, upload))) {
-    return SEND_FAILED_MESSAGE;
-  }
-  return finishCarDocumentUploadAction(vehicleId, start.fileId);
+function sendDocument(vehicleId: string, label: string, file: File): Promise<string | null> {
+  return sendPaper(
+    file,
+    (planned) => startCarDocumentUploadAction(vehicleId, { label, ...planned }),
+    (fileId) => finishCarDocumentUploadAction(vehicleId, fileId),
+  );
 }
 
 /** "Add a document": a name and a PDF or image. Saving closes the pop-up. */

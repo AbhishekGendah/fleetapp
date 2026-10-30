@@ -22,7 +22,7 @@ export interface CarCosts {
   /** Current costs, newest first. */
   costs: Cost[];
   totals: CarMoneyTotals;
-  /** Every purchase, sale and cost ever recorded, cancelled and removed ones too: for History. */
+  /** Every purchase, sale and cost ever recorded, cancelled and removed ones too: for the Log. */
   historyIds: { purchaseIds: string[]; saleIds: string[]; costIds: string[] };
 }
 

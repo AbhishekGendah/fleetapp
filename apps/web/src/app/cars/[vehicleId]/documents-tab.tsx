@@ -28,8 +28,10 @@ export async function DocumentsTab({
       <CardHeader>
         <CardTitle>Documents</CardTitle>
         <CardDescription>
-          PDFs or images: inspection reports, service books and the like. Rego papers and receipts
-          can also go here until they can be attached to their own records.
+          PDFs or images: inspection reports, service books and the like. Rego papers, insurance
+          papers and receipts attach to their own record instead. Anything showing someone's
+          licence, such as a transfer form, goes on the purchase or sale, where it is kept
+          privately.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">

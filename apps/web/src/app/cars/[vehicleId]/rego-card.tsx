@@ -13,6 +13,9 @@ import type { ExpiryContext } from "../../../lib/vehicles/expiry-columns";
 import { emptyRegoForm } from "../../../lib/vehicles/paperwork-input";
 import type { Registration } from "../../../lib/vehicles/paperwork-queries";
 import type { VehicleDetail } from "../../../lib/vehicles/vehicle-queries";
+import type { Attachment } from "../../../lib/files/attachments";
+import { carPath } from "../../../lib/paths";
+import { Attachments } from "../attachments";
 import { RegoExpiry } from "../expiry-date";
 import { RegoForm } from "../rego-form";
 import { removeRegoAction, addRegoAction, stopDirectDebitAction } from "./paperwork-actions";
@@ -50,7 +53,12 @@ function datesText(registration: Registration): string {
   return [started, stopped].filter(Boolean).join(", ");
 }
 
-function RegoLine(props: { vehicle: VehicleDetail; registration: Registration; today: string }) {
+function RegoLine(props: {
+  vehicle: VehicleDetail;
+  registration: Registration;
+  today: string;
+  attachments: readonly Attachment[];
+}) {
   const { vehicle, registration } = props;
   const isEditable = vehicle.archivedAt === null;
   return (
@@ -61,6 +69,12 @@ function RegoLine(props: { vehicle: VehicleDetail; registration: Registration; t
           {datesText(registration)}
         </p>
         <p className="text-muted-foreground text-xs">{amountText(registration)}</p>
+        <Attachments
+          target={{ kind: "registration", id: registration.id }}
+          attachments={props.attachments}
+          isEditable={isEditable}
+          pagePath={carPath(vehicle.id)}
+        />
       </div>
       {isEditable ? (
         <div className="flex flex-wrap gap-2">
@@ -91,6 +105,7 @@ export function RegoCard(props: {
   registrations: readonly Registration[];
   expiry: ExpiryContext;
   isGstRegistered: boolean;
+  attachments: readonly Attachment[];
 }) {
   const { vehicle, expiry } = props;
   const registrations = inCurrentOrder(props.registrations);
@@ -120,6 +135,7 @@ export function RegoCard(props: {
                 vehicle={vehicle}
                 registration={registration}
                 today={expiry.today}
+                attachments={props.attachments}
               />
             ))}
           </ul>

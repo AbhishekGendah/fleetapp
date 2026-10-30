@@ -10,6 +10,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
   type AnyPgColumn,
@@ -57,6 +58,7 @@ export const vehiclePurchases = pgTable(
   },
   (table) => [
     carLink("vehicle_purchases", table),
+    unique("vehicle_purchases_id_operator_unique").on(table.id, table.operatorId),
     uniqueIndex("vehicle_purchases_one_per_car").on(table.operatorId, table.vehicleId),
     // A private seller charges no GST.
     check(
@@ -96,6 +98,7 @@ export const vehicleSales = pgTable(
   },
   (table) => [
     carLink("vehicle_sales", table),
+    unique("vehicle_sales_id_operator_unique").on(table.id, table.operatorId),
     uniqueIndex("vehicle_sales_one_active_per_car")
       .on(table.operatorId, table.vehicleId)
       .where(sql`${table.cancelledAt} is null`),
@@ -121,6 +124,7 @@ export const vehicleCosts = pgTable(
   },
   (table) => [
     carLink("vehicle_costs", table),
+    unique("vehicle_costs_id_operator_unique").on(table.id, table.operatorId),
     index("vehicle_costs_vehicle_idx").on(table.operatorId, table.vehicleId, table.incurredOn),
     ...amountChecks("vehicle_costs", table.costCents, table.gstCents),
   ],

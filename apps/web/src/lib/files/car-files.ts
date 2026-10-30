@@ -12,6 +12,7 @@ import { and, count, desc, eq, inArray, isNotNull, isNull, like, or } from "driz
 
 import { findCurrentVehicle } from "../vehicles/current-vehicle";
 import {
+  listLoggedFileIds,
   logFile,
   requestUpload,
   type FileActor,
@@ -285,23 +286,16 @@ export async function removeCarFile(
   });
 }
 
-/** Every photo and document the car has had, removed ones too: for its Log. */
+/** Every photo, document and attachment the car has had, removed ones too: for its Log. */
 export async function listCarFileIds(
   database: FileDependencies["database"],
   operatorId: string,
   vehicleId: string,
 ): Promise<string[]> {
-  const rows = await withTenant(database, operatorId, (tx) =>
-    tx
-      .select({ id: files.id })
-      .from(files)
-      .where(
-        and(
-          eq(files.operatorId, operatorId),
-          eq(files.vehicleId, vehicleId),
-          inArray(files.purpose, ["vehicle_photo", "vehicle_document"]),
-        ),
-      ),
-  );
-  return rows.map((row) => row.id);
+  return listLoggedFileIds(database, operatorId, eq(files.vehicleId, vehicleId), [
+    "vehicle_photo",
+    "vehicle_document",
+    "vehicle_attachment",
+    "vehicle_identity_attachment",
+  ]);
 }

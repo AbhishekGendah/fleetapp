@@ -80,6 +80,7 @@ export const vehicleRegistrations = pgTable(
       columns: [table.vehicleId, table.operatorId],
       foreignColumns: [vehicles.id, vehicles.operatorId],
     }),
+    unique("vehicle_registrations_id_operator_unique").on(table.id, table.operatorId),
     // The same renewal (car and expiry) is recorded once.
     uniqueIndex(REGO_RENEWAL_UNIQUE_INDEX)
       .on(table.operatorId, table.vehicleId, table.expiresOn)

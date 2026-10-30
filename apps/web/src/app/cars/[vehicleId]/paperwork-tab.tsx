@@ -10,9 +10,11 @@ import Link from "next/link";
 
 import { ActionButton } from "@fleetapp/ui/action-button";
 import { ChooseAndApply } from "@fleetapp/ui/choose-and-apply";
+import { listAttachments, type Attachment } from "../../../lib/files/attachments";
+import { Attachments } from "../attachments";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { appDb } from "../../../lib/app-db";
-import { INSURANCE_PATH, policyPath } from "../../../lib/paths";
+import { carPath, INSURANCE_PATH, policyPath } from "../../../lib/paths";
 import type { SignedInUser } from "../../../lib/require-user";
 import type { ExpiryContext } from "../../../lib/vehicles/expiry-columns";
 import { loadExpiryContext } from "../../../lib/vehicles/expiry-context";
@@ -35,7 +37,12 @@ import {
   removeRegoAction,
 } from "./paperwork-actions";
 
-function PolicyLine(props: { vehicle: VehicleDetail; policy: Policy; expiry: ExpiryContext }) {
+function PolicyLine(props: {
+  vehicle: VehicleDetail;
+  policy: Policy;
+  expiry: ExpiryContext;
+  attachments: readonly Attachment[];
+}) {
   const { vehicle, policy, expiry } = props;
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
@@ -53,6 +60,12 @@ function PolicyLine(props: { vehicle: VehicleDetail; policy: Policy; expiry: Exp
             status={expiryStatus(policy.endsOn, expiry.today, expiry.warningDays)}
           />
         </p>
+        <Attachments
+          target={{ kind: "policy", id: policy.id }}
+          attachments={props.attachments}
+          isEditable={vehicle.archivedAt === null}
+          pagePath={carPath(vehicle.id)}
+        />
       </div>
       {vehicle.archivedAt === null ? (
         <ActionButton
@@ -73,6 +86,7 @@ function InsuranceCard(props: {
   policiesToJoin: readonly Policy[];
   expiry: ExpiryContext;
   isGstRegistered: boolean;
+  attachments: readonly Attachment[];
 }) {
   const { vehicle, policies, policiesToJoin, expiry } = props;
   const isEditable = vehicle.archivedAt === null;
@@ -91,7 +105,13 @@ function InsuranceCard(props: {
         {policies.length === 0 ? null : (
           <ul className="flex flex-col divide-y">
             {policies.map((policy) => (
-              <PolicyLine key={policy.id} vehicle={vehicle} policy={policy} expiry={expiry} />
+              <PolicyLine
+                key={policy.id}
+                vehicle={vehicle}
+                policy={policy}
+                expiry={expiry}
+                attachments={props.attachments}
+              />
             ))}
           </ul>
         )}
@@ -135,6 +155,10 @@ export async function PaperworkTab({
     loadVehiclePaperwork(appDb, user.operatorId, vehicle.id),
     listPoliciesToJoin(appDb, user.operatorId, vehicle.id, expiry.today),
   ]);
+  const attachments = await listAttachments(appDb, user.operatorId, {
+    vehicleId: vehicle.id,
+    policyIds: paperwork.policies.map((policy) => policy.id),
+  });
   return (
     <>
       <RegoCard
@@ -142,6 +166,7 @@ export async function PaperworkTab({
         registrations={paperwork.registrations}
         expiry={expiry}
         isGstRegistered={user.isGstRegistered}
+        attachments={attachments}
       />
       <InsuranceCard
         vehicle={vehicle}
@@ -149,6 +174,7 @@ export async function PaperworkTab({
         policiesToJoin={policiesToJoin}
         expiry={expiry}
         isGstRegistered={user.isGstRegistered}
+        attachments={attachments}
       />
     </>
   );

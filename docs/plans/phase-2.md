@@ -1,6 +1,6 @@
 # Phase 2 plan — Vehicles and Renters
 
-Status: approved. Step 1 (cars) built.
+Status: approved. Slices 1 (cars) and 2 (paperwork, costs, photos) built.
 
 Phase 2 gives Operators their two core records: cars and Renters. Rentals
 (Phase 3) and money (Phase 4) build on them. Five slices, each deployed

@@ -78,7 +78,7 @@ of service) and the countries.
   log with the time and the kind of device. The privacy policy should
   say what is logged and for how long.
 
-## Stored files (logo, car photos and documents built)
+## Stored files (logo, car photos, documents and attachments built)
 
 - Files are stored with Amazon S3 in Sydney (an American company; already
   in the overseas table). Both buckets are private; files are only ever
@@ -99,9 +99,14 @@ of service) and the countries.
   use only the rego, date and a number.
 - **Car documents** are named by the Operator; the name is kept, the
   file's own name is not. A document showing someone's licence or identity
-  (e.g. a transfer form) belongs on the purchase or sale (part 2c-2, kept
-  in the separate identity storage), not here; say so in the help text
-  when that part is built.
+  (e.g. a transfer form) belongs on the purchase or sale, not here; the
+  Documents tab says so.
+- **Attachments** on rego, insurance and costs go in the ordinary storage.
+  Papers attached to a purchase or sale go in the separate identity
+  storage (rule 8), as they usually show the other person's licence and
+  date of birth. Every opening of one is written to the car's Log with who
+  opened it. Admins cannot open any of them. Attachment names use only the
+  rego, what the record is and a number, never the other person's name.
 - **Before go-live:** each bucket's own clean-up rule keeps an old copy
   for another 30 days after the app removes a file, so a file can last
   about 60 days in all. Fine for dev (no personal data). The production
@@ -180,9 +185,11 @@ of service) and the countries.
 - **Record keeping:** purchase and sale details and costs are tax records
   (5 years). Removing a cost or cancelling a sale only hides it; the record
   stays.
-- **Transfer papers and receipts** are not uploaded yet (2c). When they
-  are, they go in the private identity storage, as they usually show the
-  other person's licence and date of birth (rule 8).
+- **Transfer papers and receipts** attach to the purchase or sale and go in
+  the private identity storage (rule 8). They are tax records too: removing
+  one hides it and keeps it 30 days, so keep a copy elsewhere if it is the
+  only one. Decide with the accountant whether removal should be blocked
+  for 5 years instead.
 
 ## Business details (already built)
 

@@ -20,14 +20,21 @@ const UNIQUE_VIOLATION = "23505";
 function carFileRow(
   operatorId: string,
   purpose: FilePurpose,
-  links: { vehicleId?: string; label?: string; thumbnailOfFileId?: string },
+  links: {
+    vehicleId?: string;
+    label?: string;
+    thumbnailOfFileId?: string;
+    costId?: string;
+    saleId?: string;
+    policyId?: string;
+  },
 ) {
   const id = randomUUID();
   return {
     id,
     operatorId,
     purpose,
-    storageArea: "general" as const,
+    storageArea: "general" as "general" | "identity",
     objectKey: buildFileKey(operatorId, purpose, id),
     contentType: "image/jpeg",
     sizeBytes: 1000,
@@ -110,5 +117,95 @@ describe("car photos and documents", () => {
           carFileRow(operatorAId, "vehicle_document", { vehicleId: carAId, label: "Report" }),
         ),
     );
+  });
+
+  describe("attachments", () => {
+    let costAId: string;
+    let costBId: string;
+    let saleAId: string;
+
+    async function addCost(operatorId: string, vehicleId: string): Promise<string> {
+      const [cost] = await withTenant(web.db, operatorId, (tx) =>
+        tx
+          .insert(schema.vehicleCosts)
+          .values({
+            operatorId,
+            vehicleId,
+            incurredOn: "2026-10-30",
+            kind: "repair",
+            description: "Tyres",
+            costCents: 11_000,
+            gstCents: 1_000,
+          })
+          .returning({ id: schema.vehicleCosts.id }),
+      );
+      return cost!.id;
+    }
+
+    beforeAll(async () => {
+      costAId = await addCost(operatorAId, carAId);
+      costBId = await addCost(operatorBId, carBId);
+      const [sale] = await withTenant(web.db, operatorAId, (tx) =>
+        tx
+          .insert(schema.vehicleSales)
+          .values({
+            operatorId: operatorAId,
+            vehicleId: carAId,
+            soldAt: new Date(),
+            priceCents: 100,
+            buyerName: "Test Buyer",
+            buyerPhone: "0412 345 678",
+            buyerAddress: "1 Test St",
+          })
+          .returning({ id: schema.vehicleSales.id }),
+      );
+      saleAId = sale!.id;
+    });
+
+    const insertAsA = (row: ReturnType<typeof carFileRow>) =>
+      postgresErrorCodeOf(
+        withTenant(web.db, operatorAId, (tx) => tx.insert(schema.files).values(row)),
+      );
+
+    it("cannot attach to another Operator's record", async () => {
+      expect(
+        await insertAsA(
+          carFileRow(operatorAId, "vehicle_attachment", {
+            vehicleId: carAId,
+            costId: costBId,
+            label: "Receipt 1",
+          }),
+        ),
+      ).toBe(FOREIGN_KEY_VIOLATION);
+    });
+
+    it("keeps sale and purchase papers as identity attachments, and nothing else", async () => {
+      const wrongKinds = [
+        carFileRow(operatorAId, "vehicle_attachment", {
+          vehicleId: carAId,
+          saleId: saleAId,
+          label: "Sale 1",
+        }),
+        carFileRow(operatorAId, "vehicle_identity_attachment", {
+          vehicleId: carAId,
+          costId: costAId,
+          label: "Receipt 1",
+        }),
+        carFileRow(operatorAId, "vehicle_attachment", { vehicleId: carAId, label: "Nothing 1" }),
+      ];
+      for (const row of wrongKinds) {
+        expect(await insertAsA(row)).toBe(CHECK_VIOLATION);
+      }
+      expect(
+        await insertAsA({
+          ...carFileRow(operatorAId, "vehicle_identity_attachment", {
+            vehicleId: carAId,
+            saleId: saleAId,
+            label: "Sale 1",
+          }),
+          storageArea: "identity",
+        }),
+      ).toBeUndefined();
+    });
   });
 });
