@@ -301,13 +301,19 @@
   login filled in by the browser (Firefox) is no longer refused and cleared;
   the button says Sign in (both apps); the code boxes' cursor blinks; Car
   models' add forms sit above the lists. Admin "remember this device" left
-  off on purpose (Admins reach every Operator), pending Abhi's decision.
+  off on purpose (Admins reach every Operator).
+- **Admin sign-in time limits relaxed while testing** (Abhi's request): two
+  weeks idle and 30 days at most, instead of 30 minutes and 8 hours. Must be
+  restored before launch, with a full security review: see
+  docs/launch-checklist.md, which now gathers every before-launch item.
 
 ## Next
 Phase 2 step 2b: purchase, sale (buyer details, transfer papers) and other
 costs. Then 2c: photos and documents.
 
 ## Open items
+- **Before launch: docs/launch-checklist.md** (relaxed admin sign-in, full
+  security review, production settings, legal).
 - Production buckets (before go-live): set the bucket clean-up rule for
   old copies to 7 days, not 30, so deleted files are gone ~30 days after
   deletion. See docs/legal-notes.md.

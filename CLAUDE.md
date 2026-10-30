@@ -175,6 +175,8 @@ Never use "client", "customer" or "tenant" for these in code.
   starting each task, and treat an Issue as work to raise. If the Google
   Sheets connector is not available, list the new and changed rows in the
   end-of-task summary for Abhi to paste in.
+- Anything relaxed or put off "until launch" goes in
+  docs/launch-checklist.md in the same task.
 - At the end of every task, give Abhi a short plain-English summary:
   what changed, how to test it on the live dev site, and anything he
   needs to decide.

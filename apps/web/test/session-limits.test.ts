@@ -1,5 +1,6 @@
 import {
   ADMIN_SESSION,
+  ADMIN_SESSION_AT_LAUNCH,
   hasReachedSessionLimit,
   signInNotice,
   SIGNED_OUT_REASON_PARAM,
@@ -16,7 +17,11 @@ function after(seconds: number): Date {
 }
 
 describe("the hard limit on a sign-in", () => {
-  it("ends an Admin's sign-in at 8 hours, however active", () => {
+  it("keeps the approved Admin limits for launch: 30 minutes idle, 8 hours at most", () => {
+    expect(ADMIN_SESSION_AT_LAUNCH).toMatchObject({ idleSeconds: 30 * 60, maxAgeSeconds: 8 * 60 * 60 });
+  });
+
+  it("ends an Admin's sign-in at its hard limit, however active", () => {
     const limit = ADMIN_SESSION.maxAgeSeconds;
     expect(hasReachedSessionLimit(SIGNED_IN_AT, after(limit - 1), limit)).toBe(false);
     expect(hasReachedSessionLimit(SIGNED_IN_AT, after(limit), limit)).toBe(true);
@@ -37,7 +42,7 @@ describe("the hard limit on a sign-in", () => {
 describe("the sign-in page's notice", () => {
   it("explains a time-limit sign-out, and says nothing otherwise", () => {
     const params = { [SIGNED_OUT_REASON_PARAM]: SIGNED_OUT_TIME_LIMIT };
-    expect(signInNotice(params, ADMIN_SESSION)).toContain("8 hours");
+    expect(signInNotice(params, ADMIN_SESSION_AT_LAUNCH)).toContain("8 hours");
     expect(signInNotice({}, ADMIN_SESSION)).toBeUndefined();
     expect(
       signInNotice({ [SIGNED_OUT_REASON_PARAM]: "something-else" }, USER_SESSION),

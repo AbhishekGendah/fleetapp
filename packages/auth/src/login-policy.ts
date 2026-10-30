@@ -64,7 +64,7 @@ export const BREACHED_PASSWORD_WARNING =
  * phone all day, so a short timeout would make the app painful; their
  * authenticator and the new-device email protect them.
  * Admins: 30 minutes without use, and 8 hours at most. An Admin reaches
- * every Operator.
+ * every Operator. (Relaxed while testing: see ADMIN_SESSION below.)
  */
 export const USER_SESSION = {
   idleSeconds: 7 * SECONDS_PER_DAY,
@@ -74,12 +74,32 @@ export const USER_SESSION = {
   maxAgeWords: "30 days",
 } as const;
 
-export const ADMIN_SESSION = {
+/** The approved Admin limits, to be used again at launch. */
+export const ADMIN_SESSION_AT_LAUNCH = {
   idleSeconds: 30 * SECONDS_PER_MINUTE,
   refreshSeconds: 5 * SECONDS_PER_MINUTE,
   maxAgeSeconds: 8 * SECONDS_PER_HOUR,
   maxAgeWords: "8 hours",
 } as const;
+
+/**
+ * TODO(before launch): set this back to ADMIN_SESSION_AT_LAUNCH. Relaxed on
+ * Abhi's request (30 Oct 2026) while he tests every day: two weeks without
+ * use and 30 days at most, as for Users. Listed in docs/launch-checklist.md.
+ */
+const ADMIN_SESSION_WHILE_TESTING = {
+  idleSeconds: 14 * SECONDS_PER_DAY,
+  refreshSeconds: SECONDS_PER_DAY,
+  maxAgeSeconds: 30 * SECONDS_PER_DAY,
+  maxAgeWords: "30 days",
+} as const;
+
+export const ADMIN_SESSION: {
+  idleSeconds: number;
+  refreshSeconds: number;
+  maxAgeSeconds: number;
+  maxAgeWords: string;
+} = ADMIN_SESSION_WHILE_TESTING;
 
 /** True once a sign-in is older than its hard limit, however active it has been. */
 export function hasReachedSessionLimit(
