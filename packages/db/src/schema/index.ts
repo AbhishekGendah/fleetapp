@@ -15,3 +15,4 @@ export * from "./users";
 export * from "./vehicles";
 export * from "./vehicle-paperwork";
 export * from "./vehicle-catalogue";
+export * from "./vehicle-costs";

@@ -1,0 +1,63 @@
+"use client";
+
+import { Button } from "@fleetapp/ui/button";
+import { INITIAL_CHANGE_STATE, type ChangeFormState } from "@fleetapp/ui/change-form-state";
+import { FormResult } from "@fleetapp/ui/form-result";
+import { RequiredFieldsNote } from "@fleetapp/ui/input";
+import { useFormFields, type FieldErrors, type FormFields } from "@fleetapp/ui/use-form-fields";
+import { useActionState } from "react";
+
+type ChangeAction = (state: ChangeFormState, formData: FormData) => Promise<ChangeFormState>;
+
+interface ChangeFormOptions<Field extends string> {
+  action: ChangeAction;
+  fields: readonly Field[];
+  initialValues: Readonly<Record<Field, string>>;
+  validate: (values: Readonly<Record<Field, string>>) => FieldErrors<Field>;
+  isRequired: (field: Field) => boolean;
+}
+
+export interface ChangeForm<Field extends string> {
+  fields: FormFields<Field>;
+  state: ChangeFormState;
+  formAction: (formData: FormData) => void;
+  isPending: boolean;
+}
+
+/** A small form on a car's page that saves through a server action and shows its answer. */
+export function useChangeForm<Field extends string>(
+  options: ChangeFormOptions<Field>,
+): ChangeForm<Field> {
+  const [state, formAction, isPending] = useActionState(options.action, INITIAL_CHANGE_STATE);
+  const fields = useFormFields({
+    fields: options.fields,
+    initialValues: options.initialValues,
+    validate: options.validate,
+    isRequired: (field) => options.isRequired(field),
+  });
+  return { fields, state, formAction, isPending };
+}
+
+/** The frame those forms share: required note, the answer, and the save button. */
+export function ChangeFormShell<Field extends string>(props: {
+  form: ChangeForm<Field>;
+  submitLabel: string;
+  children: React.ReactNode;
+}) {
+  const { fields, state, formAction, isPending } = props.form;
+  return (
+    <form
+      action={formAction}
+      onSubmit={fields.submitHandler(formAction)}
+      noValidate
+      className="flex flex-col gap-4"
+    >
+      <RequiredFieldsNote />
+      {props.children}
+      {fields.isResultShown && !isPending ? <FormResult state={state} /> : null}
+      <Button type="submit" disabled={isPending} className="sm:self-start">
+        {isPending ? "Saving…" : props.submitLabel}
+      </Button>
+    </form>
+  );
+}

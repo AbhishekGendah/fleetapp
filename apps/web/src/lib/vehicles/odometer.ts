@@ -4,6 +4,7 @@ import {
   ACTIVITY_ENTITY_TYPES,
   odometerReadings,
   type ActivityAction,
+  type OdometerSource,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, desc, eq, isNull } from "drizzle-orm";
@@ -36,14 +37,16 @@ function logReadingActivity(
 }
 
 /**
- * Adds a reading of what the odometer shows now, inside the caller's
- * transaction, and logs it. The caller checks the car is the Operator's.
+ * Adds a reading, inside the caller's transaction, and logs it: by default
+ * what the odometer shows now, typed by the User. The caller checks the car
+ * is the Operator's.
  */
 export async function addReading(
   tx: AnyTransaction,
   actor: ActingUser,
   vehicleId: string,
   kilometres: number,
+  seen: { recordedAt: Date; source: OdometerSource } = { recordedAt: new Date(), source: "manual" },
 ): Promise<void> {
   const [reading] = await tx
     .insert(odometerReadings)
@@ -51,8 +54,8 @@ export async function addReading(
       operatorId: actor.operatorId,
       vehicleId,
       kilometres,
-      recordedAt: new Date(),
-      source: "manual",
+      recordedAt: seen.recordedAt,
+      source: seen.source,
       recordedByUserId: actor.userId,
     })
     .returning({ id: odometerReadings.id });
@@ -97,22 +100,29 @@ export async function withdrawOdometerReading(
   actor: ActingUser,
   readingId: string,
 ): Promise<"withdrawn" | "not_found"> {
-  return withTenant(database, actor.operatorId, async (tx) => {
-    const [withdrawn] = await tx
-      .update(odometerReadings)
-      .set({ withdrawnAt: new Date() })
-      .where(
-        and(
-          eq(odometerReadings.id, readingId),
-          eq(odometerReadings.operatorId, actor.operatorId),
-          isNull(odometerReadings.withdrawnAt),
-        ),
-      )
-      .returning({ id: odometerReadings.id });
-    if (!withdrawn) {
-      return "not_found";
-    }
-    await logReadingActivity(tx, actor, readingId, ACTIVITY_ACTIONS.withdrawn);
-    return "withdrawn";
-  });
+  return withTenant(database, actor.operatorId, (tx) => withdrawReading(tx, actor, readingId));
+}
+
+/** As `withdrawOdometerReading`, inside the caller's transaction. */
+export async function withdrawReading(
+  tx: AnyTransaction,
+  actor: ActingUser,
+  readingId: string,
+): Promise<"withdrawn" | "not_found"> {
+  const [withdrawn] = await tx
+    .update(odometerReadings)
+    .set({ withdrawnAt: new Date() })
+    .where(
+      and(
+        eq(odometerReadings.id, readingId),
+        eq(odometerReadings.operatorId, actor.operatorId),
+        isNull(odometerReadings.withdrawnAt),
+      ),
+    )
+    .returning({ id: odometerReadings.id });
+  if (!withdrawn) {
+    return "not_found";
+  }
+  await logReadingActivity(tx, actor, readingId, ACTIVITY_ACTIONS.withdrawn);
+  return "withdrawn";
 }

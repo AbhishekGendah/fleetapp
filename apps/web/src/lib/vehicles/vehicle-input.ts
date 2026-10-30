@@ -47,6 +47,12 @@ const kilometresField = wholeNumber({
   message: "Enter the kilometres shown, as a whole number.",
 });
 
+/** As the odometer box, but blank is allowed and becomes null. */
+export const optionalKilometres = z
+  .string()
+  .transform((value) => (value.trim() === "" ? null : value))
+  .pipe(kilometresField.nullable());
+
 /**
  * A car's boxes on the add or edit form. Rego, state, make, model and year
  * are required: they are what identifies a car on a contract or a fine.

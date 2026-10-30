@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 
 import { failedState, type ChangeFormState } from "@fleetapp/ui/change-form-state";
 import type { ActingUser } from "./acting-user";
-import { requireUser } from "./require-user";
+import { requireUser, type SignedInUser } from "./require-user";
 
 const UNEXPECTED_ERROR_MESSAGE = "Something went wrong and nothing was saved. Try again.";
 
@@ -12,7 +12,8 @@ export interface UserChangeRun {
   description: string;
   /** The pages that show what changed, refreshed afterwards. */
   pagesToRefresh: readonly string[];
-  change: (actor: ActingUser) => Promise<ChangeFormState>;
+  /** `user` is there for what the change needs to know, such as the Operator's timezone. */
+  change: (actor: ActingUser, user: SignedInUser) => Promise<ChangeFormState>;
 }
 
 /**
@@ -23,7 +24,7 @@ export interface UserChangeRun {
 export async function runUserChange(run: UserChangeRun): Promise<ChangeFormState> {
   const user = await requireUser();
   try {
-    const state = await run.change({ userId: user.id, operatorId: user.operatorId });
+    const state = await run.change({ userId: user.id, operatorId: user.operatorId }, user);
     run.pagesToRefresh.forEach((path) => revalidatePath(path));
     return state;
   } catch (error) {

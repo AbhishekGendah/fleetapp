@@ -1,10 +1,8 @@
 import {
   AUSTRALIAN_STATE_CODES,
   checkGstRegistration,
-  formatAustralianPhone,
   isCalendarDate,
   isAustralianTimezone,
-  isValidAustralianPhone,
   isValidAbn,
   normaliseAbn,
   optionalLine,
@@ -12,6 +10,7 @@ import {
   requiredEmail,
   REQUIRED_MESSAGE,
   requiredLine,
+  requiredPhone,
 } from "@fleetapp/core";
 import { z } from "zod";
 
@@ -44,12 +43,7 @@ export const businessDetailsInputSchema = z
     suburb: requiredLine,
     state: z.enum(AUSTRALIAN_STATE_CODES, REQUIRED_MESSAGE),
     postcode: requiredLine.regex(POSTCODE_PATTERN, "A postcode is 4 digits."),
-    phone: requiredLine
-      .refine(
-        isValidAustralianPhone,
-        "Enter a full Australian number, e.g. 0412 345 678 or (08) 9123 4567.",
-      )
-      .transform(formatAustralianPhone),
+    phone: requiredPhone,
     email: requiredEmail,
     timezone: z.string().refine(isAustralianTimezone, "Choose a timezone."),
   })

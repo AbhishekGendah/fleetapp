@@ -1,4 +1,4 @@
-import { formatDateTimeInTimeZone } from "@fleetapp/core";
+import { formatDateTimeInTimeZone, WITHHELD_VALUE } from "@fleetapp/core";
 import { describeActivity } from "@fleetapp/db/activity";
 
 import type { HistoryEntry } from "../lib/record-history";
@@ -30,12 +30,17 @@ function ChangedFields(props: RecordHistoryProps & { entry: HistoryEntry }) {
   }
   return (
     <ul className="text-muted-foreground mt-1 text-xs">
-      {Object.keys(after).map((field) => (
-        <li key={field}>
-          {props.fieldLabel(field)}: {props.describeValue(field, before[field])} →{" "}
-          {props.describeValue(field, after[field])}
-        </li>
-      ))}
+      {Object.keys(after).map((field) =>
+        after[field] === WITHHELD_VALUE ? (
+          // A personal detail: the history says it changed, never what it was.
+          <li key={field}>{props.fieldLabel(field)} changed</li>
+        ) : (
+          <li key={field}>
+            {props.fieldLabel(field)}: {props.describeValue(field, before[field])} →{" "}
+            {props.describeValue(field, after[field])}
+          </li>
+        ),
+      )}
     </ul>
   );
 }

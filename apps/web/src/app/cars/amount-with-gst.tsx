@@ -28,6 +28,8 @@ interface AmountWithGstProps<Field extends string> {
   gstSource: GstSource;
   /** From business details. A business not registered for GST has no GST to claim back. */
   isGstRegistered: boolean;
+  /** False where the bill cannot include GST, e.g. a car bought from a private seller. */
+  isGstAllowed?: boolean;
 }
 
 function tenthOf(typedAmount: string): string {
@@ -49,9 +51,8 @@ export function AmountWithGst<Field extends string>(props: AmountWithGstProps<Fi
   const { form, amountField, gstField, gstSource } = props;
   const isTenthFilledIn = gstSource === "tenth_of_amount";
   // Decided once, from what the form opened with, so unticking does not make the box vanish.
-  const [isGstShown] = useState(
-    () => props.isGstRegistered || hasSavedGst(form.values[gstField]),
-  );
+  const [hadSavedGst] = useState(() => hasSavedGst(form.values[gstField]));
+  const isGstShown = (props.isGstAllowed ?? true) && (props.isGstRegistered || hadSavedGst);
   const [includesGst, setIncludesGst] = useState(() =>
     form.values[gstField] ? hasSavedGst(form.values[gstField]) : isGstShown && isTenthFilledIn,
   );

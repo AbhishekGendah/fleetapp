@@ -41,10 +41,11 @@ Status: ✅ done · 🔨 in progress · ⏳ not started. Last checked 30 Oct 202
 - Step 2 — Car paperwork, costs, photos (plan: docs/plans/phase-2-step-2.md)
   - 2a ✅ Rego renewals, insurance (single-car and fleet policies),
     "due soon" badges.
-  - 2b ⏳ Purchase, sale (buyer and seller details, transfer papers,
-    lodge-transfer reminder), other costs. **Next.**
-  - 2c ⏳ Photos and documents (incl. attachments for rego, insurance
-    and receipts).
+  - 2b ✅ Purchase, sale (buyer and seller details, lodge-transfer
+    reminder), other costs, Costs tab with totals. Transfer papers and
+    receipts are uploaded in 2c.
+  - 2c ⏳ Photos and documents (incl. attachments for rego, insurance,
+    receipts and purchase/sale transfer papers). **Next.**
 - Step 3 ⏳ Renters (licence, licence scans, "do not rent", duplicates).
   Also narrows what admins can see in the activity log (rule 5).
 - Step 4 ⏳ Renter links and self-onboarding.

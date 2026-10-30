@@ -1,11 +1,10 @@
-import { randomUUID } from "node:crypto";
-
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import * as schema from "../src/schema";
 import { withTenant } from "../src/tenant-context";
 import {
+  addTestCar,
   connectAs,
   POSTGRES_ERROR_CODES,
   postgresErrorCodeOf,
@@ -26,23 +25,6 @@ describe("car paperwork", () => {
   let carAId: string;
   let carBId: string;
   let policyBId: string;
-
-  async function addCar(operatorId: string): Promise<string> {
-    const [car] = await withTenant(web.db, operatorId, (tx) =>
-      tx
-        .insert(schema.vehicles)
-        .values({
-          operatorId,
-          rego: randomUUID().slice(0, 6).toUpperCase(),
-          regoState: "WA",
-          make: "Kia",
-          model: "Niro",
-          year: 2023,
-        })
-        .returning({ id: schema.vehicles.id }),
-    );
-    return car!.id;
-  }
 
   function regoRow(operatorId: string, vehicleId: string) {
     return {
@@ -73,8 +55,8 @@ describe("car paperwork", () => {
     web = connectAs(inject("webRoleUrl"));
     admin = connectAs(inject("adminRoleUrl"));
     ({ operatorAId, operatorBId } = await seedTwoOperators(admin.db));
-    carAId = await addCar(operatorAId);
-    carBId = await addCar(operatorBId);
+    carAId = await addTestCar(web.db, operatorAId);
+    carBId = await addTestCar(web.db, operatorBId);
     const [policy] = await withTenant(web.db, operatorBId, (tx) =>
       tx
         .insert(schema.insurancePolicies)

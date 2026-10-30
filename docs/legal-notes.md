@@ -150,6 +150,28 @@ of service) and the countries.
   recovery charged to Renters (Phase 3/4). Charging a Renter more than the
   contract allows is a consumer-law risk; check when that is built.
 
+## Purchase, sale and costs (Phase 2 step 2b, built)
+
+- **Sellers' and buyers' details are personal information** (the Privacy
+  Act applies even though they are not Renters): name, phone, address and
+  the buyer's licence number. Collected to prove when ownership changed and
+  to pass on a fine that arrives after a sale. The privacy policy and the
+  Operator terms should say so.
+- They stay inside the Operator's account. The admin app has no access to
+  the tables, and the history (which AGS staff can read) records only that
+  a detail changed, never the detail itself. Licence numbers are never
+  logged (rule 7).
+- **Transfer of ownership:** the sale screen reminds the Operator that fines
+  can still reach them until the transfer is lodged. The rules (who lodges,
+  by when, stamp duty) differ by state; check each when fines are built
+  (Phase 6).
+- **Record keeping:** purchase and sale details and costs are tax records
+  (5 years). Removing a cost or cancelling a sale only hides it; the record
+  stays.
+- **Transfer papers and receipts** are not uploaded yet (2c). When they
+  are, they go in the private identity storage, as they usually show the
+  other person's licence and date of birth (rule 8).
+
 ## Business details (already built)
 
 - An Operator's ABN, address, phone and email are business information,

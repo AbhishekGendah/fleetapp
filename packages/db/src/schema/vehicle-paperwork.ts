@@ -13,6 +13,7 @@ import {
   unique,
   uniqueIndex,
   uuid,
+  type CheckBuilder,
 } from "drizzle-orm/pg-core";
 
 import { auditColumns, primaryKeyColumn } from "./columns";
@@ -23,7 +24,11 @@ import { vehicles } from "./vehicles";
 export const insuranceCoverTypeEnum = pgEnum("insurance_cover_type", INSURANCE_COVER_TYPES);
 
 /** Money is whole cents, stored including GST, with its GST beside it (rule 9). */
-function amountChecks(prefix: string, cost: { name: string }, gst: { name: string }) {
+export function amountChecks(
+  prefix: string,
+  cost: { name: string },
+  gst: { name: string },
+): CheckBuilder[] {
   return [
     check(`${prefix}_cost_not_negative`, sql`${sql.identifier(cost.name)} >= 0`),
     // At most one eleventh, rounded: the GST inside a GST-inclusive price.

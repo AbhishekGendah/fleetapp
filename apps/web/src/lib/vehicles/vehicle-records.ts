@@ -193,19 +193,29 @@ export async function changeVehicleStatus(
   vehicleId: string,
   input: VehicleStatusInput,
 ): Promise<ChangeVehicleResult> {
-  return withTenant(database, actor.operatorId, async (tx) => {
-    const before = await lockVehicle(tx, actor.operatorId, vehicleId);
-    if (!before || before.archivedAt) {
-      return "not_found";
-    }
-    const changes = changedValues(before, input, STATUS_FIELDS);
-    if (!hasChanges(changes)) {
-      return "unchanged";
-    }
-    await tx.update(vehicles).set(input).where(eq(vehicles.id, vehicleId));
-    await logVehicleActivity(tx, actor, vehicleId, ACTIVITY_ACTIONS.statusChanged, changes);
-    return "changed";
-  });
+  return withTenant(database, actor.operatorId, (tx) =>
+    applyVehicleStatus(tx, actor, vehicleId, input),
+  );
+}
+
+/** As `changeVehicleStatus`, inside the caller's transaction: e.g. Sold, when a sale is saved. */
+export async function applyVehicleStatus(
+  tx: AnyTransaction,
+  actor: ActingUser,
+  vehicleId: string,
+  input: VehicleStatusInput,
+): Promise<ChangeVehicleResult> {
+  const before = await lockVehicle(tx, actor.operatorId, vehicleId);
+  if (!before || before.archivedAt) {
+    return "not_found";
+  }
+  const changes = changedValues(before, input, STATUS_FIELDS);
+  if (!hasChanges(changes)) {
+    return "unchanged";
+  }
+  await tx.update(vehicles).set(input).where(eq(vehicles.id, vehicleId));
+  await logVehicleActivity(tx, actor, vehicleId, ACTIVITY_ACTIONS.statusChanged, changes);
+  return "changed";
 }
 
 /**

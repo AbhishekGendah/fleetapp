@@ -1,6 +1,6 @@
 # Phase 2 step 2 plan — car paperwork, costs and photos
 
-Status: waiting for Abhi's approval (decisions 2 and 3 agreed, 4 changed at his request). Detail for step 2 of
+Status: approved. 2a and 2b built; 2c next. Detail for step 2 of
 docs/plans/phase-2.md. Built and deployed in three parts (2a, 2b, 2c),
 each tested on the dev site before the next.
 

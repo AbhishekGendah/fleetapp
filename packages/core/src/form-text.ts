@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { formatAustralianPhone, isValidAustralianPhone } from "./phone";
+
 export const MAXIMUM_LINE_LENGTH = 200;
 export const REQUIRED_MESSAGE = "Required.";
 export const INVALID_EMAIL_MESSAGE = "Enter a valid email address.";
@@ -27,6 +29,19 @@ export const optionalLine = singleLineText.transform((value) => (value === "" ? 
 
 /** Lower-cased, as the login system compares addresses that way. */
 export const requiredEmail = requiredLine.toLowerCase().pipe(z.email(INVALID_EMAIL_MESSAGE));
+
+export const INVALID_PHONE_MESSAGE =
+  "Enter a full Australian number, e.g. 0412 345 678 or (08) 9123 4567.";
+
+/** An Australian phone number, saved in its tidy written form. */
+export const requiredPhone = requiredLine
+  .refine(isValidAustralianPhone, INVALID_PHONE_MESSAGE)
+  .transform(formatAustralianPhone);
+
+/** As `requiredPhone`, but blank is allowed and becomes null. */
+export const optionalPhone = singleLineText
+  .transform((value) => (value === "" ? null : value))
+  .pipe(requiredPhone.nullable());
 
 /**
  * The named text fields of a submitted form, blank where missing. Only these:

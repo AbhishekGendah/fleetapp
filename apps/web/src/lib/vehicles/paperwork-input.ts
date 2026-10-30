@@ -4,8 +4,6 @@ import {
   centsForEditing,
   emptyForm,
   INSURANCE_COVER_TYPES,
-  isCalendarDate,
-  isPossibleGst,
   optionalDollars,
   REGO_TERMS_MONTHS,
   REQUIRED_MESSAGE,
@@ -14,30 +12,9 @@ import {
 } from "@fleetapp/core";
 import { z } from "zod";
 
-const DATE_MESSAGE = "Enter a date.";
-const GST_TOO_HIGH_MESSAGE = "GST cannot be more than a tenth of the GST-inclusive amount.";
+import { gstDollars, optionalDate, refineGstWithin, requiredDate } from "./amount-input";
 
-const requiredDate = z
-  .string()
-  .trim()
-  .min(1, REQUIRED_MESSAGE)
-  .refine(isCalendarDate, DATE_MESSAGE);
-
-const optionalDate = z
-  .string()
-  .trim()
-  .refine((value) => value === "" || isCalendarDate(value), DATE_MESSAGE)
-  .transform((value) => (value === "" ? null : value));
-
-/** Blank GST means none: the amount did not include GST. */
-const gstDollars = optionalDollars.transform((cents) => cents ?? 0);
-
-/** Every amount with GST: GST never more than the tenth inside the amount (rule 9). */
-function refineGst(input: { costCents: number; gstCents: number }, context: z.RefinementCtx): void {
-  if (!isPossibleGst(input.costCents, input.gstCents)) {
-    context.addIssue({ code: "custom", path: ["gstCents"], message: GST_TOO_HIGH_MESSAGE });
-  }
-}
+const refineGst = refineGstWithin("costCents");
 
 const REGO_TERM_TEXTS = REGO_TERMS_MONTHS.map(String) as [string, ...string[]];
 

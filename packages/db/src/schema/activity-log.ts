@@ -64,6 +64,9 @@ export const ACTIVITY_ENTITY_TYPES = {
   odometerReading: "odometer_reading",
   vehicleRegistration: "vehicle_registration",
   insurancePolicy: "insurance_policy",
+  vehiclePurchase: "vehicle_purchase",
+  vehicleSale: "vehicle_sale",
+  vehicleCost: "vehicle_cost",
 } as const;
 
 /** What happened to it. No free text at call sites. */
@@ -90,6 +93,7 @@ export const ACTIVITY_ACTIONS = {
   withdrawn: "withdrawn",
   vehicleAdded: "vehicle_added",
   vehicleRemoved: "vehicle_removed",
+  cancelled: "cancelled",
 } as const;
 
 export type ActivityEntityType = (typeof ACTIVITY_ENTITY_TYPES)[keyof typeof ACTIVITY_ENTITY_TYPES];

@@ -78,6 +78,13 @@
       "when": 1793324051174,
       "tag": "0010_vehicle_catalogue",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793331170247,
+      "tag": "0011_vehicle_costs",
+      "breakpoints": true
     }
   ]
 }

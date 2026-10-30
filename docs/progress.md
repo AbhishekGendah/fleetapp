@@ -317,9 +317,29 @@
   has GST, per WA Transport); insurance still prefills a tenth. A policy
   saved earlier with GST keeps showing it when edited.
 
+- **Phase 2 step 2b — purchase, sale and other costs** (plan:
+  docs/plans/phase-2-step-2.md):
+  - Costs tab on the car page: purchase (dealer or private seller, seller's
+    details, odometer at purchase as a reading), other costs (refurb,
+    repair, other; Remove), sale (handover time on the Operator's clock,
+    buyer's details, transfer lodged date and reference), and totals with
+    the difference excluding GST.
+  - Saving a sale sets the car to Sold and offers Archive; Cancel this sale
+    puts it back to Available. An amber "Transfer not lodged yet" note
+    shows until the lodged date is in.
+  - Migration 0011: `vehicle_purchases` (one per car), `vehicle_sales` (one
+    not cancelled per car), `vehicle_costs`; forced row-level security, no
+    deletes, no admin access, GST never above a tenth and none on a private
+    purchase, all checked in the database too.
+  - Buyers' and sellers' details never go into the history's values: it
+    says "Buyer's phone changed" only.
+  - Shared pieces: local time to UTC (daylight saving tested), shared phone
+    rule, shared date and GST rules, a small form frame for car forms.
+  - Moved to 2c: uploading transfer papers and receipts.
+
 ## Next
-Phase 2 step 2b: purchase, sale (buyer details, transfer papers) and other
-costs. Then 2c: photos and documents.
+Phase 2 step 2c: photos and documents, including transfer papers and
+receipts for 2a and 2b.
 
 ## Open items
 - **Before launch: docs/launch-checklist.md** (relaxed admin sign-in, full

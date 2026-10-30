@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import * as schema from "../src/schema";
+import { withTenant } from "../src/tenant-context";
 import type { TestDatabase } from "../src/testing/connect";
 
 export { connectAs, type TestConnection } from "../src/testing";
@@ -56,6 +57,24 @@ export async function seedTwoOperators(adminDb: TestDatabase): Promise<SeededOpe
   ]);
 
   return { operatorAId: operatorA.id, operatorBId: operatorB.id };
+}
+
+/** Adds a car for an Operator through the Operator app's role, with a made-up rego. */
+export async function addTestCar(webDb: TestDatabase, operatorId: string): Promise<string> {
+  const [car] = await withTenant(webDb, operatorId, (tx) =>
+    tx
+      .insert(schema.vehicles)
+      .values({
+        operatorId,
+        rego: randomUUID().slice(0, 6).toUpperCase(),
+        regoState: "WA",
+        make: "Kia",
+        model: "Niro",
+        year: 2023,
+      })
+      .returning({ id: schema.vehicles.id }),
+  );
+  return car!.id;
 }
 
 /**

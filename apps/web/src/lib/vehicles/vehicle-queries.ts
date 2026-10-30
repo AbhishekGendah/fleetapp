@@ -12,7 +12,7 @@ import {
   loadListPage,
   type DatabaseListRules,
 } from "@fleetapp/db/list-query";
-import { odometerReadings, vehicles } from "@fleetapp/db/schema";
+import { odometerReadings, vehicleSales, vehicles } from "@fleetapp/db/schema";
 import { qualified } from "@fleetapp/db/qualified";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, asc, count, eq, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
@@ -166,6 +166,8 @@ export interface OdometerReadingView {
 
 export type VehicleDetail = typeof vehicles.$inferSelect & {
   currentKilometres: number | null;
+  /** Sold, but the transfer is not lodged yet: fines can still reach the Operator. */
+  isTransferPending: boolean;
   /** Newest first. */
   readings: OdometerReadingView[];
 };
@@ -196,12 +198,24 @@ export async function loadVehicle(
       .from(odometerReadings)
       .where(eq(odometerReadings.vehicleId, vehicleId))
       .orderBy(asc(odometerReadings.recordedAt));
+    const [pendingTransfer] = await tx
+      .select({ id: vehicleSales.id })
+      .from(vehicleSales)
+      .where(
+        and(
+          eq(vehicleSales.operatorId, operatorId),
+          eq(vehicleSales.vehicleId, vehicleId),
+          isNull(vehicleSales.cancelledAt),
+          isNull(vehicleSales.transferLodgedOn),
+        ),
+      );
 
     const counted = readings.filter((reading) => reading.isVerified && !reading.withdrawnAt);
     const drops = findOdometerDrops(counted);
     return {
       ...vehicle,
       currentKilometres: counted.at(-1)?.kilometres ?? null,
+      isTransferPending: pendingTransfer !== undefined,
       readings: readings
         .map((reading) => ({ ...reading, isDrop: drops.has(reading.id) }))
         .reverse(),

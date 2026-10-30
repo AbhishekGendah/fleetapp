@@ -22,7 +22,9 @@ export async function CarHistoryCard(props: {
           entries={entries}
           timezone={props.user.operatorTimezone}
           fieldLabel={vehicleFieldLabel}
-          describeValue={describeVehicleValue}
+          describeValue={(field, value) =>
+            describeVehicleValue(field, value, props.user.operatorTimezone)
+          }
         />
       </CardContent>
     </Card>

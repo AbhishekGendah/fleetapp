@@ -37,3 +37,9 @@ export function addressFromComponents(components: readonly AddressComponent[]): 
     postcode: find("postal_code")?.shortText ?? "",
   };
 }
+
+/** A chosen address on one line, e.g. "3/12 Hay Street, Perth WA 6000", for a box that keeps it whole. */
+export function singleLineAddress(address: AddressParts): string {
+  const place = [address.suburb, address.state, address.postcode].filter(Boolean).join(" ");
+  return [address.addressLine1, place].filter(Boolean).join(", ");
+}
