@@ -126,6 +126,7 @@ export default async function PolicyPage(props: { params: Promise<{ policyId: st
               initialValues={policyFormValues(policy)}
               action={updatePolicyAction.bind(null, policy.id)}
               submitLabel="Save changes"
+              isGstRegistered={user.isGstRegistered}
             />
           </CardContent>
         </Card>

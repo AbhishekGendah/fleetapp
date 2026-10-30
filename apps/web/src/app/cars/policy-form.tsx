@@ -29,6 +29,7 @@ interface PolicyFormProps {
   submitLabel: string;
   /** On the new-policy page: the cars to choose from for a fleet policy. */
   carChoices?: readonly CoveredCar[];
+  isGstRegistered: boolean;
 }
 
 /** Adding or editing an insurance policy. */
@@ -95,7 +96,8 @@ export function PolicyForm(props: PolicyFormProps) {
           amountField="costCents"
           gstField="gstCents"
           amountLabel="Premium"
-          isGstUsuallyIncluded
+          gstSource="tenth_of_amount"
+          isGstRegistered={props.isGstRegistered}
         />
       </FormSection>
       {props.carChoices ? (

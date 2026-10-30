@@ -311,6 +311,12 @@
   what was added or moved along the way. Abhi confirmed no "remember this
   device" for Admins.
 
+- GST on rego and insurance forms: hidden entirely for an Operator not
+  registered for GST (Settings). Rego's GST box starts empty with a hint to
+  copy the figure from the renewal notice (only the injury-insurance part
+  has GST, per WA Transport); insurance still prefills a tenth. A policy
+  saved earlier with GST keeps showing it when edited.
+
 ## Next
 Phase 2 step 2b: purchase, sale (buyer details, transfer papers) and other
 costs. Then 2c: photos and documents.

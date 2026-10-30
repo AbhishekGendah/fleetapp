@@ -37,6 +37,7 @@ function RegoCard(props: {
   vehicle: VehicleDetail;
   registrations: readonly Registration[];
   expiry: ExpiryContext;
+  isGstRegistered: boolean;
 }) {
   const { vehicle, registrations, expiry } = props;
   const isEditable = vehicle.archivedAt === null;
@@ -95,6 +96,7 @@ function RegoCard(props: {
             <RegoForm
               initialValues={{ ...emptyRegoForm(), state: current?.state ?? vehicle.regoState }}
               action={addRegoAction.bind(null, vehicle.id)}
+              isGstRegistered={props.isGstRegistered}
             />
           </div>
         ) : null}
@@ -140,6 +142,7 @@ function InsuranceCard(props: {
   policies: readonly Policy[];
   policiesToJoin: readonly Policy[];
   expiry: ExpiryContext;
+  isGstRegistered: boolean;
 }) {
   const { vehicle, policies, policiesToJoin, expiry } = props;
   const isEditable = vehicle.archivedAt === null;
@@ -180,6 +183,7 @@ function InsuranceCard(props: {
               initialValues={emptyPolicyForm()}
               action={addPolicyForCarAction.bind(null, vehicle.id)}
               submitLabel="Add insurance"
+              isGstRegistered={props.isGstRegistered}
             />
           </div>
         ) : null}
@@ -203,12 +207,18 @@ export async function PaperworkTab({
   ]);
   return (
     <>
-      <RegoCard vehicle={vehicle} registrations={paperwork.registrations} expiry={expiry} />
+      <RegoCard
+        vehicle={vehicle}
+        registrations={paperwork.registrations}
+        expiry={expiry}
+        isGstRegistered={user.isGstRegistered}
+      />
       <InsuranceCard
         vehicle={vehicle}
         policies={paperwork.policies}
         policiesToJoin={policiesToJoin}
         expiry={expiry}
+        isGstRegistered={user.isGstRegistered}
       />
     </>
   );

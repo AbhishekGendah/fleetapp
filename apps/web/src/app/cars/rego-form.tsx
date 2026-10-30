@@ -23,6 +23,7 @@ import { AmountWithGst } from "./amount-with-gst";
 export function RegoForm(props: {
   initialValues: RegoFormValues;
   action: (state: ChangeFormState, formData: FormData) => Promise<ChangeFormState>;
+  isGstRegistered: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(props.action, INITIAL_CHANGE_STATE);
   const form = useFormFields({
@@ -79,7 +80,8 @@ export function RegoForm(props: {
         amountField="costCents"
         gstField="gstCents"
         amountLabel="Cost"
-        isGstUsuallyIncluded={false}
+        gstSource="from_bill"
+        isGstRegistered={props.isGstRegistered}
       />
       {form.isResultShown && !isPending ? <FormResult state={state} /> : null}
       <Button type="submit" disabled={isPending} className="sm:self-start">

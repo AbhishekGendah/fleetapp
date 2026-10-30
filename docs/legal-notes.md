@@ -141,8 +141,10 @@ of service) and the countries.
 - **Record keeping:** rego and insurance costs (with their GST) are tax
   records. Removing a renewal or archiving a policy only hides it; the
   record stays, so the Operator can still produce it.
-- **GST:** the app records the GST shown on each bill (prefilled at a tenth,
-  changeable). It does not decide whether the Operator can claim it; that
+- **GST:** the app records the GST shown on each bill: a tenth prefilled for
+  insurance premiums (changeable), copied from the notice for rego (only
+  its injury-insurance part carries GST), and none at all for an Operator
+  not registered for GST in Settings. It does not decide whether the Operator can claim it; that
   is between the Operator and their accountant. Worth a line in the terms.
 - **Insurance excess** is recorded now and will be used to cap damage
   recovery charged to Renters (Phase 3/4). Charging a Renter more than the

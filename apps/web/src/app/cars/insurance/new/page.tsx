@@ -26,6 +26,7 @@ export default async function NewPolicyPage() {
             action={createPolicyAction}
             submitLabel="Add policy"
             carChoices={cars}
+            isGstRegistered={user.isGstRegistered}
           />
         </CardContent>
       </Card>
