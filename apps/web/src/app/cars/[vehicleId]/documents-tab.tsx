@@ -29,7 +29,7 @@ export async function DocumentsTab({
         <CardTitle>Documents</CardTitle>
         <CardDescription>
           PDFs or images: inspection reports, service books and the like. Rego papers, insurance
-          papers and receipts attach to their own record instead. Anything showing someone's
+          papers and receipts attach to their own record instead. Anything showing someone’s
           licence, such as a transfer form, goes on the purchase or sale, where it is kept
           privately.
         </CardDescription>
