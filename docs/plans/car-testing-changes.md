@@ -73,3 +73,19 @@ right fix anyway.
   Once you type your own date, changing the term no longer overwrites it.
 - Tested: month-end and leap-year sums, the database rule, the current-rego
   choice with and without a direct debit.
+
+## Follow-up: duplicates and overlaps (approved and built)
+1. The same rego renewal (car and expiry) twice is refused, in the app and
+   by a database rule.
+2. A second running direct debit on a car is refused ("Stop it first"),
+   also a database rule.
+3. A direct debit added while a fixed rego still has time is saved with a
+   note that it takes over now.
+4. The same policy number with overlapping dates is refused, with a link to
+   that policy; the same number with later dates is a renewal and allowed.
+   Compared in capitals, per Operator.
+5. A car on two policies with overlapping dates is saved with a warning
+   naming the other policy (when adding a policy or putting a car on one).
+Migration 0014 first cleaned existing test data: repeated renewals were
+removed (archived) and extra running direct debits stopped, each logged as a
+system change.

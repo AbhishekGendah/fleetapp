@@ -3,11 +3,7 @@
 import { isRecordId } from "@fleetapp/core";
 import { redirect } from "next/navigation";
 
-import {
-  failedState,
-  savedState,
-  type ChangeFormState,
-} from "@fleetapp/ui/change-form-state";
+import { failedState, savedState, type ChangeFormState } from "@fleetapp/ui/change-form-state";
 import type { ActingUser } from "../../../lib/acting-user";
 import { appDb } from "../../../lib/app-db";
 import { CARS_PATH, INSURANCE_PATH, policyPath } from "../../../lib/paths";
@@ -19,6 +15,12 @@ import {
   removeVehicleFromPolicy,
   updatePolicy,
 } from "../../../lib/vehicles/insurance";
+import {
+  addedCarState,
+  coverOverlapWarning,
+  SAME_POLICY_MESSAGE,
+  samePolicyLink,
+} from "../../../lib/vehicles/insurance-messages";
 import { chosenId, policyFromForm, tickedIds } from "../../../lib/vehicles/paperwork-form-data";
 import { POLICY_CARS_FIELD } from "../policy-form";
 
@@ -63,8 +65,19 @@ export async function createPolicyAction(
         parsed.data,
         tickedIds(formData, POLICY_CARS_FIELD),
       );
-      if (result.status !== "created") {
+      if (result.status === "duplicate") {
+        return failedState(SAME_POLICY_MESSAGE, samePolicyLink(result.policyId));
+      }
+      if (result.status === "not_found") {
         return failedState(CAR_NOT_FOUND_MESSAGE);
+      }
+      const warning = coverOverlapWarning(result.overlaps);
+      if (warning) {
+        // Stays on this page so the warning can be read, with the way on.
+        return savedState(warning, true, {
+          href: policyPath(result.policyId),
+          label: "Open the new policy",
+        });
       }
       policyId = result.policyId;
       return savedState("Policy saved.");
@@ -88,6 +101,9 @@ export async function updatePolicyAction(
   }
   return changePolicy(policyId, "Changing a policy", async (actor) => {
     const result = await updatePolicy(appDb, actor, policyId, parsed.data);
+    if (result === "duplicate") {
+      return failedState("Another policy with this number already covers these dates.");
+    }
     return result === "not_found" ? failedState(NOT_FOUND_MESSAGE) : savedState("Saved.");
   });
 }
@@ -114,7 +130,7 @@ export async function addCarToPolicyAction(
   }
   return changePolicy(policyId, "Putting a car on a policy", async (actor) => {
     const result = await addVehicleToPolicy(appDb, actor, policyId, vehicleId);
-    return result === "not_found" ? failedState(CAR_NOT_FOUND_MESSAGE) : savedState("Car added.");
+    return addedCarState(result, { notFound: CAR_NOT_FOUND_MESSAGE, added: "Car added." });
   });
 }
 

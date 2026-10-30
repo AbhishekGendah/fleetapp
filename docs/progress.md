@@ -364,6 +364,12 @@
   `direct_debit_stopped_on`; monthly rows saved earlier had their expiry
   cleared. The sale form reminds to cancel the direct debit in DoTDirect.
 
+- Duplicates and overlaps (plan: docs/plans/car-testing-changes.md): same
+  rego renewal and a second running direct debit refused (with database
+  rules, migration 0014, which first cleaned existing test data); direct
+  debit take-over noted; same policy number with overlapping dates refused
+  with a link to it; overlapping cover saved with a warning.
+
 ## Next
 Phase 2 step 2c: photos and documents, including transfer papers and
 receipts for 2a and 2b.

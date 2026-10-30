@@ -134,13 +134,13 @@ describe("rego, insurance and the due-soon setting", () => {
 
     expect(await addRegistration(web.db, actor, carId, rego(), TODAY)).toEqual({
       status: "added",
-      isEarlierThanCurrent: false,
+      warning: null,
     });
     expect(
       await addRegistration(web.db, actor, carId, rego({ expiresOn: "2026-10-29" }), TODAY),
     ).toEqual({
       status: "added",
-      isEarlierThanCurrent: true,
+      warning: { kind: "earlier_than_current" },
     });
 
     const paperwork = await loadVehiclePaperwork(web.db, actor.operatorId, carId);
@@ -239,8 +239,12 @@ describe("rego, insurance and the due-soon setting", () => {
     const offered = () => listPoliciesToJoin(web.db, actor.operatorId, carId, "2026-10-29");
 
     expect((await offered()).map((row) => row.id)).toContain(policyId);
-    expect(await addVehicleToPolicy(web.db, actor, policyId, carId)).toBe("added");
-    expect(await addVehicleToPolicy(web.db, actor, policyId, carId)).toBe("already_on");
+    expect(await addVehicleToPolicy(web.db, actor, policyId, carId)).toMatchObject({
+      status: "added",
+    });
+    expect(await addVehicleToPolicy(web.db, actor, policyId, carId)).toEqual({
+      status: "already_on",
+    });
     expect((await offered()).map((row) => row.id)).not.toContain(policyId);
 
     expect(await removeVehicleFromPolicy(web.db, actor, policyId, carId)).toBe("removed");
@@ -262,6 +266,85 @@ describe("rego, insurance and the due-soon setting", () => {
     expect(await updatePolicy(web.db, actor, policyId, policy({ policyNumber: "MINE" }))).toBe(
       "unchanged",
     );
+  });
+
+  it("refuses the same renewal twice and a second running direct debit, and flags a take-over", async () => {
+    const carId = await addTestCar(web, actor);
+    const monthly = rego({ termMonths: "1", expiresOn: "" });
+
+    expect(await addRegistration(web.db, actor, carId, rego(), TODAY)).toMatchObject({
+      status: "added",
+    });
+    expect(await addRegistration(web.db, actor, carId, rego(), TODAY)).toEqual({
+      status: "duplicate",
+    });
+    // The current rego still runs to 29 Oct 2027.
+    expect(await addRegistration(web.db, actor, carId, monthly, TODAY)).toEqual({
+      status: "added",
+      warning: { kind: "direct_debit_takes_over", currentExpiresOn: "2027-10-29" },
+    });
+    expect(await addRegistration(web.db, actor, carId, monthly, TODAY)).toEqual({
+      status: "direct_debit_running",
+    });
+  });
+
+  it("refuses the same policy number for overlapping dates, but takes its renewal", async () => {
+    const policyActor = await seedOperatorWithUser(admin, "Same Policy Pty Ltd");
+    const carId = await addTestCar(web, policyActor);
+    const first = await createPolicy(web.db, policyActor, policy({ policyNumber: "pol-9" }), [
+      carId,
+    ]);
+    if (first.status !== "created") {
+      throw new Error("The first policy was not created.");
+    }
+
+    expect(await createPolicy(web.db, policyActor, policy({ policyNumber: "POL-9" }), [])).toEqual({
+      status: "duplicate",
+      policyId: first.policyId,
+    });
+    const renewal = await createPolicy(
+      web.db,
+      policyActor,
+      policy({ policyNumber: "POL-9", startsOn: "2027-10-02", endsOn: "2028-10-01" }),
+      [carId],
+    );
+    expect(renewal).toMatchObject({ status: "created", overlaps: [] });
+    // Another Operator may use the same number.
+    expect(
+      await createPolicy(web.db, otherActor, policy({ policyNumber: "POL-9" }), []),
+    ).toMatchObject({ status: "created" });
+  });
+
+  it("saves a car onto a second policy for the same dates, with a warning naming the first", async () => {
+    const policyActor = await seedOperatorWithUser(admin, "Overlap Pty Ltd");
+    const carId = await addTestCar(web, policyActor, { rego: "OVR1" });
+    await createPolicy(web.db, policyActor, policy({ policyNumber: "A-1", insurer: "First Co" }), [
+      carId,
+    ]);
+
+    const second = await createPolicy(
+      web.db,
+      policyActor,
+      policy({ policyNumber: "B-1", insurer: "Second Co" }),
+      [carId],
+    );
+    expect(second).toMatchObject({
+      status: "created",
+      overlaps: [{ rego: "OVR1", insurer: "First Co", endsOn: "2027-10-01" }],
+    });
+    const later = await createPolicy(
+      web.db,
+      policyActor,
+      policy({ policyNumber: "C-1", startsOn: "2028-01-01", endsOn: "2029-01-01" }),
+      [],
+    );
+    if (later.status !== "created") {
+      throw new Error("The later policy was not created.");
+    }
+    expect(await addVehicleToPolicy(web.db, policyActor, later.policyId, carId)).toEqual({
+      status: "added",
+      overlaps: [],
+    });
   });
 
   it("shows each car's rego and insurance expiry on the list, with due-soon badges", async () => {

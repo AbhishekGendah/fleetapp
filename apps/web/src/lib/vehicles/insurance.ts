@@ -12,9 +12,20 @@ import { and, eq, isNull } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser, type UserChange } from "../acting-user";
 import { findCurrentVehicle } from "./current-vehicle";
+import { findCoverOverlaps, findSamePolicy, type CoverOverlap } from "./insurance-overlaps";
 import { POLICY_FORM_FIELDS, type PolicyInput } from "./paperwork-input";
 
 export type PolicyChangeResult = "changed" | "unchanged" | "not_found";
+
+export type CreatePolicyResult =
+  | { status: "created"; policyId: string; overlaps: CoverOverlap[] }
+  | { status: "duplicate"; policyId: string }
+  | { status: "not_found" };
+
+export type AddVehicleResult =
+  | { status: "added"; overlaps: CoverOverlap[] }
+  | { status: "already_on" }
+  | { status: "not_found" };
 
 function logPolicyChange(
   tx: AnyTransaction,
@@ -88,8 +99,12 @@ export async function createPolicy(
   actor: ActingUser,
   input: PolicyInput,
   vehicleIds: readonly string[],
-): Promise<{ status: "created"; policyId: string } | { status: "not_found" }> {
-  return withTenant(database, actor.operatorId, async (tx) => {
+): Promise<CreatePolicyResult> {
+  return withTenant(database, actor.operatorId, async (tx): Promise<CreatePolicyResult> => {
+    const samePolicyId = await findSamePolicy(tx, actor.operatorId, input);
+    if (samePolicyId) {
+      return { status: "duplicate", policyId: samePolicyId };
+    }
     const [policy] = await tx
       .insert(insurancePolicies)
       .values({ ...input, operatorId: actor.operatorId })
@@ -104,7 +119,14 @@ export async function createPolicy(
         throw new VehicleNotFoundError();
       }
     }
-    return { status: "created" as const, policyId: policy.id };
+    const overlaps = await findCoverOverlaps(
+      tx,
+      actor.operatorId,
+      [...new Set(vehicleIds)],
+      input,
+      policy.id,
+    );
+    return { status: "created", policyId: policy.id, overlaps };
   }).catch((error: unknown) => {
     if (error instanceof VehicleNotFoundError) {
       return { status: "not_found" as const };
@@ -119,11 +141,14 @@ export async function updatePolicy(
   actor: ActingUser,
   policyId: string,
   input: PolicyInput,
-): Promise<PolicyChangeResult> {
+): Promise<PolicyChangeResult | "duplicate"> {
   return withTenant(database, actor.operatorId, async (tx) => {
     const before = await lockCurrentPolicy(tx, actor.operatorId, policyId);
     if (!before) {
       return "not_found";
+    }
+    if (await findSamePolicy(tx, actor.operatorId, input, policyId)) {
+      return "duplicate";
     }
     const changes = changedValues(before, input, POLICY_FORM_FIELDS);
     if (!hasChanges(changes)) {
@@ -160,12 +185,18 @@ export async function addVehicleToPolicy(
   actor: ActingUser,
   policyId: string,
   vehicleId: string,
-): Promise<"added" | "already_on" | "not_found"> {
-  return withTenant(database, actor.operatorId, async (tx) => {
-    if (!(await lockCurrentPolicy(tx, actor.operatorId, policyId))) {
-      return "not_found";
+): Promise<AddVehicleResult> {
+  return withTenant(database, actor.operatorId, async (tx): Promise<AddVehicleResult> => {
+    const policy = await lockCurrentPolicy(tx, actor.operatorId, policyId);
+    if (!policy) {
+      return { status: "not_found" };
     }
-    return linkVehicle(tx, actor, policyId, vehicleId);
+    const linked = await linkVehicle(tx, actor, policyId, vehicleId);
+    if (linked !== "added") {
+      return { status: linked };
+    }
+    const overlaps = await findCoverOverlaps(tx, actor.operatorId, [vehicleId], policy, policyId);
+    return { status: "added", overlaps };
   });
 }
 

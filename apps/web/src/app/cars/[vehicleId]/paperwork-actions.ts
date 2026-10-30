@@ -1,6 +1,6 @@
 "use server";
 
-import { formTextValues, isRecordId, todayInTimeZone } from "@fleetapp/core";
+import { formatCalendarDate, formTextValues, isRecordId, todayInTimeZone } from "@fleetapp/core";
 
 import { failedState, savedState, type ChangeFormState } from "@fleetapp/ui/change-form-state";
 import { appDb } from "../../../lib/app-db";
@@ -9,6 +9,12 @@ import {
   createPolicy,
   removeVehicleFromPolicy,
 } from "../../../lib/vehicles/insurance";
+import {
+  addedCarState,
+  coverOverlapWarning,
+  SAME_POLICY_MESSAGE,
+  samePolicyLink,
+} from "../../../lib/vehicles/insurance-messages";
 import { chosenId, policyFromForm, regoFromForm } from "../../../lib/vehicles/paperwork-form-data";
 import {
   STOP_DIRECT_DEBIT_FIELDS,
@@ -18,14 +24,18 @@ import {
   addRegistration,
   archiveRegistration,
   stopDirectDebit,
+  type RegistrationWarning,
 } from "../../../lib/vehicles/registrations";
 import { changeCar, NOT_FOUND_MESSAGE } from "./change-car";
 
 // The browser runs the same checks first, so this is only reached by a request that skipped them.
 const INVALID_MESSAGE =
   "Some details are not right, so nothing was saved. Check them and try again.";
-const EARLIER_REGO_WARNING =
-  "Saved, but it expires before the car's current rego, so the current rego has not changed.";
+function regoWarningMessage(warning: RegistrationWarning): string {
+  return warning.kind === "earlier_than_current"
+    ? "Saved, but it expires before the car's current rego, so the current rego has not changed."
+    : `Saved. The direct debit takes over now; the current rego ran to ${formatCalendarDate(warning.currentExpiresOn)}.`;
+}
 
 export async function addRegoAction(
   vehicleId: string,
@@ -39,12 +49,18 @@ export async function addRegoAction(
   return changeCar(vehicleId, "Adding a rego renewal", async (actor, user) => {
     const today = todayInTimeZone(new Date(), user.operatorTimezone);
     const result = await addRegistration(appDb, actor, vehicleId, parsed.data, today);
-    if (result.status === "not_found") {
-      return failedState(NOT_FOUND_MESSAGE);
+    switch (result.status) {
+      case "not_found":
+        return failedState(NOT_FOUND_MESSAGE);
+      case "duplicate":
+        return failedState("That renewal is already recorded.");
+      case "direct_debit_running":
+        return failedState("This car already has a direct debit running. Stop it first.");
+      case "added":
+        return result.warning
+          ? savedState(regoWarningMessage(result.warning), true)
+          : savedState("Rego saved.");
     }
-    return result.isEarlierThanCurrent
-      ? savedState(EARLIER_REGO_WARNING, true)
-      : savedState("Rego saved.");
   });
 }
 
@@ -92,11 +108,17 @@ export async function addPolicyForCarAction(
   if (!parsed.success) {
     return failedState(INVALID_MESSAGE);
   }
-  return changeCar(vehicleId, "Adding insurance for a car", async (actor) =>
-    (await createPolicy(appDb, actor, parsed.data, [vehicleId])).status === "created"
-      ? savedState("Insurance saved.")
-      : failedState(NOT_FOUND_MESSAGE),
-  );
+  return changeCar(vehicleId, "Adding insurance for a car", async (actor) => {
+    const result = await createPolicy(appDb, actor, parsed.data, [vehicleId]);
+    if (result.status === "duplicate") {
+      return failedState(SAME_POLICY_MESSAGE, samePolicyLink(result.policyId));
+    }
+    if (result.status === "not_found") {
+      return failedState(NOT_FOUND_MESSAGE);
+    }
+    const warning = coverOverlapWarning(result.overlaps);
+    return warning ? savedState(warning, true) : savedState("Insurance saved.");
+  });
 }
 
 export async function joinPolicyAction(
@@ -110,9 +132,7 @@ export async function joinPolicyAction(
   }
   return changeCar(vehicleId, "Putting a car on a policy", async (actor) => {
     const result = await addVehicleToPolicy(appDb, actor, policyId, vehicleId);
-    return result === "not_found"
-      ? failedState(NOT_FOUND_MESSAGE)
-      : savedState("Added to the policy.");
+    return addedCarState(result, { notFound: NOT_FOUND_MESSAGE, added: "Added to the policy." });
   });
 }
 

@@ -48,6 +48,9 @@ export function amountChecks(
   ];
 }
 
+export const REGO_RENEWAL_UNIQUE_INDEX = "vehicle_registrations_one_per_expiry";
+export const REGO_DIRECT_DEBIT_UNIQUE_INDEX = "vehicle_registrations_one_direct_debit";
+
 /**
  * One rego renewal of a car (docs/design/02). The renewal with the latest
  * expiry is the car's current rego. A wrong entry is archived, never deleted.
@@ -77,6 +80,16 @@ export const vehicleRegistrations = pgTable(
       columns: [table.vehicleId, table.operatorId],
       foreignColumns: [vehicles.id, vehicles.operatorId],
     }),
+    // The same renewal (car and expiry) is recorded once.
+    uniqueIndex(REGO_RENEWAL_UNIQUE_INDEX)
+      .on(table.operatorId, table.vehicleId, table.expiresOn)
+      .where(sql`${table.archivedAt} is null and ${table.expiresOn} is not null`),
+    // A car has at most one direct debit running.
+    uniqueIndex(REGO_DIRECT_DEBIT_UNIQUE_INDEX)
+      .on(table.operatorId, table.vehicleId)
+      .where(
+        sql`${table.archivedAt} is null and ${table.expiresOn} is null and ${table.directDebitStoppedOn} is null`,
+      ),
     index("vehicle_registrations_vehicle_idx").on(
       table.operatorId,
       table.vehicleId,
