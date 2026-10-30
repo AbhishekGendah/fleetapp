@@ -297,6 +297,12 @@
     choose-and-apply, plus a new Textarea; the car list loader moved to
     packages/db.
 
+- Fixes from Abhi's admin testing: sign-in reads the boxes when sent, so a
+  login filled in by the browser (Firefox) is no longer refused and cleared;
+  the button says Sign in (both apps); the code boxes' cursor blinks; Car
+  models' add forms sit above the lists. Admin "remember this device" left
+  off on purpose (Admins reach every Operator), pending Abhi's decision.
+
 ## Next
 Phase 2 step 2b: purchase, sale (buyer details, transfer papers) and other
 costs. Then 2c: photos and documents.
