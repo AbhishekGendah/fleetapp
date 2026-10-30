@@ -10,6 +10,7 @@ import Link from "next/link";
 import { AppShell } from "../../app-shell";
 import { appDb } from "../../../lib/app-db";
 import { carPath, CARS_PATH, editCarPath } from "../../../lib/paths";
+import { listCarFileIds } from "../../../lib/files/car-files";
 import { loadCarCosts } from "../../../lib/vehicles/cost-queries";
 import { loadPaperworkIds } from "../../../lib/vehicles/paperwork-queries";
 import { requireUser, type SignedInUser } from "../../../lib/require-user";
@@ -29,9 +30,11 @@ import {
   withdrawReadingAction,
 } from "./actions";
 import { CostsTab } from "./costs-tab";
+import { DocumentsTab } from "./documents-tab";
 import { loadCarOrNotFound } from "./load-car";
 import { OdometerForm } from "./odometer-form";
 import { PaperworkTab } from "./paperwork-tab";
+import { PhotosTab } from "./photos-tab";
 import { StatusForm } from "./status-form";
 
 export const runtime = "nodejs";
@@ -41,6 +44,8 @@ const TABS = [
   { key: "details", label: "Details" },
   { key: "paperwork", label: "Rego & insurance" },
   { key: "costs", label: "Costs" },
+  { key: "photos", label: "Photos" },
+  { key: "documents", label: "Documents" },
   { key: "odometer", label: "Odometer" },
   { key: "log", label: "Log" },
 ] as const;
@@ -198,9 +203,10 @@ function OdometerTab({ vehicle, timezone }: { vehicle: VehicleDetail; timezone: 
 }
 
 async function HistoryTab({ vehicle, user }: { vehicle: VehicleDetail; user: SignedInUser }) {
-  const [paperwork, costs] = await Promise.all([
+  const [paperwork, costs, fileIds] = await Promise.all([
     loadPaperworkIds(appDb, user.operatorId, vehicle.id),
     loadCarCosts(appDb, user.operatorId, vehicle.id),
+    listCarFileIds(appDb, user.operatorId, vehicle.id),
   ]);
   const { purchaseIds, saleIds, costIds } = costs.historyIds;
   return (
@@ -221,6 +227,7 @@ async function HistoryTab({ vehicle, user }: { vehicle: VehicleDetail; user: Sig
         { entityType: ACTIVITY_ENTITY_TYPES.vehiclePurchase, entityIds: purchaseIds },
         { entityType: ACTIVITY_ENTITY_TYPES.vehicleSale, entityIds: saleIds },
         { entityType: ACTIVITY_ENTITY_TYPES.vehicleCost, entityIds: costIds },
+        { entityType: ACTIVITY_ENTITY_TYPES.file, entityIds: fileIds },
       ]}
     />
   );
@@ -290,6 +297,8 @@ export default async function CarPage(props: {
       {tab === "details" ? <DetailsTab vehicle={vehicle} /> : null}
       {tab === "paperwork" ? <PaperworkTab vehicle={vehicle} user={user} /> : null}
       {tab === "costs" ? <CostsTab vehicle={vehicle} user={user} /> : null}
+      {tab === "photos" ? <PhotosTab vehicle={vehicle} user={user} /> : null}
+      {tab === "documents" ? <DocumentsTab vehicle={vehicle} user={user} /> : null}
       {tab === "odometer" ? (
         <OdometerTab vehicle={vehicle} timezone={user.operatorTimezone} />
       ) : null}

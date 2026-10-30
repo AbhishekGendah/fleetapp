@@ -4,22 +4,10 @@ import { FILE_PURPOSE_RULES } from "@fleetapp/core";
 import { ImageUpload } from "@fleetapp/ui/image-upload";
 import { useRouter } from "next/navigation";
 
-import type { UploadPermission } from "../../lib/storage/file-storage";
+import { SEND_FAILED_MESSAGE, sendToStorage } from "../../lib/files/send-to-storage";
 import { finishLogoUploadAction, removeLogoAction, startLogoUploadAction } from "./logo-actions";
 
 const LOGO_RULE = FILE_PURPOSE_RULES.operator_logo;
-const SEND_FAILED_MESSAGE = "The upload did not finish. Check your connection and try again.";
-
-/** Straight from the browser to storage, with the one-time permission the server gave. */
-async function sendToStorage(permission: UploadPermission, image: Blob): Promise<boolean> {
-  const form = new FormData();
-  for (const [name, value] of Object.entries(permission.fields)) {
-    form.append(name, value);
-  }
-  form.append("file", image);
-  const response = await fetch(permission.url, { method: "POST", body: form }).catch(() => null);
-  return response?.ok ?? false;
-}
 
 export function LogoUpload({ logoUrl }: { logoUrl: string | null }) {
   const router = useRouter();

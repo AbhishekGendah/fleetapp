@@ -21,6 +21,11 @@ export function carPath(vehicleId: string): string {
   return `${CARS_PATH}/${vehicleId}`;
 }
 
+/** Opens one of a car's photos or documents through a short-lived link, after checking who asks. */
+export function carFilePath(vehicleId: string, fileId: string): string {
+  return `${carPath(vehicleId)}/files/${fileId}`;
+}
+
 export function editCarPath(vehicleId: string): string {
   return `${carPath(vehicleId)}/edit`;
 }

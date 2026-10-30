@@ -78,7 +78,7 @@ of service) and the countries.
   log with the time and the kind of device. The privacy policy should
   say what is logged and for how long.
 
-## Stored files (logo built; photos and documents later)
+## Stored files (logo, car photos and documents built)
 
 - Files are stored with Amazon S3 in Sydney (an American company; already
   in the overseas table). Both buckets are private; files are only ever
@@ -90,6 +90,15 @@ of service) and the countries.
   hidden details phones add to photos, such as the GPS location where a
   photo was taken. Worth saying in the privacy policy.
 - Deleted files are kept 30 days, then removed for good (rule 23).
+- **Car photos** can show people, number plates of other cars, or a home
+  in the background. They are the Operator's records; the privacy policy
+  should say photos of cars are kept to record their condition. Operators
+  should avoid photographing people.
+- **Car documents** are named by the Operator; the name is kept, the
+  file's own name is not. A document showing someone's licence or identity
+  (e.g. a transfer form) belongs on the purchase or sale (part 2c-2, kept
+  in the separate identity storage), not here; say so in the help text
+  when that part is built.
 - **Before go-live:** each bucket's own clean-up rule keeps an old copy
   for another 30 days after the app removes a file, so a file can last
   about 60 days in all. Fine for dev (no personal data). The production

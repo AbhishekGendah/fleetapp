@@ -31,19 +31,21 @@ export interface UploadRequest {
   purpose: FilePurpose;
   contentType: string;
   sizeBytes: number;
+  /** For a car's files: which car, a document's name, a small copy's photo. */
+  links?: { vehicleId?: string; label?: string; thumbnailOfFileId?: string };
 }
 
 export type UploadRequestResult =
   | { status: "allowed"; fileId: string; permission: UploadPermission }
   | { status: "refused"; problem: UploadProblem };
 
-function logFile(
+export function logFile(
   tx: AnyTransaction,
   actor: FileActor,
   fileId: string,
   action: "uploaded" | "refused" | "deleted",
   purpose: FilePurpose,
-) {
+): Promise<void> {
   return recordActivity(tx, {
     operatorId: actor.operatorId,
     actor: { type: "user", id: actor.userId },
@@ -82,6 +84,7 @@ export async function requestUpload(
       contentType: request.contentType,
       sizeBytes: request.sizeBytes,
       uploadedByUserId: actor.userId,
+      ...request.links,
     }),
   );
 

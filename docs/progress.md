@@ -370,9 +370,25 @@
   debit take-over noted; same policy number with overlapping dates refused
   with a link to it; overlapping cover saved with a warning.
 
+- **Phase 2 step 2c, part 1 — car photos and documents** (plan:
+  docs/plans/phase-2-step-2.md):
+  - Photos tab: add several at once from camera or gallery, each shrunk on
+    the phone (about 1600px, location data dropped) plus a 400px small copy
+    for the grid; each sends on its own with Try again. Tap for full size;
+    Remove keeps it 30 days.
+  - Documents tab: "Add a document" pop-up with a typed name and a PDF or
+    image (images shrunk). Open and Remove.
+  - Files open through `/cars/<car>/files/<file>`, which checks the
+    Operator and then sends a 5-minute link, so page links never go stale.
+  - Migration 0015: new file kinds, and on `files` a two-column link to the
+    car, the document name, and a link from a small copy to its photo,
+    with database checks. The admin role is not granted the new columns.
+  - Shared pieces: FilePicker (packages/ui + catalogue), shrinking to any
+    size, shared upload action helpers (the logo now uses them too).
+
 ## Next
-Phase 2 step 2c: photos and documents, including transfer papers and
-receipts for 2a and 2b.
+Phase 2 step 2c, part 2: attachments on rego, insurance, costs, purchase
+and sale (purchase and sale papers in the identity storage).
 
 ## Open items
 - **Before launch: docs/launch-checklist.md** (relaxed admin sign-in, full

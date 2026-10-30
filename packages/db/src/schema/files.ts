@@ -2,11 +2,14 @@ import { FILE_PURPOSES, STORAGE_AREAS } from "@fleetapp/core";
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  check,
+  foreignKey,
   index,
   pgEnum,
   pgTable,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
@@ -14,6 +17,7 @@ import {
 import { primaryKeyColumn, timestampColumns } from "./columns";
 import { operatorIdColumn } from "./operators";
 import { users } from "./users";
+import { vehicles } from "./vehicles";
 
 export const filePurposeEnum = pgEnum("file_purpose", FILE_PURPOSES);
 export const storageAreaEnum = pgEnum("storage_area", STORAGE_AREAS);
@@ -43,6 +47,12 @@ export const files = pgTable(
     /** As declared when the upload was allowed, then as actually stored. */
     sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
     uploadedByUserId: uuid("uploaded_by_user_id").references(() => users.id),
+    /** The car a photo or document belongs to. */
+    vehicleId: uuid("vehicle_id"),
+    /** A document's name, typed by the Operator. */
+    label: text("label"),
+    /** A photo's small copy points at the photo, and goes when it goes. */
+    thumbnailOfFileId: uuid("thumbnail_of_file_id"),
 
     /** The upload arrived and really is the type it claimed. */
     confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
@@ -57,6 +67,27 @@ export const files = pgTable(
   },
   (table) => [
     index("files_operator_idx").on(table.operatorId, table.createdAt),
+    unique("files_id_operator_unique").on(table.id, table.operatorId),
+    // The two-column links: a file can only point at its own Operator's car or photo.
+    foreignKey({
+      name: "files_vehicle_fk",
+      columns: [table.vehicleId, table.operatorId],
+      foreignColumns: [vehicles.id, vehicles.operatorId],
+    }),
+    foreignKey({
+      name: "files_thumbnail_of_fk",
+      columns: [table.thumbnailOfFileId, table.operatorId],
+      foreignColumns: [table.id, table.operatorId],
+    }),
+    index("files_vehicle_idx").on(table.operatorId, table.vehicleId, table.purpose),
+    // Compared as text: Postgres will not use an enum value in the same
+    // migration that adds it.
+    check(
+      "files_vehicle_purposes",
+      sql`(${table.purpose}::text in ('vehicle_photo', 'vehicle_photo_thumbnail', 'vehicle_document')) = (${table.vehicleId} is not null)
+        and (${table.purpose}::text = 'vehicle_photo_thumbnail') = (${table.thumbnailOfFileId} is not null)
+        and (${table.purpose}::text = 'vehicle_document') = (${table.label} is not null)`,
+    ),
     // An Operator has at most one logo in use: replacing it marks the old one
     // deleted in the same transaction that confirms the new one.
     uniqueIndex("files_one_logo_per_operator")

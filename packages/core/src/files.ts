@@ -7,7 +7,12 @@
 const BYTES_PER_MEGABYTE = 1024 * 1024;
 
 /** The kinds of file the product keeps. Each later phase adds its own. */
-export const FILE_PURPOSES = ["operator_logo"] as const;
+export const FILE_PURPOSES = [
+  "operator_logo",
+  "vehicle_photo",
+  "vehicle_photo_thumbnail",
+  "vehicle_document",
+] as const;
 export type FilePurpose = (typeof FILE_PURPOSES)[number];
 
 /** Identity documents live apart from everything else (rule 8). */
@@ -39,7 +44,44 @@ export const FILE_PURPOSE_RULES: Readonly<Record<FilePurpose, FilePurposeRule>> 
     maxBytes: 5 * BYTES_PER_MEGABYTE,
     describedAs: "a PNG, JPEG or WebP image up to 5 MB",
   },
+  // Shrunk on the phone first, so a stored photo is about 400 KB.
+  vehicle_photo: {
+    area: "general",
+    contentTypes: [FILE_CONTENT_TYPES.jpeg, FILE_CONTENT_TYPES.png, FILE_CONTENT_TYPES.webp],
+    maxBytes: 5 * BYTES_PER_MEGABYTE,
+    describedAs: "a photo (JPEG, PNG or WebP)",
+  },
+  vehicle_photo_thumbnail: {
+    area: "general",
+    contentTypes: [FILE_CONTENT_TYPES.jpeg, FILE_CONTENT_TYPES.png, FILE_CONTENT_TYPES.webp],
+    maxBytes: 1 * BYTES_PER_MEGABYTE,
+    describedAs: "a small copy of a photo",
+  },
+  vehicle_document: {
+    area: "general",
+    contentTypes: [
+      FILE_CONTENT_TYPES.pdf,
+      FILE_CONTENT_TYPES.jpeg,
+      FILE_CONTENT_TYPES.png,
+      FILE_CONTENT_TYPES.webp,
+    ],
+    maxBytes: 10 * BYTES_PER_MEGABYTE,
+    describedAs: "a PDF or image up to 10 MB",
+  },
 };
+
+/**
+ * The largest photo accepted from the camera or gallery before it is shrunk
+ * on the phone. Above this the phone may run out of memory shrinking it.
+ */
+export const PICKED_PHOTO_MAX_BYTES = 25 * BYTES_PER_MEGABYTE;
+
+/** The kinds of file that belong to a car, and so must name it. */
+export const VEHICLE_FILE_PURPOSES: readonly FilePurpose[] = [
+  "vehicle_photo",
+  "vehicle_photo_thumbnail",
+  "vehicle_document",
+];
 
 export type UploadProblem = "type_not_allowed" | "empty" | "too_large";
 

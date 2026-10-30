@@ -17,6 +17,7 @@ import { ComboBox } from "@fleetapp/ui/combo-box";
 import { CodeInput, TOTP_CODE_LENGTH } from "@fleetapp/ui/code-input";
 import { fieldErrorId, FormField } from "@fleetapp/ui/form-field";
 import { FormError } from "@fleetapp/ui/form-message";
+import { FilePicker } from "@fleetapp/ui/file-picker";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { FormattedInput } from "@fleetapp/ui/formatted-input";
 import { MoneyInput } from "@fleetapp/ui/money-input";
@@ -329,6 +330,18 @@ export function ComponentCatalogue() {
             <Input id="example-dialog-box" />
           </FormField>
         </FormDialog>
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Choose files"
+        note="Opens the camera and gallery on a phone. Used for car photos and documents."
+      >
+        <FilePicker
+          label="Add photos"
+          accept="image/*"
+          isMultiple
+          onFilesChosen={() => undefined}
+        />
       </CatalogueSection>
 
       <CatalogueSection
