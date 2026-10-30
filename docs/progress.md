@@ -307,6 +307,10 @@
   restored before launch, with a full security review: see
   docs/launch-checklist.md, which now gathers every before-launch item.
 
+- Roadmap brought up to date (docs/roadmap.md): status of every phase and
+  what was added or moved along the way. Abhi confirmed no "remember this
+  device" for Admins.
+
 ## Next
 Phase 2 step 2b: purchase, sale (buyer details, transfer papers) and other
 costs. Then 2c: photos and documents.
@@ -342,7 +346,7 @@ costs. Then 2c: photos and documents.
 - Login tables stay inside RLS, reached only by a dedicated database
   role. Decided before slice 2.
 - "Remember this device": 14 days for Users (built in slice 4), off
-  entirely for Admins.
+  entirely for Admins (confirmed by Abhi, 30 Oct 2026: not adding it).
 - `BETTER_AUTH_SECRET` encrypts every authenticator enrolment. Losing it
   means every Admin re-enrols. Belongs in Bitwarden as well as Vercel.
 - When Renters arrive: admins can currently read every Operator's
