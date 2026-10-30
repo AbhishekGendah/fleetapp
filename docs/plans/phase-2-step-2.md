@@ -70,6 +70,64 @@ the car when).
 - **Costs tab** on the car page: purchase, costs, and sale, with totals
   (calculated, never stored).
 
+### 2b detailed build (for Abhi's approval, 30 Oct 2026)
+
+**Screens.** A new **Costs** tab on the car page with three cards:
+- **Purchase** (one per car): date *, price *, GST, bought from *
+  (dealer / private seller), seller's name *, phone, address (same
+  address search as business details), odometer at purchase. Private
+  seller: no GST box (a private sale has no GST). Editable; every change
+  logged.
+- **Other costs** (many per car): date *, kind * (refurb, repair, other),
+  description *, amount *, GST. Remove takes one off the list (kept in
+  History), as for rego renewals.
+- **Sale** (one per car, shown once the car has a purchase or at any time):
+  date and time of handover *, price *, GST, buyer's name *, phone *,
+  address *, buyer's licence number and state, transfer lodged on, transfer
+  reference. Saving sets the car to Sold and offers "Archive this car".
+  Until "transfer lodged on" is filled in, an amber note on the car says
+  "Transfer not lodged yet: fines can still come to you." Cancel this
+  sale (the sale fell through) keeps the record, marked cancelled, and puts
+  the car back to Available.
+- **Totals** at the top of the tab: bought for, other costs (refurb shown
+  separately), sold for, and the difference, each with its GST. Worked
+  out each time, never stored (rule 11 spirit).
+
+**GST** follows the rule just built: no GST boxes at all for an Operator
+not registered for GST; otherwise purchase from a dealer, other costs and
+the sale fill in a tenth (changeable), like insurance.
+
+**Time of sale** is typed in the Operator's timezone and stored in UTC
+(rule 10), with a tested function for the conversion (daylight saving
+included), because a fine on the sale day may fall either side of it.
+
+**Odometer at purchase** is saved as a reading dated the purchase day
+(source "purchase"); changing it withdraws the old reading and adds the
+new one. It does not change the current km unless it is the newest.
+
+**Database** (migration 0011): `vehicle_purchases` (unique per car),
+`vehicle_sales` (one active per car: unique while not cancelled),
+`vehicle_costs`, each with `operator_id`, the two-column car link,
+forced row-level security, Operator-only policies, no deletes, no admin
+access, isolation tests. Money as integer cents with GST next to it
+(rule 9), GST never more than a tenth, checked in the database too.
+
+**Privacy.** Buyer and seller details are personal information:
+- the History tab says what changed ("Buyer's phone changed") but never
+  the old or new value, because the activity log is also visible to AGS
+  staff (rule 5 spirit, rule 7 for the licence number);
+- the admin site sees none of it;
+- the car list search does not search buyer or seller names.
+
+**Moved to 2c:** the attachments (contract, signed transfer form,
+receipts). They need the document upload piece and the private identity
+storage that 2c builds for every attachment, so they are built once there.
+Tradeoff: in 2b the paperwork is recorded but not yet uploaded.
+
+**Not in 2b:** rego and insurance costs in the Costs tab totals (a fleet
+policy covers many cars, and how to split it belongs with the profit report
+in Phase 4/7); the fines link (Phase 6).
+
 ## Money rules (all of 2a and 2b)
 - Every amount is whole cents, typed as dollars ("$1,234.56"). One
   shared, tested function turns typed dollars into cents and back.
