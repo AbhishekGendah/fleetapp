@@ -214,7 +214,12 @@ describe("cars", () => {
       status: "not_found",
     });
     expect(await archiveVehicle(web.db, otherActor, vehicleId)).toBe("not_found");
-    expect(await recordOdometerReading(web.db, otherActor, vehicleId, 10)).toEqual({
+    expect(
+      await recordOdometerReading(web.db, otherActor, vehicleId, {
+        kilometres: 10,
+        isOdometerReplaced: false,
+      }),
+    ).toEqual({
       status: "not_found",
     });
   });
@@ -282,15 +287,17 @@ describe("cars", () => {
     });
   });
 
-  it("flags a reading lower than the last, and leaves a withdrawn one out of the current km", async () => {
+  it("refuses a lower reading unless the odometer was replaced, and leaves a withdrawn one out of the current km", async () => {
     const vehicleId = await addCar();
 
     expect((await loadVehicle(web.db, actor.operatorId, vehicleId))?.currentKilometres).toBe(
       FIRST_READING_KM,
     );
-    await recordOdometerReading(web.db, actor, vehicleId, 50_000);
-    const slip = await recordOdometerReading(web.db, actor, vehicleId, 5_000);
-    expect(slip).toEqual({ status: "recorded", isLowerThanLast: true });
+    const reading = (kilometres: number, isOdometerReplaced = false) =>
+      recordOdometerReading(web.db, actor, vehicleId, { kilometres, isOdometerReplaced });
+    await reading(50_000);
+    expect(await reading(5_000)).toEqual({ status: "lower", lastKilometres: 50_000 });
+    expect(await reading(5_000, true)).toEqual({ status: "recorded" });
 
     const withSlip = await loadVehicle(web.db, actor.operatorId, vehicleId);
     expect(withSlip?.currentKilometres).toBe(5_000);

@@ -21,6 +21,7 @@
     "./combo-box": "./src/components/combo-box.tsx",
     "./data-list": "./src/components/data-list.tsx",
     "./expiring-image": "./src/components/expiring-image.tsx",
+    "./form-dialog": "./src/components/form-dialog.tsx",
     "./form-field": "./src/components/form-field.tsx",
     "./form-message": "./src/components/form-message.tsx",
     "./form-result": "./src/components/form-result.tsx",

@@ -1,6 +1,6 @@
 # Car changes from Abhi's testing (30 Oct 2026)
 
-Status: waiting for Abhi's approval. The smaller changes (form clearing,
+Status: approved and built (30 Oct 2026). The smaller changes (form clearing,
 formatting, Log, Type) are already built; these need a plan because they
 change the database or how money is recorded.
 

@@ -4,6 +4,7 @@ import {
   centsForEditing,
   emptyForm,
   INSURANCE_COVER_TYPES,
+  INSURANCE_PAYMENT_FREQUENCIES,
   optionalDollars,
   REGO_TERMS_MONTHS,
   REQUIRED_MESSAGE,
@@ -52,6 +53,7 @@ export const policyInputSchema = z
     startsOn: requiredDate,
     endsOn: requiredDate,
     excessCents: optionalDollars,
+    paymentFrequency: z.enum(INSURANCE_PAYMENT_FREQUENCIES, REQUIRED_MESSAGE),
     costCents: requiredDollars,
     gstCents: gstDollars,
   })
@@ -74,6 +76,7 @@ export const POLICY_FORM_FIELDS = [
   "startsOn",
   "endsOn",
   "excessCents",
+  "paymentFrequency",
   "costCents",
   "gstCents",
 ] as const;
@@ -91,15 +94,16 @@ export function parseRegoForm(values: RegoFormValues): z.ZodSafeParseResult<Rego
 }
 
 export function parsePolicyForm(values: PolicyFormValues): z.ZodSafeParseResult<PolicyInput> {
-  return policyInputSchema.safeParse(blankAsMissing(values, ["coverType"]));
+  return policyInputSchema.safeParse(blankAsMissing(values, ["coverType", "paymentFrequency"]));
 }
 
 export function emptyRegoForm(): RegoFormValues {
   return emptyForm(REGO_FORM_FIELDS);
 }
 
+/** Most premiums are paid once a year. */
 export function emptyPolicyForm(): PolicyFormValues {
-  return emptyForm(POLICY_FORM_FIELDS);
+  return { ...emptyForm(POLICY_FORM_FIELDS), paymentFrequency: "yearly" };
 }
 
 /** A saved policy as the edit form's boxes show it. */
@@ -111,6 +115,7 @@ export function policyFormValues(policy: PolicyInput): PolicyFormValues {
     startsOn: policy.startsOn,
     endsOn: policy.endsOn,
     excessCents: policy.excessCents === null ? "" : centsForEditing(policy.excessCents),
+    paymentFrequency: policy.paymentFrequency,
     costCents: centsForEditing(policy.costCents),
     gstCents: policy.gstCents === 0 ? "" : centsForEditing(policy.gstCents),
   };

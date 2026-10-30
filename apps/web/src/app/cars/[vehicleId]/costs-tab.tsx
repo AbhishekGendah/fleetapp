@@ -7,6 +7,7 @@ import {
   type AmountWithGst,
 } from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
+import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 
 import { appDb } from "../../../lib/app-db";
@@ -96,17 +97,22 @@ function PurchaseCard({ vehicle, costs, user }: CostsCardProps) {
       </CardHeader>
       {vehicle.archivedAt ? null : (
         <CardContent>
-          <PurchaseForm
-            initialValues={
-              purchase
-                ? purchaseFormValues(purchase, costs.purchaseKilometres)
-                : emptyPurchaseForm()
-            }
-            action={savePurchaseAction.bind(null, vehicle.id)}
-            isGstRegistered={user.isGstRegistered}
-            nearState={vehicle.regoState}
-            submitLabel={purchase ? "Save changes" : "Save purchase"}
-          />
+          <FormDialog
+            triggerLabel={purchase ? "Edit purchase" : "Add purchase"}
+            title={purchase ? "Edit the purchase" : "Add the purchase"}
+          >
+            <PurchaseForm
+              initialValues={
+                purchase
+                  ? purchaseFormValues(purchase, costs.purchaseKilometres)
+                  : emptyPurchaseForm()
+              }
+              action={savePurchaseAction.bind(null, vehicle.id)}
+              isGstRegistered={user.isGstRegistered}
+              nearState={vehicle.regoState}
+              submitLabel={purchase ? "Save changes" : "Save purchase"}
+            />
+          </FormDialog>
         </CardContent>
       )}
     </Card>
@@ -152,13 +158,12 @@ function OtherCostsCard({ vehicle, costs, user }: CostsCardProps) {
           </ul>
         )}
         {isEditable ? (
-          <div className="flex flex-col gap-3">
-            <h3 className="text-primary text-base font-semibold">Add a cost</h3>
+          <FormDialog triggerLabel="Add a cost" title="Add a cost">
             <CostForm
               action={addCostAction.bind(null, vehicle.id)}
               isGstRegistered={user.isGstRegistered}
             />
-          </div>
+          </FormDialog>
         ) : null}
       </CardContent>
     </Card>
@@ -184,7 +189,8 @@ function SaleSummary({ vehicle, costs, user }: CostsCardProps) {
         </p>
       ) : (
         <p className="text-attention font-medium">
-          Transfer not lodged yet: fines can still come to you. Add the date below once it is.
+          Transfer not lodged yet: fines can still come to you. Add the date with Edit sale once it
+          is.
         </p>
       )}
       {vehicle.archivedAt ? null : (
@@ -222,14 +228,19 @@ function SaleCard(props: CostsCardProps) {
       <CardContent className="flex flex-col gap-6">
         <SaleSummary {...props} />
         {vehicle.archivedAt ? null : (
-          <SaleForm
-            initialValues={sale ? saleFormValues(sale, user.operatorTimezone) : emptySaleForm()}
-            action={saveSaleAction.bind(null, vehicle.id)}
-            isGstRegistered={user.isGstRegistered}
-            timeZone={user.operatorTimezone}
-            nearState={vehicle.regoState}
-            submitLabel={sale ? "Save changes" : "Save sale"}
-          />
+          <FormDialog
+            triggerLabel={sale ? "Edit sale" : "Record sale"}
+            title={sale ? "Edit the sale" : "Record the sale"}
+          >
+            <SaleForm
+              initialValues={sale ? saleFormValues(sale, user.operatorTimezone) : emptySaleForm()}
+              action={saveSaleAction.bind(null, vehicle.id)}
+              isGstRegistered={user.isGstRegistered}
+              timeZone={user.operatorTimezone}
+              nearState={vehicle.regoState}
+              submitLabel={sale ? "Save changes" : "Save sale"}
+            />
+          </FormDialog>
         )}
       </CardContent>
     </Card>

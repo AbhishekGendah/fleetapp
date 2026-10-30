@@ -1,4 +1,4 @@
-import { formatCents, INSURANCE_COVER_TYPE_LABELS, type ExpiryStatus } from "@fleetapp/core";
+import { formatPremium, INSURANCE_COVER_TYPE_LABELS, type ExpiryStatus } from "@fleetapp/core";
 import { Badge } from "@fleetapp/ui/badge";
 import type { DataListDefinition } from "@fleetapp/ui/data-list";
 
@@ -41,7 +41,11 @@ export const POLICY_LIST: DataListDefinition<PolicyListRow> = {
         ),
     },
     { key: "cars", label: "Cars", isSortable: true, exportValue: (policy) => policy.carCount },
-    { key: "premium", label: "Premium", exportValue: (policy) => formatCents(policy.costCents) },
+    {
+      key: "premium",
+      label: "Premium",
+      exportValue: (policy) => formatPremium(policy.costCents, policy.paymentFrequency),
+    },
   ],
   filters: [
     {

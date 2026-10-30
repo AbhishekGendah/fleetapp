@@ -2,6 +2,7 @@
 
 import { Button } from "@fleetapp/ui/button";
 import { INITIAL_CHANGE_STATE, type ChangeFormState } from "@fleetapp/ui/change-form-state";
+import { useDialogClose } from "@fleetapp/ui/form-dialog";
 import { FormResult } from "@fleetapp/ui/form-result";
 import { RequiredFieldsNote } from "@fleetapp/ui/input";
 import { useFormFields, type FieldErrors, type FormFields } from "@fleetapp/ui/use-form-fields";
@@ -30,6 +31,7 @@ export interface ChangeForm<Field extends string> {
 export function useChangeForm<Field extends string>(
   options: ChangeFormOptions<Field>,
 ): ChangeForm<Field> {
+  const closeDialog = useDialogClose();
   const fields = useFormFields({
     fields: options.fields,
     initialValues: options.initialValues,
@@ -39,7 +41,13 @@ export function useChangeForm<Field extends string>(
   const [state, formAction, isPending] = useActionState(
     async (previous: ChangeFormState, formData: FormData) => {
       const result = await options.action(previous, formData);
-      if (result.status === "saved" && options.shouldClearOnSave) {
+      if (result.status !== "saved") {
+        return result;
+      }
+      // In a pop-up, a plain save closes it; a warning stays up to be read.
+      if (closeDialog && !result.isWarning) {
+        closeDialog();
+      } else if (options.shouldClearOnSave) {
         fields.clear();
       }
       return result;

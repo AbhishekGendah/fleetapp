@@ -1,4 +1,9 @@
-import type { InsuranceCoverType, ListPage, ListQuery } from "@fleetapp/core";
+import type {
+  InsuranceCoverType,
+  InsurancePaymentFrequency,
+  ListPage,
+  ListQuery,
+} from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import {
   listConditions,
@@ -126,6 +131,7 @@ export interface PolicySummary {
   startsOn: string;
   endsOn: string;
   costCents: number;
+  paymentFrequency: InsurancePaymentFrequency;
   carCount: number;
   archivedAt: Date | null;
 }
@@ -175,6 +181,7 @@ export async function listPolicyPage(
             startsOn: insurancePolicies.startsOn,
             endsOn: insurancePolicies.endsOn,
             costCents: insurancePolicies.costCents,
+            paymentFrequency: insurancePolicies.paymentFrequency,
             carCount: coveredCarCount,
             archivedAt: insurancePolicies.archivedAt,
           })

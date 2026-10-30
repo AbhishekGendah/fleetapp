@@ -1,4 +1,8 @@
-import { INSURANCE_COVER_TYPES, REGO_TERMS_MONTHS } from "@fleetapp/core";
+import {
+  INSURANCE_COVER_TYPES,
+  INSURANCE_PAYMENT_FREQUENCIES,
+  REGO_TERMS_MONTHS,
+} from "@fleetapp/core";
 import { sql } from "drizzle-orm";
 import {
   check,
@@ -22,6 +26,10 @@ import { operatorIdColumn } from "./operators";
 import { vehicles } from "./vehicles";
 
 export const insuranceCoverTypeEnum = pgEnum("insurance_cover_type", INSURANCE_COVER_TYPES);
+export const insurancePaymentFrequencyEnum = pgEnum(
+  "insurance_payment_frequency",
+  INSURANCE_PAYMENT_FREQUENCIES,
+);
 
 /** Money is whole cents, stored including GST, with its GST beside it (rule 9). */
 export function amountChecks(
@@ -95,6 +103,10 @@ export const insurancePolicies = pgTable(
     endsOn: date("ends_on").notNull(),
     /** Kept for damage recovery charges later. */
     excessCents: integer("excess_cents"),
+    /** The premium is paid this often; `cost_cents` is one payment. */
+    paymentFrequency: insurancePaymentFrequencyEnum("payment_frequency")
+      .notNull()
+      .default("yearly"),
     costCents: integer("cost_cents").notNull(),
     gstCents: integer("gst_cents").notNull().default(0),
 

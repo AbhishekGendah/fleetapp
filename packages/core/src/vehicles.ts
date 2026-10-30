@@ -1,4 +1,5 @@
-import { digitsOnly, formatWholeNumberAsTyped } from "./text";
+import { formatCents } from "./money";
+import { digitsOnly, formatWholeNumberAsTyped, groupThousands } from "./text";
 
 /**
  * The rules for an Operator's cars (docs/design/02). Pure: the form checks
@@ -9,7 +10,13 @@ import { digitsOnly, formatWholeNumberAsTyped } from "./text";
  * What a car is doing. "rented" arrives with rentals (Phase 3) and is only
  * ever set by the system, from who has the car.
  */
-export const VEHICLE_STATUSES = ["available", "in_service", "off_road", "sold", "written_off"] as const;
+export const VEHICLE_STATUSES = [
+  "available",
+  "in_service",
+  "off_road",
+  "sold",
+  "written_off",
+] as const;
 export type VehicleStatus = (typeof VEHICLE_STATUSES)[number];
 
 export const VEHICLE_STATUS_LABELS: Readonly<Record<VehicleStatus, string>> = {
@@ -61,7 +68,14 @@ export const TRANSMISSION_LABELS: Readonly<Record<Transmission, string>> = {
   manual: "Manual",
 };
 
-export const FUEL_TYPES = ["petrol", "diesel", "hybrid", "plug_in_hybrid", "electric", "lpg"] as const;
+export const FUEL_TYPES = [
+  "petrol",
+  "diesel",
+  "hybrid",
+  "plug_in_hybrid",
+  "electric",
+  "lpg",
+] as const;
 export type FuelType = (typeof FUEL_TYPES)[number];
 
 export const FUEL_TYPE_LABELS: Readonly<Record<FuelType, string>> = {
@@ -141,9 +155,34 @@ export function findOdometerDrops(readings: readonly OdometerReadingForCheck[]):
   );
 }
 
-/** How long a rego renewal runs. */
-export const REGO_TERMS_MONTHS = [3, 6, 12] as const;
+/**
+ * How long a rego renewal runs. One month is WA's direct debit renewal;
+ * nine months is offered in SA.
+ */
+export const REGO_TERMS_MONTHS = [1, 3, 6, 9, 12] as const;
 export type RegoTermMonths = (typeof REGO_TERMS_MONTHS)[number];
+
+/** "Monthly (direct debit)" or "6 months". */
+export function regoTermLabel(months: number): string {
+  return months === 1 ? "Monthly (direct debit)" : `${months} months`;
+}
+
+/** How often a premium is paid. The amount recorded is one payment. */
+export const INSURANCE_PAYMENT_FREQUENCIES = ["yearly", "monthly", "fortnightly"] as const;
+export type InsurancePaymentFrequency = (typeof INSURANCE_PAYMENT_FREQUENCIES)[number];
+
+export const INSURANCE_PAYMENT_FREQUENCY_LABELS: Readonly<
+  Record<InsurancePaymentFrequency, string>
+> = {
+  yearly: "Yearly",
+  monthly: "Monthly",
+  fortnightly: "Fortnightly",
+};
+
+/** "$137.50 monthly": a premium as one payment and how often it is paid. */
+export function formatPremium(cents: number, frequency: InsurancePaymentFrequency): string {
+  return `${formatCents(cents)} ${INSURANCE_PAYMENT_FREQUENCY_LABELS[frequency].toLowerCase()}`;
+}
 
 /** The kinds of car insurance sold in Australia. */
 export const INSURANCE_COVER_TYPES = [
@@ -158,6 +197,11 @@ export const INSURANCE_COVER_TYPE_LABELS: Readonly<Record<InsuranceCoverType, st
   third_party_fire_theft: "Third party, fire and theft",
   third_party_property: "Third party property",
 };
+
+/** "48,210 km": a reading as it is shown everywhere. */
+export function formatKilometres(kilometres: number): string {
+  return `${groupThousands(String(kilometres))} km`;
+}
 
 /** The most digits an odometer reading can have (2,000,000 km). */
 export const MAXIMUM_ODOMETER_DIGITS = String(MAXIMUM_ODOMETER_KM).length;

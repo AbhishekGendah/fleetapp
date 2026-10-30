@@ -17,6 +17,7 @@ import { ComboBox } from "@fleetapp/ui/combo-box";
 import { CodeInput, TOTP_CODE_LENGTH } from "@fleetapp/ui/code-input";
 import { fieldErrorId, FormField } from "@fleetapp/ui/form-field";
 import { FormError } from "@fleetapp/ui/form-message";
+import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { FormattedInput } from "@fleetapp/ui/formatted-input";
 import { MoneyInput } from "@fleetapp/ui/money-input";
 import { DataList, type DataListDefinition } from "@fleetapp/ui/data-list";
@@ -317,6 +318,17 @@ export function ComponentCatalogue() {
             { href: "#log", label: "Log", isCurrent: false },
           ]}
         />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Pop-up form"
+        note="An Add or Edit button that opens its form in a pop-up: full screen on a phone. Saving closes it."
+      >
+        <FormDialog triggerLabel="Add an example" title="An example pop-up">
+          <FormField htmlFor="example-dialog-box" label="A box inside">
+            <Input id="example-dialog-box" />
+          </FormField>
+        </FormDialog>
       </CatalogueSection>
 
       <CatalogueSection

@@ -1,6 +1,12 @@
 "use client";
 
-import { fieldErrorsOf, INSURANCE_COVER_TYPE_LABELS, INSURANCE_COVER_TYPES } from "@fleetapp/core";
+import {
+  fieldErrorsOf,
+  INSURANCE_COVER_TYPE_LABELS,
+  INSURANCE_COVER_TYPES,
+  INSURANCE_PAYMENT_FREQUENCIES,
+  INSURANCE_PAYMENT_FREQUENCY_LABELS,
+} from "@fleetapp/core";
 import { Checkbox } from "@fleetapp/ui/checkbox";
 import { FormField } from "@fleetapp/ui/form-field";
 import { FormSection } from "@fleetapp/ui/form-section";
@@ -94,11 +100,31 @@ export function PolicyForm(props: PolicyFormProps) {
             onValueChange={(value) => form.setValue("excessCents", value)}
           />
         </FormField>
+        <FormField
+          htmlFor="paymentFrequency"
+          label="Paid"
+          isRequired
+          hint="Most policies are paid yearly; some monthly or fortnightly."
+          error={form.errorFor("paymentFrequency")}
+        >
+          <Select
+            {...form.boxProps("paymentFrequency")}
+            onChange={(event) => form.setValue("paymentFrequency", event.target.value)}
+          >
+            {INSURANCE_PAYMENT_FREQUENCIES.map((frequency) => (
+              <option key={frequency} value={frequency}>
+                {INSURANCE_PAYMENT_FREQUENCY_LABELS[frequency]}
+              </option>
+            ))}
+          </Select>
+        </FormField>
         <AmountWithGst
           form={form}
           amountField="costCents"
           gstField="gstCents"
-          amountLabel="Premium"
+          amountLabel={
+            form.values.paymentFrequency === "yearly" ? "Premium" : "Premium (each payment)"
+          }
           gstSource="tenth_of_amount"
           isGstRegistered={props.isGstRegistered}
         />

@@ -1,8 +1,9 @@
-import { formatCalendarDate, formatDateTimeInTimeZone } from "@fleetapp/core";
+import { formatCalendarDate, formatDateTimeInTimeZone, formatKilometres } from "@fleetapp/core";
 import { ACTIVITY_ENTITY_TYPES } from "@fleetapp/db/schema";
 import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { TabLinks } from "@fleetapp/ui/tab-links";
 import Link from "next/link";
 
@@ -18,7 +19,6 @@ import {
   vehicleFieldLabel,
 } from "../../../lib/vehicles/vehicle-labels";
 import type { VehicleDetail } from "../../../lib/vehicles/vehicle-queries";
-import { formatKilometres } from "../car-list";
 import { CarHistoryCard } from "../car-history-card";
 import { VehicleStatusBadge } from "../vehicle-status-badge";
 import { ActionButton } from "@fleetapp/ui/action-button";
@@ -140,25 +140,20 @@ function DetailsTab({ vehicle }: { vehicle: VehicleDetail }) {
 function OdometerTab({ vehicle, timezone }: { vehicle: VehicleDetail; timezone: string }) {
   return (
     <>
-      {vehicle.archivedAt ? null : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Add a reading</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <OdometerForm action={recordReadingAction.bind(null, vehicle.id)} />
-          </CardContent>
-        </Card>
-      )}
       <Card>
         <CardHeader>
           <CardTitle>Readings</CardTitle>
           <CardDescription>
-            A reading lower than the one before is flagged. Withdraw one entered by mistake; it
-            stays on record, crossed out.
+            A reading lower than the last is refused unless the odometer was replaced. Withdraw one
+            entered by mistake; it stays on record, crossed out.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-4">
+          {vehicle.archivedAt ? null : (
+            <FormDialog triggerLabel="Add a reading" title="Add an odometer reading">
+              <OdometerForm action={recordReadingAction.bind(null, vehicle.id)} />
+            </FormDialog>
+          )}
           {vehicle.readings.length === 0 ? (
             <p className="text-muted-foreground text-sm">No readings yet.</p>
           ) : (

@@ -235,4 +235,9 @@ export const vehicleStatusInputSchema = z
 export type VehicleStatusInput = z.infer<typeof vehicleStatusInputSchema>;
 export type VehicleStatusFormValues = Record<keyof VehicleStatusInput, string>;
 
-export const odometerInputSchema = z.object({ kilometres: kilometresField });
+export const ODOMETER_REPLACED_FIELD = "isOdometerReplaced";
+
+export const odometerInputSchema = z.object({
+  kilometres: kilometresField,
+  isOdometerReplaced: z.boolean(),
+});

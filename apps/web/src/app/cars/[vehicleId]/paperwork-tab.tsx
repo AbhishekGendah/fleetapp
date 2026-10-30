@@ -3,12 +3,14 @@ import {
   formatCalendarDate,
   formatCents,
   INSURANCE_COVER_TYPE_LABELS,
+  regoTermLabel,
 } from "@fleetapp/core";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import Link from "next/link";
 
 import { ActionButton } from "@fleetapp/ui/action-button";
 import { ChooseAndApply } from "@fleetapp/ui/choose-and-apply";
+import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { appDb } from "../../../lib/app-db";
 import { INSURANCE_PATH, policyPath } from "../../../lib/paths";
 import type { SignedInUser } from "../../../lib/require-user";
@@ -64,7 +66,7 @@ function RegoCard(props: {
               >
                 <div>
                   <p className="font-medium">
-                    {registration.state}, {registration.termMonths} months, to{" "}
+                    {registration.state}, {regoTermLabel(registration.termMonths).toLowerCase()}, to{" "}
                     {formatCalendarDate(registration.expiresOn)}
                   </p>
                   <p className="text-muted-foreground text-xs">
@@ -91,14 +93,13 @@ function RegoCard(props: {
           </ul>
         )}
         {isEditable ? (
-          <div className="flex flex-col gap-3">
-            <h3 className="text-primary text-base font-semibold">Add a rego renewal</h3>
+          <FormDialog triggerLabel="Add rego renewal" title="Add a rego renewal">
             <RegoForm
               initialValues={{ ...emptyRegoForm(), state: current?.state ?? vehicle.regoState }}
               action={addRegoAction.bind(null, vehicle.id)}
               isGstRegistered={props.isGstRegistered}
             />
-          </div>
+          </FormDialog>
         ) : null}
       </CardContent>
     </Card>
@@ -177,8 +178,7 @@ function InsuranceCard(props: {
           />
         ) : null}
         {isEditable ? (
-          <div className="flex flex-col gap-3">
-            <h3 className="text-primary text-base font-semibold">Add insurance for this car</h3>
+          <FormDialog triggerLabel="Add insurance" title="Add insurance for this car">
             <PolicyForm
               initialValues={emptyPolicyForm()}
               action={addPolicyForCarAction.bind(null, vehicle.id)}
@@ -186,7 +186,7 @@ function InsuranceCard(props: {
               isGstRegistered={props.isGstRegistered}
               shouldClearOnSave
             />
-          </div>
+          </FormDialog>
         ) : null}
       </CardContent>
     </Card>

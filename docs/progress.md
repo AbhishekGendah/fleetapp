@@ -343,9 +343,17 @@
   VIN, policy numbers, licence numbers and references in capitals; year and
   seats digits only; History renamed Log; cost Kind renamed Type. New rule
   31 in CLAUDE.md: every field gets its proper format.
-- Waiting for approval: docs/plans/car-testing-changes.md (monthly rego,
-  premium payment frequency, Servicing cost type, pop-up add forms, lower
-  odometer readings refused).
+- Car testing changes (plan: docs/plans/car-testing-changes.md), built:
+  - Rego terms Monthly (direct debit), 3, 6, 9 and 12 months.
+  - Insurance premium has Paid: Yearly, Monthly or Fortnightly; the amount
+    is one payment ("$137.50 monthly"). Existing policies are Yearly.
+  - Cost types Servicing, Repair, Refurb, Other.
+  - Lower odometer readings refused unless "The odometer was replaced" is
+    ticked, which the log records.
+  - Add and Edit forms on a car's tabs open in pop-ups (new shared
+    FormDialog in packages/ui and the catalogue); a plain save closes them.
+  - Migration 0012: payment_frequency column, wider rego term check, the
+    new cost type.
 
 ## Next
 Phase 2 step 2c: photos and documents, including transfer papers and

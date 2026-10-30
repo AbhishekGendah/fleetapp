@@ -1,25 +1,26 @@
 "use server";
 
-import { formTextValues, isRecordId } from "@fleetapp/core";
+import { formatKilometres, formTextValues, isRecordId } from "@fleetapp/core";
 
 import { appDb } from "../../../lib/app-db";
 import { changeCar, NOT_FOUND_MESSAGE } from "./change-car";
 import { recordOdometerReading, withdrawOdometerReading } from "../../../lib/vehicles/odometer";
-import { odometerInputSchema, vehicleStatusInputSchema } from "../../../lib/vehicles/vehicle-input";
+import {
+  ODOMETER_REPLACED_FIELD,
+  odometerInputSchema,
+  vehicleStatusInputSchema,
+} from "../../../lib/vehicles/vehicle-input";
 import {
   archiveVehicle,
   changeVehicleStatus,
   restoreVehicle,
 } from "../../../lib/vehicles/vehicle-records";
-import {
-  failedState,
-  savedState,
-  type ChangeFormState,
-} from "@fleetapp/ui/change-form-state";
+import { failedState, savedState, type ChangeFormState } from "@fleetapp/ui/change-form-state";
 
 const INVALID_MESSAGE = "That is not right, so nothing was saved. Check it and try again.";
-const LOWER_READING_WARNING =
-  "Saved, but it is lower than the last reading. Check it; if it was a slip, withdraw it and enter it again.";
+function lowerReadingMessage(lastKilometres: number): string {
+  return `Lower than the last reading (${formatKilometres(lastKilometres)}). If that one was wrong, withdraw it first. If the odometer was replaced, tick “The odometer was replaced”.`;
+}
 
 export async function changeStatusAction(
   vehicleId: string,
@@ -43,17 +44,20 @@ export async function recordReadingAction(
   _previous: ChangeFormState,
   formData: FormData,
 ): Promise<ChangeFormState> {
-  const parsed = odometerInputSchema.safeParse(formTextValues(formData, ["kilometres"]));
+  const parsed = odometerInputSchema.safeParse({
+    ...formTextValues(formData, ["kilometres"]),
+    isOdometerReplaced: formData.get(ODOMETER_REPLACED_FIELD) === "on",
+  });
   if (!parsed.success) {
     return failedState(INVALID_MESSAGE);
   }
   return changeCar(vehicleId, "Recording an odometer reading", async (actor) => {
-    const result = await recordOdometerReading(appDb, actor, vehicleId, parsed.data.kilometres);
+    const result = await recordOdometerReading(appDb, actor, vehicleId, parsed.data);
     if (result.status === "not_found") {
       return failedState(NOT_FOUND_MESSAGE);
     }
-    return result.isLowerThanLast
-      ? savedState(LOWER_READING_WARNING, true)
+    return result.status === "lower"
+      ? failedState(lowerReadingMessage(result.lastKilometres))
       : savedState("Reading saved.");
   });
 }

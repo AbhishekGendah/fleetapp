@@ -1,4 +1,4 @@
-import { AUSTRALIAN_LOCALE, VEHICLE_STATUS_LABELS, VEHICLE_STATUSES } from "@fleetapp/core";
+import { formatKilometres, VEHICLE_STATUS_LABELS, VEHICLE_STATUSES } from "@fleetapp/core";
 import type { DataListDefinition } from "@fleetapp/ui/data-list";
 
 import {
@@ -12,10 +12,6 @@ import { VehicleStatusBadge } from "./vehicle-status-badge";
 
 function carName(vehicle: VehicleSummary): string {
   return [vehicle.make, vehicle.model, vehicle.variant].filter(Boolean).join(" ");
-}
-
-export function formatKilometres(kilometres: number): string {
-  return `${kilometres.toLocaleString(AUSTRALIAN_LOCALE)} km`;
 }
 
 /**

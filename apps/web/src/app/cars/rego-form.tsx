@@ -1,6 +1,6 @@
 "use client";
 
-import { fieldErrorsOf, REGO_TERMS_MONTHS } from "@fleetapp/core";
+import { fieldErrorsOf, REGO_TERMS_MONTHS, regoTermLabel } from "@fleetapp/core";
 import { FormField } from "@fleetapp/ui/form-field";
 import { Input } from "@fleetapp/ui/input";
 import { Select } from "@fleetapp/ui/select";
@@ -51,7 +51,7 @@ export function RegoForm(props: {
             <option value="">Choose…</option>
             {REGO_TERMS_MONTHS.map((months) => (
               <option key={months} value={String(months)}>
-                {months} months
+                {regoTermLabel(months)}
               </option>
             ))}
           </Select>

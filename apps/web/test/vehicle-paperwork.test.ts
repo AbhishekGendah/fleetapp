@@ -44,6 +44,7 @@ const POLICY_FORM = {
   startsOn: "2026-10-01",
   endsOn: "2027-10-01",
   excessCents: "1,000",
+  paymentFrequency: "monthly",
   costCents: "1,650.00",
   gstCents: "150",
 };
@@ -69,6 +70,7 @@ describe("the rego and insurance forms' rules", () => {
     expect(rego()).toMatchObject({ termMonths: 12, costCents: 912_50, gstCents: 0, paidOn: null });
     expect(policy()).toMatchObject({
       excessCents: 1_000_00,
+      paymentFrequency: "monthly",
       costCents: 1_650_00,
       gstCents: 150_00,
     });

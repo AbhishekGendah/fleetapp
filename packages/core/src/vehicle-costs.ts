@@ -18,12 +18,13 @@ export function isPrivatePurchase(source: string): boolean {
 }
 
 /** Refurb counts towards the car's cost base for the profit report later. */
-export const VEHICLE_COST_KINDS = ["refurb", "repair", "other"] as const;
+export const VEHICLE_COST_KINDS = ["servicing", "repair", "refurb", "other"] as const;
 export type VehicleCostKind = (typeof VEHICLE_COST_KINDS)[number];
 
 export const VEHICLE_COST_KIND_LABELS: Readonly<Record<VehicleCostKind, string>> = {
-  refurb: "Refurb",
+  servicing: "Servicing",
   repair: "Repair",
+  refurb: "Refurb",
   other: "Other",
 };
 

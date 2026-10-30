@@ -137,7 +137,7 @@ describe("car paperwork", () => {
     });
   });
 
-  it("refuses GST above a tenth, a term that is not 3, 6 or 12 months, and a policy ending before it starts", async () => {
+  it("refuses GST above a tenth, a term that is not 1, 3, 6, 9 or 12 months, and a policy ending before it starts", async () => {
     const attempts = [
       () =>
         withTenant(web.db, operatorBId, (tx) =>
@@ -149,7 +149,7 @@ describe("car paperwork", () => {
         withTenant(web.db, operatorBId, (tx) =>
           tx
             .insert(schema.vehicleRegistrations)
-            .values({ ...regoRow(operatorBId, carBId), termMonths: 9 }),
+            .values({ ...regoRow(operatorBId, carBId), termMonths: 7 }),
         ),
       () =>
         withTenant(web.db, operatorBId, (tx) =>

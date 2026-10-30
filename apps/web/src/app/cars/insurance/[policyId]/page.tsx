@@ -1,4 +1,4 @@
-import { expiryStatus, formatCents, INSURANCE_COVER_TYPE_LABELS, isRecordId } from "@fleetapp/core";
+import { expiryStatus, formatPremium, INSURANCE_COVER_TYPE_LABELS, isRecordId } from "@fleetapp/core";
 import { ACTIVITY_ENTITY_TYPES } from "@fleetapp/db/schema";
 import { Badge } from "@fleetapp/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
@@ -107,7 +107,7 @@ export default async function PolicyPage(props: { params: Promise<{ policyId: st
       </div>
       <p className="text-muted-foreground -mt-2 flex flex-wrap items-center gap-2 text-sm">
         {policy.policyNumber} · {INSURANCE_COVER_TYPE_LABELS[policy.coverType]} ·{" "}
-        {formatCents(policy.costCents)} · ends{" "}
+        {formatPremium(policy.costCents, policy.paymentFrequency)} · ends{" "}
         <ExpiryDate
           date={policy.endsOn}
           status={expiryStatus(policy.endsOn, expiry.today, expiry.warningDays)}

@@ -19,7 +19,15 @@ export const countedReading = and(
 );
 
 export type RecordReadingResult =
-  { status: "recorded"; isLowerThanLast: boolean } | { status: "not_found" };
+  { status: "recorded" } | { status: "lower"; lastKilometres: number } | { status: "not_found" };
+
+/** Where a reading came from and when it was seen; by default, typed by the User now. */
+interface SeenReading {
+  recordedAt: Date;
+  source: OdometerSource;
+  /** Lower than the last on purpose: the odometer was replaced. Kept in the log. */
+  isOdometerReplaced?: boolean;
+}
 
 function logReadingActivity(
   tx: AnyTransaction,
@@ -46,7 +54,7 @@ export async function addReading(
   actor: ActingUser,
   vehicleId: string,
   kilometres: number,
-  seen: { recordedAt: Date; source: OdometerSource } = { recordedAt: new Date(), source: "manual" },
+  seen: SeenReading = { recordedAt: new Date(), source: "manual" },
 ): Promise<void> {
   const [reading] = await tx
     .insert(odometerReadings)
@@ -65,18 +73,20 @@ export async function addReading(
   await logReadingActivity(tx, actor, reading.id, ACTIVITY_ACTIONS.created, {
     vehicleId,
     kilometres,
+    ...(seen.isOdometerReplaced ? { isOdometerReplaced: true } : {}),
   });
 }
 
 /**
  * Records what the odometer shows now. A reading lower than the last one is
- * saved and flagged, never refused: the odometer may have been replaced.
+ * refused, as it is almost always a typo, unless the User says the odometer
+ * was replaced; then it is saved, flagged, and the log says why.
  */
 export async function recordOdometerReading(
   database: AnyDatabase,
   actor: ActingUser,
   vehicleId: string,
-  kilometres: number,
+  input: { kilometres: number; isOdometerReplaced: boolean },
 ): Promise<RecordReadingResult> {
   return withTenant(database, actor.operatorId, async (tx) => {
     if (!(await findCurrentVehicle(tx, actor.operatorId, vehicleId))) {
@@ -89,8 +99,15 @@ export async function recordOdometerReading(
       .orderBy(desc(odometerReadings.recordedAt))
       .limit(1);
 
-    await addReading(tx, actor, vehicleId, kilometres);
-    return { status: "recorded", isLowerThanLast: latest ? kilometres < latest.kilometres : false };
+    if (latest && input.kilometres < latest.kilometres && !input.isOdometerReplaced) {
+      return { status: "lower", lastKilometres: latest.kilometres };
+    }
+    await addReading(tx, actor, vehicleId, input.kilometres, {
+      recordedAt: new Date(),
+      source: "manual",
+      isOdometerReplaced: input.isOdometerReplaced,
+    });
+    return { status: "recorded" };
   });
 }
 

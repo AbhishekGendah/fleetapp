@@ -8,6 +8,7 @@ import {
   WITHHELD_VALUE,
   FUEL_TYPE_LABELS,
   INSURANCE_COVER_TYPE_LABELS,
+  INSURANCE_PAYMENT_FREQUENCY_LABELS,
   TRANSMISSION_LABELS,
   VEHICLE_STATUS_LABELS,
 } from "@fleetapp/core";
@@ -57,6 +58,7 @@ export const VEHICLE_FIELD_LABELS: Readonly<Record<VehicleLabelledField, string>
   startsOn: "Starts",
   endsOn: "Ends",
   excessCents: "Excess",
+  paymentFrequency: "Paid",
   purchasedOn: "Bought on",
   source: "Bought from",
   sellerName: "Seller's name",
@@ -97,6 +99,7 @@ const VALUE_LABELS: Partial<Record<VehicleLabelledField, Readonly<Record<string,
   transmission: TRANSMISSION_LABELS,
   fuelType: FUEL_TYPE_LABELS,
   coverType: INSURANCE_COVER_TYPE_LABELS,
+  paymentFrequency: INSURANCE_PAYMENT_FREQUENCY_LABELS,
   source: PURCHASE_SOURCE_LABELS,
   kind: VEHICLE_COST_KIND_LABELS,
 };
