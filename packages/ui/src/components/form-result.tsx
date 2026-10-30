@@ -1,4 +1,4 @@
-import { FormError } from "@fleetapp/ui/form-message";
+import { FormError } from "./form-message";
 
 import type { ChangeFormState } from "./change-form-state";
 

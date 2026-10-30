@@ -5,8 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@flee
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { ActionButton } from "../../../../components/action-button";
-import { ChooseAndApply } from "../../../../components/choose-and-apply";
+import { ActionButton } from "@fleetapp/ui/action-button";
+import { ChooseAndApply } from "@fleetapp/ui/choose-and-apply";
 import { appDb } from "../../../../lib/app-db";
 import { carPath, INSURANCE_PATH } from "../../../../lib/paths";
 import { requireUser } from "../../../../lib/require-user";

@@ -6,13 +6,14 @@ import {
   fieldErrorsOf,
   FUEL_TYPE_LABELS,
   FUEL_TYPES,
-  listedName,
+  findCatalogueMake,
+  findListedName,
   MAXIMUM_LINE_LENGTH,
   MAXIMUM_REGO_LENGTH,
-  modelsForMake,
   TRANSMISSION_LABELS,
   TRANSMISSIONS,
-  VEHICLE_MAKES,
+  suggestNames,
+  type VehicleCatalogue,
 } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { ComboBox } from "@fleetapp/ui/combo-box";
@@ -49,6 +50,8 @@ const DUPLICATE_MESSAGES = {
 } as const;
 
 interface CarFormProps {
+  /** The shared list of makes and models, loaded fresh by the page. */
+  catalogue: VehicleCatalogue;
   /** Adding a car also asks for its odometer reading; editing does not. */
   isNew: boolean;
   initialValues: VehicleFormValues;
@@ -78,33 +81,36 @@ function ChoiceOptions(props: {
  * you type; anything not listed can still be typed, with a gentle warning in
  * case it is a misspelling.
  */
-export function CarForm({ isNew, initialValues, action, submitLabel, cancelHref }: CarFormProps) {
+export function CarForm(props: CarFormProps) {
+  const { catalogue, isNew, initialValues, action, submitLabel, cancelHref } = props;
   const [state, formAction, isPending] = useActionState(action, INITIAL_STATE);
   const form = useFormFields({
     fields: isNew ? NEW_VEHICLE_FORM_FIELDS : VEHICLE_FORM_FIELDS,
     initialValues,
     validate: (values) =>
       fieldErrorsOf(
-        isNew ? parseNewVehicleForm(values, new Date()) : parseVehicleForm(values, new Date()),
+        isNew
+          ? parseNewVehicleForm(values, new Date(), catalogue)
+          : parseVehicleForm(values, new Date(), catalogue),
       ),
     isRequired: isRequiredVehicleField,
   });
   // A refusal stops applying as soon as anything is changed.
   const shownState = form.isResultShown && !isPending ? state : INITIAL_STATE;
   const { values, errorFor, boxProps, textBoxProps } = form;
-  const models = modelsForMake(values.make);
-  const isMakeListed = listedName(VEHICLE_MAKES, values.make) !== null;
+  const make = findCatalogueMake(catalogue, values.make);
+  const models = make?.models ?? [];
 
+  /** A gentle note for a name not in the list, naming the closest listed one if there is one. */
   function warningFor(field: "make" | "model"): string | undefined {
     const typed = values[field].trim();
-    if (!typed) {
+    // A make not in the list has no models to compare against.
+    const names = field === "make" ? catalogue : make ? models : null;
+    if (!typed || !names || findListedName(names, typed) !== null) {
       return undefined;
     }
-    if (field === "make") {
-      return isMakeListed ? undefined : NOT_LISTED_WARNING;
-    }
-    // A make not in the list has no models to compare against.
-    return isMakeListed && listedName(models, typed) === null ? NOT_LISTED_WARNING : undefined;
+    const closest = suggestNames(names, typed)[0];
+    return closest ? `${NOT_LISTED_WARNING} Did you mean ${closest}?` : NOT_LISTED_WARNING;
   }
 
   function duplicateErrorFor(field: VehicleFormField): string | undefined {
@@ -162,7 +168,7 @@ export function CarForm({ isNew, initialValues, action, submitLabel, cancelHref 
           <ComboBox
             {...boxProps("make")}
             maxLength={MAXIMUM_LINE_LENGTH}
-            options={VEHICLE_MAKES}
+            options={catalogue}
             onValueChange={(value) => form.setValue("make", value)}
             placeholder="Start typing, e.g. Toyota"
           />
@@ -173,7 +179,7 @@ export function CarForm({ isNew, initialValues, action, submitLabel, cancelHref 
             maxLength={MAXIMUM_LINE_LENGTH}
             options={models}
             onValueChange={(value) => form.setValue("model", value)}
-            placeholder={isMakeListed ? "Start typing, or choose" : undefined}
+            placeholder={make ? "Start typing, or choose" : undefined}
           />
         </FormField>
         <FormField {...fieldProps("variant")} hint="The badge or trim, e.g. Ascent Sport Hybrid.">

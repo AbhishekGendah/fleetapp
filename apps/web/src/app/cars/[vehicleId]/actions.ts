@@ -15,7 +15,7 @@ import {
   failedState,
   savedState,
   type ChangeFormState,
-} from "../../../components/change-form-state";
+} from "@fleetapp/ui/change-form-state";
 
 const INVALID_MESSAGE = "That is not right, so nothing was saved. Check it and try again.";
 const LOWER_READING_WARNING =

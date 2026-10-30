@@ -6,7 +6,7 @@ import {
   failedState,
   savedState,
   type ChangeFormState,
-} from "../../../components/change-form-state";
+} from "@fleetapp/ui/change-form-state";
 import { appDb } from "../../../lib/app-db";
 import {
   addVehicleToPolicy,

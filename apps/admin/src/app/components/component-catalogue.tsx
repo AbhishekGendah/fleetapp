@@ -7,7 +7,6 @@ import {
   pageOfRows,
   parseListQuery,
   type InMemoryListRules,
-  VEHICLE_MAKES,
 } from "@fleetapp/core";
 import { BRAND } from "@fleetapp/ui/brand";
 import { Badge } from "@fleetapp/ui/badge";
@@ -25,6 +24,7 @@ import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
 import { InstallAppHintCard } from "@fleetapp/ui/install-app-hint";
 import { Logo, LogoMark } from "@fleetapp/ui/logo";
 import { Select } from "@fleetapp/ui/select";
+import { Textarea } from "@fleetapp/ui/textarea";
 import { TabLinks } from "@fleetapp/ui/tab-links";
 import { useState } from "react";
 
@@ -131,12 +131,24 @@ function FormPieces() {
   );
 }
 
-/** Suggests from the built-in car list; anything else can still be typed. */
+/** A few makes, with a nickname, to try the matching on. */
+const EXAMPLE_MAKES = [
+  { name: "BYD", aliases: [] },
+  { name: "Mercedes-Benz", aliases: ["Merc", "Benz"] },
+  { name: "Toyota", aliases: [] },
+  { name: "Volkswagen", aliases: ["VW"] },
+];
+
+/** Suggests from a list as you type, ignoring spaces and capitals; anything else can still be typed. */
 function ComboBoxExample() {
   const [make, setMake] = useState("");
   return (
-    <FormField htmlFor="example-make" label="Make" hint="Try “toy”, or a make that is not listed.">
-      <ComboBox id="example-make" options={VEHICLE_MAKES} value={make} onValueChange={setMake} />
+    <FormField
+      htmlFor="example-make"
+      label="Make"
+      hint="Try “toy”, “toyta”, “vw” or a make that is not listed."
+    >
+      <ComboBox id="example-make" options={EXAMPLE_MAKES} value={make} onValueChange={setMake} />
     </FormField>
   );
 }
@@ -300,6 +312,15 @@ export function ComponentCatalogue() {
             { href: "#history", label: "History", isCurrent: false },
           ]}
         />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Several lines"
+        note="For lists typed one per line, e.g. adding several car models at once."
+      >
+        <FormField htmlFor="example-lines" label="Models, one per line">
+          <Textarea id="example-lines" placeholder={"Sealion 6\nSealion 7"} />
+        </FormField>
       </CatalogueSection>
 
       <CatalogueSection

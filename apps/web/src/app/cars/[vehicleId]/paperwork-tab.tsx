@@ -7,8 +7,8 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import Link from "next/link";
 
-import { ActionButton } from "../../../components/action-button";
-import { ChooseAndApply } from "../../../components/choose-and-apply";
+import { ActionButton } from "@fleetapp/ui/action-button";
+import { ChooseAndApply } from "@fleetapp/ui/choose-and-apply";
 import { appDb } from "../../../lib/app-db";
 import { INSURANCE_PATH, policyPath } from "../../../lib/paths";
 import type { SignedInUser } from "../../../lib/require-user";

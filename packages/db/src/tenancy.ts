@@ -79,6 +79,8 @@ export const NON_TENANT_TABLES = [
   "admin_activity_log",
   "dev_email_outbox",
   "user_verifications",
+  "vehicle_makes",
+  "vehicle_models",
 ] as const;
 
 /**

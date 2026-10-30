@@ -1,8 +1,8 @@
 "use client";
 
-import { Button } from "@fleetapp/ui/button";
-import { FormField } from "@fleetapp/ui/form-field";
-import { Select } from "@fleetapp/ui/select";
+import { Button } from "./button";
+import { FormField } from "./form-field";
+import { Select } from "./select";
 import { useActionState, useId } from "react";
 
 import { INITIAL_CHANGE_STATE, type ChangeFormState } from "./change-form-state";

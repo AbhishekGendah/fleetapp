@@ -11,7 +11,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-import { primaryKeyColumn } from "./columns";
+import { primaryKeyColumn, timestampColumns } from "./columns";
 import { operatorIdColumn } from "./operators";
 import { users } from "./users";
 
@@ -53,13 +53,7 @@ export const files = pgTable(
     /** Removed from storage for good by the clean-up job. */
     purgedAt: timestamp("purged_at", { withTimezone: true }),
 
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .default(sql`now()`),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .default(sql`now()`)
-      .$onUpdate(() => new Date()),
+    ...timestampColumns,
   },
   (table) => [
     index("files_operator_idx").on(table.operatorId, table.createdAt),

@@ -7,6 +7,7 @@ import type { z } from "zod";
 
 import type { ActingUser } from "../../lib/acting-user";
 import { appDb } from "../../lib/app-db";
+import { loadVehicleCatalogue } from "@fleetapp/db/vehicle-catalogue";
 import { carPath, CARS_PATH } from "../../lib/paths";
 import { requireUser } from "../../lib/require-user";
 import {
@@ -68,7 +69,11 @@ export async function addCarAction(
   _previous: CarFormState,
   formData: FormData,
 ): Promise<CarFormState> {
-  const parsed = parseNewVehicleForm(formTextValues(formData, NEW_VEHICLE_FORM_FIELDS), new Date());
+  const parsed = parseNewVehicleForm(
+    formTextValues(formData, NEW_VEHICLE_FORM_FIELDS),
+    new Date(),
+    await loadVehicleCatalogue(appDb),
+  );
   return saveCarForm(parsed, (actor, input) => createVehicle(appDb, actor, input));
 }
 
@@ -81,6 +86,10 @@ export async function editCarAction(
   if (!isRecordId(vehicleId)) {
     return { status: "failed", formError: NOT_FOUND_MESSAGE };
   }
-  const parsed = parseVehicleForm(formTextValues(formData, VEHICLE_FORM_FIELDS), new Date());
+  const parsed = parseVehicleForm(
+    formTextValues(formData, VEHICLE_FORM_FIELDS),
+    new Date(),
+    await loadVehicleCatalogue(appDb),
+  );
   return saveCarForm(parsed, (actor, input) => updateVehicle(appDb, actor, vehicleId, input));
 }

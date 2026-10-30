@@ -1,7 +1,7 @@
 import { describeErrorForLog } from "@fleetapp/core";
 import { revalidatePath } from "next/cache";
 
-import { failedState, type ChangeFormState } from "../components/change-form-state";
+import { failedState, type ChangeFormState } from "@fleetapp/ui/change-form-state";
 import type { ActingUser } from "./acting-user";
 import { requireUser } from "./require-user";
 

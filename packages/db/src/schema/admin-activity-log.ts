@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 import { primaryKeyColumn } from "./columns";
 
@@ -33,6 +33,12 @@ export const adminActivityLog = pgTable(
     action: text("action").notNull(),
     ipAddress: text("ip_address"),
 
+    /** What an Admin changed, for changes to AGS's own records (the car models list). */
+    entityType: text("entity_type"),
+    entityId: uuid("entity_id"),
+    valuesBefore: jsonb("values_before"),
+    valuesAfter: jsonb("values_after"),
+
     occurredAt: timestamp("occurred_at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
@@ -51,7 +57,22 @@ export const ADMIN_ACTIVITY_ACTIONS = {
   signedOut: "signed_out",
   twoFactorEnrolled: "two_factor_enrolled",
   created: "created",
+  updated: "updated",
+  hidden: "hidden",
+  shown: "shown",
+  vehicleCorrected: "vehicle_corrected",
 } as const;
+
+/** What an Admin changed, when it is AGS's own record rather than an Operator's. */
+export const ADMIN_ACTIVITY_ENTITY_TYPES = {
+  vehicleMake: "vehicle_make",
+  vehicleModel: "vehicle_model",
+  /** An Operator's car, whose make and model an Admin corrected. */
+  vehicle: "vehicle",
+} as const;
+
+export type AdminActivityEntityType =
+  (typeof ADMIN_ACTIVITY_ENTITY_TYPES)[keyof typeof ADMIN_ACTIVITY_ENTITY_TYPES];
 
 export type AdminActivityAction =
   (typeof ADMIN_ACTIVITY_ACTIONS)[keyof typeof ADMIN_ACTIVITY_ACTIONS];

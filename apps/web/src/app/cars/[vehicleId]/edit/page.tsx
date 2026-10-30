@@ -1,8 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { redirect } from "next/navigation";
 
+import { appDb } from "../../../../lib/app-db";
 import { carPath } from "../../../../lib/paths";
 import { requireUser } from "../../../../lib/require-user";
+import { loadVehicleCatalogue } from "@fleetapp/db/vehicle-catalogue";
 import { vehicleFormValues } from "../../../../lib/vehicles/vehicle-input";
 import { AppShell } from "../../../app-shell";
 import { editCarAction } from "../../actions";
@@ -15,7 +17,10 @@ export const dynamic = "force-dynamic";
 export default async function EditCarPage(props: { params: Promise<{ vehicleId: string }> }) {
   const user = await requireUser();
   const { vehicleId } = await props.params;
-  const vehicle = await loadCarOrNotFound(user, vehicleId);
+  const [vehicle, catalogue] = await Promise.all([
+    loadCarOrNotFound(user, vehicleId),
+    loadVehicleCatalogue(appDb),
+  ]);
   // An archived car is read-only until it is restored.
   if (vehicle.archivedAt) {
     redirect(carPath(vehicle.id));
@@ -29,6 +34,7 @@ export default async function EditCarPage(props: { params: Promise<{ vehicleId: 
         </CardHeader>
         <CardContent>
           <CarForm
+            catalogue={catalogue}
             isNew={false}
             initialValues={vehicleFormValues(vehicle)}
             action={editCarAction.bind(null, vehicle.id)}

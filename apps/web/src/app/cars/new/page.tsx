@@ -1,7 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@fleetapp/ui/card";
 
+import { appDb } from "../../../lib/app-db";
 import { CARS_PATH } from "../../../lib/paths";
 import { requireUser } from "../../../lib/require-user";
+import { loadVehicleCatalogue } from "@fleetapp/db/vehicle-catalogue";
 import { EMPTY_VEHICLE_FORM } from "../../../lib/vehicles/vehicle-input";
 import { AppShell } from "../../app-shell";
 import { addCarAction } from "../actions";
@@ -12,6 +14,7 @@ export const dynamic = "force-dynamic";
 
 export default async function NewCarPage() {
   const user = await requireUser();
+  const catalogue = await loadVehicleCatalogue(appDb);
   return (
     <AppShell user={user}>
       <Card>
@@ -20,6 +23,7 @@ export default async function NewCarPage() {
         </CardHeader>
         <CardContent>
           <CarForm
+            catalogue={catalogue}
             isNew
             initialValues={EMPTY_VEHICLE_FORM}
             action={addCarAction}

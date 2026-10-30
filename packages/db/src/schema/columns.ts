@@ -13,10 +13,8 @@ export const primaryKeyColumn = {
     .default(sql`gen_random_uuid()`),
 } as const;
 
-/**
- * `archivedAt` backs rule 13: core records are archived, never hard-deleted.
- */
-export const auditColumns = {
+/** When a row was added and last changed. */
+export const timestampColumns = {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(sql`now()`),
@@ -24,5 +22,12 @@ export const auditColumns = {
     .notNull()
     .default(sql`now()`)
     .$onUpdate(() => new Date()),
+} as const;
+
+/**
+ * `archivedAt` backs rule 13: core records are archived, never hard-deleted.
+ */
+export const auditColumns = {
+  ...timestampColumns,
   archivedAt: timestamp("archived_at", { withTimezone: true }),
 } as const;

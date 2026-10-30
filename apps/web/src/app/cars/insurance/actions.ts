@@ -7,7 +7,7 @@ import {
   failedState,
   savedState,
   type ChangeFormState,
-} from "../../../components/change-form-state";
+} from "@fleetapp/ui/change-form-state";
 import type { ActingUser } from "../../../lib/acting-user";
 import { appDb } from "../../../lib/app-db";
 import { CARS_PATH, INSURANCE_PATH, policyPath } from "../../../lib/paths";

@@ -16,3 +16,15 @@ export function operatorPath(operatorId: string): string {
 export function devOutboxEmailPath(emailId: string): string {
   return `${DEV_OUTBOX_PATH}/${emailId}`;
 }
+
+/** The shared list of car makes and models every Operator's car form suggests from. */
+export const CAR_MODELS_PATH = "/car-models";
+export const TYPED_BY_OPERATORS_PATH = `${CAR_MODELS_PATH}/typed-by-operators`;
+
+export function carMakePath(makeId: string): string {
+  return `${CAR_MODELS_PATH}/${makeId}`;
+}
+
+export function carModelPath(makeId: string, modelId: string): string {
+  return `${carMakePath(makeId)}/${modelId}`;
+}

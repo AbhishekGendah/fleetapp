@@ -1,4 +1,9 @@
-import { ADMIN_APP_ROLE, ADMIN_AUTH_ROLE, APPLICATION_ROLES } from "@fleetapp/db/tenancy";
+import {
+  ADMIN_APP_ROLE,
+  ADMIN_AUTH_ROLE,
+  APPLICATION_ROLES,
+  WEB_APP_ROLE,
+} from "@fleetapp/db/tenancy";
 import { migrateTestDatabase, startTestPostgres } from "@fleetapp/db/testing";
 import type { TestProject } from "vitest/node";
 
@@ -6,6 +11,8 @@ declare module "vitest" {
   export interface ProvidedContext {
     adminAuthRoleUrl: string;
     operatorsAdminAppRoleUrl: string;
+    /** For adding Operators' cars, as the Operator app does, in the same database. */
+    operatorsWebAppRoleUrl: string;
   }
 }
 
@@ -30,6 +37,11 @@ export default async function setup(project: TestProject): Promise<() => Promise
   project.provide(
     "operatorsAdminAppRoleUrl",
     postgres.urlForRoleInDatabase(ADMIN_APP_ROLE, OPERATORS_TEST_DATABASE),
+  );
+
+  project.provide(
+    "operatorsWebAppRoleUrl",
+    postgres.urlForRoleInDatabase(WEB_APP_ROLE, OPERATORS_TEST_DATABASE),
   );
 
   return async () => {

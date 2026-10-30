@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { operators, users } from "@fleetapp/db/schema";
 import type { TestConnection } from "@fleetapp/db/testing";
+import type { VehicleCatalogue } from "@fleetapp/core";
 
 import type { ActingUser } from "../src/lib/acting-user";
 import {
@@ -10,6 +11,22 @@ import {
   type VehicleFormValues,
 } from "../src/lib/vehicles/vehicle-input";
 import { createVehicle } from "../src/lib/vehicles/vehicle-records";
+
+/** A small list of makes and models, so form-rule tests do not depend on what AGS lists. */
+export const TEST_CATALOGUE: VehicleCatalogue = [
+  {
+    name: "Toyota",
+    aliases: [],
+    models: [
+      { name: "Camry", aliases: [] },
+      { name: "Corolla", aliases: [] },
+      { name: "HiLux", aliases: [] },
+      { name: "LandCruiser Prado", aliases: ["Prado"] },
+    ],
+  },
+  { name: "Kia", aliases: [], models: [{ name: "Niro", aliases: [] }] },
+  { name: "Mercedes-Benz", aliases: ["Merc"], models: [{ name: "C-Class", aliases: [] }] },
+];
 
 /** A new Operator with one User, seeded through the admin role as the admin app does. */
 export async function seedOperatorWithUser(
@@ -49,6 +66,7 @@ export async function addTestCar(
       ...changes,
     },
     new Date(),
+    TEST_CATALOGUE,
   );
   if (!parsed.success) {
     throw new Error(`Test car is not valid: ${parsed.error.message}`);

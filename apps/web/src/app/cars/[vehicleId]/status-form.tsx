@@ -18,8 +18,8 @@ import {
   type VehicleStatusFormValues,
 } from "../../../lib/vehicles/vehicle-input";
 import { VEHICLE_FIELD_LABELS } from "../../../lib/vehicles/vehicle-labels";
-import { INITIAL_CHANGE_STATE, type ChangeFormState } from "../../../components/change-form-state";
-import { FormResult } from "../../../components/form-result";
+import { INITIAL_CHANGE_STATE, type ChangeFormState } from "@fleetapp/ui/change-form-state";
+import { FormResult } from "@fleetapp/ui/form-result";
 
 const STATUS_FIELDS = ["status", "statusReason", "statusExpectedBack"] as const;
 

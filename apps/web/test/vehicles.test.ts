@@ -8,6 +8,7 @@ import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import { CAR_LIST } from "../src/app/cars/car-list";
+import { TEST_CATALOGUE } from "./car-fixtures";
 import type { ActingUser } from "../src/lib/acting-user";
 import { loadRecordHistory } from "../src/lib/record-history";
 import { recordOdometerReading, withdrawOdometerReading } from "../src/lib/vehicles/odometer";
@@ -47,14 +48,14 @@ const CAMRY: VehicleFormValues = {
 const FIRST_READING_KM = 12_000;
 
 function errorFieldsFor(values: VehicleFormValues): string[] {
-  const parsed = parseNewVehicleForm(values, TODAY);
+  const parsed = parseNewVehicleForm(values, TODAY, TEST_CATALOGUE);
   return parsed.success
     ? []
     : [...new Set(parsed.error.issues.map((issue) => String(issue.path[0])))].sort();
 }
 
 function parsed(values: VehicleFormValues): NewVehicleInput {
-  const result = parseNewVehicleForm(values, TODAY);
+  const result = parseNewVehicleForm(values, TODAY, TEST_CATALOGUE);
   if (!result.success) {
     throw new Error(`Test car is not valid: ${result.error.message}`);
   }
@@ -73,6 +74,15 @@ describe("the car form's rules", () => {
     expect(car).toMatchObject({ rego: "1ABC234", make: "Toyota", model: "Camry", year: 2022 });
   });
 
+  it("saves a listed model in the list's spelling however it was typed, nicknames too", () => {
+    expect(parsed({ ...CAMRY, model: "hi lux" })).toMatchObject({ model: "HiLux" });
+    expect(parsed({ ...CAMRY, model: "prado" })).toMatchObject({ model: "LandCruiser Prado" });
+    expect(parsed({ ...CAMRY, make: "merc", model: "c class" })).toMatchObject({
+      make: "Mercedes-Benz",
+      model: "C-Class",
+    });
+  });
+
   it("keeps a make or model not in the list exactly as typed", () => {
     const car = parsed({ ...CAMRY, make: "Trabant", model: "601" });
 
@@ -88,7 +98,9 @@ describe("the car form's rules", () => {
       "regoState",
       "year",
     ]);
-    expect(parseVehicleForm({ ...CAMRY, kilometres: "" }, TODAY).success).toBe(true);
+    expect(parseVehicleForm({ ...CAMRY, kilometres: "" }, TODAY, TEST_CATALOGUE).success).toBe(
+      true,
+    );
   });
 
   it("types a rego in capitals, letters and numbers only, no longer than a plate", () => {

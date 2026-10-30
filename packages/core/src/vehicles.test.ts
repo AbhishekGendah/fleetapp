@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { listedName, modelsForMake, VEHICLE_MAKES, VEHICLE_MODELS } from "./vehicle-models";
 import {
   findOdometerDrops,
   isValidVin,
@@ -62,31 +61,5 @@ describe("findOdometerDrops", () => {
   it("flags nothing in an empty or single history", () => {
     expect(findOdometerDrops([]).size).toBe(0);
     expect(findOdometerDrops([{ id: "a", kilometres: 5 }]).size).toBe(0);
-  });
-});
-
-describe("make and model list", () => {
-  it("has the usual rental cars", () => {
-    expect(modelsForMake("Toyota")).toContain("Camry");
-    expect(modelsForMake("Tesla")).toContain("Model 3");
-  });
-
-  it("finds the listed spelling whatever the case", () => {
-    expect(listedName(VEHICLE_MAKES, " toyota ")).toBe("Toyota");
-    expect(modelsForMake("mercedes-benz")).toContain("C-Class");
-  });
-
-  it("returns nothing for a make it does not know", () => {
-    expect(listedName(VEHICLE_MAKES, "Trabant")).toBeNull();
-    expect(modelsForMake("Trabant")).toEqual([]);
-  });
-
-  it("lists no make or model twice", () => {
-    const lowerMakes = VEHICLE_MAKES.map((make) => make.toLowerCase());
-    expect(new Set(lowerMakes).size).toBe(lowerMakes.length);
-    for (const models of Object.values(VEHICLE_MODELS)) {
-      const lowerModels = models.map((model) => model.toLowerCase());
-      expect(new Set(lowerModels).size).toBe(lowerModels.length);
-    }
   });
 });

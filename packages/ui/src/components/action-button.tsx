@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, type ButtonProps } from "@fleetapp/ui/button";
+import { Button, type ButtonProps } from "./button";
 import { useActionState } from "react";
 
 import { INITIAL_CHANGE_STATE, type ChangeFormState } from "./change-form-state";

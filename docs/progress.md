@@ -278,6 +278,25 @@
   - Rego papers and insurance certificates attach in 2c, with the upload
     piece.
 
+- Car models list moved to the database and onto the admin site (Abhi's
+  request, approved): tables `vehicle_makes` and `vehicle_models` (migration
+  0010, seeded from the list that was in the code, with a few nicknames).
+  Admin: Car models (makes, models, add several one per line, rename,
+  nicknames, hide/show, all in the admin activity log, which gained
+  entity and before/after columns) and Typed by Operators (one line per
+  car not in the list, Fix this car / Add to list and fix). Operators'
+  car forms load the list fresh each time, so changes apply at once.
+  - Smart matching (`packages/core/src/name-matching.ts`): spacing,
+    capitals, dashes and dots ignored ("sea lion 6" saves as "Sealion 6"),
+    nicknames ("Prado", "Merc", "VW"), near misses suggested but never
+    saved without a tap ("corrola" → Corolla, with "Did you mean").
+  - The admin app still cannot read cars; two narrow database functions
+    (`app.vehicles_not_in_catalogue`, `app.correct_vehicle_make_model`)
+    are its only way in, and they show or change make and model only.
+  - Shared pieces moved to packages/ui: result message, action button,
+    choose-and-apply, plus a new Textarea; the car list loader moved to
+    packages/db.
+
 ## Next
 Phase 2 step 2b: purchase, sale (buyer details, transfer papers) and other
 costs. Then 2c: photos and documents.

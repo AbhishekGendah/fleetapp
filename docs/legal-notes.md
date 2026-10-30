@@ -119,6 +119,20 @@ of service) and the countries.
 - Car exports (CSV/Excel) hold no personal information today. When rentals
   add Renter names to car lists, the export rules under "Exports" apply.
 
+## Car models list (built)
+
+- AGS keeps one shared list of car makes and models; every Operator's car
+  form suggests from it. Names of cars only, no personal information.
+- **AGS can correct an Operator's car's make and model** from the admin
+  site ("Typed by Operators"). This is the one place AGS changes an
+  Operator's records. The change is limited to make and model, shows in
+  the car's History as made by AGS, and is in AGS's own admin log. **The
+  Operator terms should say AGS may correct car make and model names to
+  keep the shared list consistent.**
+- To do this, the admin site sees, for cars not in the list: the Operator's
+  business name, the make and model typed, and when the car was added.
+  Nothing else about the car, and nothing about Renters.
+
 ## Rego and insurance (Phase 2 step 2a, built)
 
 - Rego renewals and insurance policies are business records, not personal

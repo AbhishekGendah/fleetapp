@@ -1,6 +1,6 @@
 import { isRecordId } from "@fleetapp/core";
 
-import { failedState, type ChangeFormState } from "../../../components/change-form-state";
+import { failedState, type ChangeFormState } from "@fleetapp/ui/change-form-state";
 import type { ActingUser } from "../../../lib/acting-user";
 import { carPath, CARS_PATH, INSURANCE_PATH } from "../../../lib/paths";
 import { runUserChange } from "../../../lib/run-change";

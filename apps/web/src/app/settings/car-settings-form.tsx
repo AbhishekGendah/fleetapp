@@ -7,8 +7,8 @@ import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
 import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import { useActionState } from "react";
 
-import { INITIAL_CHANGE_STATE } from "../../components/change-form-state";
-import { FormResult } from "../../components/form-result";
+import { INITIAL_CHANGE_STATE } from "@fleetapp/ui/change-form-state";
+import { FormResult } from "@fleetapp/ui/form-result";
 import { CAR_SETTINGS_FIELDS, carSettingsInputSchema } from "../../lib/settings/car-settings-input";
 import { saveCarSettingsAction } from "./car-settings-actions";
 

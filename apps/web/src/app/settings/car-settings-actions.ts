@@ -2,7 +2,7 @@
 
 import { formTextValues } from "@fleetapp/core";
 
-import { failedState, savedState, type ChangeFormState } from "../../components/change-form-state";
+import { failedState, savedState, type ChangeFormState } from "@fleetapp/ui/change-form-state";
 import { appDb } from "../../lib/app-db";
 import { CARS_PATH, SETTINGS_PATH } from "../../lib/paths";
 import { runUserChange } from "../../lib/run-change";

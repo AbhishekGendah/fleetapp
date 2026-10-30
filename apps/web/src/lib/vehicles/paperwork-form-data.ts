@@ -1,6 +1,6 @@
 import { formTextValues, isRecordId } from "@fleetapp/core";
 
-import { CHOSEN_FIELD } from "../../components/choose-and-apply";
+import { CHOSEN_FIELD } from "@fleetapp/ui/choose-and-apply";
 import {
   parsePolicyForm,
   parseRegoForm,

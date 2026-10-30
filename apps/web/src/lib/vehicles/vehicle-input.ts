@@ -5,23 +5,22 @@ import {
   EARLIEST_VEHICLE_YEAR,
   emptyForm,
   FUEL_TYPES,
+  inCatalogueSpelling,
   isCalendarDate,
   isValidVin,
   latestVehicleYear,
-  listedName,
   MAXIMUM_ODOMETER_KM,
   MAXIMUM_REGO_LENGTH,
   MAXIMUM_SEATS,
-  modelsForMake,
   normaliseRego,
   normaliseVin,
   optionalLine,
   REQUIRED_MESSAGE,
   requiredLine,
   TRANSMISSIONS,
-  VEHICLE_MAKES,
   VEHICLE_STATUSES,
   needsReturnDate,
+  type VehicleCatalogue,
 } from "@fleetapp/core";
 import { z } from "zod";
 
@@ -40,11 +39,6 @@ function wholeNumber(limits: { minimum: number; maximum: number; message: string
     .refine((value) => /^\d+$/.test(value), limits.message)
     .transform(Number)
     .refine((value) => value >= limits.minimum && value <= limits.maximum, limits.message);
-}
-
-/** The list's own spelling when the name is listed in any case, so "toyota" is saved as "Toyota". */
-function inListSpelling(names: () => readonly string[]) {
-  return (value: string) => listedName(names(), value) ?? value;
 }
 
 const kilometresField = wholeNumber({
@@ -74,7 +68,7 @@ function vehicleFieldsShape(today: Date) {
         "A VIN is 17 letters and numbers, never I, O or Q.",
       )
       .transform((vin) => (vin === null ? null : normaliseVin(vin))),
-    make: requiredLine.transform(inListSpelling(() => VEHICLE_MAKES)),
+    make: requiredLine,
     model: requiredLine,
     variant: optionalLine,
     year: wholeNumber({
@@ -96,20 +90,26 @@ function vehicleFieldsShape(today: Date) {
   };
 }
 
-/** The model in the list's spelling for its make, once the make itself is known. */
-function withListedModel<Input extends { make: string; model: string }>(input: Input): Input {
-  return { ...input, model: inListSpelling(() => modelsForMake(input.make))(input.model) };
+/**
+ * Saved in the list's spelling when listed: "toyota" and "hi lux" become
+ * "Toyota" and "HiLux", "Prado" becomes "LandCruiser Prado".
+ */
+function inListSpelling(catalogue: VehicleCatalogue) {
+  return <Input extends { make: string; model: string }>(input: Input): Input => ({
+    ...input,
+    ...inCatalogueSpelling(catalogue, input),
+  });
 }
 
-function vehicleInputSchema(today: Date) {
-  return z.object(vehicleFieldsShape(today)).transform(withListedModel);
+function vehicleInputSchema(today: Date, catalogue: VehicleCatalogue) {
+  return z.object(vehicleFieldsShape(today)).transform(inListSpelling(catalogue));
 }
 
 /** A new car starts with what its odometer shows, so its km are known from day one. */
-function newVehicleInputSchema(today: Date) {
+function newVehicleInputSchema(today: Date, catalogue: VehicleCatalogue) {
   return z
     .object({ ...vehicleFieldsShape(today), kilometres: kilometresField })
-    .transform(withListedModel);
+    .transform(inListSpelling(catalogue));
 }
 
 export type VehicleInput = z.infer<ReturnType<typeof vehicleInputSchema>>;
@@ -175,16 +175,18 @@ function formForParsing(values: Partial<VehicleFormValues>): Record<string, stri
 export function parseVehicleForm(
   values: Partial<VehicleFormValues>,
   today: Date,
+  catalogue: VehicleCatalogue,
 ): z.ZodSafeParseResult<VehicleInput> {
-  return vehicleInputSchema(today).safeParse(formForParsing(values));
+  return vehicleInputSchema(today, catalogue).safeParse(formForParsing(values));
 }
 
 /** The add form's checks: the car plus its first odometer reading. */
 export function parseNewVehicleForm(
   values: Partial<VehicleFormValues>,
   today: Date,
+  catalogue: VehicleCatalogue,
 ): z.ZodSafeParseResult<NewVehicleInput> {
-  return newVehicleInputSchema(today).safeParse(formForParsing(values));
+  return newVehicleInputSchema(today, catalogue).safeParse(formForParsing(values));
 }
 
 /** Rego as it is typed: capitals, letters and numbers only, never longer than a plate can be. */

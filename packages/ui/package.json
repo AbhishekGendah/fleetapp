@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./action-button": "./src/components/action-button.tsx",
     "./auth-page-layout": "./src/components/auth-page-layout.tsx",
     "./authenticator-setup": "./src/components/authenticator-setup.tsx",
     "./auto-submit-select": "./src/components/auto-submit-select.tsx",
@@ -11,7 +12,9 @@
     "./brand": "./src/brand.ts",
     "./button": "./src/components/button.tsx",
     "./card": "./src/components/card.tsx",
+    "./change-form-state": "./src/components/change-form-state.ts",
     "./checkbox": "./src/components/checkbox.tsx",
+    "./choose-and-apply": "./src/components/choose-and-apply.tsx",
     "./client-form": "./src/components/client-form.tsx",
     "./cn": "./src/lib/utils.ts",
     "./code-input": "./src/components/code-input.tsx",
@@ -20,6 +23,7 @@
     "./expiring-image": "./src/components/expiring-image.tsx",
     "./form-field": "./src/components/form-field.tsx",
     "./form-message": "./src/components/form-message.tsx",
+    "./form-result": "./src/components/form-result.tsx",
     "./form-section": "./src/components/form-section.tsx",
     "./formatted-input": "./src/components/formatted-input.tsx",
     "./image-upload": "./src/components/image-upload.tsx",
@@ -32,6 +36,7 @@
     "./state-options": "./src/components/state-options.tsx",
     "./suggestion-box": "./src/components/suggestion-box.tsx",
     "./tab-links": "./src/components/tab-links.tsx",
+    "./textarea": "./src/components/textarea.tsx",
     "./theme.css": "./src/styles/theme.css",
     "./use-form-fields": "./src/lib/use-form-fields.ts"
   },

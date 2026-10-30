@@ -71,6 +71,13 @@
       "when": 1793285609262,
       "tag": "0009_vehicle_paperwork",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793324051174,
+      "tag": "0010_vehicle_catalogue",
+      "breakpoints": true
     }
   ]
 }

@@ -20,7 +20,7 @@ import type { VehicleDetail } from "../../../lib/vehicles/vehicle-queries";
 import { formatKilometres } from "../car-list";
 import { CarHistoryCard } from "../car-history-card";
 import { VehicleStatusBadge } from "../vehicle-status-badge";
-import { ActionButton } from "../../../components/action-button";
+import { ActionButton } from "@fleetapp/ui/action-button";
 import {
   changeStatusAction,
   recordReadingAction,

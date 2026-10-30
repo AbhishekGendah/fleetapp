@@ -9,8 +9,8 @@ import { AustralianStateOptions } from "@fleetapp/ui/state-options";
 import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import { useActionState } from "react";
 
-import { INITIAL_CHANGE_STATE, type ChangeFormState } from "../../components/change-form-state";
-import { FormResult } from "../../components/form-result";
+import { INITIAL_CHANGE_STATE, type ChangeFormState } from "@fleetapp/ui/change-form-state";
+import { FormResult } from "@fleetapp/ui/form-result";
 import {
   isRequiredPaperworkField,
   parseRegoForm,
