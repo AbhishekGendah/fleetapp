@@ -161,6 +161,51 @@ in Phase 4/7); the fines link (Phase 6).
   will then use it too. Tradeoff: someone adding car photos with bad
   signal retries by hand until then.
 
+### 2c detailed build (for Abhi's approval, 30 Oct 2026)
+
+Built and deployed in two parts, each tested on the dev site first.
+
+**2c-1: Photos and Documents tabs**
+- **Photos tab:** "Add photos" picks several at once, from the camera or the
+  gallery. Each is shrunk on the phone to about 1600px (location data
+  dropped) plus a small copy for the grid (rule 21), then sent with its own
+  progress and "Try again" if it fails. Newest first; tap one for full size;
+  Remove keeps it 30 days, then it goes for good (as for logos).
+- **Documents tab:** "Add a document" pop-up with a name you type (e.g.
+  "Pre-purchase inspection") and a PDF or image. Listed with the name and
+  date; Open shows it through a 5-minute link; Remove as for photos.
+- Limits: photos up to 25 MB as picked (most phone photos are 3-12 MB), about
+  400 KB once shrunk; documents 10 MB. The server checks each file's real
+  type from its first bytes (rule 22).
+
+**2c-2: Attachments on records**
+- Each rego renewal, insurance policy, cost, purchase and sale gets an
+  "Attach" button and its list of files (several allowed, e.g. both sides of
+  a form), each with Open and Remove.
+- **Purchase and sale attachments (contracts, transfer forms) go in the
+  separate identity storage** (rule 8): they usually show the other person's
+  licence and date of birth. Every time one is opened, the car's Log records
+  who opened it and when. Other attachments go in the general storage.
+
+**Database** (one migration per part): new file kinds; on `files`, a link to
+the car (the two-column link, so it cannot point at another Operator's car),
+the name typed for a document, a link from a small copy to its photo, and in
+2c-2 one optional link to the rego renewal, policy, cost, purchase or sale it
+belongs to (at most one, checked by the database). No original file names
+are kept (they often carry people's names). Isolation tests: Operator A
+cannot see, open or attach to Operator B's files.
+
+**Privacy and admin:** the admin site still sees only how much each Operator
+stores, never the files. Photos can show people or other cars' plates.
+
+**What you may need to do:** the identity bucket may need the same upload
+setting (CORS) as the general one so phones can send to it. I will check
+when 2c-2 is ready and, if so, give you one step at a time.
+
+**Not in 2c:** an upload queue that survives losing signal (Phase 3, with
+the handover checklist); moving old photos to cheaper storage after a year
+(Phase 3, needs rentals); a photo on the car list (later, if wanted).
+
 ## Database (one migration per part)
 - New tables, each with `operator_id`, forced row-level security, the
   Operator-only policy, no deletes, no admin access, and isolation
