@@ -72,7 +72,7 @@ export const VEHICLE_FIELD_LABELS: Readonly<Record<VehicleLabelledField, string>
   transferLodgedOn: "Transfer lodged on",
   transferReference: "Transfer reference",
   incurredOn: "Date",
-  kind: "Kind",
+  kind: "Type",
   description: "Description",
 };
 

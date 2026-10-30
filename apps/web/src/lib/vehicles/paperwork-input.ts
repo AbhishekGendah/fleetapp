@@ -46,7 +46,8 @@ export type RegoFormValues = Record<RegoFormField, string>;
 export const policyInputSchema = z
   .object({
     insurer: requiredLine,
-    policyNumber: requiredLine,
+    // Insurers each have their own pattern, so only capitals are enforced.
+    policyNumber: requiredLine.toUpperCase(),
     coverType: z.enum(INSURANCE_COVER_TYPES, REQUIRED_MESSAGE),
     startsOn: requiredDate,
     endsOn: requiredDate,

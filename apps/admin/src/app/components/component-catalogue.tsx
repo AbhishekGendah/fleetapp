@@ -18,6 +18,7 @@ import { CodeInput, TOTP_CODE_LENGTH } from "@fleetapp/ui/code-input";
 import { fieldErrorId, FormField } from "@fleetapp/ui/form-field";
 import { FormError } from "@fleetapp/ui/form-message";
 import { FormattedInput } from "@fleetapp/ui/formatted-input";
+import { MoneyInput } from "@fleetapp/ui/money-input";
 import { DataList, type DataListDefinition } from "@fleetapp/ui/data-list";
 import { ImageUpload } from "@fleetapp/ui/image-upload";
 import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
@@ -71,6 +72,7 @@ function ColourSwatches() {
 function FormPieces() {
   const [phone, setPhone] = useState("");
   const [abn, setAbn] = useState("");
+  const [money, setMoney] = useState("");
   const [isTicked, setIsTicked] = useState(true);
   return (
     <>
@@ -113,6 +115,9 @@ function FormPieces() {
           format={formatAbn}
           onValueChange={setAbn}
         />
+      </FormField>
+      <FormField htmlFor="example-money" label="Formats as you type (dollars)">
+        <MoneyInput id="example-money" value={money} onValueChange={setMoney} />
       </FormField>
       <FormField htmlFor="example-select" label="A dropdown">
         <Select id="example-select" defaultValue="">
@@ -309,7 +314,7 @@ export function ComponentCatalogue() {
           tabs={[
             { href: "#details", label: "Details", isCurrent: true },
             { href: "#odometer", label: "Odometer", isCurrent: false },
-            { href: "#history", label: "History", isCurrent: false },
+            { href: "#log", label: "Log", isCurrent: false },
           ]}
         />
       </CatalogueSection>

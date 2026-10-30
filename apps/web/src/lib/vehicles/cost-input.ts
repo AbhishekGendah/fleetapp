@@ -4,9 +4,11 @@ import {
   centsForEditing,
   emptyForm,
   formatAustralianPhone,
+  formatKilometresAsTyped,
   isPrivatePurchase,
   isLocalDateTime,
   localDateTimeToUtc,
+  normaliseLicenceNumber,
   optionalLine,
   optionalPhone,
   PURCHASE_SOURCES,
@@ -91,10 +93,12 @@ function saleInputSchemaIn(timeZone: string) {
       buyerName: requiredLine,
       buyerPhone: requiredPhone,
       buyerAddress: requiredLine,
-      buyerLicenceNumber: optionalLine,
+      buyerLicenceNumber: optionalLine.transform((value) =>
+        value === null ? null : normaliseLicenceNumber(value) || null,
+      ),
       buyerLicenceState: z.enum(AUSTRALIAN_STATE_CODES).nullable(),
       transferLodgedOn: optionalDate,
-      transferReference: optionalLine,
+      transferReference: optionalLine.transform((value) => value?.toUpperCase() ?? null),
     })
     .superRefine(refineGstWithin("priceCents"));
 }
@@ -198,7 +202,7 @@ export function purchaseFormValues(
     sellerName: purchase.sellerName,
     sellerPhone: purchase.sellerPhone ? formatAustralianPhone(purchase.sellerPhone) : "",
     sellerAddress: purchase.sellerAddress ?? "",
-    kilometres: kilometres === null ? "" : String(kilometres),
+    kilometres: kilometres === null ? "" : formatKilometresAsTyped(String(kilometres)),
     priceCents: centsForEditing(purchase.priceCents),
     gstCents: gstForEditing(purchase.gstCents),
   };

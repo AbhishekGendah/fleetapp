@@ -149,6 +149,14 @@ Never use "client", "customer" or "tenant" for these in code.
 30. No copy-pasted code: CI runs a duplicate detector (`pnpm duplicates`)
     and fails on any repeated block. Extract it instead. A deliberate
     repeat is marked `jscpd:ignore-start` with the reason.
+31. Every field is formatted for what it holds, decided when it is added
+    (and checked again when one near it changes): amounts use the shared
+    money box ($ and commas as you type), counts and kilometres get commas,
+    identifiers (rego, VIN, licence and policy numbers, references) are
+    capitals, phones/ABNs/postcodes use their formatters, short numbers
+    allow digits only and stop at their length. The same rule is applied
+    again on the server when saving. Where no format fits (e.g. a policy
+    number whose pattern differs by insurer), say why in the plan.
 
 ## How to work
 - Read the relevant docs/design/*.md file before working on an area.

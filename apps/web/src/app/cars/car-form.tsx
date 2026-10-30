@@ -8,17 +8,23 @@ import {
   FUEL_TYPES,
   findCatalogueMake,
   findListedName,
+  formatKilometresAsTyped,
   MAXIMUM_LINE_LENGTH,
   MAXIMUM_REGO_LENGTH,
+  MAXIMUM_SEAT_DIGITS,
   TRANSMISSION_LABELS,
   TRANSMISSIONS,
   suggestNames,
+  typedDigits,
+  typedVin,
+  YEAR_DIGITS,
   type VehicleCatalogue,
 } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { ComboBox } from "@fleetapp/ui/combo-box";
 import { FormError } from "@fleetapp/ui/form-message";
 import { FormField } from "@fleetapp/ui/form-field";
+import { FormattedInput } from "@fleetapp/ui/formatted-input";
 import { FormSection } from "@fleetapp/ui/form-section";
 import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
 import { Select } from "@fleetapp/ui/select";
@@ -187,7 +193,13 @@ export function CarForm(props: CarFormProps) {
         </FormField>
         <div className="grid grid-cols-2 gap-4">
           <FormField {...fieldProps("year")}>
-            <Input {...textBoxProps("year")} inputMode="numeric" />
+            <Input
+              {...textBoxProps("year")}
+              onChange={(event) =>
+                form.setValue("year", typedDigits(event.target.value, YEAR_DIGITS))
+              }
+              inputMode="numeric"
+            />
           </FormField>
           <FormField {...fieldProps("colour")}>
             <Input {...textBoxProps("colour")} />
@@ -195,7 +207,10 @@ export function CarForm(props: CarFormProps) {
         </div>
         {isNew ? (
           <FormField {...fieldProps("kilometres")} hint="What the odometer shows today.">
-            <Input {...textBoxProps("kilometres")} inputMode="numeric" />
+            <FormattedInput
+              {...form.formattedBoxProps("kilometres", formatKilometresAsTyped)}
+              inputMode="numeric"
+            />
           </FormField>
         ) : null}
       </FormSection>
@@ -211,7 +226,13 @@ export function CarForm(props: CarFormProps) {
             </Select>
           </FormField>
           <FormField {...fieldProps("seats")}>
-            <Input {...textBoxProps("seats")} inputMode="numeric" />
+            <Input
+              {...textBoxProps("seats")}
+              onChange={(event) =>
+                form.setValue("seats", typedDigits(event.target.value, MAXIMUM_SEAT_DIGITS))
+              }
+              inputMode="numeric"
+            />
           </FormField>
           <FormField {...fieldProps("transmission")}>
             <Select
@@ -234,7 +255,11 @@ export function CarForm(props: CarFormProps) {
           {...fieldProps("vin")}
           hint="17 characters, on the rego papers or the windscreen."
         >
-          <Input {...textBoxProps("vin")} autoCapitalize="characters" />
+          <Input
+            {...textBoxProps("vin")}
+            onChange={(event) => form.setValue("vin", typedVin(event.target.value))}
+            autoCapitalize="characters"
+          />
         </FormField>
       </FormSection>
 

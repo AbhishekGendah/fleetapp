@@ -6,6 +6,7 @@ import {
   gstIncludedIn,
   isPossibleGst,
   optionalDollars,
+  formatDollarsAsTyped,
   parseDollars,
   requiredDollars,
 } from "./money";
@@ -27,7 +28,7 @@ describe("parseDollars", () => {
   });
 
   it("refuses what is not an amount", () => {
-    for (const typed of ["", "-5", "1.234", "abc", "1,23", "12,34.00", "$", "1.2.3"]) {
+    for (const typed of ["", "-5", "1.234", "abc", "1,23", "12,34.00", "$", "1.2.3", "."]) {
       expect(parseDollars(typed)).toBeNull();
     }
   });
@@ -40,8 +41,9 @@ describe("showing amounts", () => {
   });
 
   it("puts an amount back into a box as plain dollars", () => {
-    expect(centsForEditing(123456)).toBe("1234.56");
-    expect(centsForEditing(5)).toBe("0.05");
+    expect(centsForEditing(123456)).toBe("$1,234.56");
+    expect(centsForEditing(5)).toBe("$0.05");
+    expect(parseDollars(centsForEditing(100000000))).toBe(100000000);
   });
 });
 
@@ -73,5 +75,26 @@ describe("dollar boxes", () => {
   it("let an optional amount be left blank", () => {
     expect(optionalDollars.parse("  ")).toBeNull();
     expect(optionalDollars.parse("3")).toBe(300);
+  });
+});
+
+describe("a dollar box as it is typed", () => {
+  it("adds the $ and a comma every three digits", () => {
+    expect(formatDollarsAsTyped("1234567.8")).toBe("$1,234,567.8");
+    expect(formatDollarsAsTyped("$912.50")).toBe("$912.50");
+    expect(formatDollarsAsTyped("12")).toBe("$12");
+  });
+
+  it("keeps a point being typed, and two decimal places at most", () => {
+    expect(formatDollarsAsTyped("1234.")).toBe("$1,234.");
+    expect(parseDollars("$1,234.")).toBe(123400);
+    expect(formatDollarsAsTyped("5.999")).toBe("$5.99");
+    expect(formatDollarsAsTyped(".5")).toBe("$0.5");
+  });
+
+  it("drops letters, minus signs and leading zeros, and empties when nothing is left", () => {
+    expect(formatDollarsAsTyped("-00450abc")).toBe("$450");
+    expect(formatDollarsAsTyped("$")).toBe("");
+    expect(formatDollarsAsTyped("")).toBe("");
   });
 });

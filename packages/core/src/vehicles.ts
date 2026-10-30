@@ -1,3 +1,5 @@
+import { digitsOnly, formatWholeNumberAsTyped } from "./text";
+
 /**
  * The rules for an Operator's cars (docs/design/02). Pure: the form checks
  * them as you type and the server checks them again on save.
@@ -90,6 +92,19 @@ export function normaliseVin(raw: string): string {
   return raw.toUpperCase().replace(/\s/g, "");
 }
 
+/** A VIN box as it is typed: capitals, no spaces, never longer than a VIN. */
+export function typedVin(raw: string): string {
+  return normaliseVin(raw).slice(0, VIN_LENGTH);
+}
+
+/** A whole-number box with a few digits (a year, a seat count): digits only, cut to length. */
+export function typedDigits(raw: string, maximumDigits: number): string {
+  return digitsOnly(raw).slice(0, maximumDigits);
+}
+
+export const YEAR_DIGITS = 4;
+export const MAXIMUM_SEAT_DIGITS = 2;
+
 export function isValidVin(vin: string): boolean {
   return VIN_PATTERN.test(normaliseVin(vin));
 }
@@ -143,3 +158,11 @@ export const INSURANCE_COVER_TYPE_LABELS: Readonly<Record<InsuranceCoverType, st
   third_party_fire_theft: "Third party, fire and theft",
   third_party_property: "Third party property",
 };
+
+/** The most digits an odometer reading can have (2,000,000 km). */
+export const MAXIMUM_ODOMETER_DIGITS = String(MAXIMUM_ODOMETER_KM).length;
+
+/** An odometer box as it is typed: "48210" shows as "48,210". */
+export function formatKilometresAsTyped(raw: string): string {
+  return formatWholeNumberAsTyped(raw, MAXIMUM_ODOMETER_DIGITS);
+}

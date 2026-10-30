@@ -1,6 +1,6 @@
 "use client";
 
-import { fieldErrorsOf, type AustralianStateCode } from "@fleetapp/core";
+import { fieldErrorsOf, normaliseLicenceNumber, type AustralianStateCode } from "@fleetapp/core";
 import { Input } from "@fleetapp/ui/input";
 import { FormSection } from "@fleetapp/ui/form-section";
 import { Select } from "@fleetapp/ui/select";
@@ -68,7 +68,14 @@ export function SaleForm(props: {
         />
         <div className="grid grid-cols-[1fr_7rem] gap-4">
           <CostField form={fields} field="buyerLicenceNumber">
-            <Input {...fields.textBoxProps("buyerLicenceNumber")} autoComplete="off" />
+            <Input
+              {...fields.textBoxProps("buyerLicenceNumber")}
+              onChange={(event) =>
+                fields.setValue("buyerLicenceNumber", normaliseLicenceNumber(event.target.value))
+              }
+              autoCapitalize="characters"
+              autoComplete="off"
+            />
           </CostField>
           <CostField form={fields} field="buyerLicenceState">
             <Select
@@ -89,7 +96,14 @@ export function SaleForm(props: {
             <Input {...fields.textBoxProps("transferLodgedOn")} type="date" />
           </CostField>
           <CostField form={fields} field="transferReference">
-            <Input {...fields.textBoxProps("transferReference")} autoComplete="off" />
+            <Input
+              {...fields.textBoxProps("transferReference")}
+              onChange={(event) =>
+                fields.setValue("transferReference", event.target.value.toUpperCase())
+              }
+              autoCapitalize="characters"
+              autoComplete="off"
+            />
           </CostField>
         </div>
       </FormSection>

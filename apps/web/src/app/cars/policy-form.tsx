@@ -1,17 +1,14 @@
 "use client";
 
 import { fieldErrorsOf, INSURANCE_COVER_TYPE_LABELS, INSURANCE_COVER_TYPES } from "@fleetapp/core";
-import { Button } from "@fleetapp/ui/button";
 import { Checkbox } from "@fleetapp/ui/checkbox";
 import { FormField } from "@fleetapp/ui/form-field";
 import { FormSection } from "@fleetapp/ui/form-section";
-import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
+import type { ChangeFormState } from "@fleetapp/ui/change-form-state";
+import { Input } from "@fleetapp/ui/input";
+import { MoneyInput } from "@fleetapp/ui/money-input";
 import { Select } from "@fleetapp/ui/select";
-import { useFormFields } from "@fleetapp/ui/use-form-fields";
-import { useActionState } from "react";
 
-import { INITIAL_CHANGE_STATE, type ChangeFormState } from "@fleetapp/ui/change-form-state";
-import { FormResult } from "@fleetapp/ui/form-result";
 import {
   isRequiredPaperworkField,
   parsePolicyForm,
@@ -20,6 +17,7 @@ import {
 } from "../../lib/vehicles/paperwork-input";
 import type { CoveredCar } from "../../lib/vehicles/paperwork-queries";
 import { AmountWithGst } from "./amount-with-gst";
+import { ChangeFormShell, useChangeForm } from "./change-form-shell";
 
 export const POLICY_CARS_FIELD = "vehicleIds";
 
@@ -30,26 +28,24 @@ interface PolicyFormProps {
   /** On the new-policy page: the cars to choose from for a fleet policy. */
   carChoices?: readonly CoveredCar[];
   isGstRegistered: boolean;
+  /** Adding a policy from a car's page: empty the form once saved. */
+  shouldClearOnSave?: boolean;
 }
 
 /** Adding or editing an insurance policy. */
 export function PolicyForm(props: PolicyFormProps) {
-  const [state, formAction, isPending] = useActionState(props.action, INITIAL_CHANGE_STATE);
-  const form = useFormFields({
+  const changeForm = useChangeForm({
+    action: props.action,
     fields: POLICY_FORM_FIELDS,
     initialValues: props.initialValues,
     validate: (values) => fieldErrorsOf(parsePolicyForm(values)),
     isRequired: isRequiredPaperworkField,
+    shouldClearOnSave: props.shouldClearOnSave,
   });
+  const form = changeForm.fields;
 
   return (
-    <form
-      action={formAction}
-      onSubmit={form.submitHandler(formAction)}
-      noValidate
-      className="flex flex-col gap-6"
-    >
-      <RequiredFieldsNote />
+    <ChangeFormShell form={changeForm} submitLabel={props.submitLabel}>
       <FormSection title="The policy">
         <FormField htmlFor="insurer" label="Insurer" isRequired error={form.errorFor("insurer")}>
           <Input {...form.textBoxProps("insurer")} />
@@ -60,7 +56,11 @@ export function PolicyForm(props: PolicyFormProps) {
           isRequired
           error={form.errorFor("policyNumber")}
         >
-          <Input {...form.textBoxProps("policyNumber")} />
+          <Input
+            {...form.textBoxProps("policyNumber")}
+            onChange={(event) => form.setValue("policyNumber", event.target.value.toUpperCase())}
+            autoCapitalize="characters"
+          />
         </FormField>
         <FormField htmlFor="coverType" label="Cover" isRequired error={form.errorFor("coverType")}>
           <Select
@@ -89,7 +89,10 @@ export function PolicyForm(props: PolicyFormProps) {
           hint="What the Renter may be charged after damage."
           error={form.errorFor("excessCents")}
         >
-          <Input {...form.textBoxProps("excessCents")} inputMode="decimal" placeholder="$0.00" />
+          <MoneyInput
+            {...form.boxProps("excessCents")}
+            onValueChange={(value) => form.setValue("excessCents", value)}
+          />
         </FormField>
         <AmountWithGst
           form={form}
@@ -116,10 +119,6 @@ export function PolicyForm(props: PolicyFormProps) {
           )}
         </FormSection>
       ) : null}
-      {form.isResultShown && !isPending ? <FormResult state={state} /> : null}
-      <Button type="submit" disabled={isPending} className="sm:self-start">
-        {isPending ? "Saving…" : props.submitLabel}
-      </Button>
-    </form>
+    </ChangeFormShell>
   );
 }

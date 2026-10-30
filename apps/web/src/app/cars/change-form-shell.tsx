@@ -15,6 +15,8 @@ interface ChangeFormOptions<Field extends string> {
   initialValues: Readonly<Record<Field, string>>;
   validate: (values: Readonly<Record<Field, string>>) => FieldErrors<Field>;
   isRequired: (field: Field) => boolean;
+  /** For a form that adds a record: empty it once saved, so it cannot add the same one twice. */
+  shouldClearOnSave?: boolean;
 }
 
 export interface ChangeForm<Field extends string> {
@@ -28,13 +30,22 @@ export interface ChangeForm<Field extends string> {
 export function useChangeForm<Field extends string>(
   options: ChangeFormOptions<Field>,
 ): ChangeForm<Field> {
-  const [state, formAction, isPending] = useActionState(options.action, INITIAL_CHANGE_STATE);
   const fields = useFormFields({
     fields: options.fields,
     initialValues: options.initialValues,
     validate: options.validate,
     isRequired: (field) => options.isRequired(field),
   });
+  const [state, formAction, isPending] = useActionState(
+    async (previous: ChangeFormState, formData: FormData) => {
+      const result = await options.action(previous, formData);
+      if (result.status === "saved" && options.shouldClearOnSave) {
+        fields.clear();
+      }
+      return result;
+    },
+    INITIAL_CHANGE_STATE,
+  );
   return { fields, state, formAction, isPending };
 }
 

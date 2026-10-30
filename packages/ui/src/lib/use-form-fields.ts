@@ -67,6 +67,11 @@ export interface FormFields<Field extends string> {
   isResultShown: boolean;
   /** For a change outside the boxes, such as a tick box, that makes the last answer stale. */
   markChanged: () => void;
+  /**
+   * Empties the form back to how it opened, e.g. after adding a record, so
+   * pressing save again cannot add the same one twice. The answer stays shown.
+   */
+  clear: () => void;
 }
 
 /**
@@ -150,5 +155,9 @@ export function useFormFields<Field extends string>(
     submitHandler,
     isResultShown,
     markChanged: () => setIsResultShown(false),
+    clear: () => {
+      setValues(options.initialValues);
+      setCheckedFields(new Set());
+    },
   };
 }

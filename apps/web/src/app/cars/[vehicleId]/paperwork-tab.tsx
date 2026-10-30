@@ -184,6 +184,7 @@ function InsuranceCard(props: {
               action={addPolicyForCarAction.bind(null, vehicle.id)}
               submitLabel="Add insurance"
               isGstRegistered={props.isGstRegistered}
+              shouldClearOnSave
             />
           </div>
         ) : null}

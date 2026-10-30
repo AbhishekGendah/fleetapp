@@ -16,7 +16,7 @@ type FormattedInputProps = Omit<React.ComponentPropsWithoutRef<"input">, "value"
 /**
  * A box that reformats as you type (spaces in an ABN, brackets round an area
  * code) without the cursor jumping to the end. Made for numbers: the cursor
- * is kept after the same digit it was after.
+ * is kept after the same digit it was after (or at the end, when typing there).
  */
 export function FormattedInput({ value, format, onValueChange, ...props }: FormattedInputProps) {
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -39,13 +39,17 @@ export function FormattedInput({ value, format, onValueChange, ...props }: Forma
     // Backspace on a space or bracket would be undone by reformatting, leaving
     // the cursor stuck: take out the digit before it instead.
     const isBackspace = (event.nativeEvent as InputEvent).inputType === "deleteContentBackward";
-    if (isBackspace && digitsOnly(raw) === digitsOnly(value)) {
+    if (isBackspace && digitsOnly(raw) === digitsOnly(value) && format(raw) === value) {
       raw = removeDigit(raw, digitsBeforeCaret);
       digitsBeforeCaret -= 1;
     }
 
     const formatted = format(raw);
-    pendingCaret.current = positionAfterDigits(formatted, digitsBeforeCaret);
+    // Typing at the end stays at the end, past any "." just typed.
+    const isAtEnd = caret === input.value.length;
+    pendingCaret.current = isAtEnd
+      ? formatted.length
+      : positionAfterDigits(formatted, digitsBeforeCaret);
     onValueChange(formatted);
   }
 

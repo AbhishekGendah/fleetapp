@@ -6,7 +6,7 @@ import { loadRecordHistory, type HistorySubject } from "../../lib/record-history
 import type { SignedInUser } from "../../lib/require-user";
 import { describeVehicleValue, vehicleFieldLabel } from "../../lib/vehicles/vehicle-labels";
 
-/** A History card for a car or its paperwork, with car fields named and valued in words. */
+/** A Log card for a car or its paperwork, with car fields named and valued in words. */
 export async function CarHistoryCard(props: {
   user: SignedInUser;
   subjects: readonly HistorySubject[];
@@ -15,7 +15,7 @@ export async function CarHistoryCard(props: {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>History</CardTitle>
+        <CardTitle>Log</CardTitle>
       </CardHeader>
       <CardContent>
         <RecordHistory

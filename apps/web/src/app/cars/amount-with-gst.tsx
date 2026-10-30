@@ -3,7 +3,7 @@
 import { centsForEditing, gstIncludedIn, parseDollars } from "@fleetapp/core";
 import { Checkbox } from "@fleetapp/ui/checkbox";
 import { FormField } from "@fleetapp/ui/form-field";
-import { Input } from "@fleetapp/ui/input";
+import { MoneyInput } from "@fleetapp/ui/money-input";
 import type { FormFields } from "@fleetapp/ui/use-form-fields";
 import { useState } from "react";
 
@@ -77,12 +77,7 @@ export function AmountWithGst<Field extends string>(props: AmountWithGstProps<Fi
         isRequired
         error={form.errorFor(amountField)}
       >
-        <Input
-          {...form.textBoxProps(amountField)}
-          onChange={(event) => handleAmountChange(event.target.value)}
-          inputMode="decimal"
-          placeholder="$0.00"
-        />
+        <MoneyInput {...form.boxProps(amountField)} onValueChange={handleAmountChange} />
       </FormField>
       {isGstShown ? (
         <Checkbox
@@ -98,7 +93,10 @@ export function AmountWithGst<Field extends string>(props: AmountWithGstProps<Fi
           hint={GST_HINTS[gstSource]}
           error={form.errorFor(gstField)}
         >
-          <Input {...form.textBoxProps(gstField)} inputMode="decimal" placeholder="$0.00" />
+          <MoneyInput
+            {...form.boxProps(gstField)}
+            onValueChange={(value) => form.setValue(gstField, value)}
+          />
         </FormField>
       ) : (
         <input type="hidden" name={gstField} value="" />

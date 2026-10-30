@@ -30,6 +30,7 @@
     "./input": "./src/components/input.tsx",
     "./install-app-hint": "./src/components/install-app-hint.tsx",
     "./logo": "./src/components/logo.tsx",
+    "./money-input": "./src/components/money-input.tsx",
     "./select": "./src/components/select.tsx",
     "./sign-in-form": "./src/components/sign-in-form.tsx",
     "./sign-out-button": "./src/components/sign-out-button.tsx",

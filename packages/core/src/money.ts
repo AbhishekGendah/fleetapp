@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { AUSTRALIAN_LOCALE } from "./locale";
+import { groupThousands } from "./text";
 
 /**
  * Money is whole cents of AUD, never fractions of a dollar held as floats
@@ -14,8 +15,14 @@ const GST_FRACTION_OF_INCLUSIVE_PRICE = 11;
 /** Far above any car or bill an Operator records (and inside a database integer): catches an extra digit. */
 export const MAXIMUM_AMOUNT_CENTS = 10_000_000_00;
 
-/** "$1,234.56", "1234.5", "1,234" or " 12 " ; never negative, at most 2 decimal places. */
-const DOLLARS_PATTERN = /^\$?\s*(\d{1,3}(,\d{3})+|\d+)(\.\d{1,2})?$/;
+/**
+ * "$1,234.56", "1234.5", "1,234" or " 12 "; never negative, at most 2 decimal
+ * places. A trailing "." is fine: it is what a box shows halfway through typing.
+ */
+const DOLLARS_PATTERN = /^\$?\s*(\d{1,3}(,\d{3})+|\d+)(\.\d{0,2})?$/;
+/** Enough for any amount up to the maximum, so a box cannot fill with digits. */
+const MAXIMUM_WHOLE_DOLLAR_DIGITS = 9;
+const DECIMAL_PLACES = 2;
 
 /** Cents from typed dollars, or null if it is not an amount. */
 export function parseDollars(typed: string): number | null {
@@ -34,9 +41,26 @@ export function formatCents(cents: number): string {
   );
 }
 
-/** "1234.56": an amount as it goes back into a box to be edited. */
+/** "$1,234.56": an amount as it goes back into a box to be edited. */
 export function centsForEditing(cents: number): string {
-  return (cents / CENTS_PER_DOLLAR).toFixed(2);
+  return formatDollarsAsTyped((cents / CENTS_PER_DOLLAR).toFixed(DECIMAL_PLACES));
+}
+
+/**
+ * What a dollar box shows as it is typed: "$" in front, a comma every three
+ * digits, and at most two digits after the point, e.g. "1234.5" as
+ * "$1,234.5". Anything else typed is dropped.
+ */
+export function formatDollarsAsTyped(raw: string): string {
+  const kept = raw.replace(/[^\d.]/g, "");
+  if (kept === "") {
+    return "";
+  }
+  const [wholeTyped = "", ...rest] = kept.split(".");
+  const hasPoint = rest.length > 0;
+  const whole = wholeTyped.replace(/^0+(?=\d)/, "").slice(0, MAXIMUM_WHOLE_DOLLAR_DIGITS);
+  const cents = rest.join("").slice(0, DECIMAL_PLACES);
+  return `$${groupThousands(whole || "0")}${hasPoint ? `.${cents}` : ""}`;
 }
 
 /** The GST inside a price that includes it, to the nearest cent. */

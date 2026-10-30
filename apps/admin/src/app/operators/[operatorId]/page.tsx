@@ -141,7 +141,7 @@ function HistoryCard({ operator }: { operator: OperatorDetail }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">History</CardTitle>
+        <CardTitle className="text-base">Log</CardTitle>
       </CardHeader>
       <CardContent>
         <ul className="flex flex-col gap-2 text-sm">

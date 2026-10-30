@@ -26,6 +26,7 @@ export function CostForm(props: {
     initialValues: emptyCostForm(),
     validate: (values) => fieldErrorsOf(parseCostForm(values)),
     isRequired: isRequiredCostField,
+    shouldClearOnSave: true,
   });
   const { fields } = form;
 

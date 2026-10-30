@@ -337,6 +337,16 @@
     rule, shared date and GST rules, a small form frame for car forms.
   - Moved to 2c: uploading transfer papers and receipts.
 
+- Fixes from Abhi's car testing (built): add forms empty once saved (no
+  double adds) and use one shared form frame; amounts show $ and commas as
+  you type (new shared money box in packages/ui); kilometres get commas;
+  VIN, policy numbers, licence numbers and references in capitals; year and
+  seats digits only; History renamed Log; cost Kind renamed Type. New rule
+  31 in CLAUDE.md: every field gets its proper format.
+- Waiting for approval: docs/plans/car-testing-changes.md (monthly rego,
+  premium payment frequency, Servicing cost type, pop-up add forms, lower
+  odometer readings refused).
+
 ## Next
 Phase 2 step 2c: photos and documents, including transfer papers and
 receipts for 2a and 2b.

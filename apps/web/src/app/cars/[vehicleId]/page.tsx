@@ -42,7 +42,7 @@ const TABS = [
   { key: "paperwork", label: "Rego & insurance" },
   { key: "costs", label: "Costs" },
   { key: "odometer", label: "Odometer" },
-  { key: "history", label: "History" },
+  { key: "log", label: "Log" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 const TAB_PARAM = "tab";
@@ -121,7 +121,7 @@ function DetailsTab({ vehicle }: { vehicle: VehicleDetail }) {
           <CardTitle>{isArchived ? "Archived" : "Archive"}</CardTitle>
           <CardDescription>
             {isArchived
-              ? "This car is hidden from your list and cannot be changed. Its history is kept."
+              ? "This car is hidden from your list and cannot be changed. Its log is kept."
               : "Hides the car from your list, e.g. once it is sold. Nothing is deleted, and you can restore it."}
           </CardDescription>
         </CardHeader>
@@ -298,7 +298,7 @@ export default async function CarPage(props: {
       {tab === "odometer" ? (
         <OdometerTab vehicle={vehicle} timezone={user.operatorTimezone} />
       ) : null}
-      {tab === "history" ? <HistoryTab vehicle={vehicle} user={user} /> : null}
+      {tab === "log" ? <HistoryTab vehicle={vehicle} user={user} /> : null}
     </AppShell>
   );
 }

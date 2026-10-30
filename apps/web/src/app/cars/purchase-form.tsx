@@ -2,11 +2,13 @@
 
 import {
   fieldErrorsOf,
+  formatKilometresAsTyped,
   isPrivatePurchase,
   PURCHASE_SOURCE_LABELS,
   PURCHASE_SOURCES,
   type AustralianStateCode,
 } from "@fleetapp/core";
+import { FormattedInput } from "@fleetapp/ui/formatted-input";
 import { Input } from "@fleetapp/ui/input";
 import { Select } from "@fleetapp/ui/select";
 import type { ChangeFormState } from "@fleetapp/ui/change-form-state";
@@ -71,7 +73,10 @@ export function PurchaseForm(props: {
         field="kilometres"
         hint="What the odometer showed when you bought it."
       >
-        <Input {...fields.textBoxProps("kilometres")} inputMode="numeric" />
+        <FormattedInput
+          {...fields.formattedBoxProps("kilometres", formatKilometresAsTyped)}
+          inputMode="numeric"
+        />
       </CostField>
       <AmountWithGst
         form={fields}

@@ -1,16 +1,12 @@
 "use client";
 
 import { fieldErrorsOf, REGO_TERMS_MONTHS } from "@fleetapp/core";
-import { Button } from "@fleetapp/ui/button";
 import { FormField } from "@fleetapp/ui/form-field";
-import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
+import { Input } from "@fleetapp/ui/input";
 import { Select } from "@fleetapp/ui/select";
 import { AustralianStateOptions } from "@fleetapp/ui/state-options";
-import { useFormFields } from "@fleetapp/ui/use-form-fields";
-import { useActionState } from "react";
 
-import { INITIAL_CHANGE_STATE, type ChangeFormState } from "@fleetapp/ui/change-form-state";
-import { FormResult } from "@fleetapp/ui/form-result";
+import type { ChangeFormState } from "@fleetapp/ui/change-form-state";
 import {
   isRequiredPaperworkField,
   parseRegoForm,
@@ -18,6 +14,7 @@ import {
   type RegoFormValues,
 } from "../../lib/vehicles/paperwork-input";
 import { AmountWithGst } from "./amount-with-gst";
+import { ChangeFormShell, useChangeForm } from "./change-form-shell";
 
 /** Records one rego renewal for a car. */
 export function RegoForm(props: {
@@ -25,22 +22,18 @@ export function RegoForm(props: {
   action: (state: ChangeFormState, formData: FormData) => Promise<ChangeFormState>;
   isGstRegistered: boolean;
 }) {
-  const [state, formAction, isPending] = useActionState(props.action, INITIAL_CHANGE_STATE);
-  const form = useFormFields({
+  const changeForm = useChangeForm({
+    action: props.action,
     fields: REGO_FORM_FIELDS,
     initialValues: props.initialValues,
     validate: (values) => fieldErrorsOf(parseRegoForm(values)),
     isRequired: isRequiredPaperworkField,
+    shouldClearOnSave: true,
   });
+  const form = changeForm.fields;
 
   return (
-    <form
-      action={formAction}
-      onSubmit={form.submitHandler(formAction)}
-      noValidate
-      className="flex flex-col gap-4"
-    >
-      <RequiredFieldsNote />
+    <ChangeFormShell form={changeForm} submitLabel="Add rego renewal">
       <div className="grid grid-cols-2 gap-4">
         <FormField htmlFor="state" label="State" isRequired error={form.errorFor("state")}>
           <Select
@@ -83,10 +76,6 @@ export function RegoForm(props: {
         gstSource="from_bill"
         isGstRegistered={props.isGstRegistered}
       />
-      {form.isResultShown && !isPending ? <FormResult state={state} /> : null}
-      <Button type="submit" disabled={isPending} className="sm:self-start">
-        {isPending ? "Saving…" : "Add rego renewal"}
-      </Button>
-    </form>
+    </ChangeFormShell>
   );
 }
