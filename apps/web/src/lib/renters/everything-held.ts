@@ -16,6 +16,7 @@ import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
+import { listRenterLinkIds } from "../renter-links/details-links";
 import { loadRecordHistory, type HistoryEntry } from "../record-history";
 import { listAllLicenceScans, listRenterFileIds } from "./licence-scans";
 import { listNoteIds, listNotes } from "./notes";
@@ -111,11 +112,12 @@ export async function buildEverythingHeld(
     return null;
   }
   const { operatorId } = actor;
-  const [notes, scans, fileIds, noteIds] = await Promise.all([
+  const [notes, scans, fileIds, noteIds, linkIds] = await Promise.all([
     listNotes(database, operatorId, renterId, { isRemovedIncluded: true }),
     listAllLicenceScans(database, operatorId, renterId),
     listRenterFileIds(database, operatorId, renterId),
     listNoteIds(database, operatorId, renterId),
+    listRenterLinkIds(database, operatorId, renterId),
   ]);
   const log = await loadRecordHistory(
     database,
@@ -124,6 +126,7 @@ export async function buildEverythingHeld(
       { entityType: ACTIVITY_ENTITY_TYPES.renter, entityIds: [renterId] },
       { entityType: ACTIVITY_ENTITY_TYPES.file, entityIds: fileIds },
       { entityType: ACTIVITY_ENTITY_TYPES.renterNote, entityIds: noteIds },
+      { entityType: ACTIVITY_ENTITY_TYPES.renterLink, entityIds: linkIds },
     ],
     { isEverything: true },
   );

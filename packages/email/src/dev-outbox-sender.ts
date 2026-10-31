@@ -1,7 +1,7 @@
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { devEmailOutbox } from "@fleetapp/db/schema";
 
-import type { EmailMessage, EmailSender } from "./email-sender";
+import { senderFor, type EmailMessage, type EmailSender } from "./email-sender";
 
 export interface DevOutboxSenderConfig {
   database: AnyDatabase;
@@ -18,7 +18,8 @@ export function createDevOutboxSender(config: DevOutboxSenderConfig): EmailSende
     async send(message: EmailMessage): Promise<void> {
       await config.database.insert(devEmailOutbox).values({
         toAddress: message.to,
-        fromAddress: config.from,
+        fromAddress: senderFor(config.from, message.fromName),
+        replyTo: message.replyTo ?? null,
         subject: message.subject,
         html: message.html,
         text: message.text,

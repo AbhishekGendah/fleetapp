@@ -47,12 +47,14 @@ import {
   type SharedContact,
 } from "../../../lib/renters/renter-queries";
 import { listLicenceScans, listRenterFileIds } from "../../../lib/renters/licence-scans";
+import { listRenterLinkIds } from "../../../lib/renter-links/details-links";
 import { listNoteIds } from "../../../lib/renters/notes";
 import { loadExpiryContext } from "../../../lib/vehicles/expiry-context";
 import { AppShell } from "../../app-shell";
 import { ExpiryDate } from "../../cars/expiry-date";
 import { RenterStatusBadge } from "../renter-status-badge";
 import { changeRenterStatusAction, setRenterArchivedAction } from "./actions";
+import { DetailsLinkCard } from "./details-link-card";
 import { LicenceTab } from "./licence-tab";
 import { NotesTab } from "./notes-tab";
 import { loadRenterOrNotFound } from "./load-renter";
@@ -269,6 +271,7 @@ async function DetailsTab({ renter, user }: { renter: RenterDetail; user: Signed
           </CardContent>
         </Card>
       )}
+      {isArchived ? null : <DetailsLinkCard renter={renter} user={user} />}
       <Card>
         <CardHeader>
           <CardTitle>What we hold</CardTitle>
@@ -317,10 +320,11 @@ export default async function RenterPage(props: {
   const [{ renterId }, searchParams] = await Promise.all([props.params, props.searchParams]);
   const renter = await loadRenterOrNotFound(user, renterId);
   const tab = chosenTab(searchParams[TAB_PARAM]);
-  const [licenceExpiry, fileIds, noteIds] = await Promise.all([
+  const [licenceExpiry, fileIds, noteIds, linkIds] = await Promise.all([
     loadExpiryContext(user, "licenceExpiryWarningDays"),
     listRenterFileIds(appDb, user.operatorId, renter.id),
     listNoteIds(appDb, user.operatorId, renter.id),
+    listRenterLinkIds(appDb, user.operatorId, renter.id),
   ]);
 
   return (
@@ -366,6 +370,7 @@ export default async function RenterPage(props: {
             { entityType: ACTIVITY_ENTITY_TYPES.renter, entityIds: [renter.id] },
             { entityType: ACTIVITY_ENTITY_TYPES.file, entityIds: fileIds },
             { entityType: ACTIVITY_ENTITY_TYPES.renterNote, entityIds: noteIds },
+            { entityType: ACTIVITY_ENTITY_TYPES.renterLink, entityIds: linkIds },
           ]}
           fieldLabel={renterFieldLabel}
           describeValue={describeRenterValue}

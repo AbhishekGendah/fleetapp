@@ -458,9 +458,21 @@
   security, never edited or deleted, no admin access). The Log now includes
   notes. Shared on the way: several-sheet Excel files in core.
 
+- **Phase 2 step 4, part 1 — Renter links, sending and the code** (plan:
+  docs/plans/phase-2-step-4.md): a "Details form" card on the Renter page
+  (Send details form, Copy link shown once, Send again, Cancel link,
+  Expired/Locked); the link page at `/r/<secret>` asks a new phone for an
+  emailed 6-digit code (10 minutes, 5 tries then locked, 3 codes an hour) and
+  remembers the phone; until then it shows only the business name and a
+  masked email. Emails from the Operator's name with reply-to the Operator.
+  Settings → Renters: how many days links last (7). Migration 0021:
+  `renter_links`, `renter_link_devices`, a reply-to on the test inbox, and the
+  one narrow function that finds a live link from its fingerprint. The form
+  itself comes in part 2 (the page says so for now).
+
 ## Next
-Phase 2 slice 4 — Renter links and self-onboarding (docs/plans/phase-2.md).
-Plan first. Then slice 5 — deleting old licence scans on a timer.
+Phase 2 step 4, part 2: the details form the Renter fills in (details,
+licence, licence photos, privacy notice), held until the Operator reviews it.
 
 ## Open items
 - **Before launch: docs/launch-checklist.md** (relaxed admin sign-in, full

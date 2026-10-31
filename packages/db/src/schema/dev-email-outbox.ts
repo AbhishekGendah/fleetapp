@@ -20,6 +20,8 @@ export const devEmailOutbox = pgTable(
 
     toAddress: text("to_address").notNull(),
     fromAddress: text("from_address").notNull(),
+    /** Where a reply goes, when not the sender: e.g. the Operator, for Renter emails. */
+    replyTo: text("reply_to"),
     subject: text("subject").notNull(),
     html: text("html").notNull(),
     text: text("text").notNull(),

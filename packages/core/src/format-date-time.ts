@@ -26,3 +26,13 @@ export function formatCalendarDate(isoDate: string): string {
     year: "numeric",
   }).format(new Date(`${isoDate}T00:00:00Z`));
 }
+
+/** A day in words on the Operator's clock, e.g. "Friday 6 November", for emails to Renters. */
+export function formatDayInTimeZone(moment: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat(AUSTRALIAN_LOCALE, {
+    timeZone,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(moment);
+}

@@ -65,3 +65,10 @@ export function licenceScanPath(renterId: string, fileId: string): string {
 export function renterEverythingHeldPath(renterId: string): string {
   return `${renterPath(renterId)}/everything-held`;
 }
+
+/** Where a Renter's link opens, before its secret: `/r/<secret>`. */
+export const RENTER_LINK_PATH = "/r";
+
+export function renterLinkPagePath(token: string): string {
+  return `${RENTER_LINK_PATH}/${token}`;
+}

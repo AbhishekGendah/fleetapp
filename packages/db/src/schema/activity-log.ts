@@ -69,6 +69,7 @@ export const ACTIVITY_ENTITY_TYPES = {
   vehicleCost: "vehicle_cost",
   renter: "renter",
   renterNote: "renter_note",
+  renterLink: "renter_link",
 } as const;
 
 /** What happened to it. No free text at call sites. */
@@ -101,6 +102,12 @@ export const ACTIVITY_ACTIONS = {
   exported: "exported",
   /** Everything held about one person downloaded, e.g. for a Renter who asked (APP 12). */
   exportedAll: "exported_all",
+  /** A one-time code emailed for a Renter link. */
+  codeSent: "code_sent",
+  /** A right code typed on a phone the link had not seen, which is now remembered. */
+  phoneVerified: "phone_verified",
+  /** Too many wrong codes: the link is shut. */
+  locked: "locked",
 } as const;
 
 export type ActivityEntityType = (typeof ACTIVITY_ENTITY_TYPES)[keyof typeof ACTIVITY_ENTITY_TYPES];

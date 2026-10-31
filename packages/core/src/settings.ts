@@ -1,6 +1,11 @@
 import { z } from "zod";
 
 import {
+  DEFAULT_RENTER_LINK_DAYS,
+  MAXIMUM_RENTER_LINK_DAYS,
+  MINIMUM_RENTER_LINK_DAYS,
+} from "./renter-links";
+import {
   DEFAULT_EXPIRY_WARNING_DAYS,
   MAXIMUM_EXPIRY_WARNING_DAYS,
   MINIMUM_EXPIRY_WARNING_DAYS,
@@ -32,6 +37,13 @@ export const operatorSettingsSchema = z.object({
     .min(MINIMUM_EXPIRY_WARNING_DAYS)
     .max(MAXIMUM_EXPIRY_WARNING_DAYS)
     .default(DEFAULT_EXPIRY_WARNING_DAYS),
+  /** Renters: how many days a details form link works for. */
+  renterLinkValidDays: z
+    .number()
+    .int()
+    .min(MINIMUM_RENTER_LINK_DAYS)
+    .max(MAXIMUM_RENTER_LINK_DAYS)
+    .default(DEFAULT_RENTER_LINK_DAYS),
 });
 
 export type OperatorSettings = z.infer<typeof operatorSettingsSchema>;

@@ -10,26 +10,22 @@ import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import { useActionState } from "react";
 
 import {
-  WARNING_DAYS_FIELDS,
-  warningDaysInputSchema,
-  type WarningDaysSetting,
-} from "../../lib/settings/warning-days-input";
-import { saveWarningDaysAction } from "./warning-days-actions";
+  DAYS_FIELDS,
+  daysInputSchema,
+  type DaysSetting,
+} from "../../lib/settings/days-setting-input";
+import { saveDaysSettingAction } from "./days-setting-actions";
 
-/** One "Due soon" setting: how many days before something expires its badge turns amber. */
-export function WarningDaysForm(props: {
-  setting: WarningDaysSetting;
-  label: string;
-  warningDays: number;
-}) {
+/** One setting that is a number of days, e.g. how early "Due soon" shows. */
+export function DaysSettingForm(props: { setting: DaysSetting; label: string; days: number }) {
   const [state, formAction, isPending] = useActionState(
-    saveWarningDaysAction.bind(null, props.setting),
+    saveDaysSettingAction.bind(null, props.setting),
     INITIAL_CHANGE_STATE,
   );
   const form = useFormFields({
-    fields: WARNING_DAYS_FIELDS,
-    initialValues: { days: String(props.warningDays) },
-    validate: (values) => fieldErrorsOf(warningDaysInputSchema.safeParse(values)),
+    fields: DAYS_FIELDS,
+    initialValues: { days: String(props.days) },
+    validate: (values) => fieldErrorsOf(daysInputSchema(props.setting).safeParse(values)),
     isRequired: () => true,
   });
   const boxId = `${props.setting}-days`;

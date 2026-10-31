@@ -9,7 +9,7 @@ import { loadBusinessDetails } from "../../lib/settings/business-details";
 import { AppShell } from "../app-shell";
 import { loadOperatorSettings } from "../../lib/settings/operator-settings";
 import { BusinessDetailsForm } from "./business-details-form";
-import { WarningDaysForm } from "./warning-days-form";
+import { DaysSettingForm } from "./days-setting-form";
 import { LogoUpload } from "./logo-upload";
 
 export const runtime = "nodejs";
@@ -46,10 +46,10 @@ export default async function SettingsPage() {
           <CardDescription>Shown on the cars list and each car&rsquo;s page.</CardDescription>
         </CardHeader>
         <CardContent>
-          <WarningDaysForm
+          <DaysSettingForm
             setting="vehicleExpiryWarningDays"
             label="Show “Due soon” this many days before rego or insurance expires"
-            warningDays={settings.vehicleExpiryWarningDays}
+            days={settings.vehicleExpiryWarningDays}
           />
         </CardContent>
       </Card>
@@ -58,11 +58,16 @@ export default async function SettingsPage() {
           <CardTitle>Renters</CardTitle>
           <CardDescription>Shown on the Renters list and each Renter&rsquo;s page.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <WarningDaysForm
+        <CardContent className="flex flex-col gap-8">
+          <DaysSettingForm
             setting="licenceExpiryWarningDays"
             label="Show “Due soon” this many days before a licence expires"
-            warningDays={settings.licenceExpiryWarningDays}
+            days={settings.licenceExpiryWarningDays}
+          />
+          <DaysSettingForm
+            setting="renterLinkValidDays"
+            label="Details form links last this many days"
+            days={settings.renterLinkValidDays}
           />
         </CardContent>
       </Card>

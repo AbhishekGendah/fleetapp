@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { formatCalendarDate, formatDateTimeInTimeZone } from "./format-date-time";
+import {
+  formatCalendarDate,
+  formatDateTimeInTimeZone,
+  formatDayInTimeZone,
+} from "./format-date-time";
 
 describe("formatting a moment in the Operator's timezone", () => {
   const moment = new Date("2026-10-27T06:15:00Z");
@@ -21,5 +25,14 @@ describe("formatting a moment in the Operator's timezone", () => {
 describe("formatCalendarDate", () => {
   it("shows the same day whatever the reader's timezone", () => {
     expect(formatCalendarDate("2026-11-01")).toBe("1 Nov 2026");
+  });
+});
+
+describe("a day in words", () => {
+  it("is on the Operator's clock", () => {
+    // 2026-11-05 at 20:00 UTC is already Friday 6 November in Perth.
+    expect(formatDayInTimeZone(new Date("2026-11-05T20:00:00Z"), "Australia/Perth")).toBe(
+      "Friday 6 November",
+    );
   });
 });

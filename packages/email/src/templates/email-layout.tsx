@@ -35,6 +35,8 @@ const smallTextStyle = { color: BRAND.colours.mutedText, fontSize: "13px" };
 export function EmailLayout(props: {
   preview: string;
   heading: string;
+  /** At the top in place of the product name, e.g. the Operator's business on Renter emails. */
+  senderName?: string;
   children: ReactNode;
 }): ReactElement {
   return (
@@ -43,7 +45,7 @@ export function EmailLayout(props: {
       <Preview>{props.preview}</Preview>
       <Body style={bodyStyle}>
         <Container style={containerStyle}>
-          <Text style={brandStyle}>{BRAND.productName}</Text>
+          <Text style={brandStyle}>{props.senderName ?? BRAND.productName}</Text>
           <Heading as="h1">{props.heading}</Heading>
           {props.children}
         </Container>

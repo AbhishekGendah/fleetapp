@@ -236,6 +236,25 @@ of service) and the countries.
   becoming a resident in most): check each before go-live, and whether the
   app should ask when the Renter arrived in Australia.
 
+## Renter links (Phase 2 step 4, part 1 built)
+
+- **Sending a link:** the Renter's email address goes to the email provider
+  (the test inbox in dev; Postmark, USA, in production: already in the
+  overseas table). Emails come from the Operator's business name and replies
+  go to the Operator's email, so the Renter knows who is contacting them.
+  They are transactional (no marketing), so the Spam Act's unsubscribe rule
+  does not apply, but they say who sent them and why.
+- **Security (rule 26):** only fingerprints of links, codes and remembered
+  phones are kept; links expire (7 days unless changed), can be cancelled,
+  and a new link replaces the old one; a 6-digit code is needed on a new
+  phone (10 minutes, 5 tries, then the link locks; at most 3 codes an hour).
+  Before the code the page shows only the business name and a masked email.
+  Link pages send no referrer, are never cached and are not indexed.
+- **Logged:** every link sent, cancelled, code emailed, phone confirmed and
+  lock, as done by the Renter's link or the User. Never the address or code.
+- **To do before real Renters (part 4b):** the privacy notice on the form
+  (APP 5), wording to check with the lawyer.
+
 ## Business details (already built)
 
 - An Operator's ABN, address, phone and email are business information,

@@ -1,6 +1,6 @@
 # Phase 2 step 4 plan — Renter links (details form)
 
-Status: for Abhi's approval (31 Oct 2026). Detail for slice 4 of
+Status: approved (31 Oct 2026). Part 4a built. Detail for slice 4 of
 docs/plans/phase-2.md (approved in outline). The first kind of Renter link;
 contract signing, booking view and payments reuse the same machinery later.
 
