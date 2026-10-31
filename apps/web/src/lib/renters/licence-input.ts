@@ -29,7 +29,15 @@ const licenceInputSchema = z
   .object({
     licenceIssuedIn: z.enum(LICENCE_ISSUERS, REQUIRED_MESSAGE),
     licenceCountry: z.string().trim(),
-    licenceNumber: z.string(),
+    // Checked on its own, so it shows even before "Issued in" is chosen. The
+    // longest limit, since only emptiness matters here.
+    licenceNumber: z
+      .string()
+      .refine(
+        (number) =>
+          normaliseLicenceNumber(number, licenceNumberMaximumLength(OVERSEAS_ISSUER)) !== "",
+        REQUIRED_MESSAGE,
+      ),
     licenceClass: z.enum(LICENCE_CLASSES, REQUIRED_MESSAGE),
     licenceType: z.enum(LICENCE_TYPES, REQUIRED_MESSAGE),
     licenceExpiresOn: requiredDate,
@@ -39,9 +47,6 @@ const licenceInputSchema = z
   .superRefine((input, context) => {
     if (input.licenceIssuedIn === OVERSEAS_ISSUER && !isOverseasCountryCode(input.licenceCountry)) {
       context.addIssue({ code: "custom", path: ["licenceCountry"], message: COUNTRY_MESSAGE });
-    }
-    if (tidiedNumber(input) === "") {
-      context.addIssue({ code: "custom", path: ["licenceNumber"], message: REQUIRED_MESSAGE });
     }
   })
   .transform((input) => ({
