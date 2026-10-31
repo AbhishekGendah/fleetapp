@@ -1,7 +1,7 @@
 import { downloadName, LICENCE_SIDE_LABELS, type LicenceSide } from "@fleetapp/core";
 import { files } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, isNotNull } from "drizzle-orm";
 
 import type { PlannedFile } from "../files/car-files";
 import {
@@ -151,4 +151,36 @@ export function listRenterFileIds(
   return listLoggedFileIds(database, operatorId, eq(files.renterId, renterId), [
     "renter_licence_scan",
   ]);
+}
+
+export interface LicenceScanRecord {
+  side: LicenceSide;
+  addedAt: Date;
+  removedAt: Date | null;
+}
+
+/** Every scan the Renter has had, removed ones too, oldest first: for the "everything we hold" download. */
+export async function listAllLicenceScans(
+  database: FileDependencies["database"],
+  operatorId: string,
+  renterId: string,
+): Promise<LicenceScanRecord[]> {
+  const rows = await withTenant(database, operatorId, (tx) =>
+    tx
+      .select({ side: files.licenceSide, addedAt: files.confirmedAt, removedAt: files.deletedAt })
+      .from(files)
+      .where(
+        and(
+          eq(files.operatorId, operatorId),
+          eq(files.renterId, renterId),
+          isNotNull(files.confirmedAt),
+        ),
+      )
+      .orderBy(asc(files.confirmedAt)),
+  );
+  return rows.flatMap((row) =>
+    row.side && row.addedAt
+      ? [{ side: row.side, addedAt: row.addedAt, removedAt: row.removedAt }]
+      : [],
+  );
 }

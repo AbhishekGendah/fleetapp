@@ -21,6 +21,19 @@ export const singleLineText = z
   .max(MAXIMUM_LINE_LENGTH, `At most ${MAXIMUM_LINE_LENGTH} characters.`)
   .refine((value) => !CONTROL_CHARACTERS.test(value), "Must be on one line.");
 
+export const MAXIMUM_NOTE_LENGTH = 2000;
+/** Control characters other than line breaks and tabs, which a note may hold. */
+// eslint-disable-next-line no-control-regex -- matching control characters is the point
+const NON_TEXT_CHARACTERS = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
+
+/** Several lines of text, e.g. a note: trimmed, line breaks kept, must be filled in. */
+export const requiredText = z
+  .string()
+  .trim()
+  .min(1, REQUIRED_MESSAGE)
+  .max(MAXIMUM_NOTE_LENGTH, `At most ${MAXIMUM_NOTE_LENGTH} characters.`)
+  .refine((value) => !NON_TEXT_CHARACTERS.test(value), "Remove the unusual characters.");
+
 /** One line of text that must be filled in. */
 export const requiredLine = singleLineText.min(1, REQUIRED_MESSAGE);
 

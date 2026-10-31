@@ -141,6 +141,13 @@
       "when": 1793384962713,
       "tag": "0019_renter_licences",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793409482584,
+      "tag": "0020_renter_notes",
+      "breakpoints": true
     }
   ]
 }

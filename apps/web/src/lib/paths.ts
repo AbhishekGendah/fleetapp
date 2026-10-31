@@ -60,3 +60,8 @@ export function editRenterPath(renterId: string): string {
 export function licenceScanPath(renterId: string, fileId: string): string {
   return `${renterPath(renterId)}/licence/${fileId}`;
 }
+
+/** Everything held about a Renter as one Excel file; each download is logged. */
+export function renterEverythingHeldPath(renterId: string): string {
+  return `${renterPath(renterId)}/everything-held`;
+}

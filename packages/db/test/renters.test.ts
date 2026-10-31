@@ -167,6 +167,51 @@ describe("Renters", () => {
     expect(codes).toEqual([UNIQUE_VIOLATION, FOREIGN_KEY_VIOLATION, CHECK_VIOLATION]);
   });
 
+  it("keeps notes to the same Operator's Renter, never edited or deleted", async () => {
+    const [user] = await admin.db
+      .insert(schema.users)
+      .values({
+        operatorId: operatorBId,
+        email: `${crypto.randomUUID()}@example.test`,
+        fullName: "Jo",
+      })
+      .returning({ id: schema.users.id });
+    const note = (operatorId: string) => ({
+      operatorId,
+      renterId: renterBId,
+      body: "Returned the car late.",
+      writtenByUserId: user!.id,
+    });
+    await withTenant(web.db, operatorBId, (tx) =>
+      tx.insert(schema.renterNotes).values(note(operatorBId)),
+    );
+    expect(
+      await withTenant(web.db, operatorAId, (tx) => tx.select().from(schema.renterNotes)),
+    ).toEqual([]);
+    const codes = [
+      await postgresErrorCodeOf(
+        withTenant(web.db, operatorAId, (tx) =>
+          tx.insert(schema.renterNotes).values(note(operatorAId)),
+        ),
+      ),
+      await postgresErrorCodeOf(
+        withTenant(web.db, operatorBId, (tx) =>
+          tx.update(schema.renterNotes).set({ body: "Changed" }),
+        ),
+      ),
+      await postgresErrorCodeOf(
+        withTenant(web.db, operatorBId, (tx) => tx.delete(schema.renterNotes)),
+      ),
+      await postgresErrorCodeOf(admin.db.select().from(schema.renterNotes)),
+    ];
+    expect(codes).toEqual([
+      FOREIGN_KEY_VIOLATION,
+      POSTGRES_ERROR_CODES.insufficientPrivilege,
+      POSTGRES_ERROR_CODES.insufficientPrivilege,
+      POSTGRES_ERROR_CODES.insufficientPrivilege,
+    ]);
+  });
+
   it("never lets the Operator app delete one", async () => {
     const code = await postgresErrorCodeOf(
       withTenant(web.db, operatorBId, (tx) => tx.delete(schema.renters)),

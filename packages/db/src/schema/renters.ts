@@ -9,16 +9,19 @@ import { sql } from "drizzle-orm";
 import {
   check,
   date,
+  foreignKey,
   index,
   pgEnum,
   pgTable,
   text,
   unique,
   uniqueIndex,
+  uuid,
 } from "drizzle-orm/pg-core";
 
 import { auditColumns, primaryKeyColumn } from "./columns";
 import { operatorIdColumn } from "./operators";
+import { users } from "./users";
 
 export const renterStatusEnum = pgEnum("renter_status", RENTER_STATUSES);
 export const licenceIssuerEnum = pgEnum("licence_issuer", LICENCE_ISSUERS);
@@ -104,5 +107,33 @@ export const renters = pgTable(
       "renters_do_not_rent_reason",
       sql`(${table.status} = 'do_not_rent') = (${table.doNotRentReason} is not null)`,
     ),
+  ],
+);
+
+/**
+ * Dated notes the Operator keeps about a Renter. Never edited: one written by
+ * mistake is archived and stays in the Log. The Renter can ask to see them
+ * (APP 12), so the screen asks for facts only. No admin access (rule 5).
+ */
+export const renterNotes = pgTable(
+  "renter_notes",
+  {
+    ...primaryKeyColumn,
+    ...operatorIdColumn,
+    renterId: uuid("renter_id").notNull(),
+    body: text("body").notNull(),
+    writtenByUserId: uuid("written_by_user_id")
+      .notNull()
+      .references(() => users.id),
+    ...auditColumns,
+  },
+  (table) => [
+    foreignKey({
+      name: "renter_notes_renter_fk",
+      columns: [table.renterId, table.operatorId],
+      foreignColumns: [renters.id, renters.operatorId],
+    }),
+    index("renter_notes_renter_idx").on(table.operatorId, table.renterId, table.createdAt),
+    check("renter_notes_body_not_blank", sql`length(trim(${table.body})) > 0`),
   ],
 );

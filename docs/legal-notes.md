@@ -194,7 +194,7 @@ of service) and the countries.
   only one. Decide with the accountant whether removal should be blocked
   for 5 years instead.
 
-## Renters (Phase 2 step 3, parts 1 and 2 built)
+## Renters (Phase 2 step 3 built)
 
 - **Renters' personal information is now collected:** name, preferred name,
   phone, email, date of birth, home and postal address, and an emergency
@@ -218,6 +218,18 @@ of service) and the countries.
   through a 5-minute link, and every View is written to the Renter's Log with
   who looked. A replaced or removed scan is kept 30 days, then deleted.
   Slice 5 deletes scans on a timer after the Renter's last rental.
+- **Notes (part 3)** are personal information about the Renter: the screen
+  says facts only and that the Renter can ask to see them. A note is never
+  edited; one removed by mistake is kept (in the download, marked removed).
+  The Log never holds what a note says.
+- **Access requests (APP 12):** "Download everything we hold" gives the
+  Operator one Excel file with the Renter's details, licence (number
+  included), status and reason, notes, when each scan was added and
+  removed, and the full Log. The scans themselves are opened from the page
+  if the Renter wants copies. Each download is logged. The Operator terms
+  should say the Operator answers access requests within 30 days (APP 12
+  requires a reasonable time) and checks who is asking before handing it
+  over.
 - **Overseas licences:** the form says visitors can drive on one only for a
   limited time and it must be in English or come with an International
   Driving Permit. The exact limits differ by state (e.g. three months after

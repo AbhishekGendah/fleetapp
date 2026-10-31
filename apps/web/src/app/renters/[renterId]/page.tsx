@@ -17,7 +17,9 @@ import {
   Archive,
   ArchiveRestore,
   History,
+  Download,
   IdCard,
+  NotebookPen,
   Pencil,
   UserRound,
   type LucideIcon,
@@ -26,7 +28,12 @@ import Link from "next/link";
 
 import { HistoryCard } from "../../../components/history-card";
 import { appDb } from "../../../lib/app-db";
-import { editRenterPath, renterPath, RENTERS_PATH } from "../../../lib/paths";
+import {
+  editRenterPath,
+  renterEverythingHeldPath,
+  renterPath,
+  RENTERS_PATH,
+} from "../../../lib/paths";
 import { requireUser, type SignedInUser } from "../../../lib/require-user";
 import { renterStatusFormValues } from "../../../lib/renters/renter-input";
 import {
@@ -40,12 +47,14 @@ import {
   type SharedContact,
 } from "../../../lib/renters/renter-queries";
 import { listLicenceScans, listRenterFileIds } from "../../../lib/renters/licence-scans";
+import { listNoteIds } from "../../../lib/renters/notes";
 import { loadExpiryContext } from "../../../lib/vehicles/expiry-context";
 import { AppShell } from "../../app-shell";
 import { ExpiryDate } from "../../cars/expiry-date";
 import { RenterStatusBadge } from "../renter-status-badge";
 import { changeRenterStatusAction, setRenterArchivedAction } from "./actions";
 import { LicenceTab } from "./licence-tab";
+import { NotesTab } from "./notes-tab";
 import { loadRenterOrNotFound } from "./load-renter";
 import { RenterStatusForm } from "./status-form";
 
@@ -55,6 +64,7 @@ export const dynamic = "force-dynamic";
 const TABS = [
   { key: "details", label: "Details", icon: UserRound },
   { key: "licence", label: "Licence", icon: IdCard },
+  { key: "notes", label: "Notes", icon: NotebookPen },
   { key: "log", label: "Log", icon: History },
 ] as const satisfies readonly { key: string; label: string; icon: LucideIcon }[];
 type TabKey = (typeof TABS)[number]["key"];
@@ -261,6 +271,23 @@ async function DetailsTab({ renter, user }: { renter: RenterDetail; user: Signed
       )}
       <Card>
         <CardHeader>
+          <CardTitle>What we hold</CardTitle>
+          <CardDescription>
+            If the Renter asks what you hold about them, download it all as one Excel file: details,
+            licence, notes, scans and the Log. The download is recorded in the Log.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline" className="w-full sm:w-auto">
+            <a href={renterEverythingHeldPath(renter.id)} download>
+              <Download aria-hidden />
+              Download everything we hold
+            </a>
+          </Button>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
           <CardTitle>{isArchived ? "Archived" : "Archive"}</CardTitle>
           <CardDescription>
             {isArchived
@@ -290,9 +317,10 @@ export default async function RenterPage(props: {
   const [{ renterId }, searchParams] = await Promise.all([props.params, props.searchParams]);
   const renter = await loadRenterOrNotFound(user, renterId);
   const tab = chosenTab(searchParams[TAB_PARAM]);
-  const [licenceExpiry, fileIds] = await Promise.all([
+  const [licenceExpiry, fileIds, noteIds] = await Promise.all([
     loadExpiryContext(user, "licenceExpiryWarningDays"),
     listRenterFileIds(appDb, user.operatorId, renter.id),
+    listNoteIds(appDb, user.operatorId, renter.id),
   ]);
 
   return (
@@ -330,12 +358,14 @@ export default async function RenterPage(props: {
       />
       {tab === "details" ? <DetailsTab renter={renter} user={user} /> : null}
       {tab === "licence" ? <LicenceTab renter={renter} user={user} expiry={licenceExpiry} /> : null}
+      {tab === "notes" ? <NotesTab renter={renter} user={user} /> : null}
       {tab === "log" ? (
         <HistoryCard
           user={user}
           subjects={[
             { entityType: ACTIVITY_ENTITY_TYPES.renter, entityIds: [renter.id] },
             { entityType: ACTIVITY_ENTITY_TYPES.file, entityIds: fileIds },
+            { entityType: ACTIVITY_ENTITY_TYPES.renterNote, entityIds: noteIds },
           ]}
           fieldLabel={renterFieldLabel}
           describeValue={describeRenterValue}

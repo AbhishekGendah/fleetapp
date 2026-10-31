@@ -30,11 +30,16 @@ function asValues(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-/** A record's history tab (rule 19), newest first, within the signed-in User's Operator. */
+/**
+ * A record's history tab (rule 19), newest first, within the signed-in
+ * User's Operator. The latest lines only, unless everything is asked for
+ * (a Renter's "everything we hold" download).
+ */
 export async function loadRecordHistory(
   database: AnyDatabase,
   operatorId: string,
   subjects: readonly HistorySubject[],
+  { isEverything = false }: { isEverything?: boolean } = {},
 ): Promise<HistoryEntry[]> {
   const bySubject = subjects
     .filter((subject) => subject.entityIds.length > 0)
@@ -47,8 +52,8 @@ export async function loadRecordHistory(
   if (bySubject.length === 0) {
     return [];
   }
-  const rows = await withTenant(database, operatorId, (tx) =>
-    tx
+  const rows = await withTenant(database, operatorId, (tx) => {
+    const query = tx
       .select({
         id: activityLog.id,
         entityType: activityLog.entityType,
@@ -62,9 +67,9 @@ export async function loadRecordHistory(
       .from(activityLog)
       .leftJoin(users, and(eq(activityLog.actorType, "user"), eq(users.id, activityLog.actorId)))
       .where(and(eq(activityLog.operatorId, operatorId), or(...bySubject)))
-      .orderBy(desc(activityLog.occurredAt))
-      .limit(HISTORY_LIMIT),
-  );
+      .orderBy(desc(activityLog.occurredAt));
+    return isEverything ? query : query.limit(HISTORY_LIMIT);
+  });
   return rows.map((row) => ({
     ...row,
     valuesBefore: asValues(row.valuesBefore),

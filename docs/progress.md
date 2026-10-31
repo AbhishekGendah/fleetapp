@@ -450,9 +450,17 @@
   Shared pieces on the way: one "Due soon" settings form, record-upload steps,
   the pop-up form frame and file link moved to shared components.
 
+- **Phase 2 step 3, part 3 — notes and access requests:** a Notes tab
+  (several lines, facts-only hint, newest first with who and when, Remove
+  note keeps it on record); "Download everything we hold" on the Details tab:
+  one Excel file with Details, Licence, Notes, Licence scans and the full
+  Log, each download logged. Migration 0020: `renter_notes` (forced row-level
+  security, never edited or deleted, no admin access). The Log now includes
+  notes. Shared on the way: several-sheet Excel files in core.
+
 ## Next
-Phase 2 step 3, part 3: notes, and "Download everything we hold" for a
-Renter.
+Phase 2 slice 4 — Renter links and self-onboarding (docs/plans/phase-2.md).
+Plan first. Then slice 5 — deleting old licence scans on a timer.
 
 ## Open items
 - **Before launch: docs/launch-checklist.md** (relaxed admin sign-in, full
