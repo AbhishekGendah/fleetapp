@@ -66,12 +66,19 @@ export async function DetailsLinkCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {waiting ? (
-          <p className="text-sm">
-            <Badge tone="attention">Waiting for your review</Badge> The Renter sent their details on{" "}
-            {formatDateTimeInTimeZone(waiting.sentAt, user.operatorTimezone)}. Nothing on this page
-            changes until you approve them.
-            {/* TODO(Renter links part 4c): a Review button goes here. */}
-          </p>
+          <div className="bg-attention-soft flex flex-col gap-3 rounded-lg p-3">
+            <p className="text-sm">
+              <WaitingReviewBadge /> The Renter sent their details on{" "}
+              {formatDateTimeInTimeZone(waiting.sentAt, user.operatorTimezone)}. Nothing on this
+              page changes until you approve them.
+            </p>
+            <Button asChild className="w-full sm:w-auto sm:self-start">
+              <Link href={renterReviewPath(renter.id)}>
+                <ClipboardCheck aria-hidden />
+                Review what they sent
+              </Link>
+            </Button>
+          </div>
         ) : null}
         {link ? <LinkStatus link={link} timeZone={user.operatorTimezone} /> : null}
         {renter.email ? (
