@@ -87,6 +87,35 @@ export async function createRenter(
   });
 }
 
+/**
+ * Writes a Renter's details onto the locked record `before`, logging which
+ * changed but never their values. Shared by the edit form and approving
+ * what the Renter sent.
+ */
+export async function applyRenterDetails(
+  tx: AnyTransaction,
+  actor: ActingUser,
+  before: Renter,
+  input: RenterInput,
+): Promise<"changed" | "unchanged"> {
+  const changes = changedValues(before, input, RENTER_FIELDS);
+  if (!hasChanges(changes)) {
+    return "unchanged";
+  }
+  await tx
+    .update(renters)
+    .set(input)
+    .where(and(eq(renters.id, before.id), eq(renters.operatorId, actor.operatorId)));
+  await logRenterActivity(
+    tx,
+    actor,
+    before.id,
+    ACTIVITY_ACTIONS.updated,
+    withholdChangedFields(changes, RENTER_FIELDS),
+  );
+  return "changed";
+}
+
 /** Saves the edit form. The log names the details that changed, never their values. */
 export async function updateRenter(
   database: AnyDatabase,
@@ -96,22 +125,7 @@ export async function updateRenter(
 ): Promise<ChangeRenterResult> {
   return withTenant(database, actor.operatorId, async (tx) => {
     const before = await lockCurrentRenter(tx, actor.operatorId, renterId);
-    if (!before) {
-      return "not_found";
-    }
-    const changes = changedValues(before, input, RENTER_FIELDS);
-    if (!hasChanges(changes)) {
-      return "unchanged";
-    }
-    await tx.update(renters).set(input).where(eq(renters.id, renterId));
-    await logRenterActivity(
-      tx,
-      actor,
-      renterId,
-      ACTIVITY_ACTIONS.updated,
-      withholdChangedFields(changes, RENTER_FIELDS),
-    );
-    return "changed";
+    return before ? applyRenterDetails(tx, actor, before, input) : "not_found";
   });
 }
 

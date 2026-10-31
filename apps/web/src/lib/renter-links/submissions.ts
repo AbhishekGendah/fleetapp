@@ -21,6 +21,7 @@ import {
 import { renterFormValues, type RenterFormValues } from "../renters/renter-input";
 import type { DetailsInput } from "./details-form-input";
 import type { LinkVisit } from "./link-visits";
+import { loadSentBack } from "./reviews";
 
 /** The link acting: never a User, and only ever within its own Operator (rule 3). */
 function linkActor(visit: LinkVisit) {
@@ -76,7 +77,13 @@ export async function loadWaitingSubmission(
 
 export type FormStart =
   | { status: "waiting" }
-  | { status: "open"; values: RenterFormValues; photos: Record<LicenceSide, boolean> };
+  | {
+      status: "open";
+      values: RenterFormValues;
+      photos: Record<LicenceSide, boolean>;
+      /** The Operator's note when what they last sent came back for a change. */
+      sentBackNote: string | null;
+    };
 
 /**
  * Where the Renter's form starts: their details as on file (never the
@@ -96,9 +103,12 @@ export async function loadFormStart(database: AnyDatabase, visit: LinkVisit): Pr
       throw new Error("The link's Renter was not found.");
     }
     const sent = await unsentPhotos(tx, visit);
+    const sentBack = await loadSentBack(tx, visit.operatorId, visit.renterId);
     return {
       status: "open" as const,
-      values: renterFormValues(renter),
+      // After a send-back, what they sent last (not yet on file) is theirs to fix.
+      values: renterFormValues(sentBack?.details ?? renter),
+      sentBackNote: sentBack?.note ?? null,
       photos: Object.fromEntries(
         LICENCE_SIDES.map((side) => [side, sent.some((photo) => photo.side === side)]),
       ) as Record<LicenceSide, boolean>,

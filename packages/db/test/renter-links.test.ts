@@ -167,6 +167,90 @@ describe("Renter links", () => {
     ]);
   });
 
+  it("removes a submission never approved only through the clean-up, one Operator at a time", async () => {
+    const ended = new Date(Date.now() - 40 * ONE_DAY_MS);
+    const cutoff = new Date(Date.now() - 30 * ONE_DAY_MS).toISOString();
+    const { renterId, submissionId, fileId } = await withTenant(web.db, operatorBId, async (tx) => {
+      const [renter] = await tx
+        .insert(schema.renters)
+        .values({ operatorId: operatorBId, fullName: "Old Sender", email: "old@example.test" })
+        .returning({ id: schema.renters.id });
+      const [link] = await tx
+        .insert(schema.renterLinks)
+        .values(linkRow(operatorBId, { renterId: renter!.id, expiresAt: ended }))
+        .returning({ id: schema.renterLinks.id });
+      const [sent] = await tx
+        .insert(schema.renterSubmissions)
+        .values({
+          operatorId: operatorBId,
+          renterId: renter!.id,
+          linkId: link!.id,
+          fullName: "Old Sender",
+          dateOfBirth: "1990-01-01",
+          email: "old@example.test",
+          residentialAddress: "2 Test Street, Perth WA 6000",
+          licenceIssuedIn: "WA",
+          licenceNumber: "7654321",
+          licenceClass: "C",
+          licenceType: "full",
+          licenceExpiresOn: "2029-01-01",
+        })
+        .returning({ id: schema.renterSubmissions.id });
+      const [file] = await tx
+        .insert(schema.files)
+        .values({
+          operatorId: operatorBId,
+          purpose: "renter_submitted_scan",
+          storageArea: "identity",
+          objectKey: `${operatorBId}/renter_submitted_scan/${randomUUID()}`,
+          contentType: "image/jpeg",
+          sizeBytes: 300_000,
+          renterLinkId: link!.id,
+          submissionId: sent!.id,
+          licenceSide: "back",
+          confirmedAt: ended,
+        })
+        .returning({ id: schema.files.id });
+      return { renterId: renter!.id, submissionId: sent!.id, fileId: file!.id };
+    });
+    const removeFor = (operatorId: string | null) => {
+      const call = sql`select submission_id, renter_id from app.delete_abandoned_renter_submissions(${cutoff}::timestamptz)`;
+      return operatorId
+        ? withTenant(web.db, operatorId, async (tx) => (await tx.execute(call)).rows)
+        : web.db.execute(call).then((result) => result.rows);
+    };
+
+    const due = await web.db.execute(
+      sql`select * from app.operators_with_abandoned_renter_submissions(${cutoff}::timestamptz) as operator_id`,
+    );
+    expect(due.rows).toContainEqual({ operator_id: operatorBId });
+    expect(
+      await postgresErrorCodeOf(
+        withTenant(web.db, operatorBId, (tx) => tx.delete(schema.renterSubmissions)),
+      ),
+    ).toBe(POSTGRES_ERROR_CODES.insufficientPrivilege);
+    expect(await removeFor(null)).toEqual([]);
+    expect(await removeFor(operatorAId)).toEqual([]);
+    // Its photo must be taken off first.
+    expect(await removeFor(operatorBId)).toEqual([]);
+    await withTenant(web.db, operatorBId, (tx) =>
+      tx
+        .update(schema.files)
+        .set({ submissionId: null, deletedAt: new Date() })
+        .where(eq(schema.files.id, fileId)),
+    );
+    expect(await removeFor(operatorBId)).toEqual([
+      { submission_id: submissionId, renter_id: renterId },
+    ]);
+    expect(
+      await postgresErrorCodeOf(
+        admin.db.execute(
+          sql`select * from app.delete_abandoned_renter_submissions(${cutoff}::timestamptz)`,
+        ),
+      ),
+    ).toBe(POSTGRES_ERROR_CODES.insufficientPrivilege);
+  });
+
   it("allows one live link of a kind per Renter", async () => {
     const code = await postgresErrorCodeOf(
       withTenant(web.db, operatorBId, (tx) =>

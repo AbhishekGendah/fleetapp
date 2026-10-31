@@ -2,8 +2,10 @@ import {
   buildFileKey,
   checkUpload,
   detectFileType,
+  downloadName,
   FILE_PURPOSE_RULES,
   FILE_SIGNATURE_LENGTH,
+  LICENCE_SIDE_LABELS,
   type FilePurpose,
   type LicenceSide,
   type UploadProblem,
@@ -234,6 +236,57 @@ export function licenceScanInUse(operatorId: string): SQL | undefined {
     eq(files.purpose, "renter_licence_scan"),
     isNotNull(files.confirmedAt),
     isNull(files.deletedAt),
+  );
+}
+
+/**
+ * A 5-minute link to one licence image (a scan, or a photo a Renter sent),
+ * or null if `which` does not match it. Every opening is logged with who
+ * looked (rule 8), so listing images never counts as looking.
+ */
+export async function openLicenceImage(
+  deps: FileDependencies,
+  actor: FileActor,
+  image: {
+    fileId: string;
+    purpose: "renter_licence_scan" | "renter_submitted_scan";
+    which: SQL | undefined;
+    /** What the download is called before its side, e.g. "Licence" for "Licence front". */
+    namePrefix: string;
+  },
+): Promise<string | null> {
+  const found = await withTenant(deps.database, actor.operatorId, async (tx) => {
+    const [row] = await tx
+      .select({
+        storageArea: files.storageArea,
+        objectKey: files.objectKey,
+        contentType: files.contentType,
+        side: files.licenceSide,
+      })
+      .from(files)
+      .where(
+        and(
+          eq(files.operatorId, actor.operatorId),
+          eq(files.id, image.fileId),
+          eq(files.purpose, image.purpose),
+          image.which,
+        ),
+      );
+    if (row) {
+      await logFile(tx, actor, image.fileId, "viewed", image.purpose);
+    }
+    return row;
+  });
+  if (!found?.side) {
+    return null;
+  }
+  return deps.storage.createViewUrl(
+    found.storageArea,
+    found.objectKey,
+    downloadName(
+      `${image.namePrefix} ${LICENCE_SIDE_LABELS[found.side].toLowerCase()}`,
+      found.contentType,
+    ),
   );
 }
 

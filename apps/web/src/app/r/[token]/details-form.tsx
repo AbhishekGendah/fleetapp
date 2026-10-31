@@ -26,6 +26,7 @@ import {
 import { LinkPhotos } from "./link-photos";
 import { INITIAL_SEND_DETAILS_STATE } from "./link-state";
 import { PrivacyNotice } from "./privacy-notice";
+import { SentBackNote } from "./sent-back-note";
 import { SentThanks } from "./sent-thanks";
 
 const PHOTOS_MISSING_MESSAGE = "Add a photo of the front and the back of your licence.";
@@ -40,6 +41,8 @@ export interface DetailsFormProps {
   expiresAt: string;
   initialValues: DetailsFormValues;
   photos: Readonly<Record<LicenceSide, boolean>>;
+  /** The Operator's note when what the Renter last sent came back for a change. */
+  sentBackNote: string | null;
 }
 
 function useLinkAddressLookup(token: string): AddressLookup {
@@ -105,6 +108,9 @@ export function DetailsForm(props: DetailsFormProps) {
       noValidate
       className="flex flex-col gap-8"
     >
+      {props.sentBackNote ? (
+        <SentBackNote operatorName={props.operatorName} note={props.sentBackNote} />
+      ) : null}
       <PrivacyNotice operatorName={props.operatorName} />
       <RequiredFieldsNote />
       <RenterDetailsFields

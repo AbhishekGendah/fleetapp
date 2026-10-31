@@ -1,11 +1,9 @@
 import {
-  countryName,
   expiryStatus,
   formatDateTimeInTimeZone,
   LICENCE_CLASS_LABELS,
   LICENCE_SIDES,
   LICENCE_TYPE_LABELS,
-  OVERSEAS_ISSUER,
 } from "@fleetapp/core";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
@@ -15,6 +13,7 @@ import { appDb } from "../../../lib/app-db";
 import type { SignedInUser } from "../../../lib/require-user";
 import { licenceFormValues } from "../../../lib/renters/licence-input";
 import { listLicenceScans } from "../../../lib/renters/licence-scans";
+import { licenceIssuedInText } from "../../../lib/renters/licence-text";
 import { RENTER_FIELD_LABELS } from "../../../lib/renters/renter-labels";
 import type { RenterDetail } from "../../../lib/renters/renter-queries";
 import type { ExpiryContext } from "../../../lib/vehicles/expiry-columns";
@@ -23,18 +22,15 @@ import { LicenceForm } from "./licence-form";
 import { saveLicenceAction } from "./licence-actions";
 import { LicenceScanSlots, type ScanSummary } from "./licence-scan-slots";
 
-function issuedInText(renter: RenterDetail): string {
-  return renter.licenceIssuedIn === OVERSEAS_ISSUER && renter.licenceCountry
-    ? `Overseas: ${countryName(renter.licenceCountry)}`
-    : (renter.licenceIssuedIn ?? "");
-}
-
 function LicenceDetails({ renter, expiry }: { renter: RenterDetail; expiry: ExpiryContext }) {
   if (!renter.licenceNumber || !renter.licenceClass || !renter.licenceType) {
     return <p className="text-muted-foreground text-sm">No licence on file yet.</p>;
   }
   const lines: readonly [string, React.ReactNode][] = [
-    [RENTER_FIELD_LABELS.licenceIssuedIn, issuedInText(renter)],
+    [
+      RENTER_FIELD_LABELS.licenceIssuedIn,
+      licenceIssuedInText(renter.licenceIssuedIn, renter.licenceCountry),
+    ],
     [RENTER_FIELD_LABELS.licenceNumber, renter.licenceNumber],
     [RENTER_FIELD_LABELS.licenceClass, LICENCE_CLASS_LABELS[renter.licenceClass]],
     [RENTER_FIELD_LABELS.licenceType, LICENCE_TYPE_LABELS[renter.licenceType]],

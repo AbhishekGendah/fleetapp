@@ -18,7 +18,10 @@ function after(seconds: number): Date {
 
 describe("the hard limit on a sign-in", () => {
   it("keeps the approved Admin limits for launch: 30 minutes idle, 8 hours at most", () => {
-    expect(ADMIN_SESSION_AT_LAUNCH).toMatchObject({ idleSeconds: 30 * 60, maxAgeSeconds: 8 * 60 * 60 });
+    expect(ADMIN_SESSION_AT_LAUNCH).toMatchObject({
+      idleSeconds: 30 * 60,
+      maxAgeSeconds: 8 * 60 * 60,
+    });
   });
 
   it("ends an Admin's sign-in at its hard limit, however active", () => {

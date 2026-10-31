@@ -492,10 +492,26 @@
   the Operator. One lawyer review before launch (decided with Abhi: draft
   ourselves, review once).
 
+- **Phase 2 step 4, part 3 — the Operator's review:** "Waiting for review"
+  badge and filter on the Renters list; a Review button on the Details form
+  card; the Review page shows every detail "on file → sent" with changes
+  highlighted, and the two photos behind View (logged). **Approve** copies the
+  details and licence in exactly as an edit would (refused if another Renter
+  has the licence, with a link) and the photos become the licence scans (old
+  ones to the bin). **Send back** with a note: emailed to the Renter (no link
+  in the email: only fingerprints are kept, so they use the one they have);
+  their link shows the note with what they sent filled in, and their photos
+  stay added. Needs a working link (otherwise "send a new link first"). The
+  daily clean-up removes never-approved submissions 30 days after their link
+  ended, photos to the bin. Migration 0023: the grant that turns photos into
+  scans, and two narrow database functions for the clean-up (the app still
+  cannot delete anything itself). Shared on the way: one route helper for
+  opening licence images, the in-transaction steps for saving details and a
+  licence, and the licence-on-file message.
+
 ## Next
-Phase 2 step 4, part 3: the Operator's review (Waiting for review badge and
-filter on the list, the Review page, Approve or Send back with a note, and
-clearing never-approved submissions 30 days after their link ends).
+Phase 2 step 5: deleting old licence scans on a timer (and deciding the
+retention periods, which also fill in the privacy policy template).
 
 ## Open items
 - **Before launch: docs/launch-checklist.md** (relaxed admin sign-in, full

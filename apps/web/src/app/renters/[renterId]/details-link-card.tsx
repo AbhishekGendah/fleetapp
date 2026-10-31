@@ -2,13 +2,17 @@ import { formatDateTimeInTimeZone } from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
 import { Badge } from "@fleetapp/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
-import { XCircle } from "lucide-react";
+import { Button } from "@fleetapp/ui/button";
+import { ClipboardCheck, XCircle } from "lucide-react";
+import Link from "next/link";
 
 import { appDb } from "../../../lib/app-db";
 import { loadDetailsLink, type DetailsLinkStatus } from "../../../lib/renter-links/details-links";
+import { renterReviewPath } from "../../../lib/paths";
 import { loadWaitingSubmission } from "../../../lib/renter-links/submissions";
 import type { SignedInUser } from "../../../lib/require-user";
 import type { RenterDetail } from "../../../lib/renters/renter-queries";
+import { WaitingReviewBadge } from "../renter-status-badge";
 import { DetailsLinkSender } from "./details-link-sender";
 import { cancelDetailsLinkAction, sendDetailsLinkAction } from "./link-actions";
 

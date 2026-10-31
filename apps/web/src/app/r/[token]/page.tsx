@@ -93,6 +93,7 @@ export default async function RenterLinkPage(props: { params: Promise<{ token: s
           expiresAt={visit.expiresAt.toISOString()}
           initialValues={detailsFormStart(start.values)}
           photos={start.photos}
+          sentBackNote={start.sentBackNote}
         />
       )}
     </LinkPage>

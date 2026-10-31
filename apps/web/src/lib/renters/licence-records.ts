@@ -4,7 +4,7 @@ import {
   isUniqueViolation,
   withholdChangedFields,
 } from "@fleetapp/core";
-import type { AnyDatabase } from "@fleetapp/db/client";
+import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, RENTER_LICENCE_UNIQUE_INDEX, renters } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, isNull, sql } from "drizzle-orm";
@@ -33,7 +33,7 @@ export interface LicenceOnFile {
 export type SaveLicenceResult = "saved" | "unchanged" | "not_found" | LicenceOnFile;
 
 /** Who holds the licence, after the database refused a second one. */
-async function findLicenceHolder(
+export async function findLicenceHolder(
   database: AnyDatabase,
   operatorId: string,
   licence: LicenceInput,
@@ -72,30 +72,52 @@ export async function saveLicence(
   try {
     return await withTenant(database, actor.operatorId, async (tx) => {
       const before = await lockCurrentRenter(tx, actor.operatorId, renterId);
-      if (!before) {
-        return "not_found";
-      }
-      const changes = changedValues(before, licence, LICENCE_FIELDS);
-      if (!hasChanges(changes)) {
-        return "unchanged";
-      }
-      await tx
-        .update(renters)
-        .set(licence)
-        .where(and(eq(renters.id, renterId), isNull(renters.archivedAt)));
-      await logRenterActivity(
-        tx,
-        actor,
-        renterId,
-        ACTIVITY_ACTIONS.updated,
-        withholdChangedFields(changes, LICENCE_FIELDS),
-      );
-      return "saved";
+      return before ? applyLicence(tx, actor, before, licence) : "not_found";
     });
   } catch (error) {
-    if (isUniqueViolation(error, RENTER_LICENCE_UNIQUE_INDEX)) {
+    if (isLicenceOnFileError(error)) {
       return findLicenceHolder(database, actor.operatorId, licence);
     }
     throw error;
   }
+}
+
+/** Whether the database refused a licence another Renter already has. */
+export function isLicenceOnFileError(error: unknown): boolean {
+  return isUniqueViolation(error, RENTER_LICENCE_UNIQUE_INDEX);
+}
+
+/**
+ * Writes the licence onto the locked record `before`, logging which details
+ * changed but never their values (rule 7). Throws the database's refusal if
+ * another Renter has it: see isLicenceOnFileError.
+ */
+export async function applyLicence(
+  tx: AnyTransaction,
+  actor: ActingUser,
+  before: typeof renters.$inferSelect,
+  licence: LicenceInput,
+): Promise<"saved" | "unchanged"> {
+  const changes = changedValues(before, licence, LICENCE_FIELDS);
+  if (!hasChanges(changes)) {
+    return "unchanged";
+  }
+  await tx
+    .update(renters)
+    .set(licence)
+    .where(
+      and(
+        eq(renters.id, before.id),
+        eq(renters.operatorId, actor.operatorId),
+        isNull(renters.archivedAt),
+      ),
+    );
+  await logRenterActivity(
+    tx,
+    actor,
+    before.id,
+    ACTIVITY_ACTIONS.updated,
+    withholdChangedFields(changes, LICENCE_FIELDS),
+  );
+  return "saved";
 }

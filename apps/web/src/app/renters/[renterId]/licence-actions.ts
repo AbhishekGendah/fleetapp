@@ -15,6 +15,7 @@ import {
 } from "../../../lib/files/file-action-support";
 import { renterPath, RENTERS_PATH } from "../../../lib/paths";
 import { LICENCE_FORM_FIELDS, parseLicenceForm } from "../../../lib/renters/licence-input";
+import { licenceOnFileState } from "../../../lib/renters/licence-on-file";
 import { saveLicence } from "../../../lib/renters/licence-records";
 import { removeLicenceScan, startLicenceScanUpload } from "../../../lib/renters/licence-scans";
 import { runUserChange } from "../../../lib/run-change";
@@ -22,12 +23,6 @@ import { RENTER_NOT_FOUND_MESSAGE } from "../renter-form-state";
 
 const INVALID_MESSAGE =
   "Some details are not right, so nothing was saved. Check them and try again.";
-
-function licenceOnFileMessage(isArchived: boolean): string {
-  return isArchived
-    ? "Another Renter, now archived, already has this licence. Restore them rather than adding the same person twice."
-    : "Another Renter already has this licence. It may be the same person entered twice.";
-}
 
 export async function saveLicenceAction(
   renterId: string,
@@ -47,10 +42,7 @@ export async function saveLicenceAction(
     change: async (actor) => {
       const result = await saveLicence(appDb, actor, renterId, parsed.data);
       if (typeof result === "object") {
-        return failedState(
-          licenceOnFileMessage(result.isArchived),
-          result.renterId ? { href: renterPath(result.renterId), label: "Open them" } : undefined,
-        );
+        return licenceOnFileState(result);
       }
       return result === "not_found"
         ? failedState(RENTER_NOT_FOUND_MESSAGE)

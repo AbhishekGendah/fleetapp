@@ -273,6 +273,20 @@ of service) and the countries.
   back on the link, and a new photo for a side sends the last one to the
   30-day bin. Sending is logged as done by the Renter's link; what was sent
   is never written into the log.
+- **The Operator's review (part 3, built):** approving copies the details in
+  and the photos become the licence scans; each change is logged as made by
+  the User who approved, after the Renter's link sent it. Sending back emails
+  the Operator's note to the Renter (transactional, from the Operator's name)
+  and shows it on the link; the note is never written into the log. Photos
+  are opened only behind View, every look logged.
+- **Retention of what was sent:** never-approved submissions are removed 30
+  days after their link ended (photos to the bin, gone 30 days later).
+  Approved submissions are kept as the record of what the Renter sent and
+  when; they hold the same details as the Renter record (date of birth,
+  licence number), so slice 5's retention timer must cover them too.
+- **To do (APP 12):** "Download everything we hold" does not yet include
+  submissions still held (waiting, sent back or approved). Add a sheet for
+  them before real Renters use links.
 - **The form is kept on the Renter's own phone (browser storage) while they
   type**, licence number included, until they send it; it is ignored and
   removed after the link's end date. On a shared computer someone after them

@@ -61,6 +61,16 @@ export function licenceScanPath(renterId: string, fileId: string): string {
   return `${renterPath(renterId)}/licence/${fileId}`;
 }
 
+/** Where the Operator reviews the details a Renter sent through their link. */
+export function renterReviewPath(renterId: string): string {
+  return `${renterPath(renterId)}/review`;
+}
+
+/** Opens one photo a Renter sent, while it waits for review; every opening is logged. */
+export function submittedPhotoPath(renterId: string, fileId: string): string {
+  return `${renterReviewPath(renterId)}/photo/${fileId}`;
+}
+
 /** Everything held about a Renter as one Excel file; each download is logged. */
 export function renterEverythingHeldPath(renterId: string): string {
   return `${renterPath(renterId)}/everything-held`;

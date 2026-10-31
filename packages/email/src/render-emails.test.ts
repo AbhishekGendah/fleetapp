@@ -5,6 +5,7 @@ import {
   renderOperatorInviteEmail,
   renderPasswordResetEmail,
   renderRenterDetailsLinkEmail,
+  renderRenterDetailsSentBackEmail,
   renderRenterLinkCodeEmail,
 } from "./render-emails";
 import { senderFor } from "./email-sender";
@@ -95,6 +96,21 @@ describe("Renter emails", () => {
     });
     expect(message.subject).toContain("042917");
     expect(message.text).toContain("042917");
+  });
+});
+
+describe("the details sent back email", () => {
+  it("carries the Operator's note, escaped, and no link", async () => {
+    const message = await renderRenterDetailsSentBackEmail({
+      to: "sam@example.test",
+      operatorName: "Sunny Rentals",
+      note: "The back photo is blurry <b>please</b> retake it",
+      linkWorksUntil: "7 Nov 2026",
+    });
+    expect(message.fromName).toBe("Sunny Rentals");
+    expect(message.text).toContain("The back photo is blurry");
+    expect(message.html).not.toContain("<b>please</b>");
+    expect(message.text).not.toContain("http");
   });
 });
 

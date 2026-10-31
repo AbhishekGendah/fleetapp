@@ -110,6 +110,12 @@ export const ACTIVITY_ACTIONS = {
   locked: "locked",
   /** A Renter sent their details through a link, for the Operator to review. */
   submitted: "submitted",
+  /** The Operator approved what the Renter sent: copied onto the record. */
+  approved: "approved",
+  /** The Operator sent what the Renter sent back, with a note, to be corrected. */
+  sentBack: "sent_back",
+  /** Never approved, removed by the daily clean-up 30 days after its link ended. */
+  submissionRemoved: "submission_removed",
 } as const;
 
 export type ActivityEntityType = (typeof ACTIVITY_ENTITY_TYPES)[keyof typeof ACTIVITY_ENTITY_TYPES];

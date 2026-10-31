@@ -12,6 +12,10 @@ import {
   RenterDetailsLinkEmail,
   type RenterDetailsLinkEmailProps,
 } from "./templates/renter-details-link";
+import {
+  RenterDetailsSentBackEmail,
+  type RenterDetailsSentBackEmailProps,
+} from "./templates/renter-details-sent-back";
 import { RenterLinkCodeEmail, type RenterLinkCodeEmailProps } from "./templates/renter-link-code";
 
 /** Turns one template into the HTML and plain-text versions email clients need. */
@@ -87,6 +91,21 @@ export function renderRenterLinkCodeEmail(
   const { to, replyTo, ...props } = input;
   return fromOperator(
     renderEmail(to, `Your code: ${props.code}`, createElement(RenterLinkCodeEmail, props)),
+    props.operatorName,
+    replyTo,
+  );
+}
+
+export function renderRenterDetailsSentBackEmail(
+  input: FromOperator<RenterDetailsSentBackEmailProps>,
+): Promise<EmailMessage> {
+  const { to, replyTo, ...props } = input;
+  return fromOperator(
+    renderEmail(
+      to,
+      `${props.operatorName} asked you to change your details`,
+      createElement(RenterDetailsSentBackEmail, props),
+    ),
     props.operatorName,
     replyTo,
   );

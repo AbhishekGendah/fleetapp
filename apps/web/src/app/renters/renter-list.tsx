@@ -10,11 +10,12 @@ import type { DataListDefinition } from "@fleetapp/ui/data-list";
 import {
   ARCHIVED_FILTER_VALUE,
   STATUS_FILTER_KEY,
+  WAITING_REVIEW_FILTER_VALUE,
   type RenterSummary,
 } from "../../lib/renters/renter-queries";
 import type { ExpiryContext } from "../../lib/vehicles/expiry-columns";
 import { ExpiryDate } from "../cars/expiry-date";
-import { RenterStatusBadge } from "./renter-status-badge";
+import { RenterStatusBadge, WAITING_REVIEW_LABEL, WaitingReviewBadge } from "./renter-status-badge";
 
 const NOT_GIVEN = "Not given";
 
@@ -73,7 +74,10 @@ export const RENTER_LIST: DataListDefinition<RenterListRow> = {
       exportValue: (renter) =>
         renter.archivedAt ? "Archived" : RENTER_STATUS_LABELS[renter.status],
       render: (renter) => (
-        <RenterStatusBadge status={renter.status} isArchived={renter.archivedAt !== null} />
+        <span className="flex flex-wrap gap-1">
+          <RenterStatusBadge status={renter.status} isArchived={renter.archivedAt !== null} />
+          {renter.isWaitingReview && renter.archivedAt === null ? <WaitingReviewBadge /> : null}
+        </span>
       ),
     },
   ],
@@ -86,6 +90,7 @@ export const RENTER_LIST: DataListDefinition<RenterListRow> = {
           value: status,
           label: RENTER_STATUS_LABELS[status],
         })),
+        { value: WAITING_REVIEW_FILTER_VALUE, label: WAITING_REVIEW_LABEL },
         { value: ARCHIVED_FILTER_VALUE, label: "Archived" },
       ],
     },

@@ -18,3 +18,10 @@ export function RenterStatusBadge({
   }
   return <Badge tone={STATUS_TONES[status]}>{RENTER_STATUS_LABELS[status]}</Badge>;
 }
+
+export const WAITING_REVIEW_LABEL = "Waiting for review";
+
+/** The Renter sent details through their link that the Operator has not reviewed yet. */
+export function WaitingReviewBadge() {
+  return <Badge tone="attention">{WAITING_REVIEW_LABEL}</Badge>;
+}

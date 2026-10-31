@@ -1,4 +1,4 @@
-import { downloadName, LICENCE_SIDE_LABELS, type LicenceSide } from "@fleetapp/core";
+import type { LicenceSide } from "@fleetapp/core";
 import { files } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, asc, eq, isNotNull } from "drizzle-orm";
@@ -7,8 +7,8 @@ import type { PlannedFile } from "../files/car-files";
 import {
   licenceScanInUse,
   listLoggedFileIds,
-  logFile,
   markScansDeleted,
+  openLicenceImage,
   requestUpload,
   type FileActor,
   type FileDependencies,
@@ -91,37 +91,18 @@ export async function listLicenceScans(
  * A 5-minute link to one of the Renter's scans in use, or null. Every
  * opening is written to the log with who looked (rule 8).
  */
-export async function openLicenceScan(
+export function openLicenceScan(
   deps: FileDependencies,
   actor: FileActor,
   renterId: string,
   fileId: string,
 ): Promise<string | null> {
-  const scan = await withTenant(deps.database, actor.operatorId, async (tx) => {
-    const [found] = await tx
-      .select({
-        storageArea: files.storageArea,
-        objectKey: files.objectKey,
-        contentType: files.contentType,
-        side: files.licenceSide,
-      })
-      .from(files)
-      .where(
-        and(licenceScanInUse(actor.operatorId), eq(files.id, fileId), eq(files.renterId, renterId)),
-      );
-    if (found) {
-      await logFile(tx, actor, fileId, "viewed", "renter_licence_scan");
-    }
-    return found;
+  return openLicenceImage(deps, actor, {
+    fileId,
+    purpose: "renter_licence_scan",
+    which: and(licenceScanInUse(actor.operatorId), eq(files.renterId, renterId)),
+    namePrefix: "Licence",
   });
-  if (!scan?.side) {
-    return null;
-  }
-  return deps.storage.createViewUrl(
-    scan.storageArea,
-    scan.objectKey,
-    downloadName(`Licence ${LICENCE_SIDE_LABELS[scan.side].toLowerCase()}`, scan.contentType),
-  );
 }
 
 /** Takes a scan off, e.g. one of the wrong card: hidden at once, kept 30 days, then gone. */

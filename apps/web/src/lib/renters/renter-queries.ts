@@ -15,6 +15,21 @@ import { recordUserChange, type ActingUser } from "../acting-user";
 
 /** The filter value that shows archived Renters instead of current ones. */
 export const ARCHIVED_FILTER_VALUE = "archived";
+/** The filter value for current Renters who sent details the Operator has not reviewed. */
+export const WAITING_REVIEW_FILTER_VALUE = "waiting_review";
+
+/**
+ * True while the Renter has sent details through their link that wait for
+ * review. Table names are written out: in a select list the query builder
+ * leaves them off, and inside this sub-query "id" would then mean the
+ * submission's.
+ */
+const isWaitingReview = sql<boolean>`exists (
+  select 1 from "renter_submissions" "waiting"
+  where "waiting"."renter_id" = "renters"."id"
+    and "waiting"."operator_id" = "renters"."operator_id"
+    and "waiting"."status" = 'waiting'
+)`;
 export const STATUS_FILTER_KEY = "status";
 
 const summaryColumns = {
@@ -26,6 +41,7 @@ const summaryColumns = {
   status: renters.status,
   archivedAt: renters.archivedAt,
   licenceExpiresOn: renters.licenceExpiresOn,
+  isWaitingReview,
 };
 
 export interface RenterSummary {
@@ -37,6 +53,7 @@ export interface RenterSummary {
   status: RenterStatus;
   archivedAt: Date | null;
   licenceExpiresOn: string | null;
+  isWaitingReview: boolean;
 }
 
 export const RENTER_LIST_RULES: DatabaseListRules = {
@@ -53,8 +70,14 @@ export const RENTER_LIST_RULES: DatabaseListRules = {
     status: renters.status,
   },
   filterBy: {
-    [STATUS_FILTER_KEY]: (value) =>
-      value === ARCHIVED_FILTER_VALUE ? undefined : sql`${renters.status} = ${value}`,
+    [STATUS_FILTER_KEY]: (value) => {
+      if (value === ARCHIVED_FILTER_VALUE) {
+        return undefined;
+      }
+      return value === WAITING_REVIEW_FILTER_VALUE
+        ? isWaitingReview
+        : sql`${renters.status} = ${value}`;
+    },
   },
   tieBreaker: renters.id,
 };
