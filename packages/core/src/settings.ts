@@ -6,6 +6,11 @@ import {
   MINIMUM_RENTER_LINK_DAYS,
 } from "./renter-links";
 import {
+  DEFAULT_LICENCE_SCAN_KEPT_MONTHS,
+  MAXIMUM_LICENCE_SCAN_KEPT_MONTHS,
+  MINIMUM_LICENCE_SCAN_KEPT_MONTHS,
+} from "./licence-retention";
+import {
   DEFAULT_EXPIRY_WARNING_DAYS,
   MAXIMUM_EXPIRY_WARNING_DAYS,
   MINIMUM_EXPIRY_WARNING_DAYS,
@@ -44,6 +49,13 @@ export const operatorSettingsSchema = z.object({
     .min(MINIMUM_RENTER_LINK_DAYS)
     .max(MAXIMUM_RENTER_LINK_DAYS)
     .default(DEFAULT_RENTER_LINK_DAYS),
+  /** Renters: licence scans are deleted this many months after the last rental, or after being added. */
+  licenceScanKeptMonths: z
+    .number()
+    .int()
+    .min(MINIMUM_LICENCE_SCAN_KEPT_MONTHS)
+    .max(MAXIMUM_LICENCE_SCAN_KEPT_MONTHS)
+    .default(DEFAULT_LICENCE_SCAN_KEPT_MONTHS),
 });
 
 export type OperatorSettings = z.infer<typeof operatorSettingsSchema>;

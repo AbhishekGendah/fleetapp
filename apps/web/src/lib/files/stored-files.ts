@@ -290,6 +290,47 @@ export async function openLicenceImage(
   );
 }
 
+/** Why the nightly clean-up binned a file, for its log line. */
+export type SystemBinReason = "kept_the_set_time" | "link_ended_over_30_days";
+
+/**
+ * Bins the Operator's matching files as the nightly clean-up (no User, rule
+ * 3): hidden at once, gone for good 30 days later (rule 23). Each is logged
+ * by System with its purpose and the reason.
+ */
+export async function binFilesAsSystem(
+  tx: AnyTransaction,
+  operatorId: string,
+  now: Date,
+  purpose: FilePurpose,
+  which: SQL | undefined,
+  reason: SystemBinReason,
+): Promise<number> {
+  const binned = await tx
+    .update(files)
+    .set({ deletedAt: now })
+    .where(
+      and(
+        eq(files.operatorId, operatorId),
+        eq(files.purpose, purpose),
+        isNull(files.deletedAt),
+        which,
+      ),
+    )
+    .returning({ id: files.id });
+  for (const file of binned) {
+    await recordActivity(tx, {
+      operatorId,
+      actor: { type: "system", id: null },
+      entityType: ACTIVITY_ENTITY_TYPES.file,
+      entityId: file.id,
+      action: ACTIVITY_ACTIONS.deleted,
+      valuesAfter: { purpose, reason },
+    });
+  }
+  return binned.length;
+}
+
 /** Hides the matching scans at once; storage keeps them 30 days (rule 23). */
 export async function markScansDeleted(
   tx: AnyTransaction,
@@ -323,6 +364,7 @@ async function markLinkPhotosDeleted(
       and(
         eq(files.operatorId, actor.operatorId),
         eq(files.renterLinkId, renterLinkId),
+        eq(files.purpose, "renter_submitted_scan"),
         eq(files.licenceSide, side),
         isNull(files.submissionId),
         isNotNull(files.confirmedAt),

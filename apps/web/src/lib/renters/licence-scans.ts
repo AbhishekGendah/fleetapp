@@ -1,7 +1,7 @@
-import type { LicenceSide } from "@fleetapp/core";
-import { files } from "@fleetapp/db/schema";
+import { LICENCE_SIDES, type LicenceSide } from "@fleetapp/core";
+import { ACTIVITY_ACTIONS, activityLog, files } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, asc, eq, isNotNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 
 import type { PlannedFile } from "../files/car-files";
 import {
@@ -12,9 +12,12 @@ import {
   requestUpload,
   type FileActor,
   type FileDependencies,
+  type SystemBinReason,
   type UploadRequestResult,
 } from "../files/stored-files";
 import { lockCurrentRenter } from "./renter-records";
+
+const TIMER_REASON: SystemBinReason = "kept_the_set_time";
 
 export type LicenceScanUploadStart =
   Extract<UploadRequestResult, { status: "allowed" | "refused" }> | { status: "not_found" };
@@ -164,4 +167,54 @@ export async function listAllLicenceScans(
       ? [{ side: row.side, addedAt: row.addedAt, removedAt: row.removedAt }]
       : [],
   );
+}
+
+/**
+ * The sides whose latest scan was binned by the nightly retention timer, not
+ * by a person: the Licence tab says so, so the Operator knows to ask for new
+ * photos rather than wonder where they went.
+ */
+export async function listSidesDeletedByTimer(
+  database: FileDependencies["database"],
+  operatorId: string,
+  renterId: string,
+): Promise<ReadonlySet<LicenceSide>> {
+  return withTenant(database, operatorId, async (tx) => {
+    const deleted = await tx
+      .select({ id: files.id, side: files.licenceSide, deletedAt: files.deletedAt })
+      .from(files)
+      .where(
+        and(
+          eq(files.operatorId, operatorId),
+          eq(files.renterId, renterId),
+          eq(files.purpose, "renter_licence_scan"),
+          isNotNull(files.deletedAt),
+        ),
+      )
+      .orderBy(desc(files.deletedAt));
+    const latestPerSide = LICENCE_SIDES.flatMap((side) => {
+      const latest = deleted.find((scan) => scan.side === side);
+      return latest ? [{ side, id: latest.id }] : [];
+    });
+    if (latestPerSide.length === 0) {
+      return new Set<LicenceSide>();
+    }
+    const byTimer = await tx
+      .select({ id: activityLog.entityId })
+      .from(activityLog)
+      .where(
+        and(
+          eq(activityLog.operatorId, operatorId),
+          inArray(
+            activityLog.entityId,
+            latestPerSide.map((scan) => scan.id),
+          ),
+          eq(activityLog.action, ACTIVITY_ACTIONS.deleted),
+          eq(activityLog.actorType, "system"),
+          sql`${activityLog.valuesAfter} ->> 'reason' = ${TIMER_REASON}`,
+        ),
+      );
+    const timerIds = new Set(byTimer.map((line) => line.id));
+    return new Set(latestPerSide.filter((scan) => timerIds.has(scan.id)).map((scan) => scan.side));
+  });
 }

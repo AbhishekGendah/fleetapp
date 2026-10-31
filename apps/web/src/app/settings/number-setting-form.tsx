@@ -10,25 +10,30 @@ import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import { useActionState } from "react";
 
 import {
-  DAYS_FIELDS,
-  daysInputSchema,
-  type DaysSetting,
-} from "../../lib/settings/days-setting-input";
-import { saveDaysSettingAction } from "./days-setting-actions";
+  NUMBER_SETTING_FIELDS,
+  numberSettingInputSchema,
+  type NumberSetting,
+} from "../../lib/settings/number-setting-input";
+import { saveNumberSettingAction } from "./number-setting-actions";
 
-/** One setting that is a number of days, e.g. how early "Due soon" shows. */
-export function DaysSettingForm(props: { setting: DaysSetting; label: string; days: number }) {
+/** One setting that is a number of days or months, e.g. how early "Due soon" shows. */
+export function NumberSettingForm(props: {
+  setting: NumberSetting;
+  label: string;
+  value: number;
+  hint?: string;
+}) {
   const [state, formAction, isPending] = useActionState(
-    saveDaysSettingAction.bind(null, props.setting),
+    saveNumberSettingAction.bind(null, props.setting),
     INITIAL_CHANGE_STATE,
   );
   const form = useFormFields({
-    fields: DAYS_FIELDS,
-    initialValues: { days: String(props.days) },
-    validate: (values) => fieldErrorsOf(daysInputSchema(props.setting).safeParse(values)),
+    fields: NUMBER_SETTING_FIELDS,
+    initialValues: { amount: String(props.value) },
+    validate: (values) => fieldErrorsOf(numberSettingInputSchema(props.setting).safeParse(values)),
     isRequired: () => true,
   });
-  const boxId = `${props.setting}-days`;
+  const boxId = `${props.setting}-amount`;
 
   return (
     <form
@@ -38,12 +43,18 @@ export function DaysSettingForm(props: { setting: DaysSetting; label: string; da
       className="flex flex-col gap-4"
     >
       <RequiredFieldsNote />
-      <FormField htmlFor={boxId} label={props.label} isRequired error={form.errorFor("days")}>
+      <FormField
+        htmlFor={boxId}
+        label={props.label}
+        hint={props.hint}
+        isRequired
+        error={form.errorFor("amount")}
+      >
         <Input
-          {...form.textBoxProps("days")}
-          // Two of these forms share the Settings page, so each box needs its own id.
+          {...form.textBoxProps("amount")}
+          // Several of these forms share the Settings page, so each box needs its own id.
           id={boxId}
-          aria-describedby={form.errorFor("days") ? fieldErrorId(boxId) : undefined}
+          aria-describedby={form.errorFor("amount") ? fieldErrorId(boxId) : undefined}
           inputMode="numeric"
           className="sm:w-32"
         />

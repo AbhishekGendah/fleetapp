@@ -114,7 +114,7 @@ export const ACTIVITY_ACTIONS = {
   approved: "approved",
   /** The Operator sent what the Renter sent back, with a note, to be corrected. */
   sentBack: "sent_back",
-  /** Never approved, removed by the daily clean-up 30 days after its link ended. */
+  /** What a Renter sent, removed by the daily clean-up 30 days after its link ended. */
   submissionRemoved: "submission_removed",
 } as const;
 

@@ -17,6 +17,8 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
 import { listRenterLinkIds } from "../renter-links/details-links";
+import { detailTexts } from "../renter-links/review-rows";
+import { listSubmissionsHeld, type SubmissionHeld } from "../renter-links/reviews";
 import { loadRecordHistory, type HistoryEntry } from "../record-history";
 import { listAllLicenceScans, listRenterFileIds } from "./licence-scans";
 import { listNoteIds, listNotes } from "./notes";
@@ -96,6 +98,33 @@ function logSheet(entries: readonly HistoryEntry[], timeZone: string): WorkbookS
   };
 }
 
+const SUBMISSION_STATUS_LABELS = {
+  waiting: "Waiting for review",
+  approved: "Approved",
+  sent_back: "Sent back",
+} satisfies Record<SubmissionHeld["status"], string>;
+
+/** What the Renter sent through their link that is still held, one row each. */
+function submissionsSheet(
+  submissions: readonly SubmissionHeld[],
+  when: (moment: Date | null) => ExportCell,
+): WorkbookSheet {
+  const labels = submissions[0] ? detailTexts(submissions[0].sent).map((each) => each.label) : [];
+  return {
+    name: "Sent through link",
+    table: [
+      ["Sent", "Status", "Reviewed", "Note sent back", ...labels],
+      ...submissions.map((submission) => [
+        when(submission.sentAt),
+        SUBMISSION_STATUS_LABELS[submission.status],
+        when(submission.reviewedAt),
+        submission.reviewNote ? text(submission.reviewNote) : null,
+        ...detailTexts(submission.sent).map((each) => text(each.text || null)),
+      ]),
+    ],
+  };
+}
+
 /**
  * Everything held about one Renter, as the sheets of one Excel file: for a
  * Renter who asks what is held about them (APP 12). The download itself is
@@ -112,12 +141,13 @@ export async function buildEverythingHeld(
     return null;
   }
   const { operatorId } = actor;
-  const [notes, scans, fileIds, noteIds, linkIds] = await Promise.all([
+  const [notes, scans, fileIds, noteIds, linkIds, submissions] = await Promise.all([
     listNotes(database, operatorId, renterId, { isRemovedIncluded: true }),
     listAllLicenceScans(database, operatorId, renterId),
     listRenterFileIds(database, operatorId, renterId),
     listNoteIds(database, operatorId, renterId),
     listRenterLinkIds(database, operatorId, renterId),
+    listSubmissionsHeld(database, operatorId, renterId),
   ]);
   const log = await loadRecordHistory(
     database,
@@ -167,6 +197,7 @@ export async function buildEverythingHeld(
           ]),
         ],
       },
+      submissionsSheet(submissions, when),
       logSheet(log, timeZone),
     ],
   };

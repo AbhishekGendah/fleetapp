@@ -217,7 +217,11 @@ of service) and the countries.
   identity storage, never shown as previews, opened only by pressing View
   through a 5-minute link, and every View is written to the Renter's Log with
   who looked. A replaced or removed scan is kept 30 days, then deleted.
-  Slice 5 deletes scans on a timer after the Renter's last rental.
+  Licence scans are deleted on a timer (built, step 5, APP 11.2): to the bin
+  12 months (an Operator setting, 1 to 60) after the later of being added and
+  the Renter's last rental, never while a rental, fine or dispute is open,
+  then gone 30 days later. The licence details themselves are kept (fines,
+  tax records). The privacy policy template states this.
 - **Notes (part 3)** are personal information about the Renter: the screen
   says facts only and that the Renter can ask to see them. A note is never
   edited; one removed by mistake is kept (in the download, marked removed).
@@ -279,14 +283,12 @@ of service) and the countries.
   the Operator's note to the Renter (transactional, from the Operator's name)
   and shows it on the link; the note is never written into the log. Photos
   are opened only behind View, every look logged.
-- **Retention of what was sent:** never-approved submissions are removed 30
-  days after their link ended (photos to the bin, gone 30 days later).
-  Approved submissions are kept as the record of what the Renter sent and
-  when; they hold the same details as the Renter record (date of birth,
-  licence number), so slice 5's retention timer must cover them too.
-- **To do (APP 12):** "Download everything we hold" does not yet include
-  submissions still held (waiting, sent back or approved). Add a sheet for
-  them before real Renters use links.
+- **Retention of what was sent (built, step 5):** everything a Renter sent
+  through a link, approved included, is removed 30 days after the link ended
+  (photos to the bin, gone 30 days later). Approved details are on the record
+  by then; the Log keeps that they were sent and who approved them.
+- **APP 12 (built):** "Download everything we hold" has a "Sent through link"
+  sheet with what is still held.
 - **The form is kept on the Renter's own phone (browser storage) while they
   type**, licence number included, until they send it; it is ignored and
   removed after the link's end date. On a shared computer someone after them

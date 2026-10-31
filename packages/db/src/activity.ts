@@ -95,7 +95,7 @@ const ACTIVITY_ACTION_LABELS = {
   [ACTIVITY_ACTIONS.submitted]: "details sent for review",
   [ACTIVITY_ACTIONS.approved]: "details sent by the Renter approved",
   [ACTIVITY_ACTIONS.sentBack]: "details sent back to the Renter for changes",
-  [ACTIVITY_ACTIONS.submissionRemoved]: "details sent but never approved removed",
+  [ACTIVITY_ACTIONS.submissionRemoved]: "details sent through the link removed",
 } satisfies Record<ActivityAction, string>;
 
 function labelFor(labels: Readonly<Record<string, string>>, key: string): string {

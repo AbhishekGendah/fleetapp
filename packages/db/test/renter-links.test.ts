@@ -242,13 +242,14 @@ describe("Renter links", () => {
     expect(await removeFor(operatorBId)).toEqual([
       { submission_id: submissionId, renter_id: renterId },
     ]);
-    expect(
-      await postgresErrorCodeOf(
-        admin.db.execute(
-          sql`select * from app.delete_abandoned_renter_submissions(${cutoff}::timestamptz)`,
-        ),
-      ),
-    ).toBe(POSTGRES_ERROR_CODES.insufficientPrivilege);
+    for (const call of [
+      sql`select * from app.delete_abandoned_renter_submissions(${cutoff}::timestamptz)`,
+      sql`select * from app.operators_with_licence_scans_added_before(${cutoff}::timestamptz)`,
+    ]) {
+      expect(await postgresErrorCodeOf(admin.db.execute(call))).toBe(
+        POSTGRES_ERROR_CODES.insufficientPrivilege,
+      );
+    }
   });
 
   it("allows one live link of a kind per Renter", async () => {

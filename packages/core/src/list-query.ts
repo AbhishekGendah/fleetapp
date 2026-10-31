@@ -61,10 +61,14 @@ export function missingListRules<Row>(
   definition: ListDefinition<Row>,
   rules: { sortKeys: readonly string[]; filterKeys: readonly string[] },
 ): string[] {
-  const sortable = definition.columns.filter((column) => column.isSortable).map((column) => column.key);
+  const sortable = definition.columns
+    .filter((column) => column.isSortable)
+    .map((column) => column.key);
   return [
     ...sortable.filter((key) => !rules.sortKeys.includes(key)),
-    ...definition.filters.map((filter) => filter.key).filter((key) => !rules.filterKeys.includes(key)),
+    ...definition.filters
+      .map((filter) => filter.key)
+      .filter((key) => !rules.filterKeys.includes(key)),
   ];
 }
 
@@ -148,7 +152,9 @@ export function matchingRows<Row>(
   const matching = rows.filter(
     (row) =>
       words.every((word) => rules.searchText(row).toLowerCase().includes(word)) &&
-      Object.entries(query.filters).every(([key, value]) => rules.filterMatches[key]?.(row, value) ?? true),
+      Object.entries(query.filters).every(
+        ([key, value]) => rules.filterMatches[key]?.(row, value) ?? true,
+      ),
   );
   const sortValue = rules.sortValues[query.sort.column];
   if (!sortValue) {

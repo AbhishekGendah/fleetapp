@@ -55,6 +55,11 @@ const DETAIL_TEXTS: readonly [label: string, text: (values: OnFile) => string][]
   [RENTER_FIELD_LABELS.licenceExpiresOn, (values) => dateText(values.licenceExpiresOn)],
 ];
 
+/** Every detail in words, e.g. for the "everything we hold" download; empty when not given. */
+export function detailTexts(values: OnFile): { label: string; text: string }[] {
+  return DETAIL_TEXTS.map(([label, text]) => ({ label, text: text(values) }));
+}
+
 /**
  * Every detail as "on file → sent", so the Operator sees exactly what
  * approving would change. A Renter with no postal address on file has it

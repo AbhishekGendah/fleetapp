@@ -180,7 +180,10 @@ async function adoptPhotosAsScans(
   const photoIds = photos.map((photo) => photo.id);
   await tx
     .update(files)
-    .set({ purpose: "renter_licence_scan", renterId })
+    // Plain scans of the Renter from now on: unhooked from the link and the
+    // submission, so they are never taken for photos still to send, and stay
+    // when the submission is cleared away. The log keeps where they came from.
+    .set({ purpose: "renter_licence_scan", renterId, renterLinkId: null, submissionId: null })
     .where(and(eq(files.operatorId, actor.operatorId), inArray(files.id, photoIds)));
   for (const photoId of photoIds) {
     await logFile(tx, actor, photoId, "uploaded", "renter_licence_scan");
@@ -349,4 +352,36 @@ export async function loadSentBack(
     return null;
   }
   return { note: latest.reviewNote, details: detailsOf(latest) };
+}
+
+/** What the Renter sent that is still held: for the "everything we hold" download (APP 12). */
+export interface SubmissionHeld {
+  sentAt: Date;
+  status: SubmissionRow["status"];
+  reviewedAt: Date | null;
+  reviewNote: string | null;
+  sent: RenterInput & LicenceInput;
+}
+
+export async function listSubmissionsHeld(
+  database: FileDependencies["database"],
+  operatorId: string,
+  renterId: string,
+): Promise<SubmissionHeld[]> {
+  const rows = await withTenant(database, operatorId, (tx) =>
+    tx
+      .select()
+      .from(renterSubmissions)
+      .where(
+        and(eq(renterSubmissions.operatorId, operatorId), eq(renterSubmissions.renterId, renterId)),
+      )
+      .orderBy(renterSubmissions.createdAt),
+  );
+  return rows.map((row) => ({
+    sentAt: row.createdAt,
+    status: row.status,
+    reviewedAt: row.reviewedAt,
+    reviewNote: row.reviewNote,
+    sent: { ...detailsOf(row), ...licenceOf(row) },
+  }));
 }

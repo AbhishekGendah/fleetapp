@@ -9,13 +9,13 @@ import {
   renterSubmissions,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import type { FileDependencies } from "../files/stored-files";
+import { binFilesAsSystem, type FileDependencies } from "../files/stored-files";
 
-/** What a Renter sent and was never approved is kept this long after their link ended. */
-export const UNAPPROVED_SUBMISSION_KEPT_DAYS = 30;
+/** What a Renter sent through a link is kept this long after the link ended, whatever came of it. */
+export const SUBMISSION_KEPT_DAYS = 30;
 
 const SYSTEM_ACTOR = { type: "system", id: null } as const;
 
@@ -37,7 +37,7 @@ const linkEndedBefore = (cutoff: Date) =>
   sql`least(${renterLinks.expiresAt}, ${renterLinks.cancelledAt}) < ${cutoff.toISOString()}::timestamptz`;
 
 /** Bins every photo still held for the Operator's ended links (kept 30 more days, rule 23). */
-async function binEndedLinkPhotos(
+function binEndedLinkPhotos(
   tx: AnyTransaction,
   operatorId: string,
   cutoff: Date,
@@ -47,29 +47,14 @@ async function binEndedLinkPhotos(
     .select({ id: renterLinks.id })
     .from(renterLinks)
     .where(and(eq(renterLinks.operatorId, operatorId), linkEndedBefore(cutoff)));
-  const binned = await tx
-    .update(files)
-    .set({ deletedAt: now })
-    .where(
-      and(
-        eq(files.operatorId, operatorId),
-        eq(files.purpose, "renter_submitted_scan"),
-        isNull(files.deletedAt),
-        inArray(files.renterLinkId, endedLinks),
-      ),
-    )
-    .returning({ id: files.id });
-  for (const photo of binned) {
-    await recordActivity(tx, {
-      operatorId,
-      actor: SYSTEM_ACTOR,
-      entityType: ACTIVITY_ENTITY_TYPES.file,
-      entityId: photo.id,
-      action: ACTIVITY_ACTIONS.deleted,
-      valuesAfter: { purpose: "renter_submitted_scan" },
-    });
-  }
-  return binned.length;
+  return binFilesAsSystem(
+    tx,
+    operatorId,
+    now,
+    "renter_submitted_scan",
+    inArray(files.renterLinkId, endedLinks),
+    "link_ended_over_30_days",
+  );
 }
 
 /** One Operator's clean-up, with that Operator's tenant context set (rule 3). */
@@ -83,12 +68,10 @@ async function cleanUpOperator(
     const photos = await binEndedLinkPhotos(tx, operatorId, cutoff, now);
     // Unhooked from their photos first: the database removes a submission
     // only once no file points at it.
-    const unapproved = tx
+    const operatorsSubmissions = tx
       .select({ id: renterSubmissions.id })
       .from(renterSubmissions)
-      .where(
-        and(eq(renterSubmissions.operatorId, operatorId), ne(renterSubmissions.status, "approved")),
-      );
+      .where(eq(renterSubmissions.operatorId, operatorId));
     await tx
       .update(files)
       .set({ submissionId: null })
@@ -96,7 +79,7 @@ async function cleanUpOperator(
         and(
           eq(files.operatorId, operatorId),
           isNull(files.renterId),
-          inArray(files.submissionId, unapproved),
+          inArray(files.submissionId, operatorsSubmissions),
           sql`${files.deletedAt} is not null`,
         ),
       );
@@ -119,16 +102,18 @@ async function cleanUpOperator(
 }
 
 /**
- * Part of the daily clean-up: what a Renter sent and was never approved is
- * removed 30 days after their link ended, with its photos (binned, then gone
- * 30 days later like any deleted file). Safe to run again (rule 20). One
- * Operator's failure is logged and skipped.
+ * Part of the daily clean-up: what a Renter sent through a link is removed
+ * 30 days after the link ended, whatever came of it (approved details are on
+ * the record by then), with any photos still held (binned, then gone 30 days
+ * later like any deleted file). Scans made from approved photos are the
+ * Renter's and stay. Safe to run again (rule 20). One Operator's failure is
+ * logged and skipped.
  */
-export async function removeUnapprovedSubmissions(
+export async function removeOldSubmissions(
   deps: FileDependencies,
 ): Promise<SubmissionCleanupSummary> {
   const now = deps.now();
-  const cutoff = new Date(now.getTime() - UNAPPROVED_SUBMISSION_KEPT_DAYS * MILLISECONDS_PER_DAY);
+  const cutoff = new Date(now.getTime() - SUBMISSION_KEPT_DAYS * MILLISECONDS_PER_DAY);
   const due = dueOperatorsSchema.parse(
     await deps.database.execute(
       sql`select operator_id from app.operators_with_abandoned_renter_submissions(${cutoff.toISOString()}::timestamptz) as operator_id`,

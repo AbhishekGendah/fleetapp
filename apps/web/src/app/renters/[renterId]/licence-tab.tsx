@@ -1,9 +1,11 @@
 import {
   expiryStatus,
   formatDateTimeInTimeZone,
+  formatDayInTimeZone,
   LICENCE_CLASS_LABELS,
   LICENCE_SIDES,
   LICENCE_TYPE_LABELS,
+  licenceScanDeleteAfter,
 } from "@fleetapp/core";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
@@ -12,7 +14,8 @@ import { Pencil, Plus } from "lucide-react";
 import { appDb } from "../../../lib/app-db";
 import type { SignedInUser } from "../../../lib/require-user";
 import { licenceFormValues } from "../../../lib/renters/licence-input";
-import { listLicenceScans } from "../../../lib/renters/licence-scans";
+import { listLicenceScans, listSidesDeletedByTimer } from "../../../lib/renters/licence-scans";
+import { loadOperatorSettings } from "../../../lib/settings/operator-settings";
 import { licenceIssuedInText } from "../../../lib/renters/licence-text";
 import { RENTER_FIELD_LABELS } from "../../../lib/renters/renter-labels";
 import type { RenterDetail } from "../../../lib/renters/renter-queries";
@@ -64,7 +67,12 @@ export async function LicenceTab(props: {
   const { renter, user, expiry } = props;
   const isEditable = renter.archivedAt === null;
   const hasLicence = renter.licenceNumber !== null;
-  const scans = await listLicenceScans(appDb, user.operatorId, renter.id);
+  const [scans, settings, sidesDeletedByTimer] = await Promise.all([
+    listLicenceScans(appDb, user.operatorId, renter.id),
+    loadOperatorSettings(appDb, user.operatorId),
+    listSidesDeletedByTimer(appDb, user.operatorId, renter.id),
+  ]);
+  const keptMonths = settings.licenceScanKeptMonths;
   const scanSummaries = Object.fromEntries(
     LICENCE_SIDES.map((side) => {
       const scan = scans[side];
@@ -73,6 +81,14 @@ export async function LicenceTab(props: {
             id: scan.id,
             contentType: scan.contentType,
             addedText: formatDateTimeInTimeZone(scan.addedAt, user.operatorTimezone),
+            // No rentals yet (Phase 3): counted from when it was added.
+            keptUntilText: formatDayInTimeZone(
+              licenceScanDeleteAfter(
+                { addedAt: scan.addedAt, lastRentalEndedAt: null },
+                keptMonths,
+              ),
+              user.operatorTimezone,
+            ),
           }
         : null;
       return [side, summary];
@@ -109,11 +125,19 @@ export async function LicenceTab(props: {
           <CardTitle>Front and back</CardTitle>
           <CardDescription>
             Kept in private storage. They only open when you press View, and every view is recorded
-            in the Log with who looked.
+            in the Log with who looked. Deleted automatically {keptMonths}{" "}
+            {keptMonths === 1 ? "month" : "months"} after the Renter&rsquo;s last rental, or after
+            they were added (Settings → Renters).
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <LicenceScanSlots renterId={renter.id} scans={scanSummaries} isEditable={isEditable} />
+          <LicenceScanSlots
+            renterId={renter.id}
+            scans={scanSummaries}
+            sidesDeletedByTimer={sidesDeletedByTimer}
+            keptMonths={keptMonths}
+            isEditable={isEditable}
+          />
         </CardContent>
       </Card>
     </>

@@ -169,6 +169,13 @@
       "when": 1793464526168,
       "tag": "0023_renter_submission_review",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1793467408532,
+      "tag": "0024_licence_scan_retention",
+      "breakpoints": true
     }
   ]
 }

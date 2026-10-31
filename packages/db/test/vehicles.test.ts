@@ -43,7 +43,9 @@ describe("vehicles", () => {
     admin = connectAs(inject("adminRoleUrl"));
     ({ operatorAId, operatorBId } = await seedTwoOperators(admin.db));
 
-    await withTenant(web.db, operatorAId, (tx) => tx.insert(schema.vehicles).values(carRow(operatorAId)));
+    await withTenant(web.db, operatorAId, (tx) =>
+      tx.insert(schema.vehicles).values(carRow(operatorAId)),
+    );
     const [operatorBCar] = await withTenant(web.db, operatorBId, (tx) =>
       tx.insert(schema.vehicles).values(carRow(operatorBId)).returning({ id: schema.vehicles.id }),
     );
@@ -62,7 +64,9 @@ describe("vehicles", () => {
 
   it("cannot add a car for another Operator", async () => {
     const code = await postgresErrorCodeOf(
-      withTenant(web.db, operatorAId, (tx) => tx.insert(schema.vehicles).values(carRow(operatorBId))),
+      withTenant(web.db, operatorAId, (tx) =>
+        tx.insert(schema.vehicles).values(carRow(operatorBId)),
+      ),
     );
 
     expect(code).toBe(POSTGRES_ERROR_CODES.insufficientPrivilege);
@@ -150,7 +154,9 @@ describe("vehicles", () => {
       withTenant(web.db, operatorAId, (tx) =>
         tx
           .insert(schema.vehicles)
-          .values(carRow(operatorAId, { statusReason: "Brakes", statusExpectedBack: "2026-11-01" })),
+          .values(
+            carRow(operatorAId, { statusReason: "Brakes", statusExpectedBack: "2026-11-01" }),
+          ),
       ),
     );
     expect(leftOver).toBe(CHECK_VIOLATION);

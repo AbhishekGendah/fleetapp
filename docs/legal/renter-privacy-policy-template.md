@@ -155,9 +155,13 @@ need a code emailed to you. Please do not forward them.
 
 We keep your information while you rent from us and afterwards for as long
 as we need it for the purposes above or the law requires (for example, tax
-records for 5 years). Licence photos and scans are deleted [X months]
-after your last rental. Deleted files are removed completely within 30
-days. [Adjust these once the retention periods are decided.]
+records for 5 years). Photos and scans of your licence are deleted [12]
+months after your last rental with us, or after we received them if you
+have not rented since, unless a fine or dispute is still open. Details you
+send through a link are held for our review and removed within about 30
+days of the link ending. Deleted files are removed completely within 30
+days. [If you change how long licence photos are kept in Settings, put
+your number here.]
 
 If a data breach is likely to cause you serious harm, we will tell you and
 the Office of the Australian Information Commissioner, as the law requires.

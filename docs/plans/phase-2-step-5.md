@@ -1,6 +1,6 @@
 # Phase 2 step 5 plan — Retention of licence scans and what Renters send
 
-Status: draft for approval (31 Oct 2026). Detail for slice 5 of
+Status: approved and built (31 Oct 2026). Detail for slice 5 of
 docs/plans/phase-2.md (approved in outline: "12 months, a setting").
 
 ## What changes, in short
@@ -54,8 +54,11 @@ have fines arriving).
 
 ## Database (one migration)
 
-- `operator_settings`: a new column for the months (default 12, a check for
-  1 to 60), like the other settings.
+- The setting needs no column: settings are one checked document with
+  defaults (12 months, 1 to 60), like the others.
+- Approving a submission now unhooks its photos from the link as well as the
+  submission once they become scans (a new column grant), so they are never
+  mistaken for photos still to send.
 - A narrow database function telling the nightly job which Operators have a
   scan older than one month (the shortest setting): Operator IDs only, as the
   other clean-up functions do (rule 3). The job then works one Operator at a

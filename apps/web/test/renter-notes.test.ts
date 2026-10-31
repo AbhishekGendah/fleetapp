@@ -112,6 +112,7 @@ describe("a Renter's notes and everything held about them", () => {
       "Licence",
       "Notes",
       "Licence scans",
+      "Sent through link",
       "Log",
     ]);
     const cells = JSON.stringify(workbook?.sheets);

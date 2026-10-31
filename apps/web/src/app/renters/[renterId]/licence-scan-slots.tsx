@@ -31,6 +31,8 @@ export interface ScanSummary {
   contentType: string;
   /** Already in the Operator's words, e.g. "31 Oct 2026, 9:15 am". */
   addedText: string;
+  /** When the retention timer will delete it, in the Operator's words. */
+  keptUntilText: string;
 }
 
 function ScanSlot(props: {
@@ -39,6 +41,8 @@ function ScanSlot(props: {
   scan: ScanSummary | null;
   imageIndex: number;
   isEditable: boolean;
+  /** Set when the slot is empty because the retention timer deleted the last scan. */
+  deletedByTimerText: string | null;
 }) {
   const router = useRouter();
   const [isSending, setIsSending] = useState(false);
@@ -68,6 +72,14 @@ function ScanSlot(props: {
           {isSending ? "Sending…" : scan ? `Added ${scan.addedText}` : "Not added yet"}
         </p>
       </div>
+      {scan ? (
+        <p className="text-muted-foreground text-sm">
+          Kept until about {scan.keptUntilText}, then deleted automatically.
+        </p>
+      ) : null}
+      {!scan && props.deletedByTimerText ? (
+        <p className="text-muted-foreground text-sm">{props.deletedByTimerText}</p>
+      ) : null}
       {scan ? (
         <div className="flex items-center gap-2">
           <FileLink
@@ -108,8 +120,11 @@ function ScanSlot(props: {
 export function LicenceScanSlots(props: {
   renterId: string;
   scans: Readonly<Record<LicenceSide, ScanSummary | null>>;
+  sidesDeletedByTimer: ReadonlySet<LicenceSide>;
+  keptMonths: number;
   isEditable: boolean;
 }) {
+  const deletedByTimerText = `Deleted after ${props.keptMonths} ${props.keptMonths === 1 ? "month" : "months"}, as set in Settings. Ask the Renter for new photos before renting.`;
   const images = LICENCE_SIDES.flatMap((side) => {
     const scan = props.scans[side];
     return scan && !isPdf(scan.contentType)
@@ -133,6 +148,7 @@ export function LicenceScanSlots(props: {
             scan={props.scans[side]}
             imageIndex={images.findIndex((image) => image.side === side)}
             isEditable={props.isEditable}
+            deletedByTimerText={props.sidesDeletedByTimer.has(side) ? deletedByTimerText : null}
           />
         ))}
       </ul>

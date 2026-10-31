@@ -2,7 +2,12 @@ import { LIST_PAGE_SIZE, type ListQuery } from "@fleetapp/core";
 import { and, count, eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
-import { listConditions, listOrderBy, loadListPage, type DatabaseListRules } from "../src/list-query";
+import {
+  listConditions,
+  listOrderBy,
+  loadListPage,
+  type DatabaseListRules,
+} from "../src/list-query";
 import * as schema from "../src/schema";
 import { withTenant } from "../src/tenant-context";
 import { connectAs, seedTwoOperators, type TestConnection } from "./fixtures";
@@ -17,7 +22,13 @@ const RULES: DatabaseListRules = {
 };
 
 function queryOf(changes: Partial<ListQuery>): ListQuery {
-  return { search: "", sort: { column: "rego", direction: "asc" }, filters: {}, page: 1, ...changes };
+  return {
+    search: "",
+    sort: { column: "rego", direction: "asc" },
+    filters: {},
+    page: 1,
+    ...changes,
+  };
 }
 
 /** The database version of the shared list rules, against real Postgres. */
@@ -91,7 +102,8 @@ describe("database lists", () => {
     const page = await withTenant(web.db, operatorId, (tx) => {
       const where = and(eq(vehicles.operatorId, operatorId), listConditions(RULES, query));
       return loadListPage(query, {
-        count: async () => (await tx.select({ total: count() }).from(vehicles).where(where))[0]!.total,
+        count: async () =>
+          (await tx.select({ total: count() }).from(vehicles).where(where))[0]!.total,
         rows: ({ offset, limit }) =>
           tx
             .select({ rego: vehicles.rego })

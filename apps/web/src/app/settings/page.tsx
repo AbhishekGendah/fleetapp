@@ -9,7 +9,7 @@ import { loadBusinessDetails } from "../../lib/settings/business-details";
 import { AppShell } from "../app-shell";
 import { loadOperatorSettings } from "../../lib/settings/operator-settings";
 import { BusinessDetailsForm } from "./business-details-form";
-import { DaysSettingForm } from "./days-setting-form";
+import { NumberSettingForm } from "./number-setting-form";
 import { LogoUpload } from "./logo-upload";
 
 export const runtime = "nodejs";
@@ -46,10 +46,10 @@ export default async function SettingsPage() {
           <CardDescription>Shown on the cars list and each car&rsquo;s page.</CardDescription>
         </CardHeader>
         <CardContent>
-          <DaysSettingForm
+          <NumberSettingForm
             setting="vehicleExpiryWarningDays"
             label="Show “Due soon” this many days before rego or insurance expires"
-            days={settings.vehicleExpiryWarningDays}
+            value={settings.vehicleExpiryWarningDays}
           />
         </CardContent>
       </Card>
@@ -59,15 +59,21 @@ export default async function SettingsPage() {
           <CardDescription>Shown on the Renters list and each Renter&rsquo;s page.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-8">
-          <DaysSettingForm
+          <NumberSettingForm
             setting="licenceExpiryWarningDays"
             label="Show “Due soon” this many days before a licence expires"
-            days={settings.licenceExpiryWarningDays}
+            value={settings.licenceExpiryWarningDays}
           />
-          <DaysSettingForm
+          <NumberSettingForm
             setting="renterLinkValidDays"
             label="Details form links last this many days"
-            days={settings.renterLinkValidDays}
+            value={settings.renterLinkValidDays}
+          />
+          <NumberSettingForm
+            setting="licenceScanKeptMonths"
+            label="Delete licence scans this many months after the Renter’s last rental, or after they were added"
+            hint="Licence photos are identity documents: keep them only as long as you need them. The licence details themselves are kept."
+            value={settings.licenceScanKeptMonths}
           />
         </CardContent>
       </Card>

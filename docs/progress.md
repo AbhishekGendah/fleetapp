@@ -509,9 +509,22 @@
   opening licence images, the in-transaction steps for saving details and a
   licence, and the licence-on-file message.
 
+- **Phase 2 step 5 — retention** (plan: docs/plans/phase-2-step-5.md):
+  licence scans go to the bin 12 months (Settings → Renters, 1 to 60) after
+  the later of being added and the Renter's last rental, never while a
+  rental, fine or dispute is open (hooks ready for Phases 3 and 4); the
+  Licence tab shows "Kept until about (date)" and says when the timer deleted
+  one. Everything a Renter sent through a link (approved too) is removed 30
+  days after the link ended; scans made from it stay. "Download everything we
+  hold" has a "Sent through link" sheet. All in the nightly clean-up, safe to
+  re-run. Migration 0024: the narrow function that finds Operators with old
+  scans, the wider submission clean-up, and one column grant. Shared on the
+  way: the settings form now takes days or months; one "bin as System" step.
+  Fixed on the way: approved photos could have looked like unsent link photos.
+
 ## Next
-Phase 2 step 5: deleting old licence scans on a timer (and deciding the
-retention periods, which also fill in the privacy policy template).
+Phase 2 is complete apart from the go-live items. Next: Phase 3 (rentals),
+plan first.
 
 ## Open items
 - **Before launch: docs/launch-checklist.md** (relaxed admin sign-in, full

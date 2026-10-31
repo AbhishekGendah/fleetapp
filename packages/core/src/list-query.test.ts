@@ -84,7 +84,11 @@ describe("applying a list's query", () => {
     const ascending = parseListQuery(CAR_LIST, { sort: "odometer", dir: "asc" });
     const descending = parseListQuery(CAR_LIST, { sort: "odometer", dir: "desc" });
     expect(regos(matchingRows(CARS, CAR_RULES, ascending))).toEqual(["abd456", "ABC123", "XYZ789"]);
-    expect(regos(matchingRows(CARS, CAR_RULES, descending))).toEqual(["ABC123", "abd456", "XYZ789"]);
+    expect(regos(matchingRows(CARS, CAR_RULES, descending))).toEqual([
+      "ABC123",
+      "abd456",
+      "XYZ789",
+    ]);
   });
 
   it("pages, and shows the last page for a page past the end", () => {

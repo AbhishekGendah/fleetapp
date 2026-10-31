@@ -37,6 +37,7 @@ async function unsentPhotos(tx: AnyTransaction, visit: LinkVisit) {
       and(
         eq(files.operatorId, visit.operatorId),
         eq(files.renterLinkId, visit.linkId),
+        eq(files.purpose, "renter_submitted_scan"),
         isNull(files.submissionId),
         isNotNull(files.confirmedAt),
         isNull(files.deletedAt),

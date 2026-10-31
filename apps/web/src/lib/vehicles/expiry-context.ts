@@ -3,7 +3,7 @@ import { todayInTimeZone } from "@fleetapp/core";
 import { appDb } from "../app-db";
 import type { SignedInUser } from "../require-user";
 import { loadOperatorSettings } from "../settings/operator-settings";
-import type { WarningDaysSetting } from "../settings/days-setting-input";
+import type { WarningDaysSetting } from "../settings/number-setting-input";
 import type { ExpiryContext } from "./expiry-columns";
 
 /**

@@ -28,7 +28,9 @@ export function RenterDetailsSentBackEmail(props: RenterDetailsSentBackEmailProp
       heading="Please check your details"
       senderName={props.operatorName}
     >
-      <Text>{props.operatorName} looked at the details you sent and asked you to change something:</Text>
+      <Text>
+        {props.operatorName} looked at the details you sent and asked you to change something:
+      </Text>
       <Text style={noteStyle}>{props.note}</Text>
       <Text>
         Open the link in the earlier email from {props.operatorName}, make the change and send it

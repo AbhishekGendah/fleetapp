@@ -12,7 +12,10 @@ export interface CatalogueMake extends ListedName {
 export type VehicleCatalogue = readonly CatalogueMake[];
 
 /** The listed make that what was typed means, or null if it is not listed. */
-export function findCatalogueMake(catalogue: VehicleCatalogue, typed: string): CatalogueMake | null {
+export function findCatalogueMake(
+  catalogue: VehicleCatalogue,
+  typed: string,
+): CatalogueMake | null {
   const name = findListedName(catalogue, typed);
   return catalogue.find((make) => make.name === name) ?? null;
 }

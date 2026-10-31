@@ -2,7 +2,7 @@ import { parseListQuery } from "@fleetapp/core";
 import { activityLog, files, renterSubmissions } from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import { RENTER_LIST } from "../src/app/renters/renter-list";
@@ -14,10 +14,11 @@ import {
   openSubmittedPhoto,
   sendBackSubmission,
 } from "../src/lib/renter-links/reviews";
-import { removeUnapprovedSubmissions } from "../src/lib/renter-links/submission-cleanup";
+import { removeOldSubmissions } from "../src/lib/renter-links/submission-cleanup";
 import { loadFormStart, submitDetails } from "../src/lib/renter-links/submissions";
 import { cancelDetailsLink } from "../src/lib/renter-links/details-links";
 import { parseLicenceForm } from "../src/lib/renters/licence-input";
+import { buildEverythingHeld } from "../src/lib/renters/everything-held";
 import { saveLicence } from "../src/lib/renters/licence-records";
 import { listLicenceScans } from "../src/lib/renters/licence-scans";
 import { loadRenter, listRenterPage } from "../src/lib/renters/renter-queries";
@@ -93,6 +94,12 @@ describe("the Operator's review of what a Renter sent", () => {
     expect(waiting.rows).toContainEqual(
       expect.objectContaining({ id: visit.renterId, isWaitingReview: true }),
     );
+
+    const workbook = await buildEverythingHeld(web.db, actor, visit.renterId, "Australia/Perth");
+    const sentSheet = workbook!.sheets.find((sheet) => sheet.name === "Sent through link")!;
+    expect(sentSheet.table).toHaveLength(2);
+    expect(JSON.stringify(sentSheet.table)).toContain("Waiting for review");
+    expect(JSON.stringify(sentSheet.table)).toContain("1234567");
 
     const photoId = submission!.photos.front!.id;
     expect(await openSubmittedPhoto(kit.fileDeps, actor, visit.renterId, photoId)).not.toBeNull();
@@ -202,14 +209,14 @@ describe("the Operator's review of what a Renter sent", () => {
     expect(await sendBack(visit, await waitingId(visit))).toEqual({ status: "link_ended" });
   });
 
-  it("removes what was never approved 30 days after the link ended, and keeps the rest", async () => {
+  it("removes what was sent 30 days after the link ended, keeping scans made from it", async () => {
     const abandoned = await openRenterLink(kit);
     await sendEverything(kit, abandoned);
     const approved = await openRenterLink(kit, "Approved Renter");
     await sendEverything(kit, approved, { licenceNumber: "8889990" });
     await approveSubmission(kit.fileDeps, actor, approved.renterId, await waitingId(approved));
 
-    const tooSoon = await removeUnapprovedSubmissions({
+    const tooSoon = await removeOldSubmissions({
       ...kit.fileDeps,
       now: () => new Date(Date.now() + 20 * DAY_MS),
     });
@@ -217,15 +224,16 @@ describe("the Operator's review of what a Renter sent", () => {
 
     // Links last 7 days: 40 days on, each ended more than 30 days ago.
     const later = { ...kit.fileDeps, now: () => new Date(Date.now() + 40 * DAY_MS) };
-    const summary = await removeUnapprovedSubmissions(later);
+    const summary = await removeOldSubmissions(later);
     expect(summary.failedOperators).toBe(0);
-    expect(summary.removedSubmissions).toBeGreaterThanOrEqual(1);
+    expect(summary.removedSubmissions).toBeGreaterThanOrEqual(2);
 
+    // Approved ones go too: by then everything is on the Renter's record.
     const left = await withTenant(web.db, actor.operatorId, (tx) =>
       tx
-        .select({ renterId: renterSubmissions.renterId, status: renterSubmissions.status })
+        .select({ renterId: renterSubmissions.renterId })
         .from(renterSubmissions)
-        .where(eq(renterSubmissions.renterId, abandoned.renterId)),
+        .where(inArray(renterSubmissions.renterId, [abandoned.renterId, approved.renterId])),
     );
     expect(left).toEqual([]);
     const abandonedPhotos = await withTenant(web.db, actor.operatorId, (tx) =>
@@ -243,6 +251,6 @@ describe("the Operator's review of what a Renter sent", () => {
       actorType: "system",
     });
     // Safe to run again.
-    expect((await removeUnapprovedSubmissions(later)).removedSubmissions).toBe(0);
+    expect((await removeOldSubmissions(later)).removedSubmissions).toBe(0);
   });
 });

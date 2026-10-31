@@ -21,7 +21,8 @@ Add to this list whenever something is relaxed or put off "until launch".
     functions that cross Operators (`app.operators_with_file_housekeeping_due`,
     `app.vehicles_not_in_catalogue`, `app.correct_vehicle_make_model`,
     `app.renter_link_for_token`, `app.operators_with_abandoned_renter_submissions`,
-    `app.delete_abandoned_renter_submissions`), and the Renter link pages and actions;
+    `app.delete_abandoned_renter_submissions`, `app.operators_with_licence_scans_added_before`),
+    and the Renter link pages and actions;
   - sign-in: time limits (above), lockouts, authenticator, recovery codes,
     password reset, remembered devices, session cookies;
   - the admin site: what it can read and change, and that it still cannot
@@ -61,9 +62,7 @@ Add to this list whenever something is relaxed or put off "until launch".
 - [ ] The privacy notice on the Renter's details form checked by the lawyer,
   and every Operator has a privacy policy it can point to (a link to it on
   the form may be wanted). See docs/legal-notes.md, Renter links.
-- [ ] "Download everything we hold" includes the Renter's submissions still
-  held (docs/legal-notes.md, Renter links: To do).
 - [ ] The Operator privacy policy template
   (docs/legal/renter-privacy-policy-template.md) reviewed once by the lawyer,
-  retention periods filled in, and the Operator terms saying it is a
+  and the Operator terms saying it is a
   starting point the Operator is responsible for.
