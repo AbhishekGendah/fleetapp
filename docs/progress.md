@@ -467,12 +467,29 @@
   masked email. Emails from the Operator's name with reply-to the Operator.
   Settings → Renters: how many days links last (7). Migration 0021:
   `renter_links`, `renter_link_devices`, a reply-to on the test inbox, and the
-  one narrow function that finds a live link from its fingerprint. The form
-  itself comes in part 2 (the page says so for now).
+  one narrow function that finds a live link from its fingerprint.
+
+- **Phase 2 step 4, part 2 — the form the Renter fills in:** once the phone
+  is confirmed, the link shows a privacy notice naming the Operator, then a
+  phone-first form: their details as on file to correct, date of birth and
+  home address needed, the licence typed fresh (never shown back), and photos
+  of the front and back (camera or file, shrunk on the phone, identity
+  storage; a new photo replaces the last; only "Added" is shown). Address
+  search works on the form, 50 per link. What is typed is kept on the phone
+  until sent. "Send to (Operator)" needs both photos; then "Thanks, (Operator)
+  will check your details", also on every later visit. Nothing on the record
+  changes; the Renter page's Details form card shows "Waiting for your
+  review". Migration 0022: `renter_submissions` (one waiting per Renter),
+  submitted licence photos on `files` linked to the link and the submission,
+  and the link's address-search count. Shared on the way: the Renter details
+  boxes, licence boxes and Take photo / Choose file buttons are now one piece
+  each, used by the Operator's forms and the link. Fixed in passing: the
+  licence number's "Required" now shows even before "Issued in" is chosen.
 
 ## Next
-Phase 2 step 4, part 2: the details form the Renter fills in (details,
-licence, licence photos, privacy notice), held until the Operator reviews it.
+Phase 2 step 4, part 3: the Operator's review (Waiting for review badge and
+filter on the list, the Review page, Approve or Send back with a note, and
+clearing never-approved submissions 30 days after their link ends).
 
 ## Open items
 - **Before launch: docs/launch-checklist.md** (relaxed admin sign-in, full

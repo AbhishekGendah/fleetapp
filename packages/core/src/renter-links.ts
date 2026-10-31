@@ -49,3 +49,10 @@ export function maskEmail(email: string): string {
 export function typedLinkCode(typed: string): string {
   return typed.replace(/\D/g, "").slice(0, LINK_CODE_DIGITS);
 }
+
+/** Address searches one link may make, so a link cannot run up the Google bill. */
+export const MAXIMUM_LINK_ADDRESS_SEARCHES = 50;
+
+/** What a Renter sent through their link: waiting for the Operator, then approved or sent back. */
+export const RENTER_SUBMISSION_STATUSES = ["waiting", "approved", "sent_back"] as const;
+export type RenterSubmissionStatus = (typeof RENTER_SUBMISSION_STATUSES)[number];

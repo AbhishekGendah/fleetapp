@@ -15,6 +15,7 @@ export const FILE_PURPOSES = [
   "vehicle_attachment",
   "vehicle_identity_attachment",
   "renter_licence_scan",
+  "renter_submitted_scan",
 ] as const;
 export type FilePurpose = (typeof FILE_PURPOSES)[number];
 
@@ -91,6 +92,14 @@ export const FILE_PURPOSE_RULES: Readonly<Record<FilePurpose, FilePurposeRule>> 
   },
   // One side of a Renter's licence card: an identity document (rule 8).
   renter_licence_scan: {
+    area: "identity",
+    contentTypes: DOCUMENT_CONTENT_TYPES,
+    maxBytes: 10 * BYTES_PER_MEGABYTE,
+    describedAs: "a photo or PDF up to 10 MB",
+  },
+  // A licence photo a Renter sent through their link, waiting for the
+  // Operator's review: an identity document too.
+  renter_submitted_scan: {
     area: "identity",
     contentTypes: DOCUMENT_CONTENT_TYPES,
     maxBytes: 10 * BYTES_PER_MEGABYTE,

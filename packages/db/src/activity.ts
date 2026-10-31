@@ -92,6 +92,7 @@ const ACTIVITY_ACTION_LABELS = {
   [ACTIVITY_ACTIONS.codeSent]: "code emailed",
   [ACTIVITY_ACTIONS.phoneVerified]: "opened on a new phone",
   [ACTIVITY_ACTIONS.locked]: "locked after too many wrong codes",
+  [ACTIVITY_ACTIONS.submitted]: "details sent for review",
 } satisfies Record<ActivityAction, string>;
 
 function labelFor(labels: Readonly<Record<string, string>>, key: string): string {
@@ -107,6 +108,7 @@ const FILE_PURPOSE_LABELS = {
   vehicle_attachment: "Attachment",
   vehicle_identity_attachment: "Private paper",
   renter_licence_scan: "Licence scan",
+  renter_submitted_scan: "Licence photo sent by the Renter",
 } satisfies Record<FilePurpose, string>;
 
 /** A file's log lines carry its purpose; anything else has none. */

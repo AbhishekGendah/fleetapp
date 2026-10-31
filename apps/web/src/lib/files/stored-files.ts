@@ -22,11 +22,12 @@ export interface FileDependencies {
   now: () => Date;
 }
 
-/** Who is acting: always from the signed-in User, never from the browser (rule 1). */
-export interface FileActor {
-  userId: string;
-  operatorId: string;
-}
+/**
+ * Who is acting: the signed-in User, or a Renter's link that has passed its
+ * code. Always worked out on the server, never taken from the browser (rule 1).
+ */
+export type FileActor =
+  { operatorId: string; userId: string } | { operatorId: string; linkId: string };
 
 export interface UploadRequest {
   purpose: FilePurpose;
@@ -51,6 +52,7 @@ export interface FileLinks {
   saleId?: string;
   renterId?: string;
   licenceSide?: LicenceSide;
+  renterLinkId?: string;
 }
 
 export type UploadRequestResult =
@@ -66,7 +68,10 @@ export function logFile(
 ): Promise<void> {
   return recordActivity(tx, {
     operatorId: actor.operatorId,
-    actor: { type: "user", id: actor.userId },
+    actor:
+      "userId" in actor
+        ? { type: "user", id: actor.userId }
+        : { type: "renter_link", id: actor.linkId },
     entityType: ACTIVITY_ENTITY_TYPES.file,
     entityId: fileId,
     action: ACTIVITY_ACTIONS[action],
@@ -102,7 +107,7 @@ export async function requestUpload(
       objectKey,
       contentType: request.contentType,
       sizeBytes: request.sizeBytes,
-      uploadedByUserId: actor.userId,
+      uploadedByUserId: "userId" in actor ? actor.userId : null,
       ...links,
     });
   });
@@ -179,6 +184,9 @@ export async function confirmUpload(
     if (file.purpose === "operator_logo") {
       await markLogoDeleted(tx, actor, now);
     }
+    if (file.renterLinkId && file.licenceSide && !file.submissionId) {
+      await markLinkPhotosDeleted(tx, actor, now, file.renterLinkId, file.licenceSide);
+    }
     if (file.renterId && file.licenceSide) {
       await markScansDeleted(
         tx,
@@ -245,6 +253,33 @@ export async function markScansDeleted(
     await logFile(tx, actor, scan.id, "deleted", "renter_licence_scan");
   }
   return removed.length;
+}
+
+/** A Renter's earlier unsent photo of this side, replaced by a new one (kept 30 days, rule 23). */
+async function markLinkPhotosDeleted(
+  tx: AnyTransaction,
+  actor: FileActor,
+  now: Date,
+  renterLinkId: string,
+  side: LicenceSide,
+): Promise<void> {
+  const removed = await tx
+    .update(files)
+    .set({ deletedAt: now })
+    .where(
+      and(
+        eq(files.operatorId, actor.operatorId),
+        eq(files.renterLinkId, renterLinkId),
+        eq(files.licenceSide, side),
+        isNull(files.submissionId),
+        isNotNull(files.confirmedAt),
+        isNull(files.deletedAt),
+      ),
+    )
+    .returning({ id: files.id });
+  for (const photo of removed) {
+    await logFile(tx, actor, photo.id, "deleted", "renter_submitted_scan");
+  }
 }
 
 export async function removeLogo(deps: FileDependencies, actor: FileActor): Promise<boolean> {

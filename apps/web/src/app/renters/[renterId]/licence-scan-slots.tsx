@@ -7,17 +7,16 @@ import {
   type LicenceSide,
 } from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
-import { CameraCapture } from "@fleetapp/ui/camera-capture";
-import { FilePicker } from "@fleetapp/ui/file-picker";
 import { FormError } from "@fleetapp/ui/form-message";
 import { ImageViewer } from "@fleetapp/ui/image-viewer";
-import { Camera, FileUp, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { sendPaper } from "../../../lib/files/send-paper";
 import { licenceScanPath } from "../../../lib/paths";
 import { FileLink, isPdf } from "../../../components/file-link";
+import { PhotoOrFileButtons } from "../../../components/photo-or-file-buttons";
 import {
   finishLicenceScanUploadAction,
   removeLicenceScanAction,
@@ -25,8 +24,6 @@ import {
 } from "./licence-actions";
 
 const SCAN_RULE = FILE_PURPOSE_RULES.renter_licence_scan;
-/** What a photo from the camera is called while it is sent; never stored. */
-const CAMERA_FILE_NAME = "licence.jpg";
 
 /** One side's scan in use, as shown: never the scan itself until View is pressed. */
 export interface ScanSummary {
@@ -49,10 +46,7 @@ function ScanSlot(props: {
   const { renterId, side, scan } = props;
   const sideLabel = LICENCE_SIDE_LABELS[side];
 
-  async function handleChosen(file: File | undefined): Promise<void> {
-    if (!file) {
-      return;
-    }
+  async function handleChosen(file: File): Promise<void> {
     setIsSending(true);
     setMessage(null);
     setMessage(
@@ -95,26 +89,12 @@ function ScanSlot(props: {
         </div>
       ) : null}
       {props.isEditable ? (
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-          <CameraCapture
-            triggerLabel={scan ? "Retake" : "Take photo"}
-            triggerIcon={<Camera aria-hidden />}
-            onPhotosTaken={(photos) => {
-              // One photo per side: the last one taken is the keeper.
-              const photo = photos.at(-1);
-              void handleChosen(
-                photo ? new File([photo], CAMERA_FILE_NAME, { type: photo.type }) : undefined,
-              );
-            }}
-          />
-          <FilePicker
-            label="Choose file"
-            accept={SCAN_RULE.contentTypes.join(",")}
-            isDisabled={isSending}
-            icon={<FileUp aria-hidden />}
-            onFilesChosen={(chosen) => void handleChosen(chosen[0])}
-          />
-        </div>
+        <PhotoOrFileButtons
+          hasFile={scan !== null}
+          isSending={isSending}
+          accept={SCAN_RULE.contentTypes.join(",")}
+          onFileChosen={(file) => void handleChosen(file)}
+        />
       ) : null}
       <FormError message={message} />
     </li>

@@ -236,7 +236,7 @@ of service) and the countries.
   becoming a resident in most): check each before go-live, and whether the
   app should ask when the Renter arrived in Australia.
 
-## Renter links (Phase 2 step 4, part 1 built)
+## Renter links (Phase 2 step 4, parts 1 and 2 built)
 
 - **Sending a link:** the Renter's email address goes to the email provider
   (the test inbox in dev; Postmark, USA, in production: already in the
@@ -252,8 +252,31 @@ of service) and the countries.
   Link pages send no referrer, are never cached and are not indexed.
 - **Logged:** every link sent, cancelled, code emailed, phone confirmed and
   lock, as done by the Renter's link or the User. Never the address or code.
-- **To do before real Renters (part 4b):** the privacy notice on the form
-  (APP 5), wording to check with the lawyer.
+- **Privacy notice on the form (APP 5), built; wording to check with the
+  lawyer before real Renters get links.** It names the Operator as the one
+  collecting and says: why (renting, tolls, fines, damage, contact), that
+  without the details the Operator may not be able to rent; who sees them
+  (the Operator, PintoFleet as its system, government agencies for fines and
+  tolls); the overseas services (email in the USA, Google for the address
+  search); and that the Operator's privacy policy says how to access or
+  correct them and complain. Each Operator needs a privacy policy for this to
+  point to: the Operator terms should require one (or AGS could supply a
+  template).
+- **What the Renter sends is held, not applied:** it waits for the
+  Operator's review (part 3) and the record does not change until approved.
+  Licence photos go to the identity storage as for scans, are never shown
+  back on the link, and a new photo for a side sends the last one to the
+  30-day bin. Sending is logged as done by the Renter's link; what was sent
+  is never written into the log.
+- **The form is kept on the Renter's own phone (browser storage) while they
+  type**, licence number included, until they send it; it is ignored and
+  removed after the link's end date. On a shared computer someone after them
+  could see it if they never send it. Acceptable for now (their own data, on
+  a device they chose); revisit if Operators ask Renters to use a shop
+  computer.
+- **Address search on the link** is limited to 50 per link so a link cannot
+  run up the Google bill; Google sees the address text typed (already in the
+  overseas table).
 
 ## Business details (already built)
 

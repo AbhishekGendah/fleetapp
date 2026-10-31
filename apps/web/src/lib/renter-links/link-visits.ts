@@ -37,6 +37,8 @@ export interface LinkVisit {
   renterId: string;
   purpose: RenterLinkPurpose;
   operatorName: string;
+  /** For the form's date checks: the Operator's today. */
+  timeZone: string;
   /** "s•••@gmail.com": all the page shows before the code is right. */
   maskedEmail: string;
   expiresAt: Date;
@@ -75,6 +77,7 @@ export async function openLink(database: AnyDatabase, token: string): Promise<Li
       renterId: link.renterId,
       purpose: link.purpose,
       operatorName: sender.operatorName,
+      timeZone: sender.timeZone,
       maskedEmail: maskEmail(link.sentToEmail),
       expiresAt: link.expiresAt,
       isLocked: link.lockedAt !== null,
@@ -237,4 +240,21 @@ export async function checkLinkCode(
     }
     return { status: "wrong", triesLeft: MAXIMUM_LINK_CODE_TRIES - tries };
   });
+}
+
+/**
+ * The open link behind a secret, only if this phone has passed its code.
+ * Every step a Renter takes on the form starts here, so a page left open on
+ * another phone, or a forwarded link, can do nothing.
+ */
+export async function openVerifiedLink(
+  database: AnyDatabase,
+  token: string,
+  deviceToken: string | undefined,
+): Promise<LinkVisit | null> {
+  const visit = await openLink(database, token);
+  if (!visit || visit.isLocked || !(await isPhoneRemembered(database, visit, deviceToken))) {
+    return null;
+  }
+  return visit;
 }

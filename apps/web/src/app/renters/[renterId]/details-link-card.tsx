@@ -6,6 +6,7 @@ import { XCircle } from "lucide-react";
 
 import { appDb } from "../../../lib/app-db";
 import { loadDetailsLink, type DetailsLinkStatus } from "../../../lib/renter-links/details-links";
+import { loadWaitingSubmission } from "../../../lib/renter-links/submissions";
 import type { SignedInUser } from "../../../lib/require-user";
 import type { RenterDetail } from "../../../lib/renters/renter-queries";
 import { DetailsLinkSender } from "./details-link-sender";
@@ -45,7 +46,10 @@ export async function DetailsLinkCard({
   renter: RenterDetail;
   user: SignedInUser;
 }) {
-  const link = await loadDetailsLink(appDb, user.operatorId, renter.id, new Date());
+  const [link, waiting] = await Promise.all([
+    loadDetailsLink(appDb, user.operatorId, renter.id, new Date()),
+    loadWaitingSubmission(appDb, { operatorId: user.operatorId, renterId: renter.id }),
+  ]);
   const isLive = link !== null && !link.isExpired && !link.isLocked;
   return (
     <Card>
@@ -57,6 +61,14 @@ export async function DetailsLinkCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {waiting ? (
+          <p className="text-sm">
+            <Badge tone="attention">Waiting for your review</Badge> The Renter sent their details on{" "}
+            {formatDateTimeInTimeZone(waiting.sentAt, user.operatorTimezone)}. Nothing on this page
+            changes until you approve them.
+            {/* TODO(Renter links part 4c): a Review button goes here. */}
+          </p>
+        ) : null}
         {link ? <LinkStatus link={link} timeZone={user.operatorTimezone} /> : null}
         {renter.email ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start">

@@ -102,13 +102,13 @@ export function startRecordUpload(
   );
 }
 
-/** Step two: null once saved; otherwise what to tell the person. */
+/** Step two: null once saved; otherwise what to tell the person. `actor` is the User or the link. */
 export async function finishRecordUpload(
   description: string,
+  actor: FileActor,
   fileId: string,
   purpose: FilePurpose,
 ): Promise<string | null> {
-  const actor = await currentFileActor();
   if (!isRecordId(fileId)) {
     return UPLOAD_FAILED_MESSAGE;
   }

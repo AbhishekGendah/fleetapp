@@ -17,6 +17,7 @@ import {
 
 import { primaryKeyColumn, timestampColumns } from "./columns";
 import { operatorIdColumn } from "./operators";
+import { renterLinks, renterSubmissions } from "./renter-links";
 import { renters } from "./renters";
 import { users } from "./users";
 import { vehicleCosts, vehiclePurchases, vehicleSales } from "./vehicle-costs";
@@ -81,6 +82,9 @@ export const files = pgTable(
     /** A licence scan's Renter, and which side of the card it shows. */
     renterId: uuid("renter_id"),
     licenceSide: licenceSideEnum("licence_side"),
+    /** A licence photo sent through a Renter's link, and the submission it went with once sent. */
+    renterLinkId: uuid("renter_link_id"),
+    submissionId: uuid("submission_id"),
 
     /** The upload arrived and really is the type it claimed. */
     confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
@@ -113,6 +117,8 @@ export const files = pgTable(
     recordLink("purchase", table.purchaseId, table.operatorId, vehiclePurchases),
     recordLink("sale", table.saleId, table.operatorId, vehicleSales),
     recordLink("renter", table.renterId, table.operatorId, renters),
+    recordLink("renter_link", table.renterLinkId, table.operatorId, renterLinks),
+    recordLink("submission", table.submissionId, table.operatorId, renterSubmissions),
     index("files_vehicle_idx").on(table.operatorId, table.vehicleId, table.purpose),
     // Compared as text: Postgres will not use an enum value in the same
     // migration that adds it.
@@ -134,13 +140,25 @@ export const files = pgTable(
         and (${table.purpose}::text <> 'vehicle_attachment' or num_nonnulls(${table.purchaseId}, ${table.saleId}) = 0)
         and (${table.purpose}::text not in ('vehicle_attachment', 'vehicle_identity_attachment') or (${table.policyId} is null) = (${table.vehicleId} is not null))`,
     ),
-    // A licence scan names its Renter and side; nothing else does.
+    // A licence scan names its Renter and side; a photo sent through a link
+    // names the link and side (and, once sent, its submission). Nothing else
+    // has a side. Compared as text: the new kind cannot be named as an enum
+    // value in the migration adding it.
     check(
       "files_licence_scan_links",
       sql`(${table.purpose}::text = 'renter_licence_scan') = (${table.renterId} is not null)
-        and (${table.renterId} is null) = (${table.licenceSide} is null)
-        and (${table.purpose}::text <> 'renter_licence_scan' or ${table.vehicleId} is null)`,
+        and (${table.purpose}::text <> 'renter_submitted_scan' or (${table.renterLinkId} is not null and ${table.renterId} is null))
+        and (${table.purpose}::text in ('renter_licence_scan', 'renter_submitted_scan')) = (${table.licenceSide} is not null)
+        and (${table.renterLinkId} is null or ${table.purpose}::text in ('renter_licence_scan', 'renter_submitted_scan'))
+        and (${table.submissionId} is null or ${table.renterLinkId} is not null)
+        and (${table.licenceSide} is null or ${table.vehicleId} is null)`,
     ),
+    // One unsent photo in use per side per link: a new one replaces it.
+    uniqueIndex("files_one_link_photo_per_side")
+      .on(table.operatorId, table.renterLinkId, table.licenceSide)
+      .where(
+        sql`${table.renterLinkId} is not null and ${table.submissionId} is null and ${table.confirmedAt} is not null and ${table.deletedAt} is null`,
+      ),
     // One scan in use per side: a new one marks the old one deleted in the
     // same transaction that confirms it, as for logos.
     uniqueIndex("files_one_licence_scan_per_side")

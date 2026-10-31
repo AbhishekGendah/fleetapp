@@ -80,7 +80,12 @@ export async function startLicenceScanUploadAction(
 
 /** Null once saved (replacing that side's old scan); otherwise what to tell the person. */
 export async function finishLicenceScanUploadAction(fileId: string): Promise<string | null> {
-  return finishRecordUpload("Finishing a licence scan upload", fileId, "renter_licence_scan");
+  return finishRecordUpload(
+    "Finishing a licence scan upload",
+    await currentFileActor(),
+    fileId,
+    "renter_licence_scan",
+  );
 }
 
 export async function removeLicenceScanAction(

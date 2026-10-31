@@ -41,7 +41,12 @@ export async function startAttachmentUploadAction(
 
 /** Null once attached; otherwise what to tell the person. The page refreshes itself. */
 export async function finishAttachmentUploadAction(fileId: string): Promise<string | null> {
-  return finishRecordUpload("Finishing an attachment upload", fileId, "vehicle_attachment");
+  return finishRecordUpload(
+    "Finishing an attachment upload",
+    await currentFileActor(),
+    fileId,
+    "vehicle_attachment",
+  );
 }
 
 /** `pagePath` is the page showing it, refreshed afterwards. */

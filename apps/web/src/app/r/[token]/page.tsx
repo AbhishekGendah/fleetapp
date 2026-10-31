@@ -1,13 +1,18 @@
+import { todayInTimeZone } from "@fleetapp/core";
 import { BRAND } from "@fleetapp/ui/brand";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
 import { appDb } from "../../../lib/app-db";
+import { detailsFormStart } from "../../../lib/renter-links/details-form-input";
 import { isPhoneRemembered, openLink } from "../../../lib/renter-links/link-visits";
+import { loadFormStart } from "../../../lib/renter-links/submissions";
 import { checkCodeAction, sendCodeAction } from "./actions";
 import { CodeStep } from "./code-step";
+import { DetailsForm } from "./details-form";
 import { DEVICE_COOKIE } from "./link-state";
+import { SentThanks } from "./sent-thanks";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,12 +79,22 @@ export default async function RenterLinkPage(props: { params: Promise<{ token: s
       </LinkPage>
     );
   }
+  const start = await loadFormStart(appDb, visit);
   return (
     <LinkPage operatorName={visit.operatorName} title="Your details form">
-      {/* TODO(Renter links part 4b): the details form goes here. */}
-      <CardDescription>
-        Thanks, this phone is confirmed. The form to check your details will appear here.
-      </CardDescription>
+      {start.status === "waiting" ? (
+        <SentThanks operatorName={visit.operatorName} />
+      ) : (
+        <DetailsForm
+          token={token}
+          linkId={visit.linkId}
+          operatorName={visit.operatorName}
+          today={todayInTimeZone(new Date(), visit.timeZone)}
+          expiresAt={visit.expiresAt.toISOString()}
+          initialValues={detailsFormStart(start.values)}
+          photos={start.photos}
+        />
+      )}
     </LinkPage>
   );
 }

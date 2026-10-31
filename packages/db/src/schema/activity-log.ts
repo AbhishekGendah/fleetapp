@@ -108,6 +108,8 @@ export const ACTIVITY_ACTIONS = {
   phoneVerified: "phone_verified",
   /** Too many wrong codes: the link is shut. */
   locked: "locked",
+  /** A Renter sent their details through a link, for the Operator to review. */
+  submitted: "submitted",
 } as const;
 
 export type ActivityEntityType = (typeof ACTIVITY_ENTITY_TYPES)[keyof typeof ACTIVITY_ENTITY_TYPES];

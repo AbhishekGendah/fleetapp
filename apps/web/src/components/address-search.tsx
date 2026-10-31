@@ -12,12 +12,29 @@ import { ADDRESS_SEARCH_MINIMUM_LENGTH } from "../lib/address-lookup/lookup-inpu
 /** Wait for a pause in typing, so each word costs one lookup, not one per key. */
 const TYPING_PAUSE_MS = 300;
 
+/** Where suggestions and chosen addresses come from: the signed-in User's, or a Renter link's. */
+export interface AddressLookup {
+  search: (
+    query: string,
+    sessionToken: string,
+    nearState: AustralianStateCode | null,
+  ) => Promise<AddressSuggestion[]>;
+  getAddress: (placeId: string, sessionToken: string) => Promise<AddressParts | null>;
+}
+
+const SIGNED_IN_LOOKUP: AddressLookup = {
+  search: searchAddressesAction,
+  getAddress: getAddressAction,
+};
+
 type AddressSearchProps = Omit<React.ComponentPropsWithoutRef<"input">, "value" | "onChange"> & {
   value: string;
   onValueChange: (value: string) => void;
   onAddressChosen: (address: AddressParts) => void;
   /** Addresses in this state are suggested first. */
   nearState: AustralianStateCode | null;
+  /** The signed-in User's lookup unless given, e.g. a Renter link's limited one. */
+  lookup?: AddressLookup;
 };
 
 /** A lost connection only means no suggestions: the box still works. */
@@ -26,6 +43,7 @@ function logLookupFailure(error: unknown): void {
 }
 
 interface SuggestionSearch {
+  lookup: AddressLookup;
   query: string;
   isEnabled: boolean;
   nearState: AustralianStateCode | null;
@@ -34,7 +52,7 @@ interface SuggestionSearch {
 
 /** Suggestions for what is typed, fetched after a pause in typing. */
 function useAddressSuggestions(search: SuggestionSearch): AddressSuggestion[] {
-  const { query, isEnabled, nearState, sessionToken } = search;
+  const { lookup, query, isEnabled, nearState, sessionToken } = search;
   // Kept with the text they were found for, and shown only while the box
   // still holds that text, so an old answer never shows up.
   const [results, setResults] = useState<{ query: string; suggestions: AddressSuggestion[] }>({
@@ -47,7 +65,8 @@ function useAddressSuggestions(search: SuggestionSearch): AddressSuggestion[] {
       return;
     }
     const timer = setTimeout(() => {
-      searchAddressesAction(query, sessionToken.current, nearState)
+      lookup
+        .search(query, sessionToken.current, nearState)
         .catch((error: unknown) => {
           logLookupFailure(error);
           return [];
@@ -57,7 +76,7 @@ function useAddressSuggestions(search: SuggestionSearch): AddressSuggestion[] {
         });
     }, TYPING_PAUSE_MS);
     return () => clearTimeout(timer);
-  }, [query, isEnabled, nearState, sessionToken]);
+  }, [lookup, query, isEnabled, nearState, sessionToken]);
 
   return isEnabled && results.query === query ? results.suggestions : [];
 }
@@ -72,6 +91,7 @@ export function AddressSearch({
   onValueChange,
   onAddressChosen,
   nearState,
+  lookup = SIGNED_IN_LOOKUP,
   ...inputProps
 }: AddressSearchProps) {
   const [shouldSearch, setShouldSearch] = useState(false);
@@ -79,6 +99,7 @@ export function AddressSearch({
   // pick together as one lookup.
   const sessionToken = useRef<string>(crypto.randomUUID());
   const suggestions = useAddressSuggestions({
+    lookup,
     query: value.trim(),
     isEnabled: shouldSearch,
     nearState,
@@ -88,12 +109,12 @@ export function AddressSearch({
   async function choose(suggestion: AddressSuggestion): Promise<void> {
     setShouldSearch(false);
     onValueChange(suggestion.mainText);
-    const address = await getAddressAction(suggestion.placeId, sessionToken.current).catch(
-      (error: unknown) => {
+    const address = await lookup
+      .getAddress(suggestion.placeId, sessionToken.current)
+      .catch((error: unknown) => {
         logLookupFailure(error);
         return null;
-      },
-    );
+      });
     sessionToken.current = crypto.randomUUID();
     if (address) {
       onAddressChosen(address);

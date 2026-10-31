@@ -1,7 +1,8 @@
-import { RENTER_LINK_PURPOSES } from "@fleetapp/core";
+import { RENTER_LINK_PURPOSES, RENTER_SUBMISSION_STATUSES } from "@fleetapp/core";
 import { sql } from "drizzle-orm";
 import {
   check,
+  date,
   foreignKey,
   index,
   integer,
@@ -16,7 +17,7 @@ import {
 
 import { primaryKeyColumn, timestampColumns } from "./columns";
 import { operatorIdColumn } from "./operators";
-import { renters } from "./renters";
+import { licenceClassEnum, licenceIssuerEnum, licenceTypeEnum, renters } from "./renters";
 import { users } from "./users";
 
 export const renterLinkPurposeEnum = pgEnum("renter_link_purpose", RENTER_LINK_PURPOSES);
@@ -54,6 +55,8 @@ export const renterLinks = pgTable(
     codesInWindow: integer("codes_in_window").notNull().default(0),
     /** Too many wrong codes: the link stays shut until the Operator sends a new one. */
     lockedAt: timestamp("locked_at", { withTimezone: true }),
+    /** Address searches made from the link's form, capped so a link cannot run up the bill. */
+    addressSearches: integer("address_searches").notNull().default(0),
 
     ...timestampColumns,
   },
@@ -98,5 +101,73 @@ export const renterLinkDevices = pgTable(
       columns: [table.linkId, table.operatorId],
       foreignColumns: [renterLinks.id, renterLinks.operatorId],
     }),
+  ],
+);
+
+export const renterSubmissionStatusEnum = pgEnum(
+  "renter_submission_status",
+  RENTER_SUBMISSION_STATUSES,
+);
+
+/**
+ * What a Renter sent through their details link. Nothing on the Renter's
+ * record changes until the Operator approves it (decision 4 of
+ * docs/plans/phase-2-step-4.md). One waiting at a time per Renter. Personal
+ * information: no admin access (rule 5).
+ */
+export const renterSubmissions = pgTable(
+  "renter_submissions",
+  {
+    ...primaryKeyColumn,
+    ...operatorIdColumn,
+    renterId: uuid("renter_id").notNull(),
+    linkId: uuid("link_id").notNull(),
+    status: renterSubmissionStatusEnum("status").notNull().default("waiting"),
+
+    fullName: text("full_name").notNull(),
+    preferredName: text("preferred_name"),
+    dateOfBirth: date("date_of_birth").notNull(),
+    phone: text("phone"),
+    email: text("email"),
+    residentialAddress: text("residential_address").notNull(),
+    postalAddress: text("postal_address"),
+    emergencyContactName: text("emergency_contact_name"),
+    emergencyContactPhone: text("emergency_contact_phone"),
+    emergencyContactRelationship: text("emergency_contact_relationship"),
+
+    licenceIssuedIn: licenceIssuerEnum("licence_issued_in").notNull(),
+    licenceCountry: text("licence_country"),
+    licenceNumber: text("licence_number").notNull(),
+    licenceClass: licenceClassEnum("licence_class").notNull(),
+    licenceType: licenceTypeEnum("licence_type").notNull(),
+    licenceExpiresOn: date("licence_expires_on").notNull(),
+
+    /** The Operator's note when sending it back. */
+    reviewNote: text("review_note"),
+    reviewedByUserId: uuid("reviewed_by_user_id").references(() => users.id),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+
+    ...timestampColumns,
+  },
+  (table) => [
+    unique("renter_submissions_id_operator_unique").on(table.id, table.operatorId),
+    foreignKey({
+      name: "renter_submissions_renter_fk",
+      columns: [table.renterId, table.operatorId],
+      foreignColumns: [renters.id, renters.operatorId],
+    }),
+    foreignKey({
+      name: "renter_submissions_link_fk",
+      columns: [table.linkId, table.operatorId],
+      foreignColumns: [renterLinks.id, renterLinks.operatorId],
+    }),
+    uniqueIndex("renter_submissions_one_waiting_per_renter")
+      .on(table.operatorId, table.renterId)
+      .where(sql`${table.status} = 'waiting'`),
+    check("renter_submissions_has_contact", sql`num_nonnulls(${table.phone}, ${table.email}) > 0`),
+    check(
+      "renter_submissions_reviewed",
+      sql`(${table.status} = 'waiting') = (${table.reviewedAt} is null)`,
+    ),
   ],
 );

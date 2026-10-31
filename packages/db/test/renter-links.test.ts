@@ -15,6 +15,7 @@ import {
 
 const FOREIGN_KEY_VIOLATION = "23503";
 const UNIQUE_VIOLATION = "23505";
+const CHECK_VIOLATION = "23514";
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Renter links stay within their Operator; a fingerprint finds only a live link. */
@@ -90,6 +91,80 @@ describe("Renter links", () => {
     const expired = linkRow(operatorBId, { expiresAt: new Date(Date.now() - 1000) });
     await withTenant(web.db, operatorBId, (tx) => tx.insert(schema.renterLinks).values(expired));
     expect(await lookUp(expired.tokenHash)).toEqual([]);
+  });
+
+  it("keeps submissions and link photos to their own Operator, one waiting per Renter", async () => {
+    const live = linkRow(operatorBId, { renterId: renterBId });
+    const [link] = await withTenant(web.db, operatorBId, async (tx) => {
+      await tx
+        .update(schema.renterLinks)
+        .set({ cancelledAt: new Date() })
+        .where(eq(schema.renterLinks.renterId, renterBId));
+      return tx.insert(schema.renterLinks).values(live).returning({ id: schema.renterLinks.id });
+    });
+    const submission = (operatorId: string) => ({
+      operatorId,
+      renterId: renterBId,
+      linkId: link!.id,
+      fullName: "Sam Example",
+      dateOfBirth: "1998-05-04",
+      email: "sam@example.test",
+      residentialAddress: "1 Test Street, Perth WA 6000",
+      licenceIssuedIn: "WA" as const,
+      licenceNumber: "1234567",
+      licenceClass: "C" as const,
+      licenceType: "full" as const,
+      licenceExpiresOn: "2028-05-04",
+    });
+    const photo = (operatorId: string) => ({
+      operatorId,
+      purpose: "renter_submitted_scan" as const,
+      storageArea: "identity" as const,
+      objectKey: `${operatorId}/renter_submitted_scan/${randomUUID()}`,
+      contentType: "image/jpeg",
+      sizeBytes: 300_000,
+      renterLinkId: link!.id,
+      licenceSide: "front" as const,
+      confirmedAt: new Date(),
+    });
+    await withTenant(web.db, operatorBId, async (tx) => {
+      await tx.insert(schema.renterSubmissions).values(submission(operatorBId));
+      await tx.insert(schema.files).values(photo(operatorBId));
+    });
+    const codes = [
+      await postgresErrorCodeOf(
+        withTenant(web.db, operatorBId, (tx) =>
+          tx.insert(schema.renterSubmissions).values(submission(operatorBId)),
+        ),
+      ),
+      await postgresErrorCodeOf(
+        withTenant(web.db, operatorBId, (tx) => tx.insert(schema.files).values(photo(operatorBId))),
+      ),
+      await postgresErrorCodeOf(
+        withTenant(web.db, operatorAId, (tx) =>
+          tx.insert(schema.renterSubmissions).values(submission(operatorAId)),
+        ),
+      ),
+      await postgresErrorCodeOf(
+        withTenant(web.db, operatorBId, (tx) =>
+          tx.insert(schema.files).values({ ...photo(operatorBId), renterLinkId: null }),
+        ),
+      ),
+      await postgresErrorCodeOf(admin.db.select().from(schema.renterSubmissions)),
+      await postgresErrorCodeOf(
+        withTenant(web.db, operatorBId, (tx) =>
+          tx.update(schema.renterSubmissions).set({ fullName: "Changed" }),
+        ),
+      ),
+    ];
+    expect(codes).toEqual([
+      UNIQUE_VIOLATION,
+      UNIQUE_VIOLATION,
+      FOREIGN_KEY_VIOLATION,
+      CHECK_VIOLATION,
+      POSTGRES_ERROR_CODES.insufficientPrivilege,
+      POSTGRES_ERROR_CODES.insufficientPrivilege,
+    ]);
   });
 
   it("allows one live link of a kind per Renter", async () => {

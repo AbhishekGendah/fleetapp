@@ -19,7 +19,8 @@ Add to this list whenever something is relaxed or put off "until launch".
   someone other than whoever built it, covering at least:
   - tenancy: every table, every query, row-level security, and the
     functions that cross Operators (`app.operators_with_file_housekeeping_due`,
-    `app.vehicles_not_in_catalogue`, `app.correct_vehicle_make_model`);
+    `app.vehicles_not_in_catalogue`, `app.correct_vehicle_make_model`,
+    `app.renter_link_for_token`), and the Renter link pages and actions;
   - sign-in: time limits (above), lockouts, authenticator, recovery codes,
     password reset, remembered devices, session cookies;
   - the admin site: what it can read and change, and that it still cannot
@@ -56,3 +57,7 @@ Add to this list whenever something is relaxed or put off "until launch".
   names, and record keeping), the Renter privacy notice, and the data
   breach response plan.
 - [ ] PintoFleet name checked (ASIC, IP Australia, domain).
+- [ ] The privacy notice on the Renter's details form checked by the lawyer,
+  and every Operator has a privacy policy it can point to (required by the
+  Operator terms, or a template from AGS; a link to it on the form may be
+  wanted). See docs/legal-notes.md, Renter links.
