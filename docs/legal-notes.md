@@ -260,8 +260,13 @@ of service) and the countries.
   tolls); the overseas services (email in the USA, Google for the address
   search); and that the Operator's privacy policy says how to access or
   correct them and complain. Each Operator needs a privacy policy for this to
-  point to: the Operator terms should require one (or AGS could supply a
-  template).
+  point to: AGS supplies a template (decided 31 Oct 2026), drafted from the
+  OAIC's APP 1 guidance at docs/legal/renter-privacy-policy-template.md, for
+  one lawyer review before launch. The Operator terms should say the template
+  is a starting point and each Operator is responsible for it fitting their
+  business. Keep the template in step with what the app collects: update it
+  in the same task whenever a new kind of Renter data or overseas service is
+  added.
 - **What the Renter sends is held, not applied:** it waits for the
   Operator's review (part 3) and the record does not change until approved.
   Licence photos go to the identity storage as for scans, are never shown

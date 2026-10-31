@@ -58,6 +58,9 @@ Add to this list whenever something is relaxed or put off "until launch".
   breach response plan.
 - [ ] PintoFleet name checked (ASIC, IP Australia, domain).
 - [ ] The privacy notice on the Renter's details form checked by the lawyer,
-  and every Operator has a privacy policy it can point to (required by the
-  Operator terms, or a template from AGS; a link to it on the form may be
-  wanted). See docs/legal-notes.md, Renter links.
+  and every Operator has a privacy policy it can point to (a link to it on
+  the form may be wanted). See docs/legal-notes.md, Renter links.
+- [ ] The Operator privacy policy template
+  (docs/legal/renter-privacy-policy-template.md) reviewed once by the lawyer,
+  retention periods filled in, and the Operator terms saying it is a
+  starting point the Operator is responsible for.

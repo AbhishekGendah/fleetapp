@@ -486,6 +486,12 @@
   each, used by the Operator's forms and the link. Fixed in passing: the
   licence number's "Required" now shows even before "Issued in" is chosen.
 
+- **Privacy policy template for Operators (draft):**
+  docs/legal/renter-privacy-policy-template.md, written from the OAIC's APP 1
+  guidance and what the app actually holds, with placeholders and notes for
+  the Operator. One lawyer review before launch (decided with Abhi: draft
+  ourselves, review once).
+
 ## Next
 Phase 2 step 4, part 3: the Operator's review (Waiting for review badge and
 filter on the list, the Review page, Approve or Send back with a note, and
