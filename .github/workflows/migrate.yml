@@ -1,15 +1,26 @@
 name: Migrate database
 
-# Runs the Drizzle migrations against the development database on every push
-# to main.
+# Runs the Drizzle migrations against the development database, only after CI
+# has passed for that commit on main, so a commit that fails its checks never
+# changes the database.
 #
-# This deploys alongside Vercel rather than before it, so which finishes first
-# is not guaranteed. Every migration must therefore be backwards compatible
-# with the currently deployed code: add columns and tables first, remove them
-# in a later release. See docs/plans/phase-1a.md.
+# Vercel deploys on the push itself, so which finishes first is not
+# guaranteed. Every migration must therefore be backwards compatible with the
+# currently deployed code: add columns and tables first, remove them in a
+# later release (expand, deploy, then contract); add CHECKs on large tables as
+# NOT VALID, then VALIDATE. See docs/plans/phase-1a.md.
+#
+# Pending migrations run in one transaction: a migration that adds an enum
+# value must be pushed on its own, or the next one must compare it as text
+# (::text), since a new enum value cannot be used before it is committed.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
+
+permissions:
+  contents: read
 
 # One migration at a time. Two concurrent runs would race for the same
 # advisory lock and one would fail.
@@ -19,9 +30,12 @@ concurrency:
 
 jobs:
   migrate:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - uses: pnpm/action-setup@v4
 
