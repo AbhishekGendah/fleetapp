@@ -628,8 +628,34 @@
   or returned with the bond still held) keeps their scans; afterwards the
   timer counts from their last return. Tested with real rentals.
 
+- Phase 3 slice 2 — contract templates and issued documents:
+  - Migrations 0029 and 0030: contract_templates (one default per kind),
+    contract_template_versions and issued_documents, both append-only; an
+    issued document's PDF can never be binned or swapped once confirmed.
+  - Templates: written in a TipTap editor (headings, lists, bold, italic,
+    underline, dividing line) with Insert field for 27 merge fields; links,
+    pictures and code can't be added. Saving a change makes a new version.
+    Starter template: layout and headings only, no legal wording.
+  - PDFs made on the server with react-pdf: the business's logo (PNG or
+    JPEG; WebP logos are left off), page numbers, a red "Preview" notice.
+    Template preview (fields shown by name) and a filled-in preview on each
+    rental, listing details not on file. Issuing (store once, SHA-256,
+    numbered versions) is built and tested, used from slice 3 (signing).
+  - Screens: Settings → Contracts (list, add, editor, versions, Log),
+    Contract card on rentals. Browser tests, axe, budgets.
+  - New libraries pinned: @tiptap/react, @tiptap/pm, @tiptap/starter-kit,
+    @tiptap/core 3.32.0; @react-pdf/renderer 4.9.0.
+  - Known limit: PDFs use the built-in Helvetica, which covers English and
+    Western European accents only. Names in other scripts need an embedded
+    font; a font's licence (usually SIL OFL) is outside rule 32's list, so
+    that is Abhi's decision when it matters.
+  - Fine admin fee merge field comes with fines (Phase 6).
+
 ## Next
-Phase 3 slice 2: contract templates and issued documents.
+Phase 3 slice 3: signing the contract on the Renter's phone (new link
+purpose, code, read, consent, draw or type a signature, certificate page,
+issued PDF emailed). Check LocalStack honours S3's "no overwrite" save in
+the browser tests when issuing first runs there.
 Open idea: trim the phone rules to Australia only with libphonenumber's
 metadata generator (about 40 KB off each form page); running the
 generator needs Abhi's say-so.

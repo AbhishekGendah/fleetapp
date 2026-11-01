@@ -325,6 +325,29 @@ of service) and the countries.
 - **Do not rent:** a Renter marked Do not rent cannot be booked. The reason
   stays the Operator's private note (already covered under Renters).
 
+## Contract templates and issued documents (Phase 3 slice 2, built)
+
+- **No legal wording from AGS:** the starter template gives layout,
+  headings and "write your terms here" notes only, with a note at the top
+  to have the finished contract checked by a lawyer. The Operator writes
+  and owns their terms (unfair contract terms law applies to standard-form
+  contracts, with penalties). The Operator terms should say so; already on
+  the lawyer list.
+- **Record keeping (rule 12):** every saved template version is kept
+  unchanged; issued documents (the PDF and its SHA-256 fingerprint) can
+  never be changed or removed, nor their PDF file binned, by anyone,
+  including the database's top login (tested). Contracts are commonly kept
+  7 years; decide the retention period with the lawyer before any deletion
+  rule touches them.
+- **Personal information in PDFs:** a filled-in contract holds the
+  Renter's name, date of birth, address, phone, email and licence number.
+  Previews are made on request, never stored, and sent with "no-store" so
+  no browser or proxy keeps a copy. Stored (issued) PDFs come with signing
+  in slice 3, in general storage (a contract is not an identity document)
+  and opened only through 5-minute links.
+- **Overseas:** PDFs are made on our own servers (Vercel, Sydney) with an
+  open-source library; nothing is sent to another service.
+
 ## Admin access to Operators' history (code review, 1 Nov 2026)
 
 - The admin login reads only who did what and when in Operators' history,

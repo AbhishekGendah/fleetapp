@@ -56,7 +56,7 @@ Status: ✅ done · 🔨 in progress · ⏳ not started. Last checked 1 Nov 2026
 - Hand-built pieces replaced by established libraries, with browser tests
   (Playwright) proving each one. Done 1 Nov 2026.
 
-## Phase 3 — Rentals ⏳ (plan: docs/plans/phase-3.md; slice 1 bookings ✅, slice 2 next)
+## Phase 3 — Rentals ⏳ (plan: docs/plans/phase-3.md; slices 1 bookings and 2 contracts ✅, slice 3 signing next)
 - Bookings, calendar, double-booking prevention.
 - Contract templates, signing.
 - Handover/return reports (must work offline-ish, rule 25).

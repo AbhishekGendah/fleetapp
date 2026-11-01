@@ -1,6 +1,6 @@
 # Phase 3 plan — Rentals
 
-Status: approved (1 Nov 2026). Slice 1 (bookings) built 1 Nov 2026; slice 2 next.
+Status: approved (1 Nov 2026). Slices 1 (bookings) and 2 (contract templates) built 1 Nov 2026; slice 3 next.
 Design: docs/design/04 (rentals), 05 (contracts, signing, handovers), the
 bond part of 06, the Renter-link part of 08, the dashboard part of 09.
 

@@ -70,6 +70,15 @@ Add to this list whenever something is relaxed or put off "until launch".
 - [ ] Switch from pushing to main to branches and pull requests (CLAUDE.md).
 - [ ] Admin password reset built (progress.md, Open items).
 
+## Documents
+
+- [ ] Retention period for issued documents (contracts, reports) decided
+  with the lawyer (commonly 7 years) before any deletion rule touches
+  them. See docs/legal-notes.md, Contract templates.
+- [ ] If Renters' names may be in non-Latin scripts: embed a font in PDFs
+  (built-in Helvetica covers English and Western European accents only;
+  a font licence, usually SIL OFL, needs Abhi's say-so under rule 32).
+
 ## Domain and releases
 
 - [ ] pintofleet.com.au (and pintofleet.au) bought; app., admin. (and
