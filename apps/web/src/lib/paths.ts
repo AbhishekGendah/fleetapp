@@ -102,6 +102,10 @@ export function rentalContractPreviewPath(rentalId: string): string {
   return `${rentalPath(rentalId)}/contract-preview`;
 }
 
+export function rentalSignedContractPath(rentalId: string): string {
+  return `${rentalPath(rentalId)}/signed-contract`;
+}
+
 /** The New rental form, opened from a Renter's or a car's page with them chosen. */
 export function newRentalPath(preset: { renterId?: string; vehicleId?: string } = {}): string {
   const query = new URLSearchParams(

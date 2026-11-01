@@ -1,43 +1,20 @@
 import { formatDateTimeInTimeZone } from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
-import { Badge } from "@fleetapp/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { Button } from "@fleetapp/ui/button";
 import { ClipboardCheck, XCircle } from "lucide-react";
 import Link from "next/link";
 
 import { appDb } from "../../../lib/app-db";
-import { loadDetailsLink, type DetailsLinkStatus } from "../../../lib/renter-links/details-links";
+import { RenterLinkSender } from "../../../components/renter-link-sender";
+import { RenterLinkStatus } from "../../../components/renter-link-status";
+import { loadDetailsLink } from "../../../lib/renter-links/details-links";
 import { renterReviewPath } from "../../../lib/paths";
 import { loadWaitingSubmission } from "../../../lib/renter-links/submissions";
 import type { SignedInUser } from "../../../lib/require-user";
 import type { RenterDetail } from "../../../lib/renters/renter-queries";
 import { WaitingReviewBadge } from "../renter-status-badge";
-import { DetailsLinkSender } from "./details-link-sender";
 import { cancelDetailsLinkAction, sendDetailsLinkAction } from "./link-actions";
-
-function LinkStatus({ link, timeZone }: { link: DetailsLinkStatus; timeZone: string }) {
-  const sent = `Sent to ${link.sentToEmail} on ${formatDateTimeInTimeZone(link.sentAt, timeZone)}.`;
-  if (link.isLocked) {
-    return (
-      <p className="text-sm">
-        {sent} <Badge tone="danger">Locked</Badge> Too many wrong codes: send again for a new link.
-      </p>
-    );
-  }
-  if (link.isExpired) {
-    return (
-      <p className="text-sm">
-        {sent} <Badge>Expired</Badge> Send again for a new link.
-      </p>
-    );
-  }
-  return (
-    <p className="text-sm">
-      {sent} Works until {formatDateTimeInTimeZone(link.expiresAt, timeZone)}.
-    </p>
-  );
-}
 
 /**
  * The Renter's details form link: send it, see where it went and until when,
@@ -80,12 +57,14 @@ export async function DetailsLinkCard({
             </Button>
           </div>
         ) : null}
-        {link ? <LinkStatus link={link} timeZone={user.operatorTimezone} /> : null}
+        {link ? <RenterLinkStatus link={link} timeZone={user.operatorTimezone} /> : null}
         {renter.email ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-            <DetailsLinkSender
+            <RenterLinkSender
               action={sendDetailsLinkAction.bind(null, renter.id)}
               hasLink={link !== null}
+              sendLabel="Send details form"
+              urlFieldId="details-link"
             />
             {isLive ? (
               <ActionButton

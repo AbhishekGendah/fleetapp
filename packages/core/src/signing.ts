@@ -115,18 +115,29 @@ export function signContractInputSchema(
       drawnSignature: z.string(),
       contractFingerprint: z.string().regex(FINGERPRINT_PATTERN),
     })
-    .superRefine((input, context) => {
-      if (input.method === "typed" && !isTypedNameMatching(input.typedName, fullName)) {
-        context.addIssue({ code: "custom", path: ["typedName"], message: NAME_MISMATCH_MESSAGE });
-      }
-      if (input.method === "drawn" && decodeDrawnSignature(input.drawnSignature) === null) {
-        context.addIssue({
-          code: "custom",
-          path: ["drawnSignature"],
-          message: DRAW_NEEDED_MESSAGE,
-        });
-      }
-    });
+    .superRefine(
+      (input, context) => {
+        if (
+          input.method === "typed" &&
+          !isTypedNameMatching(String(input.typedName ?? ""), fullName)
+        ) {
+          context.addIssue({ code: "custom", path: ["typedName"], message: NAME_MISMATCH_MESSAGE });
+        }
+        if (
+          input.method === "drawn" &&
+          decodeDrawnSignature(String(input.drawnSignature ?? "")) === null
+        ) {
+          context.addIssue({
+            code: "custom",
+            path: ["drawnSignature"],
+            message: DRAW_NEEDED_MESSAGE,
+          });
+        }
+      },
+      // Checked even while the tick boxes are empty, so a wrong name shows as it is typed.
+      // The input may then be only partly valid, hence the String() above.
+      { when: () => true },
+    );
 }
 export const SIGN_CONTRACT_FIELDS = [
   "areDetailsConfirmed",

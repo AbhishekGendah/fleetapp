@@ -7,17 +7,21 @@ import { Input } from "@fleetapp/ui/input";
 import { Copy, Send } from "lucide-react";
 import { useActionState, useState } from "react";
 
-import { INITIAL_LINK_SEND_STATE, type LinkSendState } from "./link-send-state";
+import { INITIAL_LINK_SEND_STATE, type LinkSendState } from "../lib/renter-links/link-send-state";
 
 const COPIED_MS = 2000;
 
 /**
- * Sends the details form link, then shows its address once so it can be
- * copied into a text message. It is never shown again: send again for a new one.
+ * Sends a Renter link, then shows its address once so it can be copied into
+ * a text message. It is never shown again: send again for a new one.
  */
-export function DetailsLinkSender(props: {
+export function RenterLinkSender(props: {
   action: (state: LinkSendState) => Promise<LinkSendState>;
   hasLink: boolean;
+  /** The button before any link is sent, e.g. "Send details form". */
+  sendLabel: string;
+  /** The id of the box showing the address; unique on the page. */
+  urlFieldId: string;
 }) {
   const [state, formAction, isPending] = useActionState(props.action, INITIAL_LINK_SEND_STATE);
   const [isCopied, setIsCopied] = useState(false);
@@ -42,7 +46,7 @@ export function DetailsLinkSender(props: {
           className="w-full sm:w-auto"
         >
           <Send aria-hidden />
-          {isPending ? "Sending…" : props.hasLink ? "Send again" : "Send details form"}
+          {isPending ? "Sending…" : props.hasLink ? "Send again" : props.sendLabel}
         </Button>
       </form>
       {state.status === "failed" ? <FormError message={state.message} /> : null}
@@ -59,12 +63,12 @@ export function DetailsLinkSender(props: {
             </p>
           )}
           <FormField
-            htmlFor="details-link"
+            htmlFor={props.urlFieldId}
             label="Or copy the link into a text message"
             hint="Shown only now. If you need it again, press Send again for a new link."
           >
             <div className="flex gap-2">
-              <Input id="details-link" value={state.url} readOnly className="min-w-0 flex-1" />
+              <Input id={props.urlFieldId} value={state.url} readOnly className="min-w-0 flex-1" />
               <Button type="button" variant="outline" onClick={() => void handleCopy(state.url)}>
                 <Copy aria-hidden />
                 {isCopied ? "Copied" : "Copy"}

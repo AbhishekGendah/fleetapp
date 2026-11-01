@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { describe, expect, it } from "vitest";
 
 import { contentFingerprint } from "./document-fingerprint";
@@ -26,6 +27,17 @@ function signing(changes: Record<string, string> = {}) {
 }
 
 describe("signing", () => {
+  it("checks a typed name even before the boxes are ticked, so it shows as it is typed", () => {
+    const result = signing({ areDetailsConfirmed: "", hasConsented: "", typedName: "Someone" });
+
+    expect(result.success).toBe(false);
+    expect(Object.keys(z.flattenError(result.error!).fieldErrors).sort()).toEqual([
+      "areDetailsConfirmed",
+      "hasConsented",
+      "typedName",
+    ]);
+  });
+
   it("takes a typed name only when it is the name on the contract", () => {
     expect(isTypedNameMatching("  SAM  o'brien-example ", "Sam O'Brien-Example")).toBe(true);
     expect(isTypedNameMatching("José Núñez", "Jose Nunez")).toBe(true);

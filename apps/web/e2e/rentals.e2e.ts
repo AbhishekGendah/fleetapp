@@ -1,8 +1,9 @@
 import { expectAccessible } from "@fleetapp/e2e/accessibility";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import { MINIMUM_TOUCH_TARGET_PX, PHONE_VIEWPORT } from "./e2e-settings";
 import { expectPdf } from "./pdf-checks";
+import { addCarToBook, fillRental, type RentalParties, type TypedMoment } from "./rental-steps";
 
 /**
  * Bookings as an Operator makes them: a car booked for a Renter, a second
@@ -13,44 +14,7 @@ import { expectPdf } from "./pdf-checks";
  */
 const RENTER_NAME = "Rita Rental";
 const CAR_REGO = "E2E201";
-
-interface TypedMoment {
-  day: string;
-  month: string;
-  year: string;
-  /** 12-hour clock, two digits. */
-  hour: string;
-  minute: string;
-  meridiem: "a" | "p";
-}
-
-/** Types a date and time into a picker part by part, as a keyboard user would. */
-async function typeMoment(page: Page, label: RegExp, moment: TypedMoment): Promise<void> {
-  const picker = page.getByRole("group", { name: label });
-  await picker.getByRole("spinbutton", { name: /day/i }).focus();
-  for (const part of [moment.day, moment.month, moment.year, moment.hour, moment.minute]) {
-    await page.keyboard.type(part);
-  }
-  await page.keyboard.type(moment.meridiem);
-}
-
-async function pickRecord(page: Page, label: RegExp, typed: string): Promise<void> {
-  const box = page.getByRole("combobox", { name: label });
-  await box.fill(typed);
-  await expect(page.getByRole("option").first()).toBeVisible();
-  await page.keyboard.press("Enter");
-}
-
-/** Fills the New rental form for the test car and Renter, fixed term, between two moments. */
-async function fillRental(page: Page, start: TypedMoment, end: TypedMoment): Promise<void> {
-  await page.goto("/rentals/new", { waitUntil: "networkidle" });
-  await pickRecord(page, /^Renter/, RENTER_NAME);
-  await pickRecord(page, /^Car/, CAR_REGO);
-  await typeMoment(page, /^Starts/, start);
-  await typeMoment(page, /^Ends/, end);
-  await page.getByRole("textbox", { name: /^Weekly rate/ }).pressSequentially("350");
-  await page.getByRole("textbox", { name: /^Bond/ }).pressSequentially("500");
-}
+const PARTIES: RentalParties = { renterName: RENTER_NAME, carRego: CAR_REGO };
 
 const MARCH_1: TypedMoment = {
   day: "01",
@@ -75,21 +39,11 @@ test.describe.serial("bookings", () => {
     await page.getByRole("button", { name: "Add Renter" }).click();
     await expect(page.getByRole("heading", { name: RENTER_NAME })).toBeVisible();
 
-    await page.goto("/cars/new", { waitUntil: "networkidle" });
-    await page.getByRole("textbox", { name: /^Rego/ }).fill(CAR_REGO);
-    await page.getByLabel(/^State/).selectOption("WA");
-    await page.getByRole("combobox", { name: /^Make/ }).fill("toyo");
-    await page.getByRole("listbox").getByRole("option", { name: "Toyota" }).click();
-    await page.getByRole("combobox", { name: /^Model/ }).fill("corol");
-    await page.getByRole("listbox").getByRole("option", { name: "Corolla", exact: true }).click();
-    await page.getByRole("textbox", { name: /^Year/ }).fill("2024");
-    await page.getByRole("textbox", { name: /^Odometer/ }).pressSequentially("1000");
-    await page.getByRole("button", { name: "Add car" }).click();
-    await expect(page.getByRole("heading", { name: CAR_REGO })).toBeVisible();
+    await addCarToBook(page, CAR_REGO);
   });
 
   test("books the car, and lists what is still needed before handover", async ({ page }) => {
-    await fillRental(page, MARCH_1, MARCH_29);
+    await fillRental(page, PARTIES, MARCH_1, MARCH_29);
     await expectAccessible(page);
     await page.getByRole("button", { name: "Book", exact: true }).click();
 
@@ -123,7 +77,7 @@ test.describe.serial("bookings", () => {
   test("refuses the same car for overlapping dates, linking to the booking in the way", async ({
     page,
   }) => {
-    await fillRental(page, MARCH_15, APRIL_5);
+    await fillRental(page, PARTIES, MARCH_15, APRIL_5);
     await page.getByRole("button", { name: "Book", exact: true }).click();
 
     await expect(page.getByText(/^This car is already booked from/)).toBeVisible();
@@ -132,7 +86,7 @@ test.describe.serial("bookings", () => {
   });
 
   test("saves a draft without holding the car, then books it", async ({ page }) => {
-    await fillRental(page, APRIL_5, APRIL_26);
+    await fillRental(page, PARTIES, APRIL_5, APRIL_26);
     await page.getByRole("button", { name: "Save as draft" }).click();
     await expect(page.getByText("Draft", { exact: true }).first()).toBeVisible();
 
@@ -144,7 +98,7 @@ test.describe.serial("bookings", () => {
   });
 
   test("cancels a booking with a reason, letting the car go", async ({ page }) => {
-    await fillRental(page, MAY_3, MAY_31);
+    await fillRental(page, PARTIES, MAY_3, MAY_31);
     await page.getByRole("button", { name: "Book", exact: true }).click();
     await expect(page.getByRole("button", { name: "Cancel this rental" })).toBeVisible();
 

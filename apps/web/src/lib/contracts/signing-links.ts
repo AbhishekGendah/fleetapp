@@ -1,4 +1,9 @@
-import { describeErrorForLog, MILLISECONDS_PER_DAY, SIGNING_LINK_DAYS } from "@fleetapp/core";
+import {
+  describeErrorForLog,
+  MILLISECONDS_PER_DAY,
+  SIGNING_LINK_DAYS,
+  type MergeFieldKey,
+} from "@fleetapp/core";
 import { generateSecretToken, hashSecretToken } from "@fleetapp/core/server";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import {
@@ -16,7 +21,11 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { recordUserChange, type ActingUser } from "../acting-user";
 import type { RentalClock } from "../rentals/rental-records";
 import { cancelLiveLinks } from "../renter-links/cancel-links";
-import { renterLinkUrl, type LinkDependencies } from "../renter-links/details-links";
+import {
+  renterLinkUrl,
+  type LinkDependencies,
+  type RenterLinkInPlay,
+} from "../renter-links/details-links";
 import { loadLinkSender } from "../renter-links/link-email";
 import { fillContract } from "./filled-contract";
 import { loadDefaultTemplate } from "./templates";
@@ -26,7 +35,7 @@ const SIGNABLE_STATUSES = new Set(["draft", "booked"]);
 
 export type SendSigningLinkResult =
   | { status: "sent"; url: string; expiresAt: Date; isEmailed: boolean }
-  | { status: "missing"; fields: string[] }
+  | { status: "missing"; fields: MergeFieldKey[] }
   | { status: "not_found" | "not_signable" | "no_email" | "no_template" | "already_signed" };
 
 /** "1ABC234 Toyota Corolla, from 1 June 2027": the rental in a few words, for emails. */
@@ -191,13 +200,7 @@ export async function cancelSigningLink(
 
 export interface SigningStatus {
   signed: { documentId: string; version: number; issuedAt: Date } | null;
-  link: {
-    sentToEmail: string;
-    sentAt: Date;
-    expiresAt: Date;
-    isExpired: boolean;
-    isLocked: boolean;
-  } | null;
+  link: RenterLinkInPlay | null;
 }
 
 /** Whether the rental's contract is signed, and the signing link in play if not. */

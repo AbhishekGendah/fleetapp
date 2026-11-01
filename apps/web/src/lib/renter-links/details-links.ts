@@ -126,7 +126,8 @@ export async function cancelDetailsLink(
   );
 }
 
-export interface DetailsLinkStatus {
+/** A Renter link still in play (maybe expired or locked), as its sender sees it. */
+export interface RenterLinkInPlay {
   sentToEmail: string;
   sentAt: Date;
   expiresAt: Date;
@@ -140,7 +141,7 @@ export async function loadDetailsLink(
   operatorId: string,
   renterId: string,
   now: Date,
-): Promise<DetailsLinkStatus | null> {
+): Promise<RenterLinkInPlay | null> {
   const [link] = await withTenant(database, operatorId, (tx) =>
     tx
       .select({

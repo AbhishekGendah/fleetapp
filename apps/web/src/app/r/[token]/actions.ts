@@ -6,13 +6,15 @@ import {
   MAXIMUM_LINK_CODES_PER_HOUR,
   typedLinkCode,
 } from "@fleetapp/core";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { env } from "../../../env";
 import { appDb } from "../../../lib/app-db";
+import { recordSigningEvidence } from "../../../lib/contracts/signing";
 import { appEmailSender } from "../../../lib/email-sender";
 import { checkLinkCode, openLink, sendLinkCode } from "../../../lib/renter-links/link-visits";
+import { requestMetaFrom } from "../../../lib/request-meta";
 import { DEVICE_COOKIE, linkPagePath, type CodeStepState } from "./link-state";
 
 const GONE_MESSAGE = "This link no longer works. Ask the business that sent it for a new one.";
@@ -87,6 +89,8 @@ export async function checkCodeAction(
         message: `That code is not right. ${result.triesLeft} ${result.triesLeft === 1 ? "try" : "tries"} left.`,
       };
     }
+    // The right code is the first step of a signing's evidence: who signed.
+    await recordSigningEvidence(appDb, visit, "code_verified", requestMetaFrom(await headers()));
     deviceToken = result.deviceToken;
     expiresAt = visit.expiresAt;
   } catch (error) {

@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@flee
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
+import type { RenterLinkPurpose } from "@fleetapp/core";
+
 import { appDb } from "../../../lib/app-db";
 import { detailsFormStart } from "../../../lib/renter-links/details-form-input";
 import { isPhoneRemembered, openLink } from "../../../lib/renter-links/link-visits";
@@ -14,14 +16,20 @@ import { DetailsForm } from "./details-form";
 import { ForgetDraft } from "./forget-draft";
 import { DEVICE_COOKIE } from "./link-state";
 import { SentThanks } from "./sent-thanks";
+import { SigningStep } from "./signing-step";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** Never listed by search engines; the headers in next.config say the same. */
 export const metadata: Metadata = {
-  title: "Your details form",
+  title: "Your rental link",
   robots: { index: false, follow: false },
+};
+
+const PAGE_TITLES: Readonly<Record<RenterLinkPurpose, string>> = {
+  details_form: "Your details form",
+  sign_contract: "Your rental contract",
 };
 
 function LinkPage(props: { operatorName?: string; title: string; children: React.ReactNode }) {
@@ -71,7 +79,7 @@ export default async function RenterLinkPage(props: { params: Promise<{ token: s
   const deviceToken = (await cookies()).get(DEVICE_COOKIE)?.value;
   if (!(await isPhoneRemembered(appDb, visit, deviceToken))) {
     return (
-      <LinkPage operatorName={visit.operatorName} title="Your details form">
+      <LinkPage operatorName={visit.operatorName} title={PAGE_TITLES[visit.purpose]}>
         <CodeStep
           maskedEmail={visit.maskedEmail}
           sendCode={sendCodeAction.bind(null, token)}
@@ -80,9 +88,16 @@ export default async function RenterLinkPage(props: { params: Promise<{ token: s
       </LinkPage>
     );
   }
+  if (visit.purpose === "sign_contract") {
+    return (
+      <LinkPage operatorName={visit.operatorName} title={PAGE_TITLES.sign_contract}>
+        <SigningStep token={token} visit={visit} />
+      </LinkPage>
+    );
+  }
   const start = await loadFormStart(appDb, visit);
   return (
-    <LinkPage operatorName={visit.operatorName} title="Your details form">
+    <LinkPage operatorName={visit.operatorName} title={PAGE_TITLES.details_form}>
       {start.status === "waiting" ? (
         <>
           <SentThanks operatorName={visit.operatorName} />
