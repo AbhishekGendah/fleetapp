@@ -4,7 +4,7 @@ import { fieldErrorsOf, RENTER_STATUS_LABELS, RENTER_STATUSES } from "@fleetapp/
 import { INITIAL_CHANGE_STATE, type ChangeFormState } from "@fleetapp/ui/change-form-state";
 import { FormField } from "@fleetapp/ui/form-field";
 import { Select } from "@fleetapp/ui/select";
-import { Input } from "@fleetapp/ui/input";
+import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
 import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import { useActionState } from "react";
 
@@ -40,6 +40,7 @@ export function RenterStatusForm(props: {
       noValidate
       className="flex flex-col gap-4"
     >
+      <RequiredFieldsNote />
       <FormField htmlFor="status" label={RENTER_FIELD_LABELS.status} isRequired>
         <Select
           {...form.boxProps("status")}

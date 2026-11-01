@@ -5,6 +5,7 @@ import { Button } from "@fleetapp/ui/button";
 import { FilePicker } from "@fleetapp/ui/file-picker";
 import { useDialogClose } from "@fleetapp/ui/form-dialog";
 import { FormField } from "@fleetapp/ui/form-field";
+import { FormSection } from "@fleetapp/ui/form-section";
 import { FormError } from "@fleetapp/ui/form-message";
 import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
 import { useRouter } from "next/navigation";
@@ -74,7 +75,7 @@ export function DocumentUploadForm({ vehicleId }: { vehicleId: string }) {
           onBlur={() => setIsLabelChecked(true)}
         />
       </FormField>
-      <div className="flex flex-col gap-2">
+      <FormSection title="File" isRequired>
         <FilePicker
           label={file ? "Choose a different file" : "Choose file"}
           accept={DOCUMENT_RULE.contentTypes.join(",")}
@@ -87,7 +88,7 @@ export function DocumentUploadForm({ vehicleId }: { vehicleId: string }) {
           {/* The name stays on this device: only what you type above is saved. */}
           {file ? `${file.name} chosen. ` : ""}Use {DOCUMENT_RULE.describedAs}.
         </p>
-      </div>
+      </FormSection>
       <FormError message={message} />
       <Button type="submit" disabled={isSending} className="sm:self-start">
         {isSending ? "Saving…" : "Save document"}

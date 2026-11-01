@@ -3,7 +3,7 @@
 import { MAXIMUM_LINE_LENGTH } from "@fleetapp/core";
 import { startTransition, useState, type ChangeEvent, type FormEvent } from "react";
 
-import { fieldErrorId } from "../components/form-field";
+import { fieldDescriptionIds } from "../components/form-field";
 
 /** Each field's messages, as Zod's `flattenError(...).fieldErrors` gives them. */
 export type FieldErrors<Field extends string> = Partial<
@@ -19,6 +19,12 @@ export interface FormFieldsOptions<Field extends string> {
   isRequired: (field: Field, values: Readonly<Record<Field, string>>) => boolean;
   /** The longest text any box takes: one line of text unless said otherwise. */
   maxLength?: number;
+  /**
+   * Put before each box's id, for a page with several forms sharing field
+   * names (e.g. Settings), so each box's id is unique and a failed save moves
+   * to the right one.
+   */
+  idPrefix?: string;
 }
 
 /** What every box shares: its name, its value, and its error wired up for screen readers. */
@@ -29,7 +35,7 @@ export interface BoxProps {
   onBlur: () => void;
   "aria-required": true | undefined;
   "aria-invalid": true | undefined;
-  "aria-describedby": string | undefined;
+  "aria-describedby": string;
 }
 
 export interface TextBoxProps extends BoxProps {
@@ -44,6 +50,8 @@ export interface FormattedBoxProps extends BoxProps {
 
 export interface FormFields<Field extends string> {
   values: Readonly<Record<Field, string>>;
+  /** The box's id, for its FormField's htmlFor. */
+  idFor: (field: Field) => string;
   errorFor: (field: Field) => string | undefined;
   boxProps: (field: Field) => BoxProps;
   /** For an ordinary text box. */
@@ -102,16 +110,18 @@ export function useFormFields<Field extends string>(
     setIsResultShown(false);
   }
 
+  const idFor = (field: Field): string => `${options.idPrefix ?? ""}${field}`;
+
   function boxProps(field: Field): BoxProps {
     const error = errorFor(field);
     return {
-      id: field,
+      id: idFor(field),
       name: field,
       value: values[field],
       onBlur: () => setCheckedFields((previous) => new Set(previous).add(field)),
       "aria-required": options.isRequired(field, values) ? true : undefined,
       "aria-invalid": error ? true : undefined,
-      "aria-describedby": error ? fieldErrorId(field) : undefined,
+      "aria-describedby": fieldDescriptionIds(idFor(field)),
     };
   }
 
@@ -135,7 +145,7 @@ export function useFormFields<Field extends string>(
       setCheckedFields(new Set(options.fields));
       const firstProblem = options.fields.find((field) => errors[field]?.length);
       if (firstProblem) {
-        document.getElementById(firstProblem)?.focus();
+        document.getElementById(idFor(firstProblem))?.focus();
         return;
       }
       const formData = new FormData(event.currentTarget);
@@ -146,6 +156,7 @@ export function useFormFields<Field extends string>(
 
   return {
     values,
+    idFor,
     errorFor,
     boxProps,
     textBoxProps,

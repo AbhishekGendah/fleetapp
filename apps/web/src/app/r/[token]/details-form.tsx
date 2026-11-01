@@ -127,7 +127,7 @@ export function DetailsForm(props: DetailsFormProps) {
       <FormSection title="Your licence">
         <LicenceFields form={form} />
       </FormSection>
-      <FormSection title="Photos of your licence">
+      <FormSection title="Photos of your licence" isRequired>
         <p className="text-muted-foreground text-sm">
           The front and the back, flat and in good light, with every word readable.
         </p>

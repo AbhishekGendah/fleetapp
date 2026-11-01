@@ -2,9 +2,23 @@ import type * as React from "react";
 
 import { Label } from "./input";
 
-/** The id of a field's error message, for the box's `aria-describedby`. */
+/** The id of a field's error (or warning) message, for the box's `aria-describedby`. */
 export function fieldErrorId(fieldId: string): string {
   return `${fieldId}-error`;
+}
+
+/** The id of a field's hint, for the box's `aria-describedby`. */
+export function fieldHintId(fieldId: string): string {
+  return `${fieldId}-hint`;
+}
+
+/**
+ * What a box is described by: its message and its hint, each read out when
+ * it is there (a missing id is skipped), so hints, warnings and refusals
+ * from the server all reach a screen reader.
+ */
+export function fieldDescriptionIds(fieldId: string): string {
+  return `${fieldErrorId(fieldId)} ${fieldHintId(fieldId)}`;
 }
 
 interface FormFieldProps {
@@ -31,7 +45,11 @@ export function FormField(props: FormFieldProps): React.JSX.Element {
         {props.label}
       </Label>
       {props.children}
-      {props.hint ? <p className="text-muted-foreground text-xs">{props.hint}</p> : null}
+      {props.hint ? (
+        <p id={fieldHintId(props.htmlFor)} className="text-muted-foreground text-xs">
+          {props.hint}
+        </p>
+      ) : null}
       {props.warning && !props.error ? (
         <p id={fieldErrorId(props.htmlFor)} className="text-attention text-sm" role="status">
           {props.warning}

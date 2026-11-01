@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { RequiredFieldsNote } from "@fleetapp/ui/input";
 import { redirect } from "next/navigation";
 
 import { appDb } from "../../lib/app-db";
@@ -45,7 +46,8 @@ export default async function SettingsPage() {
           <CardTitle>Cars</CardTitle>
           <CardDescription>Shown on the cars list and each car&rsquo;s page.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-4">
+          <RequiredFieldsNote />
           <NumberSettingForm
             setting="vehicleExpiryWarningDays"
             label="Show “Due soon” this many days before rego or insurance expires"
@@ -59,6 +61,7 @@ export default async function SettingsPage() {
           <CardDescription>Shown on the Renters list and each Renter&rsquo;s page.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-8">
+          <RequiredFieldsNote />
           <NumberSettingForm
             setting="licenceExpiryWarningDays"
             label="Show “Due soon” this many days before a licence expires"

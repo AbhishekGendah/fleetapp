@@ -7,7 +7,7 @@ import {
   VEHICLE_STATUSES,
 } from "@fleetapp/core";
 import { FormField } from "@fleetapp/ui/form-field";
-import { Input } from "@fleetapp/ui/input";
+import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
 import { Select } from "@fleetapp/ui/select";
 import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import { useActionState } from "react";
@@ -44,6 +44,7 @@ export function StatusForm(props: {
       noValidate
       className="flex flex-col gap-4"
     >
+      <RequiredFieldsNote />
       <FormField htmlFor="status" label={VEHICLE_FIELD_LABELS.status} isRequired>
         <Select
           {...form.boxProps("status")}

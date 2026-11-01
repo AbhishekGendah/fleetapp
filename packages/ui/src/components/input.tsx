@@ -29,16 +29,21 @@ type LabelProps = React.ComponentPropsWithoutRef<"label"> & {
   isRequired?: boolean;
 };
 
+/** The red asterisk of something required (rule 28); the box itself says so to screen readers. */
+export function RequiredMark(): React.JSX.Element {
+  return (
+    <span aria-hidden="true" className="text-destructive">
+      {" "}
+      *
+    </span>
+  );
+}
+
 const Label = React.forwardRef<HTMLLabelElement, LabelProps>(
   ({ className, isRequired, children, ...props }, ref) => (
     <label ref={ref} className={cn("text-sm leading-none font-medium", className)} {...props}>
       {children}
-      {isRequired ? (
-        <span aria-hidden="true" className="text-destructive">
-          {" "}
-          *
-        </span>
-      ) : null}
+      {isRequired ? <RequiredMark /> : null}
     </label>
   ),
 );

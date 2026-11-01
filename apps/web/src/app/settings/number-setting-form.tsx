@@ -1,16 +1,17 @@
 "use client";
 
-import { fieldErrorsOf } from "@fleetapp/core";
+import { digitsOnly, fieldErrorsOf } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { INITIAL_CHANGE_STATE } from "@fleetapp/ui/change-form-state";
-import { fieldErrorId, FormField } from "@fleetapp/ui/form-field";
+import { FormField } from "@fleetapp/ui/form-field";
 import { FormResult } from "@fleetapp/ui/form-result";
-import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
+import { Input } from "@fleetapp/ui/input";
 import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import { useActionState } from "react";
 
 import {
   NUMBER_SETTING_FIELDS,
+  numberSettingDigits,
   numberSettingInputSchema,
   type NumberSetting,
 } from "../../lib/settings/number-setting-input";
@@ -33,8 +34,10 @@ export function NumberSettingForm(props: {
     initialValues: { amount: String(props.value) },
     validate: (values) => fieldErrorsOf(numberSettingInputSchema(props.setting).safeParse(values)),
     isRequired: () => true,
+    // Several of these forms share the Settings page, so each box needs its own id.
+    idPrefix: `${props.setting}-`,
   });
-  const boxId = `${props.setting}-amount`;
+  const digits = numberSettingDigits(props.setting);
 
   return (
     <form
@@ -43,9 +46,8 @@ export function NumberSettingForm(props: {
       noValidate
       className="flex flex-col gap-4"
     >
-      <RequiredFieldsNote />
       <FormField
-        htmlFor={boxId}
+        htmlFor={form.idFor("amount")}
         label={props.label}
         hint={props.hint}
         isRequired
@@ -53,9 +55,11 @@ export function NumberSettingForm(props: {
       >
         <Input
           {...form.textBoxProps("amount")}
-          // Several of these forms share the Settings page, so each box needs its own id.
-          id={boxId}
-          aria-describedby={form.errorFor("amount") ? fieldErrorId(boxId) : undefined}
+          // Digits only, stopping at the setting's length (rule 31).
+          onChange={(event) =>
+            form.setValue("amount", digitsOnly(event.target.value).slice(0, digits))
+          }
+          maxLength={digits}
           inputMode="numeric"
           className="sm:w-32"
         />

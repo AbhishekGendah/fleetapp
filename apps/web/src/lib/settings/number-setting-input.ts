@@ -41,6 +41,11 @@ export type NumberSetting = keyof typeof NUMBER_SETTING_RANGES;
 /** The "Due soon" windows, which the expiry badges read. */
 export type WarningDaysSetting = "vehicleExpiryWarningDays" | "licenceExpiryWarningDays";
 
+/** How many digits the setting's box takes: no more than its largest value has (rule 31). */
+export function numberSettingDigits(setting: NumberSetting): number {
+  return String(NUMBER_SETTING_RANGES[setting].max).length;
+}
+
 export function isNumberSetting(value: string): value is NumberSetting {
   return Object.hasOwn(NUMBER_SETTING_RANGES, value);
 }

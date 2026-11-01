@@ -6,7 +6,7 @@ import {
   newPasswordSchema,
   type NewPasswordInput,
 } from "@fleetapp/auth/login-policy";
-import { fieldErrorId, FormField } from "@fleetapp/ui/form-field";
+import { fieldDescriptionIds, FormField } from "@fleetapp/ui/form-field";
 import { Input } from "@fleetapp/ui/input";
 import { useMemo, useState } from "react";
 import { z } from "zod";
@@ -104,7 +104,7 @@ export function NewPasswordField(props: NewPasswordFieldProps & { label: string 
         onChange={(event) => props.onValueChange(event.target.value)}
         onBlur={props.onBlur}
         aria-invalid={props.error ? true : undefined}
-        aria-describedby={props.error || props.warning ? fieldErrorId(props.name) : undefined}
+        aria-describedby={fieldDescriptionIds(props.name)}
       />
     </FormField>
   );
