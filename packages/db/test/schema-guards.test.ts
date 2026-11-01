@@ -2,6 +2,8 @@ import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, inject } from "vitest";
 
 import {
+  ADMIN_APP_ROLE,
+  ADMIN_AUTH_ROLE,
   APPLICATION_ROLES,
   DELETABLE_TABLES,
   NON_TENANT_SCHEMAS,
@@ -159,6 +161,52 @@ describe("schema guards", () => {
     `);
 
     expect(result.rows).toEqual([]);
+  });
+
+  it("scopes every web role rule on a tenant table to the signed-in Operator", async () => {
+    // A rule that only says "true" (or forgets the Operator) would quietly
+    // open one business's rows to another, with row security still "on".
+    const result = await owner.db.execute<{
+      rule: string;
+      qual: string | null;
+      check: string | null;
+    }>(sql`
+      SELECT p.tablename || '.' || p.policyname AS rule, p.qual, p.with_check AS check
+      FROM pg_policies p
+      JOIN information_schema.columns c
+        ON c.table_schema = p.schemaname AND c.table_name = p.tablename
+        AND c.column_name = ${TENANT_ID_COLUMN}
+      WHERE ${WEB_APP_ROLE} = ANY (p.roles)
+    `);
+    const operatorCheck = "current_operator_id()";
+    const unscoped = result.rows.filter((row) =>
+      [row.qual, row.check].some(
+        (expression) => expression !== null && !expression.includes(operatorCheck),
+      ),
+    );
+
+    expect(result.rows.length).toBeGreaterThan(0);
+    expect(unscoped.map((row) => row.rule)).toEqual([]);
+  });
+
+  it("grants the admin logins nothing on any Renter table", async () => {
+    // Admin cannot read Renter personal data in v1. Any table named for
+    // Renters is covered, so a new one is checked without remembering to.
+    const result = await owner.db.execute<{ table_name: string; grantee: string }>(sql`
+      SELECT DISTINCT table_name, grantee
+      FROM information_schema.role_table_grants
+      WHERE table_schema = 'public'
+        AND table_name LIKE 'renter%'
+        AND grantee IN (${ADMIN_APP_ROLE}, ${ADMIN_AUTH_ROLE})
+      UNION
+      SELECT DISTINCT table_name, grantee
+      FROM information_schema.column_privileges
+      WHERE table_schema = 'public'
+        AND table_name LIKE 'renter%'
+        AND grantee IN (${ADMIN_APP_ROLE}, ${ADMIN_AUTH_ROLE})
+    `);
+
+    expect(result.rows.map((row) => `${row.grantee} on ${row.table_name}`)).toEqual([]);
   });
 
   it("runs the application roles without the power to bypass security", async () => {

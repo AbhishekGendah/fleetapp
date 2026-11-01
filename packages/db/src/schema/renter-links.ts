@@ -1,3 +1,4 @@
+import { MAXIMUM_OVERSEAS_LICENCE_NUMBER_LENGTH } from "@fleetapp/core";
 import { RENTER_LINK_PURPOSES, RENTER_SUBMISSION_STATUSES } from "@fleetapp/core";
 import { sql } from "drizzle-orm";
 import {
@@ -62,6 +63,8 @@ export const renterLinks = pgTable(
   },
   (table) => [
     unique("renter_links_id_operator_unique").on(table.id, table.operatorId),
+    // Lets a submission name its link and its Renter together, so the two always match.
+    unique("renter_links_id_renter_operator_unique").on(table.id, table.renterId, table.operatorId),
     foreignKey({
       name: "renter_links_renter_fk",
       columns: [table.renterId, table.operatorId],
@@ -156,15 +159,24 @@ export const renterSubmissions = pgTable(
       columns: [table.renterId, table.operatorId],
       foreignColumns: [renters.id, renters.operatorId],
     }),
+    // The link must be this Renter's: a submission can never land on another Renter.
     foreignKey({
       name: "renter_submissions_link_fk",
-      columns: [table.linkId, table.operatorId],
-      foreignColumns: [renterLinks.id, renterLinks.operatorId],
+      columns: [table.linkId, table.renterId, table.operatorId],
+      foreignColumns: [renterLinks.id, renterLinks.renterId, renterLinks.operatorId],
     }),
+    index("renter_submissions_link_idx").on(table.operatorId, table.linkId),
     uniqueIndex("renter_submissions_one_waiting_per_renter")
       .on(table.operatorId, table.renterId)
       .where(sql`${table.status} = 'waiting'`),
     check("renter_submissions_has_contact", sql`num_nonnulls(${table.phone}, ${table.email}) > 0`),
+    // The same rules a Renter record holds, so approving can never fail on them late.
+    check("renter_submissions_email_lower_case", sql`${table.email} = lower(${table.email})`),
+    check(
+      "renter_submissions_licence",
+      sql`(${table.licenceCountry} is not null) = (${table.licenceIssuedIn}::text = 'overseas')
+        and ${table.licenceNumber} ~ ${sql.raw(`'^[A-Z0-9]{1,${MAXIMUM_OVERSEAS_LICENCE_NUMBER_LENGTH}}$'`)}`,
+    ),
     check(
       "renter_submissions_reviewed",
       sql`(${table.status} = 'waiting') = (${table.reviewedAt} is null)`,

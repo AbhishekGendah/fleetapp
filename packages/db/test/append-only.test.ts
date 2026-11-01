@@ -90,11 +90,38 @@ describe("append-only tables", () => {
     expect(code).toBe(POSTGRES_ERROR_CODES.restrictViolation);
   });
 
+  it.each(APPEND_ONLY_TABLES)(
+    "refuses wiping %s in one go, even from a connection that grants do not stop",
+    async (table) => {
+      // TRUNCATE skips the row triggers above, so it has a trigger of its own.
+      const code = await postgresErrorCodeOf(
+        superuser.db.execute(sql`TRUNCATE ${sql.identifier(table)}`),
+      );
+
+      expect(code).toBe(POSTGRES_ERROR_CODES.restrictViolation);
+    },
+  );
+
+  it("refuses an admin login writing history as anyone but an Admin", async () => {
+    const code = await postgresErrorCodeOf(
+      admin.db.insert(schema.activityLog).values({
+        operatorId: operatorAId,
+        actorType: "system",
+        entityType: "operator",
+        entityId: operatorAId,
+        action: "checked",
+      }),
+    );
+
+    expect(code).toBe(POSTGRES_ERROR_CODES.insufficientPrivilege);
+  });
+
   it("still accepts new log rows", async () => {
     await expect(
       admin.db.insert(schema.activityLog).values({
         operatorId: operatorAId,
-        actorType: "system",
+        actorType: "admin",
+        actorId: operatorAId,
         entityType: "operator",
         entityId: operatorAId,
         action: "checked",

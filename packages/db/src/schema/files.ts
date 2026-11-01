@@ -120,6 +120,21 @@ export const files = pgTable(
     recordLink("renter_link", table.renterLinkId, table.operatorId, renterLinks),
     recordLink("submission", table.submissionId, table.operatorId, renterSubmissions),
     index("files_vehicle_idx").on(table.operatorId, table.vehicleId, table.purpose),
+    // For the nightly clean-up's look-ups by link, by submission and by scan age.
+    index("files_renter_link_idx")
+      .on(table.operatorId, table.renterLinkId)
+      .where(sql`${table.renterLinkId} is not null`),
+    index("files_submission_idx")
+      .on(table.operatorId, table.submissionId)
+      .where(sql`${table.submissionId} is not null`),
+    index("files_licence_scans_in_use_idx")
+      .on(table.confirmedAt)
+      .where(sql`${table.purpose} = 'renter_licence_scan' and ${table.deletedAt} is null`),
+    // Identity documents live only in the identity storage (rule 8), whatever else changes.
+    check(
+      "files_identity_area",
+      sql`(${table.purpose}::text in ('vehicle_identity_attachment', 'renter_licence_scan', 'renter_submitted_scan')) = (${table.storageArea}::text = 'identity')`,
+    ),
     // Compared as text: Postgres will not use an enum value in the same
     // migration that adds it.
     check(
