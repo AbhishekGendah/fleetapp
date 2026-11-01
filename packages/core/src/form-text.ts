@@ -34,6 +34,13 @@ export const requiredText = z
   .max(MAXIMUM_NOTE_LENGTH, `At most ${MAXIMUM_NOTE_LENGTH} characters.`)
   .refine((value) => !NON_TEXT_CHARACTERS.test(value), "Remove the unusual characters.");
 
+/** As `requiredText`, but blank is allowed and becomes null. */
+export const optionalText = z
+  .string()
+  .trim()
+  .transform((value) => (value === "" ? null : value))
+  .pipe(requiredText.nullable());
+
 /** One line of text that must be filled in. */
 export const requiredLine = singleLineText.min(1, REQUIRED_MESSAGE);
 

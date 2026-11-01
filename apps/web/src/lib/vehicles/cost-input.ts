@@ -6,8 +6,6 @@ import {
   formatAustralianPhone,
   formatKilometresAsTyped,
   isPrivatePurchase,
-  isLocalDateTime,
-  localDateTimeToUtc,
   normaliseLicenceNumber,
   optionalLine,
   optionalPhone,
@@ -21,13 +19,11 @@ import {
 } from "@fleetapp/core";
 import { z } from "zod";
 
+import { requiredLocalMoment } from "../local-moment-input";
 import { gstDollars, optionalDate, refineGstWithin, requiredDate } from "./amount-input";
 import { optionalKilometres } from "./vehicle-input";
 
 const PRIVATE_GST_MESSAGE = "A private seller charges no GST.";
-const DATE_TIME_MESSAGE = "Enter the date and time.";
-const SKIPPED_TIME_MESSAGE =
-  "That time did not happen: the clocks went forward an hour. Check the time.";
 
 /** How a car was bought, as entered on its Costs tab. */
 export const purchaseInputSchema = z
@@ -64,30 +60,11 @@ export const PURCHASE_FORM_FIELDS = [
 export type PurchaseFormField = (typeof PURCHASE_FORM_FIELDS)[number];
 export type PurchaseFormValues = Record<PurchaseFormField, string>;
 
-/** The moment of handover, typed on the Operator's clock and kept in UTC (rule 10). */
-function soldAtIn(timeZone: string) {
-  return z
-    .string()
-    .trim()
-    .min(1, REQUIRED_MESSAGE)
-    .transform((typed, context) => {
-      if (!isLocalDateTime(typed)) {
-        context.addIssue({ code: "custom", message: DATE_TIME_MESSAGE });
-        return z.NEVER;
-      }
-      const moment = localDateTimeToUtc(typed, timeZone);
-      if (!moment) {
-        context.addIssue({ code: "custom", message: SKIPPED_TIME_MESSAGE });
-        return z.NEVER;
-      }
-      return moment;
-    });
-}
-
 function saleInputSchemaIn(timeZone: string) {
   return z
     .object({
-      soldAt: soldAtIn(timeZone),
+      // The moment of handover.
+      soldAt: requiredLocalMoment(timeZone),
       priceCents: requiredDollars,
       gstCents: gstDollars,
       buyerName: requiredLine,

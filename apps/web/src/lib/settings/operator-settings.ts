@@ -4,7 +4,9 @@ import {
   hasChanges,
   operatorSettingsSchema,
   readSettings,
+  snapshotSettings,
   type OperatorSettings,
+  type SettingsSnapshot,
 } from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, operatorSettings } from "@fleetapp/db/schema";
@@ -37,6 +39,21 @@ export async function loadOperatorSettings(
     readStoredSettings(tx, operatorId, false),
   );
   return readSettings(operatorSettingsSchema, row?.stored ?? {});
+}
+
+/** The version a rental records when the Operator has never changed a setting: all defaults. */
+export const DEFAULT_SETTINGS_VERSION = 0;
+
+/** A frozen copy of the Operator's settings now, for a new rental to keep (rule 14). */
+export async function snapshotOperatorSettings(
+  tx: AnyTransaction,
+  operatorId: string,
+): Promise<SettingsSnapshot<OperatorSettings>> {
+  const row = await readStoredSettings(tx, operatorId, false);
+  return snapshotSettings(
+    readSettings(operatorSettingsSchema, row?.stored ?? {}),
+    row?.version ?? DEFAULT_SETTINGS_VERSION,
+  );
 }
 
 /**
