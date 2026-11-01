@@ -34,6 +34,7 @@ pnpm-debug.log*
 
 # os
 .DS_Store
-e2e/.state/
-test-results/
-playwright-report/
+# Browser tests: signed-in state for the throwaway test Admin, and run output.
+**/e2e/.state/
+**/test-results/
+**/playwright-report/
