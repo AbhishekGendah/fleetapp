@@ -21,7 +21,7 @@ import {
 import { renterFormValues, type RenterFormValues } from "../renters/renter-input";
 import type { DetailsInput } from "./details-form-input";
 import type { LinkVisit } from "./link-visits";
-import { loadSentBack } from "./reviews";
+import { findWaiting, loadSentBack } from "./reviews";
 
 /** The link acting: never a User, and only ever within its own Operator (rule 3). */
 function linkActor(visit: LinkVisit) {
@@ -51,18 +51,9 @@ interface RenterRef {
   renterId: string;
 }
 
+/** The Renter's submission waiting for review, or null. */
 async function waitingSubmission(tx: AnyTransaction, renter: RenterRef) {
-  const [waiting] = await tx
-    .select({ id: renterSubmissions.id, sentAt: renterSubmissions.createdAt })
-    .from(renterSubmissions)
-    .where(
-      and(
-        eq(renterSubmissions.operatorId, renter.operatorId),
-        eq(renterSubmissions.renterId, renter.renterId),
-        eq(renterSubmissions.status, "waiting"),
-      ),
-    );
-  return waiting ?? null;
+  return (await findWaiting(tx, renter.operatorId, renter.renterId, false)) ?? null;
 }
 
 /** When the Renter sent details still waiting for the Operator's review, or null. */
@@ -73,7 +64,7 @@ export async function loadWaitingSubmission(
   const waiting = await withTenant(database, renter.operatorId, (tx) =>
     waitingSubmission(tx, renter),
   );
-  return waiting ? { sentAt: waiting.sentAt } : null;
+  return waiting ? { sentAt: waiting.createdAt } : null;
 }
 
 export type FormStart =

@@ -5,6 +5,7 @@ import {
   hashSecretToken,
   LINK_CODE_VALID_MINUTES,
   maskEmail,
+  MILLISECONDS_PER_MINUTE,
   LINK_CODE_DIGITS,
   MAXIMUM_WRONG_LINK_CODES,
   MAXIMUM_LINK_CODES_PER_HOUR,
@@ -27,7 +28,6 @@ import { z } from "zod";
 
 import { loadLinkSender } from "./link-email";
 
-const MILLISECONDS_PER_MINUTE = 60 * 1000;
 const CODE_WINDOW_MS = 60 * MILLISECONDS_PER_MINUTE;
 const CODE_VALID_FOR = `${LINK_CODE_VALID_MINUTES} minutes`;
 

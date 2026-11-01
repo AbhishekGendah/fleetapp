@@ -8,10 +8,9 @@ import {
 } from "@fleetapp/core";
 import { FormError } from "@fleetapp/ui/form-message";
 import { CircleCheck } from "lucide-react";
-import { useState } from "react";
 
 import { PhotoOrFileButtons } from "../../../components/photo-or-file-buttons";
-import { sendPaper } from "../../../lib/files/send-paper";
+import { usePaperUpload } from "../../../lib/files/use-paper-upload";
 import { finishLinkPhotoAction, startLinkPhotoAction } from "./form-actions";
 
 const PHOTO_ACCEPT = FILE_PURPOSE_RULES.renter_submitted_scan.contentTypes.join(",");
@@ -22,24 +21,13 @@ function LinkPhotoSlot(props: {
   hasPhoto: boolean;
   onPhotoSent: (side: LicenceSide) => void;
 }) {
-  const [isSending, setIsSending] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   const { token, side } = props;
-
-  async function handleFileChosen(file: File): Promise<void> {
-    setIsSending(true);
-    setMessage(null);
-    const problem = await sendPaper(
-      file,
-      (planned) => startLinkPhotoAction(token, { side, ...planned }),
-      (fileId) => finishLinkPhotoAction(token, fileId),
-    );
-    setIsSending(false);
-    setMessage(problem);
-    if (!problem) {
-      props.onPhotoSent(side);
-    }
-  }
+  const upload = usePaperUpload({
+    start: (planned) => startLinkPhotoAction(token, { side, ...planned }),
+    finish: (fileId) => finishLinkPhotoAction(token, fileId),
+    onSent: () => props.onPhotoSent(side),
+  });
+  const { isSending, message } = upload;
 
   return (
     <li className="bg-background flex flex-col gap-3 rounded-lg border p-3">
@@ -56,7 +44,7 @@ function LinkPhotoSlot(props: {
         hasFile={props.hasPhoto}
         isSending={isSending}
         accept={PHOTO_ACCEPT}
-        onFileChosen={(file) => void handleFileChosen(file)}
+        onFileChosen={(file) => void upload.send(file)}
       />
       <FormError message={message} />
     </li>

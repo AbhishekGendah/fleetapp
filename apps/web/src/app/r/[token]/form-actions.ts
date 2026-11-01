@@ -36,7 +36,7 @@ import {
   startLinkPhotoUpload,
   submitDetails,
 } from "../../../lib/renter-links/submissions";
-import { DEVICE_COOKIE, type SendDetailsState } from "./link-state";
+import { DEVICE_COOKIE, PHOTOS_MISSING_MESSAGE, type SendDetailsState } from "./link-state";
 
 const SHUT_MESSAGE = "This page has closed. Open your link again; you may need a new code.";
 const ALREADY_SENT_MESSAGE = "Your details were already sent.";
@@ -107,7 +107,7 @@ export async function sendDetailsAction(
     if (result === "photos_missing") {
       return {
         status: "problem",
-        message: "Add a photo of the front and the back of your licence.",
+        message: PHOTOS_MISSING_MESSAGE,
       };
     }
     return result === "already_sent"

@@ -1,4 +1,9 @@
-import { describeErrorForLog, generateSecretToken, hashSecretToken } from "@fleetapp/core";
+import {
+  describeErrorForLog,
+  generateSecretToken,
+  hashSecretToken,
+  MILLISECONDS_PER_DAY,
+} from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, renterLinks } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
@@ -13,7 +18,6 @@ import { cancelLiveLinks } from "./cancel-links";
 import { loadLinkSender } from "./link-email";
 
 const PURPOSE = "details_form";
-const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
 export interface LinkDependencies {
   database: AnyDatabase;

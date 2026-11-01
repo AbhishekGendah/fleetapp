@@ -22,7 +22,6 @@ import {
   NotebookPen,
   Pencil,
   UserRound,
-  type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -50,6 +49,7 @@ import { listLicenceScans, listRenterFileIds } from "../../../lib/renters/licenc
 import { listRenterLinkIds } from "../../../lib/renter-links/details-links";
 import { listNoteIds } from "../../../lib/renters/notes";
 import { loadExpiryContext } from "../../../lib/vehicles/expiry-context";
+import { recordTabs, TAB_PARAM, type RecordTab } from "../../../lib/record-tabs";
 import { AppShell } from "../../app-shell";
 import { ExpiryDate } from "../../cars/expiry-date";
 import { RenterStatusBadge } from "../renter-status-badge";
@@ -68,18 +68,9 @@ const TABS = [
   { key: "licence", label: "Licence", icon: IdCard },
   { key: "notes", label: "Notes", icon: NotebookPen },
   { key: "log", label: "Log", icon: History },
-] as const satisfies readonly { key: string; label: string; icon: LucideIcon }[];
-type TabKey = (typeof TABS)[number]["key"];
-const TAB_PARAM = "tab";
+] as const satisfies readonly [RecordTab, ...RecordTab[]];
+const TAB_LINKS = recordTabs(TABS, renterPath);
 const NOT_GIVEN = "Not given";
-
-function chosenTab(value: string | string[] | undefined): TabKey {
-  return TABS.find((tab) => tab.key === value)?.key ?? "details";
-}
-
-function tabHref(renterId: string, tab: TabKey): string {
-  return tab === "details" ? renterPath(renterId) : `${renterPath(renterId)}?${TAB_PARAM}=${tab}`;
-}
 
 const LICENCE_DETAILS: readonly DetailNeededBeforeRenting[] = [
   "licence",
@@ -122,7 +113,7 @@ function StillNeededCard(props: {
           <div className="flex flex-col gap-2 sm:flex-row">
             {isLicenceMissing ? (
               <Button asChild className="w-full sm:w-auto">
-                <Link href={tabHref(renter.id, "licence")}>
+                <Link href={TAB_LINKS.href(renter.id, "licence")}>
                   <IdCard aria-hidden />
                   Go to the licence
                 </Link>
@@ -344,7 +335,7 @@ export default async function RenterPage(props: {
   const user = await requireUser();
   const [{ renterId }, searchParams] = await Promise.all([props.params, props.searchParams]);
   const renter = await loadRenterOrNotFound(user, renterId);
-  const tab = chosenTab(searchParams[TAB_PARAM]);
+  const tab = TAB_LINKS.chosen(searchParams[TAB_PARAM]);
   const licenceExpiry = await loadExpiryContext(user, "licenceExpiryWarningDays");
 
   return (
@@ -374,7 +365,7 @@ export default async function RenterPage(props: {
       <TabLinks
         label="Renter sections"
         tabs={TABS.map((item) => ({
-          href: tabHref(renter.id, item.key),
+          href: TAB_LINKS.href(renter.id, item.key),
           label: item.label,
           isCurrent: item.key === tab,
           icon: <item.icon aria-hidden />,

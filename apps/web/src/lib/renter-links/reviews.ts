@@ -72,7 +72,7 @@ function licenceOf(submission: SubmissionRow): LicenceInput {
 }
 
 /** The Renter's submission waiting for review, locked for this transaction when `shouldLock`. */
-async function findWaiting(
+export async function findWaiting(
   tx: AnyTransaction,
   operatorId: string,
   renterId: string,

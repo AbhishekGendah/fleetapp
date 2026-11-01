@@ -24,12 +24,10 @@ import {
   sendDetailsAction,
 } from "./form-actions";
 import { LinkPhotos } from "./link-photos";
-import { INITIAL_SEND_DETAILS_STATE } from "./link-state";
+import { INITIAL_SEND_DETAILS_STATE, PHOTOS_MISSING_MESSAGE } from "./link-state";
 import { PrivacyNotice } from "./privacy-notice";
 import { SentBackNote } from "./sent-back-note";
 import { SentThanks } from "./sent-thanks";
-
-const PHOTOS_MISSING_MESSAGE = "Add a photo of the front and the back of your licence.";
 
 export interface DetailsFormProps {
   token: string;

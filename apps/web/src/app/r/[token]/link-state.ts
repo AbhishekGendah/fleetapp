@@ -14,3 +14,6 @@ export const INITIAL_SEND_DETAILS_STATE: SendDetailsState = { status: "idle" };
 export const DEVICE_COOKIE = "renter_link_device";
 
 export { renterLinkPagePath as linkPagePath } from "../../../lib/paths";
+
+/** Said by the phone before sending, and by the server if it is sent anyway. */
+export const PHOTOS_MISSING_MESSAGE = "Add a photo of the front and the back of your licence.";

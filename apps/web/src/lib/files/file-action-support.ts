@@ -10,6 +10,7 @@ import { z } from "zod";
 import { appDb } from "../app-db";
 import { requireUser } from "../require-user";
 import { appFileStorage } from "../storage/app-file-storage";
+import { SEND_FAILED_MESSAGE } from "./send-to-storage";
 import type { UploadPermission } from "../storage/file-storage";
 import {
   confirmUpload,
@@ -22,8 +23,8 @@ import {
 /** What the upload actions share: their dependencies, who is acting, and what to say. */
 
 export const UPLOAD_FAILED_MESSAGE = "The file could not be saved. Try again in a moment.";
-export const NOT_ARRIVED_MESSAGE =
-  "The upload did not finish. Check your connection and try again.";
+/** The same words the browser uses when sending fails. */
+export const NOT_ARRIVED_MESSAGE = SEND_FAILED_MESSAGE;
 
 /** What the browser says it is about to send; checked again once it arrives (rule 22). */
 export const plannedFileSchema = z.object({

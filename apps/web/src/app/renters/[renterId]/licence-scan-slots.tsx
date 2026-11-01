@@ -11,9 +11,8 @@ import { FormError } from "@fleetapp/ui/form-message";
 import { ImageViewer } from "@fleetapp/ui/image-viewer";
 import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 
-import { sendPaper } from "../../../lib/files/send-paper";
+import { usePaperUpload } from "../../../lib/files/use-paper-upload";
 import { licenceScanPath } from "../../../lib/paths";
 import { FileLink, isPdf } from "../../../components/file-link";
 import { PhotoOrFileButtons } from "../../../components/photo-or-file-buttons";
@@ -45,24 +44,14 @@ function ScanSlot(props: {
   deletedByTimerText: string | null;
 }) {
   const router = useRouter();
-  const [isSending, setIsSending] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   const { renterId, side, scan } = props;
   const sideLabel = LICENCE_SIDE_LABELS[side];
-
-  async function handleChosen(file: File): Promise<void> {
-    setIsSending(true);
-    setMessage(null);
-    setMessage(
-      await sendPaper(
-        file,
-        (planned) => startLicenceScanUploadAction({ renterId, side, ...planned }),
-        finishLicenceScanUploadAction,
-      ),
-    );
-    setIsSending(false);
-    router.refresh();
-  }
+  const upload = usePaperUpload({
+    start: (planned) => startLicenceScanUploadAction({ renterId, side, ...planned }),
+    finish: finishLicenceScanUploadAction,
+    onSent: () => router.refresh(),
+  });
+  const { isSending, message } = upload;
 
   return (
     <li className="bg-background flex flex-col gap-3 rounded-lg border p-3 sm:p-4">
@@ -105,7 +94,7 @@ function ScanSlot(props: {
           hasFile={scan !== null}
           isSending={isSending}
           accept={SCAN_RULE.contentTypes.join(",")}
-          onFileChosen={(file) => void handleChosen(file)}
+          onFileChosen={(file) => void upload.send(file)}
         />
       ) : null}
       <FormError message={message} />

@@ -20,10 +20,10 @@ import {
   Plus,
   ShieldCheck,
   Undo2,
-  type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 
+import { recordTabs, TAB_PARAM, type RecordTab } from "../../../lib/record-tabs";
 import { AppShell } from "../../app-shell";
 import { appDb } from "../../../lib/app-db";
 import { carPath, CARS_PATH, editCarPath } from "../../../lib/paths";
@@ -61,17 +61,8 @@ const TABS = [
   { key: "documents", label: "Documents", icon: FileText },
   { key: "odometer", label: "Odometer", icon: Gauge },
   { key: "log", label: "Log", icon: History },
-] as const satisfies readonly { key: string; label: string; icon: LucideIcon }[];
-type TabKey = (typeof TABS)[number]["key"];
-const TAB_PARAM = "tab";
-
-function chosenTab(value: string | string[] | undefined): TabKey {
-  return TABS.find((tab) => tab.key === value)?.key ?? "details";
-}
-
-function tabHref(vehicleId: string, tab: TabKey): string {
-  return tab === "details" ? carPath(vehicleId) : `${carPath(vehicleId)}?${TAB_PARAM}=${tab}`;
-}
+] as const satisfies readonly [RecordTab, ...RecordTab[]];
+const TAB_LINKS = recordTabs(TABS, carPath);
 
 /** The fields shown on the Details tab, in order. */
 const DETAIL_FIELDS = [
@@ -303,7 +294,7 @@ export default async function CarPage(props: {
   const user = await requireUser();
   const [{ vehicleId }, searchParams] = await Promise.all([props.params, props.searchParams]);
   const vehicle = await loadCarOrNotFound(user, vehicleId);
-  const tab = chosenTab(searchParams[TAB_PARAM]);
+  const tab = TAB_LINKS.chosen(searchParams[TAB_PARAM]);
 
   return (
     <AppShell user={user}>
@@ -311,7 +302,7 @@ export default async function CarPage(props: {
       <TabLinks
         label="Car sections"
         tabs={TABS.map((item) => ({
-          href: tabHref(vehicle.id, item.key),
+          href: TAB_LINKS.href(vehicle.id, item.key),
           label: item.label,
           isCurrent: item.key === tab,
           icon: <item.icon aria-hidden />,
