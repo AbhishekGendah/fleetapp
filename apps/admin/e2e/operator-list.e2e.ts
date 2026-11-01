@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { E2E_OPERATORS, PHONE_VIEWPORT } from "./e2e-settings";
+import { E2E_OPERATORS, MINIMUM_TOUCH_TARGET_PX, PHONE_VIEWPORT } from "./e2e-settings";
 
 /**
  * The shared list, on a real page with real database paging: search, sort,
@@ -8,7 +8,6 @@ import { E2E_OPERATORS, PHONE_VIEWPORT } from "./e2e-settings";
  * to TanStack Table and nuqs (library swap stage 7).
  */
 const LIST_PATH = "/operators";
-const MINIMUM_TOUCH_TARGET_PX = 44;
 const [ALPHA, BRAVO, CHARLIE] = E2E_OPERATORS;
 
 async function openList(page: Page, query = ""): Promise<void> {

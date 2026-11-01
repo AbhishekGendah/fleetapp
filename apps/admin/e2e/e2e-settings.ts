@@ -12,8 +12,7 @@ export const E2E_ADMIN = {
 export const SIGNED_IN_STATE_PATH = "e2e/.state/signed-in.json";
 export const AUTHENTICATOR_KEY_PATH = "e2e/.state/authenticator-key.txt";
 
-/** A phone about the width rule 24 designs for. */
-export const PHONE_VIEWPORT = { width: 375, height: 812 } as const;
+export { MINIMUM_TOUCH_TARGET_PX, PHONE_VIEWPORT } from "@fleetapp/e2e/settings";
 
 /** Made-up Operators, seeded for the list tests. */
 export const E2E_OPERATORS = [

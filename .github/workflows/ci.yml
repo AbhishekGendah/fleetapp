@@ -59,13 +59,17 @@ jobs:
           FILE_STORAGE_SECRET_ACCESS_KEY: placeholder
           CRON_SECRET: placeholder-placeholder-placeholder-32
 
-  # Uses the shared pieces in a real browser: keyboard, screen-reader names and
-  # phone width. Runs the admin app against a throwaway Postgres in Docker, with
-  # made-up data only.
+  # Each app used in a real browser: keyboard, screen-reader names and phone
+  # width. Runs against a throwaway Postgres (and, for the Operator app, a
+  # local S3 and a Google Places stand-in) in Docker, with made-up data only.
   browser-tests:
     # Pinned: Playwright 1.56 does not support Ubuntu 26.04 (ubuntu-latest).
     # Move on when Playwright is next upgraded.
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [admin, web]
     steps:
       - uses: actions/checkout@v4
 
@@ -78,9 +82,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm --filter admin exec playwright install --with-deps chromium
+      - run: pnpm --filter ${{ matrix.app }} exec playwright install --with-deps chromium
 
-      - run: pnpm --filter admin e2e
+      - run: pnpm --filter ${{ matrix.app }} e2e
         env:
           CI: "true"
           NEXT_TELEMETRY_DISABLED: "1"
@@ -88,6 +92,6 @@ jobs:
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: browser-test-traces
-          path: apps/admin/test-results/
+          name: browser-test-traces-${{ matrix.app }}
+          path: apps/${{ matrix.app }}/test-results/
           retention-days: 7

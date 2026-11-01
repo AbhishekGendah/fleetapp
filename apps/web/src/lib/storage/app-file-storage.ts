@@ -7,4 +7,5 @@ export const appFileStorage = createS3FileStorage({
   accessKeyId: env.FILE_STORAGE_ACCESS_KEY_ID,
   secretAccessKey: env.FILE_STORAGE_SECRET_ACCESS_KEY,
   buckets: { general: env.STORAGE_BUCKET, identity: env.IDENTITY_STORAGE_BUCKET },
+  endpoint: env.FILE_STORAGE_ENDPOINT,
 });

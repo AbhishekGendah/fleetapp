@@ -45,6 +45,8 @@ const envSchema = z
      */
     FILE_STORAGE_ACCESS_KEY_ID: z.string().min(1),
     FILE_STORAGE_SECRET_ACCESS_KEY: z.string().min(1),
+    /** Only for the browser tests' local S3 stand-in. Never set on Vercel: Amazon is used. */
+    FILE_STORAGE_ENDPOINT: z.url().optional(),
 
     /**
      * Proves a scheduled job's call comes from Vercel's scheduler, which sends
@@ -70,5 +72,6 @@ export const env = envSchema.parse({
   FILE_STORAGE_REGION: process.env.FILE_STORAGE_REGION,
   FILE_STORAGE_ACCESS_KEY_ID: process.env.FILE_STORAGE_ACCESS_KEY_ID,
   FILE_STORAGE_SECRET_ACCESS_KEY: process.env.FILE_STORAGE_SECRET_ACCESS_KEY,
+  FILE_STORAGE_ENDPOINT: process.env.FILE_STORAGE_ENDPOINT,
   CRON_SECRET: process.env.CRON_SECRET,
 });

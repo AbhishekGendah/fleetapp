@@ -1,0 +1,32 @@
+{
+  "name": "@fleetapp/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./authenticator": "./src/authenticator.ts",
+    "./fake-places": "./src/fake-places.ts",
+    "./local-s3": "./src/local-s3.ts",
+    "./processes": "./src/processes.ts",
+    "./settings": "./src/settings.ts",
+    "./playwright-config": "./src/playwright-config.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1152.0",
+    "@better-auth/utils": "0.4.2"
+  },
+  "devDependencies": {
+    "@fleetapp/config": "workspace:*",
+    "@types/node": "26.6.2",
+    "eslint": "9.39.5",
+    "typescript": "6.0.3",
+    "@playwright/test": "1.56.1"
+  },
+  "peerDependencies": {
+    "@playwright/test": "1.56.1"
+  }
+}

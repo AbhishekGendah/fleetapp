@@ -6,46 +6,19 @@
  * Usage: pnpm --filter admin e2e
  * Only made-up data, on a database that exists for this run only.
  */
-import { spawn, type ChildProcess } from "node:child_process";
-import { setTimeout as delay } from "node:timers/promises";
-
 import { describeErrorForLog } from "@fleetapp/core";
 import { createDb } from "@fleetapp/db/client";
 import { operators } from "@fleetapp/db/schema";
 import { ADMIN_APP_ROLE, ADMIN_AUTH_ROLE, APPLICATION_ROLES } from "@fleetapp/db/tenancy";
 import { migrateTestDatabase, startTestPostgres } from "@fleetapp/db/testing";
+import { runToEnd, startNextApp } from "@fleetapp/e2e/processes";
 
 import { createAdminAuth } from "../src/lib/auth-options";
 import { createFirstAdmin } from "../src/lib/create-first-admin";
 import { E2E_ADMIN, E2E_BASE_URL, E2E_OPERATORS, E2E_PORT } from "./e2e-settings";
 
-const SERVER_READY_ATTEMPTS = 120;
-const SERVER_READY_INTERVAL_MS = 500;
 const EXIT_FAILURE = 1;
 const TEST_SECRET = "an-e2e-only-signing-secret-of-32-chars-or-more";
-
-/** Runs a command to the end, failing loudly if it does. */
-function runToEnd(command: string, args: string[], env: NodeJS.ProcessEnv): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { env, stdio: "inherit" });
-    child.on("exit", (code) =>
-      code === 0 ? resolve() : reject(new Error(`${command} ${args.join(" ")} exited ${code}`)),
-    );
-  });
-}
-
-async function waitForServer(): Promise<void> {
-  for (let attempt = 0; attempt < SERVER_READY_ATTEMPTS; attempt += 1) {
-    const isUp = await fetch(`${E2E_BASE_URL}/api/health`)
-      .then((response) => response.ok)
-      .catch(() => false);
-    if (isUp) {
-      return;
-    }
-    await delay(SERVER_READY_INTERVAL_MS);
-  }
-  throw new Error("The admin app did not start in time.");
-}
 
 function appEnv(databaseUrl: string, authDatabaseUrl: string): NodeJS.ProcessEnv {
   return {
@@ -93,7 +66,7 @@ async function seedOperators(adminDatabaseUrl: string): Promise<void> {
 
 async function main(): Promise<void> {
   const postgres = await startTestPostgres(APPLICATION_ROLES);
-  let server: ChildProcess | null = null;
+  let server: { stop(): void } | null = null;
   try {
     await migrateTestDatabase(postgres.ownerUrl);
     const authDatabaseUrl = postgres.urlForRole(ADMIN_AUTH_ROLE);
@@ -101,21 +74,12 @@ async function main(): Promise<void> {
     const adminDatabaseUrl = postgres.urlForRole(ADMIN_APP_ROLE);
     await seedOperators(adminDatabaseUrl);
     const env = appEnv(adminDatabaseUrl, authDatabaseUrl);
-    // Set E2E_REUSE_BUILD=1 to rerun tests against the last build while working on them.
-    if (process.env.E2E_REUSE_BUILD !== "1") {
-      await runToEnd("pnpm", ["exec", "next", "build"], env);
-    }
-    server = spawn("pnpm", ["exec", "next", "start", "-p", String(E2E_PORT)], {
-      env,
-      stdio: "inherit",
-    });
-    await waitForServer();
+    server = await startNextApp({ port: E2E_PORT, env });
     await runToEnd("pnpm", ["exec", "playwright", "test", ...process.argv.slice(2)], {
-      ...env,
-      E2E_OWNER_URL: postgres.ownerUrl,
+      env: { ...env, E2E_OWNER_URL: postgres.ownerUrl },
     });
   } finally {
-    server?.kill();
+    server?.stop();
     await postgres.stop();
   }
 }

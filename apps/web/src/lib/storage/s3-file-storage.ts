@@ -24,6 +24,11 @@ export interface S3FileStorageConfig {
   accessKeyId: string;
   secretAccessKey: string;
   buckets: Readonly<Record<StorageArea, string>>;
+  /**
+   * Another S3-compatible service instead of Amazon: only the browser tests'
+   * local stand-in (MinIO). Left out, Amazon's own address for the region is used.
+   */
+  endpoint?: string | undefined;
 }
 
 /** File storage on Amazon S3, in Sydney. Both buckets block all public access. */
@@ -31,6 +36,8 @@ export function createS3FileStorage(config: S3FileStorageConfig): FileStorage {
   const client = new S3Client({
     region: config.region,
     credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey },
+    // A stand-in serves buckets as paths (host/bucket), not as their own hosts.
+    ...(config.endpoint ? { endpoint: config.endpoint, forcePathStyle: true } : {}),
   });
   const bucketFor = (area: StorageArea): string => config.buckets[area];
 

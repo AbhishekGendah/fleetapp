@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { PHONE_VIEWPORT } from "./e2e-settings";
+import { MINIMUM_TOUCH_TARGET_PX, PHONE_VIEWPORT } from "./e2e-settings";
 
 /**
  * Each shared piece used the way people use it: by keyboard, as screen
@@ -9,7 +9,6 @@ import { PHONE_VIEWPORT } from "./e2e-settings";
  * proven to keep this behaviour.
  */
 const CATALOGUE_PATH = "/components";
-const MINIMUM_TOUCH_TARGET_PX = 44;
 
 async function openCatalogue(page: Page): Promise<void> {
   // Waits for the page's code to finish loading, so a key pressed before then
