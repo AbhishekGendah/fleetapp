@@ -596,6 +596,11 @@
   installed Renovate (Renovate only, scan and alert). Renovate's Dependency
   Dashboard is GitHub issue #3; update pull requests start on Mondays.
 
+- The licences file is now built by reading the installed packages, not
+  pnpm's listing, which failed on Vercel's cached installs (it needs pnpm's
+  download store). It lists only what ships: 199 libraries for the Operator
+  app, 173 for admin.
+
 ## Next
 Phase 3 (rentals), plan first. Open idea: trim the phone rules to
 Australia only with libphonenumber's metadata generator (about 40 KB off
