@@ -32,7 +32,10 @@ export default async function ResetPasswordPage(props: ResetPasswordPageProps) {
           {completeToken ? (
             <ResetPasswordForm token={completeToken} />
           ) : (
-            <Link href={FORGOT_PASSWORD_PATH} className="text-sm hover:underline">
+            <Link
+              href={FORGOT_PASSWORD_PATH}
+              className="inline-flex min-h-11 items-center text-sm hover:underline"
+            >
               Send me a new link
             </Link>
           )}

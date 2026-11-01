@@ -148,7 +148,10 @@ function PasswordStep(props: SignInFormProps & { onNeedsCode(): void }) {
         {isSubmitting ? "Signing in…" : "Sign in"}
       </SubmitButton>
       {props.forgotPasswordHref ? (
-        <a href={props.forgotPasswordHref} className="text-center text-sm hover:underline">
+        <a
+          href={props.forgotPasswordHref}
+          className="inline-flex min-h-11 items-center justify-center text-center text-sm hover:underline"
+        >
           Forgot your password?
         </a>
       ) : null}

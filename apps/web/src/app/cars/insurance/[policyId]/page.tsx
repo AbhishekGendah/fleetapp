@@ -62,7 +62,10 @@ function CoveredCarsCard({ detail }: { detail: PolicyDetail }) {
                 key={car.id}
                 className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"
               >
-                <Link href={carPath(car.id)} className="font-medium hover:underline">
+                <Link
+                  href={carPath(car.id)}
+                  className="inline-flex min-h-11 items-center font-medium hover:underline"
+                >
                   {carLabel(car)}
                 </Link>
                 {isEditable ? (

@@ -24,6 +24,7 @@ export function PhotoOrFileButtons(props: {
       <CameraCapture
         triggerLabel={props.hasFile ? "Retake" : "Take photo"}
         triggerIcon={<Camera aria-hidden />}
+        isDisabled={props.isSending}
         onPhotosTaken={(photos) => {
           const photo = photos.at(-1);
           if (photo) {

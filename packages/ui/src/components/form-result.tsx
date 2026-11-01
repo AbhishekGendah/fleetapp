@@ -4,7 +4,10 @@ import type { ChangeFormState, FormResultLink } from "./change-form-state";
 
 function ResultLink({ link }: { link: FormResultLink | undefined }) {
   return link ? (
-    <a href={link.href} className="text-teal text-sm font-semibold hover:underline">
+    <a
+      href={link.href}
+      className="text-teal inline-flex min-h-11 items-center text-sm font-semibold hover:underline"
+    >
       {link.label} →
     </a>
   ) : null;

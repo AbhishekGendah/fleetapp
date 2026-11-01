@@ -165,7 +165,7 @@ export function CarForm(props: CarFormProps) {
         {shownState.status === "duplicate" && shownState.existingCarHref ? (
           <Link
             href={shownState.existingCarHref}
-            className="text-teal text-sm font-semibold hover:underline"
+            className="text-teal inline-flex min-h-11 items-center text-sm font-semibold hover:underline"
           >
             Open the car you already have →
           </Link>

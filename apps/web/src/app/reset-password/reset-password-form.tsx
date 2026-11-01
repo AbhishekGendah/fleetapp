@@ -68,7 +68,10 @@ export function ResetPasswordForm(props: { token: string }) {
         {isSubmitting ? "Saving…" : submitLabel(isLeakWarningShown, "Change password")}
       </SubmitButton>
       {formError ? (
-        <Link href={FORGOT_PASSWORD_PATH} className="text-center text-sm hover:underline">
+        <Link
+          href={FORGOT_PASSWORD_PATH}
+          className="inline-flex min-h-11 items-center justify-center text-center text-sm hover:underline"
+        >
           Send me a new link
         </Link>
       ) : null}

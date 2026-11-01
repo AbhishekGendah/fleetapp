@@ -26,6 +26,8 @@ interface CameraCaptureProps {
   triggerLabel: string;
   /** Before the label, e.g. a camera. */
   triggerIcon?: React.ReactNode;
+  /** While something is still sending, so a retake cannot race it. */
+  isDisabled?: boolean;
   /** The photos taken, in order, once Done is pressed. */
   onPhotosTaken(photos: Blob[]): void;
 }
@@ -142,7 +144,12 @@ export function CameraCapture(props: CameraCaptureProps): React.JSX.Element {
 
   return (
     <>
-      <Button type="button" className="sm:self-start" onClick={() => setIsOpen(true)}>
+      <Button
+        type="button"
+        className="sm:self-start"
+        disabled={props.isDisabled}
+        onClick={() => setIsOpen(true)}
+      >
         {props.triggerIcon}
         {props.triggerLabel}
       </Button>

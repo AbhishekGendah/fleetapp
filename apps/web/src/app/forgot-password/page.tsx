@@ -67,7 +67,10 @@ export default function ForgotPasswordPage() {
               </SubmitButton>
             </ClientForm>
           )}
-          <Link href={SIGN_IN_PATH} className="text-center text-sm hover:underline">
+          <Link
+            href={SIGN_IN_PATH}
+            className="inline-flex min-h-11 items-center justify-center text-center text-sm hover:underline"
+          >
             Back to sign in
           </Link>
         </CardContent>

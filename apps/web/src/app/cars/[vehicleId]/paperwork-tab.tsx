@@ -101,7 +101,10 @@ function InsuranceCard(props: {
         <CardTitle>Insurance</CardTitle>
         <CardDescription>
           {policies.length === 0 ? "Not on any policy." : "The policies this car is on now."}{" "}
-          <Link href={INSURANCE_PATH} className="text-teal font-semibold hover:underline">
+          <Link
+            href={INSURANCE_PATH}
+            className="text-teal inline-flex min-h-11 items-center font-semibold hover:underline"
+          >
             All policies
           </Link>
         </CardDescription>

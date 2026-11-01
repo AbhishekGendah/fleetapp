@@ -20,6 +20,12 @@ export type SuggestionBoxProps<Suggestion> = Omit<
   onDismiss: () => void;
   /** Shown under the suggestions, e.g. a credit to whoever supplied them. */
   footer?: React.ReactNode;
+  /**
+   * Whether leaving with Tab takes the top suggestion (default yes, as for a
+   * car make). Off for a free-text box such as an address, where a typed
+   * unit or a street not listed must stay as typed.
+   */
+  shouldPickOnTab?: boolean;
 };
 
 /**
@@ -36,6 +42,7 @@ export function SuggestionBox<Suggestion>({
   onSuggestionChosen,
   onDismiss,
   footer,
+  shouldPickOnTab = true,
   onKeyDown,
   onBlur,
   className,
@@ -68,7 +75,7 @@ export function SuggestionBox<Suggestion>({
       // Enter picks the highlighted suggestion instead of submitting the form.
       event.preventDefault();
       choose(suggestions[activeIndex]!);
-    } else if (event.key === "Tab" && !event.shiftKey) {
+    } else if (event.key === "Tab" && !event.shiftKey && shouldPickOnTab) {
       // Leaving with Tab takes the highlighted suggestion, or the top one once
       // something is typed, so "toy" then Tab gives "Toyota". Focus still moves on.
       const index = activeIndex >= 0 ? activeIndex : value.trim() ? 0 : -1;

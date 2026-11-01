@@ -141,6 +141,8 @@ export function AddressSearch({
       )}
       onSuggestionChosen={(suggestion) => void choose(suggestion)}
       onDismiss={() => setShouldSearch(false)}
+      // An address is free text: Tab must never swap what was typed for a suggestion.
+      shouldPickOnTab={false}
       footer={
         // Google's terms: results shown without a Google map must credit Google.
         <p className="text-muted-foreground border-t px-3 py-1.5 text-right text-xs">
