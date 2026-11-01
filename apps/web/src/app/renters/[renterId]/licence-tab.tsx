@@ -13,6 +13,8 @@ import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { Pencil, Plus } from "lucide-react";
 
 import { DetailLines } from "../../../components/detail-lines";
+import { RENTAL_RETENTION_HOLDS } from "../../../lib/rentals/retention-holds";
+import { loadRenterScanHold } from "../../../lib/renters/scan-retention";
 import { appDb } from "../../../lib/app-db";
 import type { SignedInUser } from "../../../lib/require-user";
 import { licenceFormValues } from "../../../lib/renters/licence-input";
@@ -60,10 +62,11 @@ export async function LicenceTab(props: {
   const { renter, user, expiry } = props;
   const isEditable = renter.archivedAt === null;
   const hasLicence = renter.licenceNumber !== null;
-  const [scans, settings, sidesDeletedByTimer] = await Promise.all([
+  const [scans, settings, sidesDeletedByTimer, hold] = await Promise.all([
     listLicenceScans(appDb, user.operatorId, renter.id),
     loadOperatorSettings(appDb, user.operatorId),
     listSidesDeletedByTimer(appDb, user.operatorId, renter.id),
+    loadRenterScanHold(appDb, user.operatorId, renter.id, RENTAL_RETENTION_HOLDS),
   ]);
   const keptMonths = settings.licenceScanKeptMonths;
   const scanSummaries = Object.fromEntries(
@@ -74,17 +77,18 @@ export async function LicenceTab(props: {
             id: scan.id,
             contentType: scan.contentType,
             addedText: formatDateTimeInTimeZone(scan.addedAt, user.operatorTimezone),
-            // TODO(Phase 3): use the same last-rental date and holds as the
-            // nightly job; until rentals exist it counts from when it was added.
-            keptUntilText: formatCalendarDate(
-              todayInTimeZone(
-                licenceScanDeleteAfter(
-                  { addedAt: scan.addedAt, lastRentalEndedAt: null },
-                  keptMonths,
+            // The same holds and last-rental date as the nightly clean-up.
+            keptUntilText: hold.isHeld
+              ? null
+              : formatCalendarDate(
+                  todayInTimeZone(
+                    licenceScanDeleteAfter(
+                      { addedAt: scan.addedAt, lastRentalEndedAt: hold.lastRentalEndedAt },
+                      keptMonths,
+                    ),
+                    user.operatorTimezone,
+                  ),
                 ),
-                user.operatorTimezone,
-              ),
-            ),
           }
         : null;
       return [side, summary];

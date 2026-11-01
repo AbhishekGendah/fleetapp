@@ -622,12 +622,14 @@
   - Browser tests for the whole booking flow, phone width, keyboard, and
     axe on every new page. Checklist rows O-225 to O-237 and A-60.
 
+- Licence scans and rentals: the nightly clean-up, the "lowering deletes
+  N scans" warning in Settings and the Licence tab's "Kept until" now all
+  use rentals. A Renter with any rental not yet closed (draft, booked, out,
+  or returned with the bond still held) keeps their scans; afterwards the
+  timer counts from their last return. Tested with real rentals.
+
 ## Next
-1. Licence scan clean-up: plug in rentals now that they exist, so a Renter
-   with a booking or an open rental never has their scans deleted (the
-   "TODO(Phase 3)" in scan-retention.ts, the nightly job and the Settings
-   warning). Small, but first.
-2. Phase 3 slice 2: contract templates and issued documents.
+Phase 3 slice 2: contract templates and issued documents.
 Open idea: trim the phone rules to Australia only with libphonenumber's
 metadata generator (about 40 KB off each form page); running the
 generator needs Abhi's say-so.

@@ -30,8 +30,11 @@ export interface ScanSummary {
   contentType: string;
   /** Already in the Operator's words, e.g. "31 Oct 2026, 9:15 am". */
   addedText: string;
-  /** When the retention timer will delete it, in the Operator's words. */
-  keptUntilText: string;
+  /**
+   * When the retention timer will delete it, in the Operator's words; null
+   * while the Renter has a rental open, which keeps it.
+   */
+  keptUntilText: string | null;
 }
 
 function ScanSlot(props: {
@@ -63,7 +66,9 @@ function ScanSlot(props: {
       </div>
       {scan ? (
         <p className="text-muted-foreground text-sm">
-          Kept until about {scan.keptUntilText}, then deleted automatically.
+          {scan.keptUntilText
+            ? `Kept until about ${scan.keptUntilText}, then deleted automatically.`
+            : "Kept while the Renter has a rental that is not closed yet."}
         </p>
       ) : null}
       {!scan && props.deletedByTimerText ? (

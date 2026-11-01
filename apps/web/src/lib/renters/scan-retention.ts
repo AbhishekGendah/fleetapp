@@ -19,8 +19,8 @@ import { loadOperatorSettings } from "../settings/operator-settings";
 
 /**
  * What keeps a Renter's scans past the timer, from the parts of the app that
- * know: when their last rental ended (rentals, Phase 3), and whether a rental,
- * fine or dispute is still open (Phases 3 and 4).
+ * know: when their last rental ended, and whether a rental (or, from Phase 4,
+ * a fine or dispute) is still open.
  */
 export interface RetentionHolds {
   lastRentalEnds: (tx: AnyTransaction, renterIds: readonly string[]) => Promise<Map<string, Date>>;
@@ -31,11 +31,10 @@ export interface RetentionHolds {
 }
 
 /**
- * Until rentals, fines and disputes exist, nothing holds a scan back.
- * TODO(Phase 3): plug in rentals' last end and open rentals; fines and
- * disputes add theirs when built.
+ * Nothing holds a scan back: for tests of the timer alone. The app passes
+ * RENTAL_RETENTION_HOLDS (lib/rentals/retention-holds.ts).
  */
-export const NO_HOLDS_YET: RetentionHolds = {
+export const NO_HOLDS: RetentionHolds = {
   lastRentalEnds: async () => new Map(),
   rentersWithOpenMatters: async () => new Set(),
 };
@@ -146,4 +145,26 @@ export async function countScansDueWith(
     operatorId,
     async (tx) => (await findScansDue(tx, operatorId, keptMonths, now, holds)).length,
   );
+}
+
+/** What holds one Renter's scans now: an open rental, or when their last rental came back. */
+export interface RenterScanHold {
+  isHeld: boolean;
+  lastRentalEndedAt: Date | null;
+}
+
+/** The same holds the nightly clean-up uses, for one Renter, so their page says what will happen. */
+export async function loadRenterScanHold(
+  database: FileDependencies["database"],
+  operatorId: string,
+  renterId: string,
+  holds: RetentionHolds,
+): Promise<RenterScanHold> {
+  return withTenant(database, operatorId, async (tx) => {
+    const [held, lastEnds] = await Promise.all([
+      holds.rentersWithOpenMatters(tx, [renterId]),
+      holds.lastRentalEnds(tx, [renterId]),
+    ]);
+    return { isHeld: held.has(renterId), lastRentalEndedAt: lastEnds.get(renterId) ?? null };
+  });
 }

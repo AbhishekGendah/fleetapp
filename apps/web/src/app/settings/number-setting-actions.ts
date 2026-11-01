@@ -6,7 +6,8 @@ import { failedState, savedState } from "@fleetapp/ui/change-form-state";
 import { appDb } from "../../lib/app-db";
 import { CARS_PATH, RENTERS_PATH, SETTINGS_PATH } from "../../lib/paths";
 import { runUserChange } from "../../lib/run-change";
-import { countScansDueWith, NO_HOLDS_YET } from "../../lib/renters/scan-retention";
+import { RENTAL_RETENTION_HOLDS } from "../../lib/rentals/retention-holds";
+import { countScansDueWith } from "../../lib/renters/scan-retention";
 import { requireUser } from "../../lib/require-user";
 import { loadOperatorSettings, saveOperatorSettings } from "../../lib/settings/operator-settings";
 import {
@@ -35,8 +36,13 @@ async function askBeforeBinningScans(
   if (amount >= settings.licenceScanKeptMonths) {
     return null;
   }
-  // TODO(Phase 3): pass the rentals' holds, as the nightly job will.
-  const count = await countScansDueWith(appDb, operatorId, amount, new Date(), NO_HOLDS_YET);
+  const count = await countScansDueWith(
+    appDb,
+    operatorId,
+    amount,
+    new Date(),
+    RENTAL_RETENTION_HOLDS,
+  );
   if (count === 0) {
     return null;
   }

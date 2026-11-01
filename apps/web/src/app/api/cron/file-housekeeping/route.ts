@@ -6,7 +6,8 @@ import { appDb } from "../../../../lib/app-db";
 import { isScheduledJobRequest } from "../../../../lib/cron-auth";
 import { runFileHousekeeping } from "../../../../lib/files/file-housekeeping";
 import { removeOldSubmissions } from "../../../../lib/renter-links/submission-cleanup";
-import { binExpiredLicenceScans, NO_HOLDS_YET } from "../../../../lib/renters/scan-retention";
+import { RENTAL_RETENTION_HOLDS } from "../../../../lib/rentals/retention-holds";
+import { binExpiredLicenceScans } from "../../../../lib/renters/scan-retention";
 import { appFileStorage } from "../../../../lib/storage/app-file-storage";
 
 export const runtime = "nodejs";
@@ -38,9 +39,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // Binning first: what is binned today is purged by a run 30 days later.
   // Each part runs on its own, so one failing never stops the others.
   const submissions = await runPart("Submission clean-up", () => removeOldSubmissions(deps));
-  // TODO(Phase 3): pass the rentals' holds (last rental end, open rentals).
   const licenceScans = await runPart("Licence scan retention", () =>
-    binExpiredLicenceScans(deps, NO_HOLDS_YET),
+    binExpiredLicenceScans(deps, RENTAL_RETENTION_HOLDS),
   );
   const files = await runPart("File clean-up", () => runFileHousekeeping(deps));
   return NextResponse.json({ submissions, licenceScans, files });

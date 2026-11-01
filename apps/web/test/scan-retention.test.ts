@@ -1,5 +1,5 @@
 import { SAMPLE_JPEG } from "@fleetapp/core/testing";
-import { activityLog, files } from "@fleetapp/db/schema";
+import { activityLog, files, rentals } from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, inArray } from "drizzle-orm";
@@ -12,12 +12,16 @@ import {
   listSidesDeletedByTimer,
   startLicenceScanUpload,
 } from "../src/lib/renters/licence-scans";
+import { emptyRentalForm, parseRentalForm } from "../src/lib/rentals/rental-input";
+import { cancelRental, createRental } from "../src/lib/rentals/rental-records";
+import { RENTAL_RETENTION_HOLDS } from "../src/lib/rentals/retention-holds";
 import { emptyRenterForm, parseRenterForm } from "../src/lib/renters/renter-input";
 import { createRenter } from "../src/lib/renters/renter-records";
 import {
   binExpiredLicenceScans,
   countScansDueWith,
-  NO_HOLDS_YET,
+  loadRenterScanHold,
+  NO_HOLDS,
   type RetentionHolds,
 } from "../src/lib/renters/scan-retention";
 import { saveOperatorSettings } from "../src/lib/settings/operator-settings";
@@ -25,7 +29,7 @@ import {
   createMemoryFileStorage,
   type MemoryFileStorage,
 } from "../src/lib/storage/memory-file-storage";
-import { seedOperatorWithUser } from "./car-fixtures";
+import { addTestCar, seedOperatorWithUser } from "./car-fixtures";
 import { LINK_PHOTO } from "./renter-link-fixtures";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -87,7 +91,7 @@ describe("licence scans deleted on a timer", () => {
   it("bins a scan kept past the setting, keeps a newer one, and is safe to run again", async () => {
     const old = await renterWithScan(actor, 400);
     const recent = await renterWithScan(actor, 100);
-    await binExpiredLicenceScans(deps, NO_HOLDS_YET);
+    await binExpiredLicenceScans(deps, NO_HOLDS);
     expect(await hasFront(actor, old.renterId)).toBe(false);
     expect(await hasFront(actor, recent.renterId)).toBe(true);
     expect(await listSidesDeletedByTimer(web.db, actor.operatorId, old.renterId)).toEqual(
@@ -104,7 +108,7 @@ describe("licence scans deleted on a timer", () => {
       actorType: "system",
       after: { purpose: "renter_licence_scan", reason: "kept_the_set_time", keptMonths: 12 },
     });
-    const again = await binExpiredLicenceScans(deps, NO_HOLDS_YET);
+    const again = await binExpiredLicenceScans(deps, NO_HOLDS);
     expect(again.failedOperators).toBe(0);
     expect(await hasFront(actor, recent.renterId)).toBe(true);
   });
@@ -114,7 +118,7 @@ describe("licence scans deleted on a timer", () => {
     await renterWithScan(counter, 100);
     await renterWithScan(counter, 10);
     const count = (months: number) =>
-      countScansDueWith(web.db, counter.operatorId, months, new Date(), NO_HOLDS_YET);
+      countScansDueWith(web.db, counter.operatorId, months, new Date(), NO_HOLDS);
     expect(await count(12)).toBe(0);
     expect(await count(3)).toBe(1);
     expect(await count(1)).toBe(1);
@@ -124,7 +128,7 @@ describe("licence scans deleted on a timer", () => {
     const mine = await renterWithScan(actor, 100);
     const theirs = await renterWithScan(otherActor, 100);
     await saveOperatorSettings(web.db, actor, { licenceScanKeptMonths: 3 });
-    await binExpiredLicenceScans(deps, NO_HOLDS_YET);
+    await binExpiredLicenceScans(deps, NO_HOLDS);
     expect(await hasFront(actor, mine.renterId)).toBe(false);
     expect(await hasFront(otherActor, theirs.renterId)).toBe(true);
     await saveOperatorSettings(web.db, actor, { licenceScanKeptMonths: 12 });
@@ -149,5 +153,71 @@ describe("licence scans deleted on a timer", () => {
         .where(inArray(files.id, [held.scanId, rentedLately.scanId])),
     );
     expect(bothScans.every((scan) => scan.deletedAt === null)).toBe(true);
+  });
+
+  describe("with real rentals", () => {
+    const TIME_ZONE = "Australia/Perth";
+
+    /** Books a car for the Renter, well in the future. */
+    async function bookFor(owner: ActingUser, renterId: string): Promise<string> {
+      const vehicleId = await addTestCar(web, owner);
+      const input = parseRentalForm(
+        {
+          ...emptyRentalForm({ renterId, vehicleId }),
+          plannedStart: "2027-06-01T09:00",
+          plannedEnd: "2027-06-29T09:00",
+          weeklyRateCents: "350",
+          bondCents: "500",
+        },
+        TIME_ZONE,
+      );
+      const result = await createRental(web.db, owner, input.data!, "booked", {
+        timeZone: TIME_ZONE,
+        now: new Date(),
+      });
+      if (result.status !== "saved") {
+        throw new Error(result.status);
+      }
+      return result.rentalId;
+    }
+
+    it("keeps the scans of a Renter with a booking, and lets go once it is cancelled", async () => {
+      const owner = await seedOperatorWithUser(admin, "Booked Retention Pty Ltd");
+      const booked = await renterWithScan(owner, 400);
+      const rentalId = await bookFor(owner, booked.renterId);
+
+      await binExpiredLicenceScans(deps, RENTAL_RETENTION_HOLDS);
+      expect(await hasFront(owner, booked.renterId)).toBe(true);
+      // The Renter's Licence tab sees the same hold, so it never promises a date.
+      expect(
+        await loadRenterScanHold(web.db, owner.operatorId, booked.renterId, RENTAL_RETENTION_HOLDS),
+      ).toEqual({ isHeld: true, lastRentalEndedAt: null });
+
+      await cancelRental(web.db, owner, rentalId, { reason: "No longer needed" }, new Date());
+      await binExpiredLicenceScans(deps, RENTAL_RETENTION_HOLDS);
+      expect(await hasFront(owner, booked.renterId)).toBe(false);
+    });
+
+    it("counts from the last return once the rental is closed", async () => {
+      const owner = await seedOperatorWithUser(admin, "Returned Retention Pty Ltd");
+      const returned = await renterWithScan(owner, 400);
+      const rentalId = await bookFor(owner, returned.renterId);
+      // Handover and return come in later slices; the test moves the rental on itself.
+      const moveTo = (changes: Partial<typeof rentals.$inferInsert>) =>
+        withTenant(web.db, owner.operatorId, (tx) =>
+          tx.update(rentals).set(changes).where(eq(rentals.id, rentalId)),
+        );
+      await moveTo({ status: "active", handedOverAt: new Date(Date.now() - 60 * DAY_MS) });
+      await moveTo({ status: "returned", returnedAt: new Date(Date.now() - 30 * DAY_MS) });
+      await moveTo({ status: "closed" });
+
+      expect(await countScansDueWith(web.db, owner.operatorId, 12, new Date(), NO_HOLDS)).toBe(1);
+      expect(
+        await countScansDueWith(web.db, owner.operatorId, 12, new Date(), RENTAL_RETENTION_HOLDS),
+      ).toBe(0);
+      expect(
+        await countScansDueWith(web.db, owner.operatorId, 1, new Date(), RENTAL_RETENTION_HOLDS),
+      ).toBe(0);
+    });
   });
 });
