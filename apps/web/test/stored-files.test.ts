@@ -22,6 +22,9 @@ const PNG_START = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0
 const NOT_AN_IMAGE = new TextEncoder().encode("<svg onload=alert(1)>");
 const LOGO = { purpose: "operator_logo", contentType: "image/png", sizeBytes: 2048 } as const;
 
+/** Every confirm here is of a logo. */
+const LOGO_ONLY = ["operator_logo"] as const;
+
 describe("storing files", () => {
   let admin: TestConnection;
   let web: TestConnection;
@@ -82,7 +85,8 @@ describe("storing files", () => {
     await requestUpload(deps, actorA, LOGO);
 
     const permission = storage.permissions.at(-1)!;
-    expect(permission.key.startsWith(`${actorA.operatorId}/operator_logo/`)).toBe(true);
+    // The browser sends to a holding address; only checked bytes reach the file's own.
+    expect(permission.key.startsWith(`incoming/${actorA.operatorId}/operator_logo/`)).toBe(true);
     expect(permission).toMatchObject({
       area: "general",
       contentType: "image/png",
@@ -107,7 +111,7 @@ describe("storing files", () => {
   it("confirms a file that really is what it claimed, and shows it as the logo", async () => {
     const fileId = await upload(actorA, PNG_START);
 
-    expect(await confirmUpload(deps, actorA, fileId)).toBe("confirmed");
+    expect(await confirmUpload(deps, actorA, fileId, LOGO_ONLY)).toBe("confirmed");
     expect((await fileRow(fileId))?.confirmedAt).not.toBeNull();
     expect(await findLogoViewUrl(deps, actorA.operatorId)).toContain(actorA.operatorId);
   });
@@ -116,30 +120,49 @@ describe("storing files", () => {
     const fileId = await upload(actorA, NOT_AN_IMAGE);
     const key = storage.permissions.at(-1)!.key;
 
-    expect(await confirmUpload(deps, actorA, fileId)).toBe("wrong_type");
+    expect(await confirmUpload(deps, actorA, fileId, LOGO_ONLY)).toBe("wrong_type");
     expect(storage.has("general", key)).toBe(false);
     expect((await fileRow(fileId))?.refusedAt).not.toBeNull();
+  });
+
+  it("moves only the checked file to its own address, which no permission covers", async () => {
+    const fileId = await upload(actorA, PNG_START);
+    const incoming = storage.permissions.at(-1)!.key;
+
+    expect(await confirmUpload(deps, actorA, fileId, LOGO_ONLY)).toBe("confirmed");
+    expect(storage.has("general", incoming)).toBe(false);
+    expect(storage.has("general", incoming.replace(/^incoming\//, ""))).toBe(true);
+  });
+
+  it("lets only the one who asked confirm a file, and only as the kind expected", async () => {
+    const fileId = await upload(actorA, PNG_START);
+    const someoneElse = { operatorId: actorA.operatorId, linkId: randomUUID() };
+
+    expect(await confirmUpload(deps, someoneElse, fileId, LOGO_ONLY)).toBe("not_found");
+    expect(await confirmUpload(deps, actorA, fileId, ["vehicle_photo"])).toBe("not_found");
+    expect((await fileRow(fileId))?.confirmedAt).toBeNull();
+    expect(await confirmUpload(deps, actorA, fileId, LOGO_ONLY)).toBe("confirmed");
   });
 
   it("waits when nothing has arrived yet", async () => {
     const result = await requestUpload(deps, actorA, LOGO);
     const fileId = result.status === "allowed" ? result.fileId : "";
 
-    expect(await confirmUpload(deps, actorA, fileId)).toBe("not_arrived");
+    expect(await confirmUpload(deps, actorA, fileId, LOGO_ONLY)).toBe("not_arrived");
   });
 
   it("will not confirm another Operator's file", async () => {
     const fileId = await upload(actorB, PNG_START);
 
-    expect(await confirmUpload(deps, actorA, fileId)).toBe("not_found");
+    expect(await confirmUpload(deps, actorA, fileId, LOGO_ONLY)).toBe("not_found");
     expect((await fileRow(fileId))?.confirmedAt).toBeNull();
   });
 
   it("replaces the old logo, marking it deleted, and logs both", async () => {
     const first = await upload(actorB, PNG_START);
-    await confirmUpload(deps, actorB, first);
+    await confirmUpload(deps, actorB, first, LOGO_ONLY);
     const second = await upload(actorB, PNG_START);
-    await confirmUpload(deps, actorB, second);
+    await confirmUpload(deps, actorB, second, LOGO_ONLY);
 
     expect((await fileRow(first))?.deletedAt).not.toBeNull();
     expect((await fileRow(second))?.deletedAt).toBeNull();

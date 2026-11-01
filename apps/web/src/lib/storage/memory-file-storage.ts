@@ -15,7 +15,8 @@ export interface MemoryFileStorage extends FileStorage {
 }
 
 export function createMemoryFileStorage(): MemoryFileStorage {
-  const stored = new Map<string, Uint8Array>();
+  const stored = new Map<string, { bytes: Uint8Array; version: string }>();
+  let versions = 0;
   const address = (area: StorageArea, key: string): string => `${area}:${key}`;
   const permissions: UploadPermissionRequest[] = [];
 
@@ -25,11 +26,25 @@ export function createMemoryFileStorage(): MemoryFileStorage {
       permissions.push(request);
       return { url: STAND_IN_UPLOAD_URL, fields: { key: request.key } };
     },
-    async findStoredSize(area, key) {
-      return stored.get(address(area, key))?.byteLength ?? null;
+    async inspect(area, key) {
+      const found = stored.get(address(area, key));
+      return found ? { sizeBytes: found.bytes.byteLength, version: found.version } : null;
     },
-    async readStart(area, key, length) {
-      return (stored.get(address(area, key)) ?? new Uint8Array()).slice(0, length);
+    async readStart(area, key, length, version) {
+      const found = stored.get(address(area, key));
+      if (found?.version !== version) {
+        throw new Error("The stored file changed after it was inspected.");
+      }
+      return found.bytes.slice(0, length);
+    },
+    async promote(area, fromKey, toKey, version) {
+      const found = stored.get(address(area, fromKey));
+      if (found?.version !== version) {
+        return false;
+      }
+      stored.set(address(area, toKey), found);
+      stored.delete(address(area, fromKey));
+      return true;
     },
     async remove(area, key) {
       stored.delete(address(area, key));
@@ -39,7 +54,8 @@ export function createMemoryFileStorage(): MemoryFileStorage {
       return `${STAND_IN_VIEW_URL}/${area}/${key}${name}`;
     },
     receive(area, key, bytes) {
-      stored.set(address(area, key), bytes);
+      versions += 1;
+      stored.set(address(area, key), { bytes, version: String(versions) });
     },
     has(area, key) {
       return stored.has(address(area, key));

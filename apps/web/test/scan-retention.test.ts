@@ -49,7 +49,9 @@ describe("licence scans deleted on a timer", () => {
     }
     const permission = storage.permissions.at(-1)!;
     storage.receive(permission.area, permission.key, JPEG_START);
-    expect(await confirmUpload(deps, owner, start.fileId)).toBe("confirmed");
+    expect(await confirmUpload(deps, owner, start.fileId, ["renter_licence_scan"])).toBe(
+      "confirmed",
+    );
     await withTenant(web.db, owner.operatorId, (tx) =>
       tx
         .update(files)

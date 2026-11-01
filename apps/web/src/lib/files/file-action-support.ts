@@ -114,7 +114,8 @@ export async function finishRecordUpload(
   }
   return orUploadFailed(
     description,
-    async () => finishMessage(await confirmUpload(fileDependencies(), actor, fileId), purpose),
+    async () =>
+      finishMessage(await confirmUpload(fileDependencies(), actor, fileId, [purpose]), purpose),
     UPLOAD_FAILED_MESSAGE,
   );
 }

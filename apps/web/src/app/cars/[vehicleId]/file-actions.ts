@@ -88,10 +88,13 @@ export async function finishCarPhotoUploadAction(
     "Finishing a car photo upload",
     async () => {
       const deps = fileDependencies();
-      const problem = finishMessage(await confirmUpload(deps, actor, photoId), "vehicle_photo");
+      const problem = finishMessage(
+        await confirmUpload(deps, actor, photoId, ["vehicle_photo"]),
+        "vehicle_photo",
+      );
       if (!problem) {
         // A missing small copy only means the grid shows the photo itself.
-        await confirmUpload(deps, actor, thumbnailId);
+        await confirmUpload(deps, actor, thumbnailId, ["vehicle_photo_thumbnail"]);
         revalidatePath(carPath(vehicleId));
       }
       return problem;
@@ -141,7 +144,7 @@ export async function finishCarDocumentUploadAction(
     "Finishing a car document upload",
     async () => {
       const problem = finishMessage(
-        await confirmUpload(fileDependencies(), actor, fileId),
+        await confirmUpload(fileDependencies(), actor, fileId, ["vehicle_document"]),
         "vehicle_document",
       );
       if (!problem) {

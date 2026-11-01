@@ -5,7 +5,7 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import type { FileDependencies } from "./stored-files";
+import { incomingKeyFor, type FileDependencies } from "./stored-files";
 
 /** A deleted file can be recovered for this long, then it goes for good (rule 23). */
 export const DELETED_FILE_KEPT_DAYS = 30;
@@ -84,6 +84,8 @@ async function purgeFile(
   // Storage first: if the record were updated first and storage then failed,
   // the file would be left behind with nothing to say it still needs removing.
   await deps.storage.remove(file.storageArea, file.objectKey);
+  // A file never confirmed is still where the browser sent it.
+  await deps.storage.remove(file.storageArea, incomingKeyFor(file.objectKey));
   const reason: PurgeReason = file.deletedAt ? "deleted_over_30_days" : "upload_never_finished";
   await withTenant(deps.database, operatorId, async (tx) => {
     await tx

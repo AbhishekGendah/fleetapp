@@ -2,11 +2,11 @@ import { MAXIMUM_LINK_ADDRESS_SEARCHES, type LicenceSide } from "@fleetapp/core"
 import { activityLog, files, renters } from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import type { ActingUser } from "../src/lib/acting-user";
-import type { FileDependencies } from "../src/lib/files/stored-files";
+import { confirmUpload, type FileDependencies } from "../src/lib/files/stored-files";
 import { detailsFormStart, parseDetailsForm } from "../src/lib/renter-links/details-form-input";
 import type { LinkVisit } from "../src/lib/renter-links/link-visits";
 import {
@@ -20,6 +20,7 @@ import { emptyRenterForm } from "../src/lib/renters/renter-input";
 import { seedOperatorWithUser } from "./car-fixtures";
 import {
   addLinkPhoto,
+  JPEG_START,
   detailsSent,
   LINK_PHOTO,
   LINK_TEST_TODAY,
@@ -125,6 +126,32 @@ describe("what a Renter sends through their details link", () => {
     expect(log).toHaveLength(1);
     expect(log[0]).toMatchObject({ actorType: "renter_link", actorId: visit.linkId });
     expect(JSON.stringify(log)).not.toContain("1234567");
+  });
+
+  it("refuses a photo that finishes after the details were sent", async () => {
+    const visit = await openRenterLink();
+    await addPhoto(visit, "front");
+    await addPhoto(visit, "back");
+    const retake = await startLinkPhotoUpload(fileDeps, visit, "front", LINK_PHOTO);
+    if (retake.status !== "allowed") {
+      throw new Error(retake.status);
+    }
+    const permission = kit.storage.permissions.at(-1)!;
+    kit.storage.receive(permission.area, permission.key, JPEG_START);
+    expect(await submitDetails(web.db, visit, detailsSent())).toBe("sent");
+
+    const linkActor = { operatorId: visit.operatorId, linkId: visit.linkId };
+    expect(await confirmUpload(fileDeps, linkActor, retake.fileId, ["renter_submitted_scan"])).toBe(
+      "not_found",
+    );
+    const confirmedSent = await withTenant(web.db, visit.operatorId, (tx) =>
+      tx
+        .select({ id: files.id, submissionId: files.submissionId })
+        .from(files)
+        .where(and(eq(files.renterLinkId, visit.linkId), isNotNull(files.confirmedAt))),
+    );
+    expect(confirmedSent.map((photo) => photo.id)).not.toContain(retake.fileId);
+    expect(confirmedSent.every((photo) => photo.submissionId !== null)).toBe(true);
   });
 
   it("shows the Operator it is waiting, and no other Operator", async () => {

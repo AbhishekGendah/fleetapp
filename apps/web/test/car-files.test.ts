@@ -54,8 +54,12 @@ describe("car photos and documents", () => {
     const [photoPermission, thumbnailPermission] = storage.permissions.slice(-2);
     storage.receive("general", photoPermission!.key, JPEG_START);
     storage.receive("general", thumbnailPermission!.key, JPEG_START);
-    expect(await confirmUpload(deps, actor, start.photo.fileId)).toBe("confirmed");
-    expect(await confirmUpload(deps, actor, start.thumbnail.fileId)).toBe("confirmed");
+    expect(await confirmUpload(deps, actor, start.photo.fileId, ["vehicle_photo"])).toBe(
+      "confirmed",
+    );
+    expect(
+      await confirmUpload(deps, actor, start.thumbnail.fileId, ["vehicle_photo_thumbnail"]),
+    ).toBe("confirmed");
     return start.photo.fileId;
   }
 
@@ -120,7 +124,7 @@ describe("car photos and documents", () => {
       throw new Error("The document was refused.");
     }
     sendLast(PDF_START);
-    expect(await confirmUpload(deps, actor, start.fileId)).toBe("confirmed");
+    expect(await confirmUpload(deps, actor, start.fileId, ["vehicle_document"])).toBe("confirmed");
 
     const fake = await startCarDocumentUpload(deps, actor, carId, {
       contentType: "application/pdf",
@@ -131,7 +135,7 @@ describe("car photos and documents", () => {
       throw new Error("The second document was refused.");
     }
     sendLast(new TextEncoder().encode("<script>alert(1)</script>"));
-    expect(await confirmUpload(deps, actor, fake.fileId)).toBe("wrong_type");
+    expect(await confirmUpload(deps, actor, fake.fileId, ["vehicle_document"])).toBe("wrong_type");
 
     const documents = await listCarDocuments(web.db, actor.operatorId, carId);
     expect(documents.map((document) => document.label)).toEqual(["Pre-purchase inspection"]);

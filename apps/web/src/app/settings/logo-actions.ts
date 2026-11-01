@@ -54,7 +54,7 @@ export async function finishLogoUploadAction(fileId: string): Promise<string | n
     "Finishing a logo upload",
     async () => {
       const problem = finishMessage(
-        await confirmUpload(fileDependencies(), actor, fileId),
+        await confirmUpload(fileDependencies(), actor, fileId, ["operator_logo"]),
         "operator_logo",
       );
       if (!problem) {

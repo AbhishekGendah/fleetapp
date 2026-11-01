@@ -1,15 +1,20 @@
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
   NotFound,
   S3Client,
+  S3ServiceException,
 } from "@aws-sdk/client-s3";
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { StorageArea } from "@fleetapp/core";
 
 import { UPLOAD_PERMISSION_SECONDS, VIEW_LINK_SECONDS, type FileStorage } from "./file-storage";
+
+/** What S3 answers when a version condition (If-Match) no longer holds. */
+const PRECONDITION_FAILED_STATUS = 412;
 
 /** The smallest file an upload permission accepts: an empty file is never useful. */
 const MINIMUM_UPLOAD_BYTES = 1;
@@ -45,12 +50,14 @@ export function createS3FileStorage(config: S3FileStorageConfig): FileStorage {
       return { url, fields };
     },
 
-    async findStoredSize(area, key) {
+    async inspect(area, key) {
       try {
         const head = await client.send(
           new HeadObjectCommand({ Bucket: bucketFor(area), Key: key }),
         );
-        return head.ContentLength ?? null;
+        return head.ContentLength !== undefined && head.ETag
+          ? { sizeBytes: head.ContentLength, version: head.ETag }
+          : null;
       } catch (error) {
         if (error instanceof NotFound) {
           return null;
@@ -59,11 +66,41 @@ export function createS3FileStorage(config: S3FileStorageConfig): FileStorage {
       }
     },
 
-    async readStart(area, key, length) {
+    async readStart(area, key, length, version) {
       const response = await client.send(
-        new GetObjectCommand({ Bucket: bucketFor(area), Key: key, Range: `bytes=0-${length - 1}` }),
+        new GetObjectCommand({
+          Bucket: bucketFor(area),
+          Key: key,
+          Range: `bytes=0-${length - 1}`,
+          IfMatch: version,
+        }),
       );
       return response.Body ? await response.Body.transformToByteArray() : new Uint8Array();
+    },
+
+    async promote(area, fromKey, toKey, version) {
+      const bucket = bucketFor(area);
+      try {
+        await client.send(
+          new CopyObjectCommand({
+            Bucket: bucket,
+            Key: toKey,
+            CopySource: `${bucket}/${encodeURIComponent(fromKey)}`,
+            // Only the bytes that were checked: a swap since then is refused.
+            CopySourceIfMatch: version,
+          }),
+        );
+      } catch (error) {
+        if (
+          error instanceof S3ServiceException &&
+          error.$metadata.httpStatusCode === PRECONDITION_FAILED_STATUS
+        ) {
+          return false;
+        }
+        throw error;
+      }
+      await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: fromKey }));
+      return true;
     },
 
     async remove(area, key) {

@@ -12,9 +12,15 @@ import {
 } from "@fleetapp/core";
 import { recordActivity } from "@fleetapp/db/activity";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
-import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, files } from "@fleetapp/db/schema";
+import {
+  ACTIVITY_ACTIONS,
+  ACTIVITY_ENTITY_TYPES,
+  files,
+  renterLinks,
+  renterSubmissions,
+} from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, eq, inArray, isNotNull, isNull, type SQL } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, ne, type SQL } from "drizzle-orm";
 
 import type { FileStorage, UploadPermission } from "../storage/file-storage";
 
@@ -116,7 +122,7 @@ export async function requestUpload(
 
   const permission = await deps.storage.createUploadPermission({
     area: rule.area,
-    key: objectKey,
+    key: incomingKeyFor(objectKey),
     contentType: request.contentType,
     maxBytes: rule.maxBytes,
   });
@@ -125,85 +131,194 @@ export async function requestUpload(
 
 export type ConfirmResult = "confirmed" | "not_found" | "not_arrived" | "wrong_type";
 
-/** The pending file, looked up only within the signed-in User's Operator. */
+/**
+ * Where the browser sends a file: never the file's own address. Only bytes
+ * that pass the content check are moved to `objectKey`, which no upload
+ * permission covers, so they cannot be swapped afterwards (rule 22).
+ */
+export function incomingKeyFor(objectKey: string): string {
+  return `incoming/${objectKey}`;
+}
+
+/** Asked for, not yet confirmed, refused or removed. */
+function isPending(): SQL | undefined {
+  return and(isNull(files.confirmedAt), isNull(files.refusedAt), isNull(files.deletedAt));
+}
+
+/** The pending file, looked up only within the actor's Operator. */
 async function findPendingFile(deps: FileDependencies, actor: FileActor, fileId: string) {
   const [file] = await withTenant(deps.database, actor.operatorId, (tx) =>
     tx
       .select()
       .from(files)
-      .where(
-        and(
-          eq(files.id, fileId),
-          isNull(files.confirmedAt),
-          isNull(files.refusedAt),
-          isNull(files.deletedAt),
-        ),
-      ),
+      .where(and(eq(files.id, fileId), eq(files.operatorId, actor.operatorId), isPending())),
   );
   return file ?? null;
 }
 
+/** Only the one who asked to send a file may confirm it: that User, or that Renter link. */
+function isUploader(actor: FileActor, file: typeof files.$inferSelect): boolean {
+  return "userId" in actor
+    ? file.uploadedByUserId === actor.userId
+    : file.renterLinkId === actor.linkId;
+}
+
 /**
- * Step two, once the browser has sent the file: reads its first bytes from
- * storage and checks it really is the type it claimed (rule 22). Anything
- * else is removed from storage and marked refused. A logo replaces the
- * Operator's previous one, and a licence scan the Renter's previous scan of
- * that side, which is marked deleted in the same step.
+ * A photo sent through a link must not join after the details were sent:
+ * the link row is held, as sending holds it, so the two never cross.
+ */
+async function isLinkAlreadySent(
+  tx: AnyTransaction,
+  operatorId: string,
+  renterLinkId: string,
+): Promise<boolean> {
+  const [link] = await tx
+    .select({ renterId: renterLinks.renterId })
+    .from(renterLinks)
+    .where(and(eq(renterLinks.id, renterLinkId), eq(renterLinks.operatorId, operatorId)))
+    .for("update");
+  if (!link) {
+    return true;
+  }
+  const [waiting] = await tx
+    .select({ id: renterSubmissions.id })
+    .from(renterSubmissions)
+    .where(
+      and(
+        eq(renterSubmissions.operatorId, operatorId),
+        eq(renterSubmissions.renterId, link.renterId),
+        eq(renterSubmissions.status, "waiting"),
+      ),
+    );
+  return waiting !== undefined;
+}
+
+/** Hides what this file replaces (the old logo, scan or link photo), never the file itself. */
+async function retirePredecessors(
+  tx: AnyTransaction,
+  actor: FileActor,
+  now: Date,
+  file: typeof files.$inferSelect,
+): Promise<void> {
+  const notThisFile = ne(files.id, file.id);
+  if (file.purpose === "operator_logo") {
+    await markLogoDeleted(tx, actor, now, notThisFile);
+  }
+  if (file.renterLinkId && file.licenceSide && !file.submissionId) {
+    await markLinkPhotosDeleted(tx, actor, now, file.renterLinkId, file.licenceSide, notThisFile);
+  }
+  if (file.renterId && file.licenceSide) {
+    await markScansDeleted(
+      tx,
+      actor,
+      now,
+      and(eq(files.renterId, file.renterId), eq(files.licenceSide, file.licenceSide), notThisFile),
+    );
+  }
+}
+
+/**
+ * Marks the file confirmed, holding it so two confirms at once cannot both
+ * act, after retiring what it replaces. "not_found" if it was
+ * already claimed, or is a link photo arriving after the details were sent.
+ */
+async function claimConfirmed(
+  deps: FileDependencies,
+  actor: FileActor,
+  file: typeof files.$inferSelect,
+  sizeBytes: number,
+): Promise<ConfirmResult> {
+  const now = deps.now();
+  return withTenant(deps.database, actor.operatorId, async (tx): Promise<ConfirmResult> => {
+    if (file.purpose === "renter_submitted_scan" && file.renterLinkId) {
+      if (await isLinkAlreadySent(tx, actor.operatorId, file.renterLinkId)) {
+        return "not_found";
+      }
+    }
+    // Held first: a second confirm of the same file waits here, then finds
+    // it no longer pending. Only then is the file it replaces retired (one
+    // current logo or scan side at a time), before this one becomes current.
+    const [claimed] = await tx
+      .select({ id: files.id })
+      .from(files)
+      .where(and(eq(files.id, file.id), eq(files.operatorId, actor.operatorId), isPending()))
+      .for("update");
+    if (!claimed) {
+      return "not_found";
+    }
+    await retirePredecessors(tx, actor, now, file);
+    await tx
+      .update(files)
+      .set({ confirmedAt: now, sizeBytes })
+      .where(and(eq(files.id, file.id), eq(files.operatorId, actor.operatorId)));
+    await logFile(tx, actor, file.id, "uploaded", file.purpose);
+    return "confirmed";
+  });
+}
+
+/** Removes a file that is not what it claimed, and marks it refused. */
+async function refuseUpload(
+  deps: FileDependencies,
+  actor: FileActor,
+  file: typeof files.$inferSelect,
+): Promise<void> {
+  await deps.storage.remove(file.storageArea, incomingKeyFor(file.objectKey));
+  await withTenant(deps.database, actor.operatorId, async (tx) => {
+    const [refused] = await tx
+      .update(files)
+      .set({ refusedAt: deps.now() })
+      .where(and(eq(files.id, file.id), eq(files.operatorId, actor.operatorId), isPending()))
+      .returning({ id: files.id });
+    if (refused) {
+      await logFile(tx, actor, file.id, "refused", file.purpose);
+    }
+  });
+}
+
+/**
+ * Step two, once the browser has sent the file. Only the one who asked may
+ * confirm it, and only as the kind the caller expects. Reads the first bytes
+ * of exactly what arrived and checks it really is the type it claimed (rule
+ * 22); only those bytes are then moved to the file's own address. Anything
+ * else is removed and marked refused. A logo replaces the Operator's
+ * previous one, a licence scan the Renter's previous scan of that side, and a
+ * link photo that link's previous photo of that side.
  */
 export async function confirmUpload(
   deps: FileDependencies,
   actor: FileActor,
   fileId: string,
+  expectedPurposes: readonly FilePurpose[],
 ): Promise<ConfirmResult> {
   const file = await findPendingFile(deps, actor, fileId);
-  if (!file) {
+  if (!file || !expectedPurposes.includes(file.purpose) || !isUploader(actor, file)) {
     return "not_found";
   }
-  const storedSize = await deps.storage.findStoredSize(file.storageArea, file.objectKey);
-  if (storedSize === null) {
+  const incomingKey = incomingKeyFor(file.objectKey);
+  const stored = await deps.storage.inspect(file.storageArea, incomingKey);
+  if (!stored) {
     return "not_arrived";
   }
   const firstBytes = await deps.storage.readStart(
     file.storageArea,
-    file.objectKey,
+    incomingKey,
     FILE_SIGNATURE_LENGTH,
+    stored.version,
   );
   const isWhatItClaimed =
     detectFileType(firstBytes) === file.contentType &&
-    storedSize <= FILE_PURPOSE_RULES[file.purpose].maxBytes;
-  const now = deps.now();
-
+    stored.sizeBytes <= FILE_PURPOSE_RULES[file.purpose].maxBytes;
   if (!isWhatItClaimed) {
-    await deps.storage.remove(file.storageArea, file.objectKey);
-    await withTenant(deps.database, actor.operatorId, async (tx) => {
-      await tx.update(files).set({ refusedAt: now }).where(eq(files.id, file.id));
-      await logFile(tx, actor, file.id, "refused", file.purpose);
-    });
+    await refuseUpload(deps, actor, file);
     return "wrong_type";
   }
-
-  await withTenant(deps.database, actor.operatorId, async (tx) => {
-    if (file.purpose === "operator_logo") {
-      await markLogoDeleted(tx, actor, now);
-    }
-    if (file.renterLinkId && file.licenceSide && !file.submissionId) {
-      await markLinkPhotosDeleted(tx, actor, now, file.renterLinkId, file.licenceSide);
-    }
-    if (file.renterId && file.licenceSide) {
-      await markScansDeleted(
-        tx,
-        actor,
-        now,
-        and(eq(files.renterId, file.renterId), eq(files.licenceSide, file.licenceSide)),
-      );
-    }
-    await tx
-      .update(files)
-      .set({ confirmedAt: now, sizeBytes: storedSize })
-      .where(eq(files.id, file.id));
-    await logFile(tx, actor, file.id, "uploaded", file.purpose);
-  });
-  return "confirmed";
+  if (
+    !(await deps.storage.promote(file.storageArea, incomingKey, file.objectKey, stored.version))
+  ) {
+    // Changed after it was checked: the browser can send it again.
+    return "not_arrived";
+  }
+  return claimConfirmed(deps, actor, file, stored.sizeBytes);
 }
 
 /** The logo in use: confirmed and not deleted. A pending upload is not one yet. */
@@ -217,11 +332,16 @@ function logoInUse(operatorId: string) {
 }
 
 /** Hides the Operator's current logo at once; storage keeps it 30 days (rule 23). */
-async function markLogoDeleted(tx: AnyTransaction, actor: FileActor, now: Date): Promise<boolean> {
+async function markLogoDeleted(
+  tx: AnyTransaction,
+  actor: FileActor,
+  now: Date,
+  except?: SQL,
+): Promise<boolean> {
   const removed = await tx
     .update(files)
     .set({ deletedAt: now })
-    .where(logoInUse(actor.operatorId))
+    .where(and(logoInUse(actor.operatorId), except))
     .returning({ id: files.id });
   for (const logo of removed) {
     await logFile(tx, actor, logo.id, "deleted", "operator_logo");
@@ -356,6 +476,7 @@ async function markLinkPhotosDeleted(
   now: Date,
   renterLinkId: string,
   side: LicenceSide,
+  except?: SQL,
 ): Promise<void> {
   const removed = await tx
     .update(files)
@@ -369,6 +490,7 @@ async function markLinkPhotosDeleted(
         isNull(files.submissionId),
         isNotNull(files.confirmedAt),
         isNull(files.deletedAt),
+        except,
       ),
     )
     .returning({ id: files.id });

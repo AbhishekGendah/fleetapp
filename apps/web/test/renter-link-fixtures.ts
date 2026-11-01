@@ -22,7 +22,7 @@ import {
 } from "../src/lib/storage/memory-file-storage";
 
 export const LINK_TEST_TODAY = "2026-10-31";
-const JPEG_START = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0]);
+export const JPEG_START = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0]);
 export const LINK_PHOTO = { contentType: "image/jpeg", sizeBytes: 300_000 };
 
 /** What the tests need to send a link and act through it. */
@@ -76,7 +76,9 @@ export async function addLinkPhoto(
   kit.storage.receive(permission.area, permission.key, JPEG_START);
   expect(permission.area).toBe("identity");
   const linkActor = { operatorId: visit.operatorId, linkId: visit.linkId };
-  expect(await confirmUpload(kit.fileDeps, linkActor, start.fileId)).toBe("confirmed");
+  expect(
+    await confirmUpload(kit.fileDeps, linkActor, start.fileId, ["renter_submitted_scan"]),
+  ).toBe("confirmed");
   return start.fileId;
 }
 

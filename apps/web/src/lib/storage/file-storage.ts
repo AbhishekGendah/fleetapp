@@ -11,6 +11,13 @@ export interface UploadPermission {
   fields: Record<string, string>;
 }
 
+/** What arrived at an address: its size, and a fingerprint of exactly those bytes. */
+export interface StoredObject {
+  sizeBytes: number;
+  /** Changes whenever the bytes do (S3's ETag), so a swap after checking is caught. */
+  version: string;
+}
+
 export interface UploadPermissionRequest {
   area: StorageArea;
   key: string;
@@ -25,10 +32,16 @@ export interface UploadPermissionRequest {
 export interface FileStorage {
   /** A one-time permission for one address, one type and a size limit. */
   createUploadPermission(request: UploadPermissionRequest): Promise<UploadPermission>;
-  /** The stored size, or null if nothing arrived. */
-  findStoredSize(area: StorageArea, key: string): Promise<number | null>;
-  /** The first bytes of a stored file, to check what it really is. */
-  readStart(area: StorageArea, key: string, length: number): Promise<Uint8Array>;
+  /** What is at an address, or null if nothing arrived. */
+  inspect(area: StorageArea, key: string): Promise<StoredObject | null>;
+  /** The first bytes of that exact version, to check what it really is; fails if it changed. */
+  readStart(area: StorageArea, key: string, length: number, version: string): Promise<Uint8Array>;
+  /**
+   * Moves that exact version from where the browser sent it to the file's
+   * own address, which no upload permission covers. False if the bytes
+   * changed after they were checked; nothing is moved then.
+   */
+  promote(area: StorageArea, fromKey: string, toKey: string, version: string): Promise<boolean>;
   remove(area: StorageArea, key: string): Promise<void>;
   /**
    * A link that works for VIEW_LINK_SECONDS. With a name, saving or sharing

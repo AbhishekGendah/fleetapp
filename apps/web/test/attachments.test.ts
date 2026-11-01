@@ -53,7 +53,12 @@ describe("attachments", () => {
     }
     const permission = storage.permissions.at(-1)!;
     storage.receive(permission.area, permission.key, PDF_START);
-    expect(await confirmUpload(deps, actor, start.fileId)).toBe("confirmed");
+    expect(
+      await confirmUpload(deps, actor, start.fileId, [
+        "vehicle_attachment",
+        "vehicle_identity_attachment",
+      ]),
+    ).toBe("confirmed");
     return start.fileId;
   }
 
