@@ -27,7 +27,8 @@
     "@neondatabase/serverless": "1.1.0",
     "drizzle-orm": "0.45.2",
     "ws": "8.21.3",
-    "zod": "4.6.5"
+    "zod": "4.6.5",
+    "pg": "8.16.3"
   },
   "devDependencies": {
     "@fleetapp/config": "workspace:*",
@@ -37,7 +38,6 @@
     "dotenv": "18.0.1",
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.5",
-    "pg": "8.16.3",
     "typescript": "6.0.3",
     "vitest": "5.0.1"
   }

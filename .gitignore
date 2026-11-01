@@ -34,3 +34,6 @@ pnpm-debug.log*
 
 # os
 .DS_Store
+e2e/.state/
+test-results/
+playwright-report/

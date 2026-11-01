@@ -16,7 +16,8 @@
     "format:check": "prettier --check .",
     "db:generate": "turbo run db:generate",
     "db:migrate": "turbo run db:migrate",
-    "duplicates": "jscpd"
+    "duplicates": "jscpd",
+    "e2e": "pnpm --filter admin e2e"
   },
   "devDependencies": {
     "@fleetapp/config": "workspace:*",

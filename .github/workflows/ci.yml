@@ -57,3 +57,34 @@ jobs:
           FILE_STORAGE_ACCESS_KEY_ID: placeholder
           FILE_STORAGE_SECRET_ACCESS_KEY: placeholder
           CRON_SECRET: placeholder-placeholder-placeholder-32
+
+  # Uses the shared pieces in a real browser: keyboard, screen-reader names and
+  # phone width. Runs the admin app against a throwaway Postgres in Docker, with
+  # made-up data only.
+  browser-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter admin exec playwright install --with-deps chromium
+
+      - run: pnpm --filter admin e2e
+        env:
+          CI: "true"
+          NEXT_TELEMETRY_DISABLED: "1"
+
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-traces
+          path: apps/admin/test-results/
+          retention-days: 7

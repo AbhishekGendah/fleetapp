@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "create-first-admin": "tsx scripts/create-first-admin.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e": "tsx e2e/run.ts"
   },
   "dependencies": {
     "@fleetapp/auth": "workspace:*",
@@ -30,6 +31,7 @@
   "devDependencies": {
     "@better-auth/utils": "0.4.2",
     "@fleetapp/config": "workspace:*",
+    "@playwright/test": "1.56.1",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "26.6.2",
     "@types/react": "19.3.0",
