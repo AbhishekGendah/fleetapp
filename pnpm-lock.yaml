@@ -399,6 +399,9 @@ importers:
       clsx:
         specifier: 2.1.1
         version: 2.1.1
+      compressorjs:
+        specifier: 1.4.0
+        version: 1.4.0
       lucide-react:
         specifier: 1.55.0
         version: 1.55.0(@types/react@19.3.0)(react@19.3.0)
@@ -2349,6 +2352,9 @@ packages:
       zod:
         optional: true
 
+  blueimp-canvas-to-blob@3.29.0:
+    resolution: {integrity: sha512-0pcSSGxC0QxT+yVkivxIqW0Y4VlO2XSDPofBAqoJ1qJxgH9eiUDLv50Rixij2cDuEfx4M6DpD9UGZpRhT5Q8qg==}
+
   bowser@2.15.0:
     resolution: {integrity: sha512-xic6KSZglg/I4ymp45fdM4GWfYpBK79Fxd/TOvJktlaPgQqqDxvmGwOPZl2V0dyeS3Lj5c180bLhXF43iyAjZQ==}
 
@@ -2421,6 +2427,9 @@ packages:
 
   color-name@1.1.4:
     resolution: {integrity: sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==}
+
+  compressorjs@1.4.0:
+    resolution: {integrity: sha512-cfBWoYc4EkIgsbphT7R0SwSHHY+zGSMBaBK0e0T+iPJejKpsIyco3OoQUdH6ghTVrH2bysXjhlO5zTDPJWzSmQ==}
 
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
@@ -3052,6 +3061,10 @@ packages:
   is-bigint@1.1.0:
     resolution: {integrity: sha512-n4ZT37wG78iz03xPRKJrHTdZbe3IicyucEtdRsV5yglwc3GyUfbAfpSeD0FJ41NbUNSt5wbhqfp1fS+BgnvDFQ==}
     engines: {node: '>= 0.4'}
+
+  is-blob@2.1.0:
+    resolution: {integrity: sha512-SZ/fTft5eUhQM6oF/ZaASFDEdbFVe89Imltn9uZr03wdKMcWNVYSMjQPFtg05QuNkt5l5c135ElvXEQG0rk4tw==}
+    engines: {node: '>=6'}
 
   is-boolean-object@1.2.2:
     resolution: {integrity: sha512-wa56o2/ElJMYqjCjGkXri7it5FbebW5usLw/nPmCMs5DeZ7eziSYZhSmPRn0txqeW4LnAmQQU7FgqLpsEFKM4A==}
@@ -5856,6 +5869,8 @@ snapshots:
     optionalDependencies:
       zod: 4.6.5
 
+  blueimp-canvas-to-blob@3.29.0: {}
+
   bowser@2.15.0: {}
 
   brace-expansion@1.1.21:
@@ -5930,6 +5945,11 @@ snapshots:
       color-name: 1.1.4
 
   color-name@1.1.4: {}
+
+  compressorjs@1.4.0:
+    dependencies:
+      blueimp-canvas-to-blob: 3.29.0
+      is-blob: 2.1.0
 
   concat-map@0.0.1: {}
 
@@ -6695,6 +6715,8 @@ snapshots:
   is-bigint@1.1.0:
     dependencies:
       has-bigints: 1.1.0
+
+  is-blob@2.1.0: {}
 
   is-boolean-object@1.2.2:
     dependencies:

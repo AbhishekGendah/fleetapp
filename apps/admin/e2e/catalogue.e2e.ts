@@ -165,3 +165,36 @@ test.describe("at phone width", () => {
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(MINIMUM_TOUCH_TARGET_PX);
   });
 });
+
+test.describe("image upload", () => {
+  const LARGE_PHOTO = { width: 4000, height: 3000 } as const;
+  const MAX_EDGE_PX = 1600;
+
+  test("shrinks a large photo to 1600px on its long edge before sending", async ({ page }) => {
+    await openCatalogue(page);
+    const picker = page.locator("input#example-image");
+    // A real 4000 × 3000 photo, drawn in the browser, chosen through the file box.
+    await picker.evaluate(async (input: HTMLInputElement, size) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = size.width;
+      canvas.height = size.height;
+      const context = canvas.getContext("2d");
+      if (context) {
+        context.fillStyle = "#3a7";
+        context.fillRect(0, 0, size.width, size.height);
+      }
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", 0.9),
+      );
+      const files = new DataTransfer();
+      files.items.add(new File([blob ?? new Blob()], "photo.jpg", { type: "image/jpeg" }));
+      input.files = files.files;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    }, LARGE_PHOTO);
+
+    const preview = page.locator("img[src^='blob:']");
+    await expect(preview).toBeVisible();
+    const width = await preview.evaluate((image: HTMLImageElement) => image.naturalWidth);
+    expect(width).toBe(MAX_EDGE_PX);
+  });
+});

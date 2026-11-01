@@ -1,3 +1,5 @@
+import Compressor from "compressorjs";
+
 /** About 1600px on the long edge is plenty for a photo or a logo (rule 21). */
 export const MAX_IMAGE_EDGE_PX = 1600;
 /** The small copy shown in a photo grid. */
@@ -11,23 +13,29 @@ function outputTypeFor(inputType: string): string {
 
 /**
  * Shrinks an image on the device before it is sent, so uploads stay quick on
- * poor signal. Redrawing it also drops hidden details a phone adds to photos,
- * such as where it was taken. Null if this browser cannot read the image
- * (some cannot open iPhone HEIC photos).
+ * poor signal, with Compressor.js: it turns phone photos the right way up and
+ * drops hidden details a phone adds, such as where it was taken. Null if this
+ * browser cannot read the image (some cannot open iPhone HEIC photos).
  */
-export async function shrinkImage(
+export function shrinkImage(
   file: Blob,
   maxEdgePx: number = MAX_IMAGE_EDGE_PX,
 ): Promise<Blob | null> {
-  const bitmap = await createImageBitmap(file).catch(() => null);
-  if (!bitmap) {
-    return null;
-  }
-  const scale = Math.min(1, maxEdgePx / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  return new Promise((resolve) => canvas.toBlob(resolve, outputTypeFor(file.type), JPEG_QUALITY));
+  return new Promise((resolve) => {
+    new Compressor(file, {
+      maxWidth: maxEdgePx,
+      maxHeight: maxEdgePx,
+      quality: JPEG_QUALITY,
+      mimeType: outputTypeFor(file.type),
+      // Our own rule above decides the type, not Compressor's size-based switch to JPEG.
+      convertSize: Number.POSITIVE_INFINITY,
+      checkOrientation: true,
+      retainExif: false,
+      success: resolve,
+      error: (error) => {
+        console.warn("A photo could not be shrunk on this device", error.name);
+        resolve(null);
+      },
+    });
+  });
 }
