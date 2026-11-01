@@ -138,6 +138,7 @@ export const issuedDocuments = pgTable(
       table.version,
     ),
     unique("issued_documents_file_unique").on(table.fileId),
+    unique("issued_documents_id_operator_unique").on(table.id, table.operatorId),
     check("issued_documents_version", sql`${table.version} > 0`),
     check("issued_documents_sha256", sql`${table.sha256} ~ '^[0-9a-f]{64}$'`),
   ],

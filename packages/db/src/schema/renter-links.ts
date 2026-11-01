@@ -19,6 +19,8 @@ import {
 import { primaryKeyColumn, timestampColumns } from "./columns";
 import { operatorIdColumn } from "./operators";
 import { licenceClassEnum, licenceIssuerEnum, licenceTypeEnum, renters } from "./renters";
+import { contractTemplateVersions } from "./contracts";
+import { rentals } from "./rentals";
 import { users } from "./users";
 
 export const renterLinkPurposeEnum = pgEnum("renter_link_purpose", RENTER_LINK_PURPOSES);
@@ -59,6 +61,11 @@ export const renterLinks = pgTable(
     /** Address searches made from the link's form, capped so a link cannot run up the bill. */
     addressSearches: integer("address_searches").notNull().default(0),
 
+    /** A signing link's rental, the template version and the fingerprint of the text it was sent for. */
+    rentalId: uuid("rental_id"),
+    templateVersionId: uuid("template_version_id"),
+    contractFingerprint: text("contract_fingerprint"),
+
     ...timestampColumns,
   },
   (table) => [
@@ -70,10 +77,33 @@ export const renterLinks = pgTable(
       columns: [table.renterId, table.operatorId],
       foreignColumns: [renters.id, renters.operatorId],
     }),
-    // One link of each kind in play per Renter: sending another cancels the first.
+    // One link of each kind in play per Renter (per rental for signing): sending
+    // another cancels the first.
     uniqueIndex("renter_links_one_live_per_purpose")
-      .on(table.operatorId, table.renterId, table.purpose)
+      .on(
+        table.operatorId,
+        table.renterId,
+        table.purpose,
+        sql`coalesce(${table.rentalId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
+      )
       .where(sql`${table.cancelledAt} is null`),
+    foreignKey({
+      name: "renter_links_rental_fk",
+      columns: [table.rentalId, table.operatorId],
+      foreignColumns: [rentals.id, rentals.operatorId],
+    }),
+    foreignKey({
+      name: "renter_links_template_version_fk",
+      columns: [table.templateVersionId, table.operatorId],
+      foreignColumns: [contractTemplateVersions.id, contractTemplateVersions.operatorId],
+    }),
+    check(
+      "renter_links_signing_details",
+      sql`(${table.purpose}::text = 'sign_contract') = (${table.rentalId} is not null)
+        and (${table.rentalId} is null) = (${table.templateVersionId} is null)
+        and (${table.rentalId} is null) = (${table.contractFingerprint} is null)
+        and (${table.contractFingerprint} is null or ${table.contractFingerprint} ~ '^[0-9a-f]{64}$')`,
+    ),
     index("renter_links_renter_idx").on(table.operatorId, table.renterId),
     check(
       "renter_links_code_whole",

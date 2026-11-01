@@ -11,3 +11,25 @@ export const DOCUMENT_FINGERPRINT_PATTERN = /^[0-9a-f]{64}$/;
 export function documentFingerprint(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
+
+/** JSON with every object's keys in order, so the same content always gives the same text. */
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalJson).join(",")}]`;
+  }
+  if (value !== null && typeof value === "object") {
+    const entries = Object.entries(value)
+      .filter(([, item]) => item !== undefined)
+      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
+    return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${canonicalJson(item)}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+/**
+ * The fingerprint of a contract's filled-in text, whatever order its keys
+ * come in: what the Renter was shown, so signing a changed contract is caught.
+ */
+export function contentFingerprint(content: unknown): string {
+  return createHash("sha256").update(canonicalJson(content)).digest("hex");
+}

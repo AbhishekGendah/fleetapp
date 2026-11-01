@@ -25,6 +25,11 @@ export const devEmailOutbox = pgTable(
     subject: text("subject").notNull(),
     html: text("html").notNull(),
     text: text("text").notNull(),
+    /** The names of any files attached; the files themselves are not kept. */
+    attachmentNames: text("attachment_names")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
 
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
