@@ -154,7 +154,8 @@ function Toolbar({ editor, fields }: { editor: Editor; fields: readonly EditorMe
       isBold: current.isActive("bold"),
       isItalic: current.isActive("italic"),
       isUnderline: current.isActive("underline"),
-      headingLevel: CONTRACT_HEADING_LEVELS.find((level) => current.isActive("heading", { level })) ?? null,
+      headingLevel:
+        CONTRACT_HEADING_LEVELS.find((level) => current.isActive("heading", { level })) ?? null,
       isBulletList: current.isActive("bulletList"),
       isOrderedList: current.isActive("orderedList"),
       canUndo: current.can().undo(),
@@ -270,10 +271,7 @@ export function ContractEditor({
   const editor = useEditor({
     // Rendered in the browser only: Next renders pages on the server first.
     immediatelyRender: false,
-    extensions: [
-      contractTextKit,
-      mergeFieldNode(labels),
-    ],
+    extensions: [contractTextKit, mergeFieldNode(labels)],
     content: initialContent,
     editorProps: {
       attributes: {
