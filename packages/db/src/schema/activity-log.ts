@@ -71,6 +71,8 @@ export const ACTIVITY_ENTITY_TYPES = {
   renterNote: "renter_note",
   renterLink: "renter_link",
   rental: "rental",
+  contractTemplate: "contract_template",
+  issuedDocument: "issued_document",
 } as const;
 
 /** What happened to it. No free text at call sites. */

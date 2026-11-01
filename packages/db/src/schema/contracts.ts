@@ -1,0 +1,144 @@
+import {
+  CONTRACT_TEMPLATE_KINDS,
+  ISSUED_DOCUMENT_KINDS,
+  type TemplateDocument,
+} from "@fleetapp/core";
+import { sql } from "drizzle-orm";
+import {
+  boolean,
+  check,
+  foreignKey,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
+
+import { auditColumns, primaryKeyColumn } from "./columns";
+import { files } from "./files";
+import { operatorIdColumn } from "./operators";
+import { rentals } from "./rentals";
+import { users } from "./users";
+
+export const contractTemplateKindEnum = pgEnum("contract_template_kind", CONTRACT_TEMPLATE_KINDS);
+export const issuedDocumentKindEnum = pgEnum("issued_document_kind", ISSUED_DOCUMENT_KINDS);
+
+const createdAtColumn = {
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(sql`now()`),
+} as const;
+
+/**
+ * One of the Operator's templates: a rental contract, swap form or change
+ * of terms. Its text lives in its versions; the default of each kind is the
+ * one new rentals use.
+ */
+export const contractTemplates = pgTable(
+  "contract_templates",
+  {
+    ...primaryKeyColumn,
+    ...operatorIdColumn,
+    kind: contractTemplateKindEnum("kind").notNull(),
+    name: text("name").notNull(),
+    isDefault: boolean("is_default").notNull().default(false),
+    ...auditColumns,
+  },
+  (table) => [
+    unique("contract_templates_id_operator_unique").on(table.id, table.operatorId),
+    uniqueIndex("contract_templates_one_default_per_kind")
+      .on(table.operatorId, table.kind)
+      .where(sql`${table.isDefault} and ${table.archivedAt} is null`),
+    index("contract_templates_operator_idx").on(table.operatorId, table.kind),
+  ],
+);
+
+/**
+ * A template's text at one point in time. Saving an edit adds a version;
+ * a version is never changed, so anything issued from it can always be
+ * traced to the exact words (rule 12).
+ */
+export const contractTemplateVersions = pgTable(
+  "contract_template_versions",
+  {
+    ...primaryKeyColumn,
+    ...operatorIdColumn,
+    templateId: uuid("template_id").notNull(),
+    version: integer("version").notNull(),
+    content: jsonb("content").$type<TemplateDocument>().notNull(),
+    createdByUserId: uuid("created_by_user_id")
+      .notNull()
+      .references(() => users.id),
+    ...createdAtColumn,
+  },
+  (table) => [
+    foreignKey({
+      name: "contract_template_versions_template_fk",
+      columns: [table.templateId, table.operatorId],
+      foreignColumns: [contractTemplates.id, contractTemplates.operatorId],
+    }),
+    unique("contract_template_versions_id_operator_unique").on(table.id, table.operatorId),
+    unique("contract_template_versions_number_unique").on(
+      table.operatorId,
+      table.templateId,
+      table.version,
+    ),
+    check("contract_template_versions_version", sql`${table.version} > 0`),
+  ],
+);
+
+/**
+ * A fixed document issued for a rental (rule 12): the PDF as stored, its
+ * SHA-256 fingerprint, and the template version it was made from. Never
+ * changed or removed; a correction is a new version of the same kind.
+ */
+export const issuedDocuments = pgTable(
+  "issued_documents",
+  {
+    ...primaryKeyColumn,
+    ...operatorIdColumn,
+    rentalId: uuid("rental_id").notNull(),
+    kind: issuedDocumentKindEnum("kind").notNull(),
+    version: integer("version").notNull(),
+    templateVersionId: uuid("template_version_id"),
+    fileId: uuid("file_id").notNull(),
+    sha256: text("sha256").notNull(),
+    /** Who issued it; none when the app did on its own (e.g. once a Renter signs). */
+    issuedByUserId: uuid("issued_by_user_id").references(() => users.id),
+    issuedAt: timestamp("issued_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (table) => [
+    foreignKey({
+      name: "issued_documents_rental_fk",
+      columns: [table.rentalId, table.operatorId],
+      foreignColumns: [rentals.id, rentals.operatorId],
+    }),
+    foreignKey({
+      name: "issued_documents_template_version_fk",
+      columns: [table.templateVersionId, table.operatorId],
+      foreignColumns: [contractTemplateVersions.id, contractTemplateVersions.operatorId],
+    }),
+    foreignKey({
+      name: "issued_documents_file_fk",
+      columns: [table.fileId, table.operatorId],
+      foreignColumns: [files.id, files.operatorId],
+    }),
+    unique("issued_documents_version_unique").on(
+      table.operatorId,
+      table.rentalId,
+      table.kind,
+      table.version,
+    ),
+    unique("issued_documents_file_unique").on(table.fileId),
+    check("issued_documents_version", sql`${table.version} > 0`),
+    check("issued_documents_sha256", sql`${table.sha256} ~ '^[0-9a-f]{64}$'`),
+  ],
+);

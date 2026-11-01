@@ -16,6 +16,7 @@ export const FILE_PURPOSES = [
   "vehicle_identity_attachment",
   "renter_licence_scan",
   "renter_submitted_scan",
+  "issued_document",
 ] as const;
 export type FilePurpose = (typeof FILE_PURPOSES)[number];
 
@@ -104,6 +105,13 @@ export const FILE_PURPOSE_RULES: Readonly<Record<FilePurpose, FilePurposeRule>> 
     contentTypes: DOCUMENT_CONTENT_TYPES,
     maxBytes: 10 * BYTES_PER_MEGABYTE,
     describedAs: "a photo or PDF up to 10 MB",
+  },
+  // Made by the app itself, never uploaded: a contract or report PDF (rule 12).
+  issued_document: {
+    area: "general",
+    contentTypes: [FILE_CONTENT_TYPES.pdf],
+    maxBytes: 10 * BYTES_PER_MEGABYTE,
+    describedAs: "a PDF up to 10 MB",
   },
 };
 

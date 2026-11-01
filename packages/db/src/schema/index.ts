@@ -19,3 +19,4 @@ export * from "./vehicle-paperwork";
 export * from "./vehicle-catalogue";
 export * from "./vehicle-costs";
 export * from "./rentals";
+export * from "./contracts";

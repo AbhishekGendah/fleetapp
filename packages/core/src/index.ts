@@ -3,6 +3,7 @@ export * from "./account-access";
 export * from "./business-details";
 export * from "./calendar-dates";
 export * from "./changed-values";
+export * from "./contracts";
 export * from "./describe-device";
 export * from "./countries";
 export * from "./driver-licence";

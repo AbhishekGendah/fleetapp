@@ -5,3 +5,4 @@
 export * from "./file-content";
 export * from "./link-codes";
 export * from "./secret-tokens";
+export * from "./document-fingerprint";

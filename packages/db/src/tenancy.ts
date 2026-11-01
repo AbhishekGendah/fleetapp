@@ -125,7 +125,13 @@ export const DELETABLE_TABLES = [
  * Tables that are append-only: no updates, no deletes, ever. See rules 11
  * and 19 in CLAUDE.md.
  */
-export const APPEND_ONLY_TABLES = ["activity_log", "admin_activity_log", "rental_rates"] as const;
+export const APPEND_ONLY_TABLES = [
+  "activity_log",
+  "admin_activity_log",
+  "rental_rates",
+  "contract_template_versions",
+  "issued_documents",
+] as const;
 
 /**
  * Schemas that hold no tenant data and are exempt from the structural checks:

@@ -77,6 +77,39 @@ export async function addTestCar(webDb: TestDatabase, operatorId: string): Promi
   return car!.id;
 }
 
+/** Adds a Renter for an Operator through the Operator app's role. */
+export async function addTestRenter(webDb: TestDatabase, operatorId: string): Promise<string> {
+  const [renter] = await withTenant(webDb, operatorId, (tx) =>
+    tx
+      .insert(schema.renters)
+      .values({ operatorId, fullName: "Sam Example", email: "sam@example.test" })
+      .returning({ id: schema.renters.id }),
+  );
+  return renter!.id;
+}
+
+const TEST_RENTAL_CHARGE_WEEKDAY = 2;
+const TEST_RENTAL_BOND_CENTS = 50_000;
+
+/** A four-week booking in December 2026 of one Operator's car to one of its Renters. */
+export function testRentalRow(
+  parties: { operatorId: string; renterId: string; vehicleId: string },
+  changes: Partial<typeof schema.rentals.$inferInsert> = {},
+): typeof schema.rentals.$inferInsert {
+  return {
+    ...parties,
+    type: "fixed_term",
+    status: "booked",
+    plannedStart: new Date("2026-12-01T01:00:00Z"),
+    plannedEnd: new Date("2026-12-29T01:00:00Z"),
+    chargeWeekday: TEST_RENTAL_CHARGE_WEEKDAY,
+    bondCents: TEST_RENTAL_BOND_CENTS,
+    settingsSnapshot: { minimumRenterAgeYears: 21 },
+    settingsVersion: 1,
+    ...changes,
+  };
+}
+
 /**
  * Postgres SQLSTATE codes the tenancy tests assert on. Matching the code
  * rather than the message proves the database refused for the reason we

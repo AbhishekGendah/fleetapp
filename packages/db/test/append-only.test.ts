@@ -94,8 +94,10 @@ describe("append-only tables", () => {
     "refuses wiping %s in one go, even from a connection that grants do not stop",
     async (table) => {
       // TRUNCATE skips the row triggers above, so it has a trigger of its own.
+      // CASCADE, the strongest wipe, also empties every table pointing at this
+      // one, so the table's own trigger is what refuses, not a foreign key.
       const code = await postgresErrorCodeOf(
-        superuser.db.execute(sql`TRUNCATE ${sql.identifier(table)}`),
+        superuser.db.execute(sql`TRUNCATE ${sql.identifier(table)} CASCADE`),
       );
 
       expect(code).toBe(POSTGRES_ERROR_CODES.restrictViolation);

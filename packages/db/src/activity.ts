@@ -60,6 +60,8 @@ const ACTIVITY_ENTITY_LABELS = {
   [ACTIVITY_ENTITY_TYPES.renterNote]: "Note",
   [ACTIVITY_ENTITY_TYPES.renterLink]: "Details form link",
   [ACTIVITY_ENTITY_TYPES.rental]: "Rental",
+  [ACTIVITY_ENTITY_TYPES.contractTemplate]: "Contract template",
+  [ACTIVITY_ENTITY_TYPES.issuedDocument]: "Document",
 } satisfies Record<ActivityEntityType, string>;
 
 /** What each action reads as after the record's name: "Car archived". */
@@ -113,6 +115,7 @@ const FILE_PURPOSE_LABELS = {
   vehicle_identity_attachment: "Private paper",
   renter_licence_scan: "Licence scan",
   renter_submitted_scan: "Licence photo sent by the Renter",
+  issued_document: "Issued document",
 } satisfies Record<FilePurpose, string>;
 
 /** Why the nightly clean-up removed a file, as its log line says. */

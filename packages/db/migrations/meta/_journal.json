@@ -204,6 +204,13 @@
       "when": 1793535935543,
       "tag": "0028_rentals",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1793551330237,
+      "tag": "0029_contracts",
+      "breakpoints": true
     }
   ]
 }

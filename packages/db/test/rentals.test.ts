@@ -5,18 +5,18 @@ import * as schema from "../src/schema";
 import { withTenant } from "../src/tenant-context";
 import {
   addTestCar,
+  addTestRenter,
   connectAs,
   POSTGRES_ERROR_CODES,
   postgresErrorCodeOf,
   seedTwoOperators,
+  testRentalRow,
   type TestConnection,
 } from "./fixtures";
 
 const FOREIGN_KEY_VIOLATION = "23503";
 const CHECK_VIOLATION = "23514";
 const EXCLUSION_VIOLATION = "23P01";
-const TUESDAY = 2;
-const BOND_CENTS = 50_000;
 const WEEKLY_RATE_CENTS = 35_000;
 
 /** One week of a car, written the way Postgres writes a time range: start included, end not. */
@@ -40,34 +40,15 @@ describe("rentals", () => {
   let carAId: string;
   let carBId: string;
 
-  async function addRenter(operatorId: string): Promise<string> {
-    const [renter] = await withTenant(web.db, operatorId, (tx) =>
-      tx
-        .insert(schema.renters)
-        .values({ operatorId, fullName: "Sam Example", email: "sam@example.test" })
-        .returning({ id: schema.renters.id }),
-    );
-    return renter!.id;
-  }
-
   function rentalRow(
     operatorId: string,
     changes: Partial<typeof schema.rentals.$inferInsert> = {},
   ): typeof schema.rentals.$inferInsert {
-    return {
-      operatorId,
-      renterId: operatorId === operatorAId ? renterAId : renterBId,
-      vehicleId: operatorId === operatorAId ? carAId : carBId,
-      type: "fixed_term",
-      status: "booked",
-      plannedStart: new Date("2026-12-01T01:00:00Z"),
-      plannedEnd: new Date("2026-12-29T01:00:00Z"),
-      chargeWeekday: TUESDAY,
-      bondCents: BOND_CENTS,
-      settingsSnapshot: { minimumRenterAgeYears: 21 },
-      settingsVersion: 1,
-      ...changes,
-    };
+    const isA = operatorId === operatorAId;
+    return testRentalRow(
+      { operatorId, renterId: isA ? renterAId : renterBId, vehicleId: isA ? carAId : carBId },
+      changes,
+    );
   }
 
   async function addRental(
@@ -107,8 +88,8 @@ describe("rentals", () => {
     superuser = connectAs(inject("superuserUrl"));
     ({ operatorAId, operatorBId } = await seedTwoOperators(admin.db));
     [renterAId, renterBId, carAId, carBId] = await Promise.all([
-      addRenter(operatorAId),
-      addRenter(operatorBId),
+      addTestRenter(web.db, operatorAId),
+      addTestRenter(web.db, operatorBId),
       addTestCar(web.db, operatorAId),
       addTestCar(web.db, operatorBId),
     ]);
