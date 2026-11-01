@@ -54,7 +54,9 @@
     "./bookings-calendar": "./src/components/bookings-calendar.tsx",
     "./date-time-picker": "./src/components/date-time-picker.tsx",
     "./record-picker": "./src/components/record-picker.tsx",
-    "./contract-editor": "./src/components/contract-editor.tsx"
+    "./contract-editor": "./src/components/contract-editor.tsx",
+    "./contract-reader": "./src/components/contract-reader.tsx",
+    "./signature-pad": "./src/components/signature-pad.tsx"
   },
   "scripts": {
     "lint": "eslint .",
@@ -76,6 +78,7 @@
     "@tiptap/pm": "3.32.0",
     "@tiptap/react": "3.32.0",
     "@tiptap/starter-kit": "3.32.0",
+    "@tiptap/static-renderer": "3.32.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "compressorjs": "1.4.0",
@@ -86,6 +89,7 @@
     "react-aria-components": "1.22.1",
     "react-hook-form": "7.91.0",
     "react-number-format": "5.4.5",
+    "signature_pad": "5.1.4",
     "tailwind-merge": "3.7.0",
     "temporal-polyfill": "1.0.6",
     "yet-another-react-lightbox": "3.33.0"

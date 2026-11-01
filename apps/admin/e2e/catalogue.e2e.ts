@@ -443,3 +443,41 @@ test.describe("contract editor", () => {
     await expect(page.getByText("The server would accept this.")).toBeVisible();
   });
 });
+
+test.describe("signature pad", () => {
+  test("takes a drawing with a finger at phone width, and clears it", async ({ page }) => {
+    await page.setViewportSize(PHONE_VIEWPORT);
+    await openCatalogue(page);
+    const pad = page.getByRole("img", { name: "Signature" });
+    await pad.scrollIntoViewIfNeeded();
+    const box = (await pad.boundingBox())!;
+    const clear = page.getByRole("button", { name: "Clear signature" });
+    await expect(clear).toBeDisabled();
+
+    await page.mouse.move(box.x + 20, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2, box.y + 30, { steps: 8 });
+    await page.mouse.move(box.x + box.width - 20, box.y + box.height - 30, { steps: 8 });
+    await page.mouse.up();
+
+    const drawing = page.locator('input[name="drawnSignature"]');
+    await expect(drawing).toHaveValue(/^data:image\/png;base64,/);
+    await expect(page.getByText(/^Drawn: /)).toBeVisible();
+    expect((await clear.boundingBox())!.height).toBeGreaterThanOrEqual(MINIMUM_TOUCH_TARGET_PX);
+    await clear.click();
+    await expect(drawing).toHaveValue("");
+    await expect(page.getByText("Nothing drawn yet.")).toBeVisible();
+  });
+});
+
+test.describe("contract reader", () => {
+  test("shows the filled contract as page text, in full", async ({ page }) => {
+    await openCatalogue(page);
+    const contract = page.getByRole("article", { name: "Example contract" });
+
+    await expect(contract.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(contract).toContainText("Renter's full name");
+    await expect(contract).not.toContainText("not on file");
+    await expect(contract.getByText("End of contract")).toBeVisible();
+  });
+});

@@ -5,6 +5,8 @@ import {
   MERGE_FIELD_GROUP_LABELS,
   MERGE_FIELDS,
   STARTER_CONTRACT,
+  fillMergeFields,
+  type ContractData,
   templateDocumentSchema,
   formatAbn,
   formatAustralianPhone,
@@ -24,6 +26,8 @@ import { fieldErrorId, FormField } from "@fleetapp/ui/form-field";
 import { FormError } from "@fleetapp/ui/form-message";
 import { CameraCapture } from "@fleetapp/ui/camera-capture";
 import { ContractEditor, type EditorMergeField } from "@fleetapp/ui/contract-editor";
+import { ContractReader } from "@fleetapp/ui/contract-reader";
+import { SignaturePad } from "@fleetapp/ui/signature-pad";
 import { DateTimePicker } from "@fleetapp/ui/date-time-picker";
 import { RecordPicker, type PickableRecord } from "@fleetapp/ui/record-picker";
 import { FilePicker } from "@fleetapp/ui/file-picker";
@@ -312,6 +316,28 @@ function ContractEditorExample() {
         onValueChange={setJson}
         fields={EDITOR_FIELDS}
       />
+    </FormField>
+  );
+}
+
+/** Each field filled with its own name, so the example reads like a real contract. */
+const EXAMPLE_CONTRACT_DATA = Object.fromEntries(
+  MERGE_FIELDS.map((field) => [field.key, field.label]),
+) as ContractData;
+
+function SignaturePadExample() {
+  const [drawing, setDrawing] = useState("");
+  return (
+    <FormField
+      htmlFor="example-signature"
+      label="Signature"
+      hint={
+        drawing === ""
+          ? "Nothing drawn yet."
+          : `Drawn: ${drawing.length.toLocaleString(AUSTRALIAN_LOCALE)} characters of PNG.`
+      }
+    >
+      <SignaturePad id="example-signature" name="drawnSignature" onValueChange={setDrawing} />
     </FormField>
   );
 }
@@ -633,6 +659,23 @@ export function ComponentCatalogue() {
         note="Headings, lists, bold, italic and underline, with Insert field for the rental's details. Nothing else can be added, so it always prints tidily."
       >
         <ContractEditorExample />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Contract reader"
+        note="A filled contract as plain page text, for the Renter to read in full before signing. Rendered on the server, so it adds nothing to the download."
+      >
+        <ContractReader
+          label="Example contract"
+          content={fillMergeFields(STARTER_CONTRACT, EXAMPLE_CONTRACT_DATA)}
+        />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Signature pad"
+        note="Sign with a finger, pen or mouse. Always offered next to typing a name, for anyone who cannot draw."
+      >
+        <SignaturePadExample />
       </CatalogueSection>
 
       <CatalogueSection

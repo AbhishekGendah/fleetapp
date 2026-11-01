@@ -3,7 +3,6 @@
 import { Menu } from "@base-ui/react/menu";
 import { Node, mergeAttributes, type JSONContent } from "@tiptap/core";
 import { EditorContent, useEditor, useEditorState, type Editor } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
 import {
   Bold,
   Braces,
@@ -22,6 +21,7 @@ import {
 import * as React from "react";
 
 import { cn } from "../lib/utils";
+import { CONTRACT_HEADING_LEVELS, CONTRACT_TEXT_CLASSES, contractTextKit } from "./contract-text";
 import { fieldLabelId } from "./form-field";
 
 /** A field the Operator can drop into the text, e.g. the Renter's name. */
@@ -33,7 +33,6 @@ export interface EditorMergeField {
 }
 
 const MERGE_FIELD_NODE = "mergeField";
-const HEADING_LEVELS = [1, 2, 3] as const;
 
 /**
  * A merge field in the text: shown as a labelled chip the Operator cannot
@@ -155,7 +154,7 @@ function Toolbar({ editor, fields }: { editor: Editor; fields: readonly EditorMe
       isBold: current.isActive("bold"),
       isItalic: current.isActive("italic"),
       isUnderline: current.isActive("underline"),
-      headingLevel: HEADING_LEVELS.find((level) => current.isActive("heading", { level })) ?? null,
+      headingLevel: CONTRACT_HEADING_LEVELS.find((level) => current.isActive("heading", { level })) ?? null,
       isBulletList: current.isActive("bulletList"),
       isOrderedList: current.isActive("orderedList"),
       canUndo: current.can().undo(),
@@ -192,7 +191,7 @@ function Toolbar({ editor, fields }: { editor: Editor; fields: readonly EditorMe
         isActive={state.isUnderline}
         onPress={run((c) => c.toggleUnderline())}
       />
-      {HEADING_LEVELS.map((level) => (
+      {CONTRACT_HEADING_LEVELS.map((level) => (
         <ToolbarButton
           key={level}
           label={headingNames[level]}
@@ -272,14 +271,7 @@ export function ContractEditor({
     // Rendered in the browser only: Next renders pages on the server first.
     immediatelyRender: false,
     extensions: [
-      StarterKit.configure({
-        blockquote: false,
-        code: false,
-        codeBlock: false,
-        strike: false,
-        link: false,
-        heading: { levels: [...HEADING_LEVELS] },
-      }),
+      contractTextKit,
       mergeFieldNode(labels),
     ],
     content: initialContent,
@@ -291,14 +283,7 @@ export function ContractEditor({
         "aria-labelledby": fieldLabelId(id),
         ...(aria["aria-describedby"] ? { "aria-describedby": aria["aria-describedby"] } : {}),
         ...(aria["aria-invalid"] ? { "aria-invalid": "true" } : {}),
-        class: cn(
-          "min-h-80 px-4 py-3 text-base outline-none",
-          "[&_h1]:text-primary [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:text-2xl [&_h1]:font-bold",
-          "[&_h2]:text-primary [&_h2]:mt-4 [&_h2]:mb-1 [&_h2]:text-lg [&_h2]:font-bold",
-          "[&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:font-semibold",
-          "[&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-6",
-          "[&_hr]:my-4 [&_hr]:border-t",
-        ),
+        class: cn("min-h-80 px-4 py-3 outline-none", CONTRACT_TEXT_CLASSES),
       },
     },
     onUpdate: ({ editor: current }) => {
