@@ -1,5 +1,6 @@
 "use client";
 
+import { Autocomplete } from "@base-ui/react/autocomplete";
 import * as React from "react";
 
 import { cn } from "../lib/utils";
@@ -20,18 +21,16 @@ export type SuggestionBoxProps<Suggestion> = Omit<
   onDismiss: () => void;
   /** Shown under the suggestions, e.g. a credit to whoever supplied them. */
   footer?: React.ReactNode;
-  /**
-   * Whether leaving with Tab takes the top suggestion (default yes, as for a
-   * car make). Off for a free-text box such as an address, where a typed
-   * unit or a street not listed must stay as typed.
-   */
-  shouldPickOnTab?: boolean;
 };
 
+/** Base UI's reason when a suggestion is picked rather than typed. */
+const ITEM_PRESS = "item-press";
+
 /**
- * A text box with a list of suggestions under it: arrow keys move through
- * them, Enter, Tab or a tap picks one, Escape closes the list. Typing always stays
- * free; what to suggest is up to whoever uses it (a fixed list, a lookup).
+ * A text box with a list of suggestions under it, on Base UI's Autocomplete:
+ * arrow keys move through them, Enter or a tap picks one, Escape closes the
+ * list, and Tab moves on keeping what was typed. Typing always stays free;
+ * what to suggest is up to whoever uses it (a fixed list, a lookup).
  */
 export function SuggestionBox<Suggestion>({
   value,
@@ -42,99 +41,56 @@ export function SuggestionBox<Suggestion>({
   onSuggestionChosen,
   onDismiss,
   footer,
-  shouldPickOnTab = true,
-  onKeyDown,
-  onBlur,
   className,
   ...inputProps
 }: SuggestionBoxProps<Suggestion>) {
-  const listId = React.useId();
-  const [activeIndex, setActiveIndex] = React.useState(-1);
-  const isOpen = suggestions.length > 0;
-
-  function choose(suggestion: Suggestion): void {
-    setActiveIndex(-1);
-    onSuggestionChosen(suggestion);
-  }
-
-  function dismiss(): void {
-    setActiveIndex(-1);
-    onDismiss();
-  }
-
-  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>): void {
-    onKeyDown?.(event);
-    if (!isOpen) {
-      return;
-    }
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      const step = event.key === "ArrowDown" ? 1 : -1;
-      setActiveIndex((index) => (index + step + suggestions.length) % suggestions.length);
-    } else if (event.key === "Enter" && activeIndex >= 0 && activeIndex < suggestions.length) {
-      // Enter picks the highlighted suggestion instead of submitting the form.
-      event.preventDefault();
-      choose(suggestions[activeIndex]!);
-    } else if (event.key === "Tab" && !event.shiftKey && shouldPickOnTab) {
-      // Leaving with Tab takes the highlighted suggestion, or the top one once
-      // something is typed, so "toy" then Tab gives "Toyota". Focus still moves on.
-      const index = activeIndex >= 0 ? activeIndex : value.trim() ? 0 : -1;
-      if (index >= 0 && index < suggestions.length) {
-        choose(suggestions[index]!);
-      }
-    } else if (event.key === "Escape") {
-      dismiss();
-    }
-  }
+  const byKey = new Map(suggestions.map((suggestion) => [suggestionKey(suggestion), suggestion]));
 
   return (
-    <div className={cn("relative", className)}>
-      <Input
-        {...inputProps}
-        value={value}
-        role="combobox"
-        autoComplete="off"
-        aria-autocomplete="list"
-        aria-expanded={isOpen}
-        aria-controls={listId}
-        aria-activedescendant={isOpen && activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}
-        onChange={(event) => {
-          // New text, new suggestions: nothing is highlighted yet.
-          setActiveIndex(-1);
-          onValueChange(event.target.value);
-        }}
-        onKeyDown={handleKeyDown}
-        onBlur={(event) => {
-          dismiss();
-          onBlur?.(event);
-        }}
-      />
-      {isOpen ? (
-        <div className="bg-card absolute inset-x-0 top-full z-10 mt-1 overflow-hidden rounded-md border shadow-lg">
-          <ul id={listId} role="listbox" className="max-h-64 overflow-y-auto">
-            {suggestions.map((suggestion, index) => (
-              <li
-                key={suggestionKey(suggestion)}
-                id={`${listId}-${index}`}
-                role="option"
-                aria-selected={index === activeIndex}
-                // Before the box's blur, which would close the list first.
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  choose(suggestion);
-                }}
-                className={cn(
-                  "flex min-h-11 cursor-pointer flex-col justify-center px-3 py-2 text-sm",
-                  index === activeIndex && "bg-primary-soft",
-                )}
-              >
-                {renderSuggestion(suggestion)}
-              </li>
-            ))}
-          </ul>
-          {footer}
-        </div>
-      ) : null}
-    </div>
+    <Autocomplete.Root
+      items={suggestions}
+      // Whoever uses the box has already chosen what to suggest.
+      filter={null}
+      itemToStringValue={suggestionKey}
+      value={value}
+      onValueChange={(next, details) => {
+        if (details.reason !== ITEM_PRESS) {
+          onValueChange(next);
+          return;
+        }
+        // A pick hands over the suggestion itself; its owner decides what the box then shows.
+        const chosen = byKey.get(next);
+        if (chosen !== undefined) {
+          onSuggestionChosen(chosen);
+        }
+      }}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          onDismiss();
+        }
+      }}
+    >
+      <div className={cn("relative", className)}>
+        <Autocomplete.Input render={<Input {...inputProps} autoComplete="off" />} />
+      </div>
+      <Autocomplete.Portal>
+        <Autocomplete.Positioner sideOffset={4} className="z-50 w-(--anchor-width)">
+          <Autocomplete.Popup className="bg-card overflow-hidden rounded-md border shadow-lg">
+            <Autocomplete.List className="max-h-64 overflow-y-auto">
+              {(suggestion: Suggestion) => (
+                <Autocomplete.Item
+                  key={suggestionKey(suggestion)}
+                  value={suggestion}
+                  className="data-highlighted:bg-primary-soft flex min-h-11 cursor-pointer flex-col justify-center px-3 py-2 text-sm"
+                >
+                  {renderSuggestion(suggestion)}
+                </Autocomplete.Item>
+              )}
+            </Autocomplete.List>
+            {footer}
+          </Autocomplete.Popup>
+        </Autocomplete.Positioner>
+      </Autocomplete.Portal>
+    </Autocomplete.Root>
   );
 }

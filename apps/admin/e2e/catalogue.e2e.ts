@@ -76,9 +76,6 @@ test.describe("searchable box", () => {
   });
 
   test("Tab moves on and keeps what was typed", async ({ page }) => {
-    // TODO: today Tab picks the first suggestion even when none is highlighted;
-    // passes once the box is on Base UI (library swap stage 5).
-    test.fail();
     await openCatalogue(page);
     const box = page.getByRole("combobox", { name: "Make" });
     await box.fill("toy");
