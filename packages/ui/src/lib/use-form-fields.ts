@@ -1,7 +1,22 @@
 "use client";
 
 import { MAXIMUM_LINE_LENGTH } from "@fleetapp/core";
-import { startTransition, useState, type ChangeEvent, type FormEvent } from "react";
+import {
+  startTransition,
+  useState,
+  type ChangeEvent,
+  type FocusEvent,
+  type FormEvent,
+} from "react";
+import {
+  useForm,
+  type DefaultValues,
+  type FieldErrors as HookFormErrors,
+  type Path,
+  type PathValue,
+  type RefCallBack,
+  type Resolver,
+} from "react-hook-form";
 
 import { fieldDescriptionIds } from "../components/form-field";
 
@@ -32,7 +47,9 @@ export interface BoxProps {
   id: string;
   name: string;
   value: string;
-  onBlur: () => void;
+  /** Lets the form move to this box when it has a problem. */
+  ref: RefCallBack;
+  onBlur: (event: FocusEvent<HTMLElement>) => void;
   "aria-required": true | undefined;
   "aria-invalid": true | undefined;
   "aria-describedby": string;
@@ -82,43 +99,92 @@ export interface FormFields<Field extends string> {
   clear: () => void;
 }
 
+/** React Hook Form's error shape, from our own checks' messages. */
+function toFormErrors<Field extends string>(
+  fieldErrors: FieldErrors<Field>,
+): HookFormErrors<Record<Field, string>> {
+  const formErrors: Record<string, { type: string; message: string }> = {};
+  for (const [field, messages] of Object.entries(fieldErrors) as [Field, readonly string[]][]) {
+    const message = messages?.[0];
+    if (message) {
+      formErrors[field] = { type: VALIDATION_ERROR_TYPE, message };
+    }
+  }
+  return formErrors as HookFormErrors<Record<Field, string>>;
+}
+
+const VALIDATION_ERROR_TYPE = "validation";
+
 /**
- * The live checking every form shares (rule 28). Each box is checked once you
- * leave it, then again with every key. Nothing is shown for a box you have
- * not reached yet, so an empty form does not open covered in red.
+ * The live checking every form shares (rule 28), on React Hook Form. Each box
+ * is checked once you leave it, then again with every key (its "onTouched"
+ * mode). Nothing is shown for a box you have not reached yet, so an empty form
+ * does not open covered in red. The checks are the server's own (`validate`).
  */
 export function useFormFields<Field extends string>(
   options: FormFieldsOptions<Field>,
 ): FormFields<Field> {
-  const [values, setValues] = useState(options.initialValues);
-  const [checkedFields, setCheckedFields] = useState<ReadonlySet<Field>>(() => new Set());
+  type Values = Record<Field, string>;
+  const resolver: Resolver<Values> = (submitted) => {
+    const fieldErrors = options.validate(submitted);
+    const hasProblems = Object.values(fieldErrors).some(
+      (messages) => (messages as readonly string[] | undefined)?.length,
+    );
+    return hasProblems
+      ? { values: {}, errors: toFormErrors(fieldErrors) }
+      : { values: submitted, errors: {} };
+  };
+  const form = useForm<Values>({
+    defaultValues: options.initialValues as DefaultValues<Values>,
+    mode: "onTouched",
+    resolver,
+    // We move to the first problem in the form's own order, below.
+    shouldFocusError: false,
+  });
   const [isResultShown, setIsResultShown] = useState(false);
-  const errors = options.validate(values);
+  const values = form.watch() as Readonly<Values>;
+
+  const idFor = (field: Field): string => `${options.idPrefix ?? ""}${field}`;
+  const fieldPath = (field: Field): Path<Values> => field as unknown as Path<Values>;
 
   function errorFor(field: Field): string | undefined {
-    return checkedFields.has(field) ? errors[field]?.[0] : undefined;
+    const error = form.formState.errors[field as keyof typeof form.formState.errors] as
+      { message?: string } | undefined;
+    return error?.message;
+  }
+
+  function hasBeenChecked(field: Field): boolean {
+    return form.getFieldState(fieldPath(field)).isTouched || form.formState.isSubmitted;
   }
 
   function setValue(field: Field, value: string): void {
-    setValues((previous) => ({ ...previous, [field]: value }));
+    form.setValue(fieldPath(field), value as PathValue<Values, Path<Values>>, {
+      shouldDirty: true,
+      shouldValidate: hasBeenChecked(field),
+    });
     setIsResultShown(false);
   }
 
   function fillIn(filled: Partial<Record<Field, string>>): void {
-    setValues((previous) => ({ ...previous, ...filled }));
-    setCheckedFields((previous) => new Set([...previous, ...(Object.keys(filled) as Field[])]));
+    for (const [field, value] of Object.entries(filled) as [Field, string][]) {
+      form.setValue(fieldPath(field), value as PathValue<Values, Path<Values>>, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+    }
     setIsResultShown(false);
   }
 
-  const idFor = (field: Field): string => `${options.idPrefix ?? ""}${field}`;
-
   function boxProps(field: Field): BoxProps {
     const error = errorFor(field);
+    const registered = form.register(fieldPath(field));
     return {
       id: idFor(field),
       name: field,
-      value: values[field],
-      onBlur: () => setCheckedFields((previous) => new Set(previous).add(field)),
+      value: values[field] ?? "",
+      ref: registered.ref,
+      onBlur: (event) => void registered.onBlur(event),
       "aria-required": options.isRequired(field, values) ? true : undefined,
       "aria-invalid": error ? true : undefined,
       "aria-describedby": fieldDescriptionIds(idFor(field)),
@@ -141,16 +207,20 @@ export function useFormFields<Field extends string>(
     send: (formData: FormData) => void,
   ): (event: FormEvent<HTMLFormElement>) => void {
     return (event) => {
-      event.preventDefault();
-      setCheckedFields(new Set(options.fields));
-      const firstProblem = options.fields.find((field) => errors[field]?.length);
-      if (firstProblem) {
-        document.getElementById(idFor(firstProblem))?.focus();
-        return;
-      }
-      const formData = new FormData(event.currentTarget);
-      setIsResultShown(true);
-      startTransition(() => send(formData));
+      const formElement = event.currentTarget;
+      void form.handleSubmit(
+        () => {
+          const formData = new FormData(formElement);
+          setIsResultShown(true);
+          startTransition(() => send(formData));
+        },
+        (problems) => {
+          const firstProblem = options.fields.find((field) => field in problems);
+          if (firstProblem) {
+            document.getElementById(idFor(firstProblem))?.focus();
+          }
+        },
+      )(event);
     };
   }
 
@@ -166,9 +236,6 @@ export function useFormFields<Field extends string>(
     submitHandler,
     isResultShown,
     markChanged: () => setIsResultShown(false),
-    clear: () => {
-      setValues(options.initialValues);
-      setCheckedFields(new Set());
-    },
+    clear: () => form.reset(options.initialValues as DefaultValues<Values>),
   };
 }

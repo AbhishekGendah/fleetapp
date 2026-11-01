@@ -90,6 +90,11 @@ needed or not, and do it properly from the start, however long it takes.
    then the lightbox viewer.
 5. **Base UI pieces:** pop-up forms, searchable make/model box, address
    suggestions, code box, checkbox. Then remove the Radix helper. Catalogue updated.
+6. *As built:* `useFormFields` keeps its whole API and runs on React Hook
+   Form underneath ("onTouched" mode is rule 28's "checked once left, then
+   with every key"). Our `validate` (the server's Zod schema) is its
+   resolver, so @hookform/resolvers is not needed. `FormField` now links its
+   hint and message to whatever box it holds, on every form.
 6. **Forms on React Hook Form:** the shared field wiring first, then every
    form one at a time. Asterisks, required notes, and screen readers reading
    hints and errors (rule 28, review C1) all carry over.

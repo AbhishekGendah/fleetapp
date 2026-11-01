@@ -111,9 +111,6 @@ test.describe("code box", () => {
 
 test.describe("form pieces", () => {
   test("a required box is marked required and reads its hint", async ({ page }) => {
-    // TODO: only boxes wired through useFormFields read their hint today;
-    // passes once every field shares one wiring (library swap stage 6).
-    test.fail();
     await openCatalogue(page);
     const box = page.getByLabel(/A required box/);
     await expect(box).toHaveAttribute("aria-required", "true");

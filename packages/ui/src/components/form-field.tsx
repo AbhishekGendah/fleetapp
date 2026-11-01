@@ -1,4 +1,4 @@
-import type * as React from "react";
+import * as React from "react";
 
 import { Label } from "./input";
 
@@ -34,6 +34,34 @@ interface FormFieldProps {
   children: React.ReactNode;
 }
 
+interface DescribableProps {
+  "aria-describedby"?: string;
+  "aria-required"?: boolean | "true" | "false";
+  required?: boolean;
+}
+
+/**
+ * Links the box to its hint and message for screen readers, and marks it
+ * required, whatever box it is: one wiring for every form (rule 28). A box
+ * that already says these things keeps what it says.
+ */
+function withDescriptions(
+  children: React.ReactNode,
+  fieldId: string,
+  isRequired: boolean | undefined,
+): React.ReactNode {
+  if (!React.isValidElement<DescribableProps>(children)) {
+    return children;
+  }
+  const own = children.props;
+  return React.cloneElement(children, {
+    "aria-describedby": own["aria-describedby"] ?? fieldDescriptionIds(fieldId),
+    ...(isRequired && own.required === undefined && own["aria-required"] === undefined
+      ? { "aria-required": true }
+      : {}),
+  });
+}
+
 /**
  * One box on a form, laid out the same everywhere: label (with an asterisk
  * if required), the box, a hint, then the error.
@@ -44,7 +72,7 @@ export function FormField(props: FormFieldProps): React.JSX.Element {
       <Label htmlFor={props.htmlFor} isRequired={props.isRequired}>
         {props.label}
       </Label>
-      {props.children}
+      {withDescriptions(props.children, props.htmlFor, props.isRequired)}
       {props.hint ? (
         <p id={fieldHintId(props.htmlFor)} className="text-muted-foreground text-xs">
           {props.hint}
