@@ -77,6 +77,24 @@ export function renterEverythingHeldPath(renterId: string): string {
 }
 
 /** Where a Renter's link opens, before its secret: `/r/<secret>`. */
+export const RENTALS_PATH = "/rentals";
+export const NEW_RENTAL_PATH = `${RENTALS_PATH}/new`;
+export const RENTALS_CALENDAR_PATH = `${RENTALS_PATH}/calendar`;
+/** What the New rental form takes from its address, to open with the Renter or car chosen. */
+export const NEW_RENTAL_PRESETS = ["renterId", "vehicleId"] as const;
+
+export function rentalPath(rentalId: string): string {
+  return `${RENTALS_PATH}/${rentalId}`;
+}
+
+/** The New rental form, opened from a Renter's or a car's page with them chosen. */
+export function newRentalPath(preset: { renterId?: string; vehicleId?: string } = {}): string {
+  const query = new URLSearchParams(
+    Object.entries(preset).filter((entry): entry is [string, string] => Boolean(entry[1])),
+  ).toString();
+  return query ? `${NEW_RENTAL_PATH}?${query}` : NEW_RENTAL_PATH;
+}
+
 export const RENTER_LINK_PATH = "/r";
 
 export function renterLinkPagePath(token: string): string {

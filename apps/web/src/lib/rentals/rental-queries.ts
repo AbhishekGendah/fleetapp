@@ -185,6 +185,8 @@ export interface RentalDetail extends RentalSummary {
   cancelledAt: Date | null;
   cancellationReason: string | null;
   settingsVersion: number;
+  /** The Operator's settings when it was made (rule 14). */
+  settingsSnapshot: Record<string, unknown>;
   createdAt: Date;
   rates: { weeklyRateCents: number; appliesFrom: string }[];
 }
@@ -213,6 +215,7 @@ export async function loadRental(
         cancelledAt: rentals.cancelledAt,
         cancellationReason: rentals.cancellationReason,
         settingsVersion: rentals.settingsVersion,
+        settingsSnapshot: rentals.settingsSnapshot,
         createdAt: rentals.createdAt,
       })
       .from(rentals)
@@ -278,4 +281,12 @@ export async function listCalendarBookings(
       )
       .orderBy(asc(sql`lower(${carHolds.heldDuring})`)),
   );
+}
+
+/** Whether the Operator has made any rental at all. */
+export async function hasAnyRental(database: AnyDatabase, operatorId: string): Promise<boolean> {
+  const [row] = await withTenant(database, operatorId, (tx) =>
+    tx.select({ id: rentals.id }).from(rentals).where(eq(rentals.operatorId, operatorId)).limit(1),
+  );
+  return row !== undefined;
 }

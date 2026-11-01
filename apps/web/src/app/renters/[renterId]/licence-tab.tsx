@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@flee
 import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { Pencil, Plus } from "lucide-react";
 
+import { DetailLines } from "../../../components/detail-lines";
 import { appDb } from "../../../lib/app-db";
 import type { SignedInUser } from "../../../lib/require-user";
 import { licenceFormValues } from "../../../lib/renters/licence-input";
@@ -47,16 +48,7 @@ function LicenceDetails({ renter, expiry }: { renter: RenterDetail; expiry: Expi
       />,
     ],
   ];
-  return (
-    <dl className="grid gap-x-4 gap-y-3 text-sm sm:grid-cols-[10rem_1fr]">
-      {lines.map(([label, value]) => (
-        <div key={label} className="flex flex-col sm:contents">
-          <dt className="text-muted-foreground">{label}</dt>
-          <dd className="break-words">{value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
+  return <DetailLines lines={lines} />;
 }
 
 /** A Renter's licence: its details, and the front and back scans kept privately. */

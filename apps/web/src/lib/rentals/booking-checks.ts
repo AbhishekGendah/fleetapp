@@ -1,11 +1,14 @@
 import {
   bookingProblems,
+  operatorSettingsSchema,
+  readSettings,
   todayInTimeZone,
   type BookingProblem,
   type OperatorSettings,
   type VehicleStatus,
 } from "@fleetapp/core";
-import type { AnyTransaction } from "@fleetapp/db/client";
+import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
+import { withTenant } from "@fleetapp/db/tenant-context";
 import { files, renters, vehicles } from "@fleetapp/db/schema";
 import { and, countDistinct, eq, isNull } from "drizzle-orm";
 
@@ -19,17 +22,16 @@ export interface BookingParties {
   carStatus: VehicleStatus;
 }
 
-/**
- * The Operator's current Renter and car, both locked for this transaction:
- * the car so two bookings of it are made one after the other, the Renter so
- * their details cannot change under the checks. Otherwise, which one is missing.
- */
-export async function lockBookingParties(
+type PartiesOrMissing = BookingParties | "renter_not_found" | "car_not_found";
+
+/** The Operator's current Renter and car, or which one is missing. */
+async function findBookingParties(
   tx: AnyTransaction,
   operatorId: string,
   ids: { renterId: string; vehicleId: string },
-): Promise<BookingParties | "renter_not_found" | "car_not_found"> {
-  const [car] = await tx
+  shouldLock: boolean,
+): Promise<PartiesOrMissing> {
+  const carQuery = tx
     .select({ status: vehicles.status })
     .from(vehicles)
     .where(
@@ -38,12 +40,12 @@ export async function lockBookingParties(
         eq(vehicles.operatorId, operatorId),
         isNull(vehicles.archivedAt),
       ),
-    )
-    .for("update");
+    );
+  const [car] = shouldLock ? await carQuery.for("update") : await carQuery;
   if (!car) {
     return "car_not_found";
   }
-  const [renter] = await tx
+  const renterQuery = tx
     .select()
     .from(renters)
     .where(
@@ -52,9 +54,22 @@ export async function lockBookingParties(
         eq(renters.operatorId, operatorId),
         isNull(renters.archivedAt),
       ),
-    )
-    .for("update");
+    );
+  const [renter] = shouldLock ? await renterQuery.for("update") : await renterQuery;
   return renter ? { renter, carStatus: car.status } : "renter_not_found";
+}
+
+/**
+ * The Operator's current Renter and car, both locked for this transaction:
+ * the car so two bookings of it are made one after the other, the Renter so
+ * their details cannot change under the checks. Otherwise, which one is missing.
+ */
+export function lockBookingParties(
+  tx: AnyTransaction,
+  operatorId: string,
+  ids: { renterId: string; vehicleId: string },
+): Promise<PartiesOrMissing> {
+  return findBookingParties(tx, operatorId, ids, true);
 }
 
 async function hasBothLicenceScans(
@@ -92,5 +107,33 @@ export async function findBookingProblems(
     endDate: period.end === null ? null : dateOf(period.end),
     today: dateOf(period.now),
     rules: settings,
+  });
+}
+
+/**
+ * What still stands between a rental's Renter and its car, checked now under
+ * the rules the rental was made with (rule 14). Nothing is locked: this is
+ * for showing on the rental's page.
+ */
+export async function loadRentalProblems(
+  database: AnyDatabase,
+  operatorId: string,
+  rental: {
+    renterId: string;
+    vehicleId: string;
+    plannedStart: Date;
+    plannedEnd: Date | null;
+    settingsSnapshot: Record<string, unknown>;
+  },
+  clock: { timeZone: string; now: Date },
+): Promise<BookingProblem[] | "renter_not_found" | "car_not_found"> {
+  return withTenant(database, operatorId, async (tx) => {
+    const parties = await findBookingParties(tx, operatorId, rental, false);
+    if (typeof parties === "string") {
+      return parties;
+    }
+    const settings = readSettings(operatorSettingsSchema, rental.settingsSnapshot);
+    const period = { start: rental.plannedStart, end: rental.plannedEnd, ...clock };
+    return findBookingProblems(tx, parties, period, settings);
   });
 }

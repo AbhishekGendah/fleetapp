@@ -16,8 +16,9 @@ import { TabLinks } from "@fleetapp/ui/tab-links";
 import {
   Archive,
   ArchiveRestore,
-  History,
+  CalendarRange,
   Download,
+  History,
   IdCard,
   NotebookPen,
   Pencil,
@@ -25,6 +26,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { DetailLines } from "../../../components/detail-lines";
 import { HistoryCard } from "../../../components/history-card";
 import { appDb } from "../../../lib/app-db";
 import {
@@ -51,6 +53,7 @@ import { listNoteIds } from "../../../lib/renters/notes";
 import { loadExpiryContext } from "../../../lib/vehicles/expiry-context";
 import { recordTabs, TAB_PARAM, type RecordTab } from "../../../lib/record-tabs";
 import { AppShell } from "../../app-shell";
+import { RentalsTab } from "../../rentals/rentals-tab";
 import { ExpiryDate } from "../../cars/expiry-date";
 import { RenterStatusBadge } from "../renter-status-badge";
 import { changeRenterStatusAction, setRenterArchivedAction } from "./actions";
@@ -65,6 +68,7 @@ export const dynamic = "force-dynamic";
 
 const TABS = [
   { key: "details", label: "Details", icon: UserRound },
+  { key: "rentals", label: "Rentals", icon: CalendarRange },
   { key: "licence", label: "Licence", icon: IdCard },
   { key: "notes", label: "Notes", icon: NotebookPen },
   { key: "log", label: "Log", icon: History },
@@ -216,14 +220,7 @@ function DetailsCard({ renter, today }: { renter: RenterDetail; today: string })
         )}
       </CardHeader>
       <CardContent>
-        <dl className="grid gap-x-4 gap-y-3 text-sm sm:grid-cols-[10rem_1fr]">
-          {lines.map(([label, value]) => (
-            <div key={label} className="flex flex-col sm:contents">
-              <dt className="text-muted-foreground">{label}</dt>
-              <dd className="break-words">{value}</dd>
-            </div>
-          ))}
-        </dl>
+        <DetailLines lines={lines} />
       </CardContent>
     </Card>
   );
@@ -372,6 +369,14 @@ export default async function RenterPage(props: {
         }))}
       />
       {tab === "details" ? <DetailsTab renter={renter} user={user} /> : null}
+      {tab === "rentals" ? (
+        <RentalsTab
+          user={user}
+          scope={{ renterId: renter.id }}
+          titleOf={(rental) => rental.rego}
+          isArchived={renter.archivedAt !== null}
+        />
+      ) : null}
       {tab === "licence" ? <LicenceTab renter={renter} user={user} expiry={licenceExpiry} /> : null}
       {tab === "notes" ? <NotesTab renter={renter} user={user} /> : null}
       {tab === "log" ? <RenterLogTab renter={renter} user={user} /> : null}

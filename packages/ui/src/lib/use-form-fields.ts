@@ -208,9 +208,12 @@ export function useFormFields<Field extends string>(
   ): (event: FormEvent<HTMLFormElement>) => void {
     return (event) => {
       const formElement = event.currentTarget;
+      // The pressed button's name and value go with the form, as a browser sends
+      // them, so a form with two buttons (e.g. Book and Save as draft) knows which.
+      const submitter = (event.nativeEvent as SubmitEvent).submitter;
       void form.handleSubmit(
         () => {
-          const formData = new FormData(formElement);
+          const formData = new FormData(formElement, submitter);
           setIsResultShown(true);
           startTransition(() => send(formData));
         },

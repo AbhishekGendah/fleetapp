@@ -8,8 +8,10 @@ import { BUSINESS_DETAILS_ANCHOR, SIGN_IN_PATH } from "../../lib/paths";
 import { requireUser } from "../../lib/require-user";
 import { loadBusinessDetails } from "../../lib/settings/business-details";
 import { AppShell } from "../app-shell";
+import { choiceSettingValue } from "../../lib/settings/choice-setting-input";
 import { loadOperatorSettings } from "../../lib/settings/operator-settings";
 import { BusinessDetailsForm } from "./business-details-form";
+import { ChoiceSettingForm } from "./choice-setting-form";
 import { NumberSettingForm } from "./number-setting-form";
 import { LogoUpload } from "./logo-upload";
 
@@ -77,6 +79,61 @@ export default async function SettingsPage() {
             label="Delete licence scans this many months after the Renter’s last rental, or after they were added"
             hint="Licence photos are identity documents: keep them only as long as you need them. The licence details themselves are kept."
             value={settings.licenceScanKeptMonths}
+          />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Rentals</CardTitle>
+          <CardDescription>
+            Each new rental keeps the settings it was made with: a change here applies to rentals
+            made from now on, never to ones already made.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-8">
+          <RequiredFieldsNote />
+          <NumberSettingForm
+            setting="minimumRenterAgeYears"
+            label="The youngest a Renter may be when the rental starts (years)"
+            value={settings.minimumRenterAgeYears}
+          />
+          <ChoiceSettingForm
+            setting="isProvisionalLicenceAllowed"
+            label="May a Renter with a provisional (P plate) licence rent?"
+            value={choiceSettingValue(
+              "isProvisionalLicenceAllowed",
+              settings.isProvisionalLicenceAllowed,
+            )}
+            hint="Check what your insurance allows."
+          />
+          <ChoiceSettingForm
+            setting="fixedChargeWeekday"
+            label="Rent is charged each week on"
+            value={choiceSettingValue("fixedChargeWeekday", settings.fixedChargeWeekday)}
+          />
+          <ChoiceSettingForm
+            setting="partWeekCharging"
+            label="A part week (at the start, or after an early return) is charged"
+            value={choiceSettingValue("partWeekCharging", settings.partWeekCharging)}
+          />
+          <ChoiceSettingForm
+            setting="isBondRequiredBeforeHandover"
+            label="Must the bond be paid before the car is handed over?"
+            value={choiceSettingValue(
+              "isBondRequiredBeforeHandover",
+              settings.isBondRequiredBeforeHandover,
+            )}
+          />
+          <NumberSettingForm
+            setting="bondHoldDaysAfterReturn"
+            label="Keep the bond this many days after the car comes back"
+            hint="Time for late fines and tolls to arrive."
+            value={settings.bondHoldDaysAfterReturn}
+          />
+          <NumberSettingForm
+            setting="ongoingNoticeDays"
+            label="Notice a Renter on an ongoing rental gives before returning the car (days)"
+            value={settings.ongoingNoticeDays}
           />
         </CardContent>
       </Card>

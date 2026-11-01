@@ -10,14 +10,15 @@ import { TabLinks } from "@fleetapp/ui/tab-links";
 import {
   Archive,
   ArchiveRestore,
+  CalendarRange,
   Camera,
   Car,
   FileText,
   Gauge,
   History,
   Pencil,
-  ReceiptText,
   Plus,
+  ReceiptText,
   ShieldCheck,
   Undo2,
 } from "lucide-react";
@@ -25,6 +26,7 @@ import Link from "next/link";
 
 import { recordTabs, TAB_PARAM, type RecordTab } from "../../../lib/record-tabs";
 import { AppShell } from "../../app-shell";
+import { RentalsTab } from "../../rentals/rentals-tab";
 import { appDb } from "../../../lib/app-db";
 import { carPath, CARS_PATH, editCarPath } from "../../../lib/paths";
 import { listCarFileIds } from "../../../lib/files/car-files";
@@ -55,6 +57,7 @@ export const dynamic = "force-dynamic";
 
 const TABS = [
   { key: "details", label: "Details", icon: Car },
+  { key: "rentals", label: "Rentals", icon: CalendarRange },
   { key: "paperwork", label: "Rego & insurance", icon: ShieldCheck },
   { key: "costs", label: "Costs", icon: ReceiptText },
   { key: "photos", label: "Photos", icon: Camera },
@@ -310,6 +313,14 @@ export default async function CarPage(props: {
       />
 
       {tab === "details" ? <DetailsTab vehicle={vehicle} /> : null}
+      {tab === "rentals" ? (
+        <RentalsTab
+          user={user}
+          scope={{ vehicleId: vehicle.id }}
+          titleOf={(rental) => rental.renterFullName}
+          isArchived={vehicle.archivedAt !== null}
+        />
+      ) : null}
       {tab === "paperwork" ? <PaperworkTab vehicle={vehicle} user={user} /> : null}
       {tab === "costs" ? <CostsTab vehicle={vehicle} user={user} /> : null}
       {tab === "photos" ? <PhotosTab vehicle={vehicle} user={user} /> : null}

@@ -13,4 +13,8 @@ describeDownloadBudgets({
   "/renters": 190,
   "/renters/new": 420,
   "/settings": 430,
+  // Added 1 Nov 2026 with bookings. The form carries the date picker and record picker.
+  "/rentals": 190,
+  "/rentals/new": 510,
+  "/rentals/calendar": 270,
 });
