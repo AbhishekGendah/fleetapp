@@ -1,0 +1,27 @@
+/* FullCalendar's classic theme in the brand's colours (packages/ui theme.css). */
+.bookings-calendar {
+  --fc-classic-button: var(--color-primary);
+  --fc-classic-button-border: var(--color-primary);
+  --fc-classic-button-strong: var(--color-primary-dark);
+  --fc-classic-button-strong-border: var(--color-primary-dark);
+  --fc-classic-button-outline: var(--color-ring);
+  --fc-classic-button-foreground: var(--color-primary-foreground);
+  --fc-classic-primary: var(--color-teal);
+  --fc-classic-primary-foreground: #ffffff;
+  --fc-classic-today: var(--color-primary-soft);
+  --fc-classic-background: var(--color-card);
+  --fc-classic-foreground: var(--color-foreground);
+  --fc-classic-muted-foreground: var(--color-muted-foreground);
+  /* The theme's faint grey is too pale to read (WCAG 2.2 AA contrast). */
+  --fc-classic-faint-foreground: var(--color-muted-foreground);
+  --fc-classic-border: var(--color-border);
+}
+
+/* Toolbar buttons are at least 44px to tap (rule 24); bookings in the month grid at least 24px (WCAG 2.5.8). */
+.bookings-calendar button {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
+.bookings-calendar a[href] {
+  min-height: 1.5rem;
+}

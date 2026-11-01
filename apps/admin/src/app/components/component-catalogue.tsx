@@ -13,11 +13,14 @@ import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { Checkbox } from "@fleetapp/ui/checkbox";
+import { BookingsCalendar, type CalendarEntry } from "@fleetapp/ui/bookings-calendar";
 import { ComboBox } from "@fleetapp/ui/combo-box";
 import { CodeInput, TOTP_CODE_LENGTH } from "@fleetapp/ui/code-input";
 import { fieldErrorId, FormField } from "@fleetapp/ui/form-field";
 import { FormError } from "@fleetapp/ui/form-message";
 import { CameraCapture } from "@fleetapp/ui/camera-capture";
+import { DateTimePicker } from "@fleetapp/ui/date-time-picker";
+import { RecordPicker, type PickableRecord } from "@fleetapp/ui/record-picker";
 import { FilePicker } from "@fleetapp/ui/file-picker";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { FormattedInput } from "@fleetapp/ui/formatted-input";
@@ -215,6 +218,71 @@ function ComboBoxExample() {
     </FormField>
   );
 }
+
+/** Typed part by part, or picked from the calendar; the form gets "2026-12-01T09:00". */
+function DateTimePickerExample() {
+  const [moment, setMoment] = useState("2026-12-01T09:00");
+  return (
+    <FormField htmlFor="example-start" label="Starts" isRequired hint={`Sent as “${moment}”.`}>
+      <DateTimePicker
+        id="example-start"
+        name="start"
+        value={moment}
+        onValueChange={setMoment}
+        aria-required
+      />
+    </FormField>
+  );
+}
+
+const EXAMPLE_RENTERS: readonly PickableRecord[] = [
+  { value: "renter-1", label: "Sam Example", description: "0412 345 678" },
+  { value: "renter-2", label: "Alex Sample", description: "alex@example.test" },
+  { value: "renter-3", label: "Jo Citizen", description: "0498 765 432" },
+];
+
+/** Only a listed record can be picked; the form sends its id. */
+function RecordPickerExample() {
+  const [renterId, setRenterId] = useState("");
+  return (
+    <FormField
+      htmlFor="example-renter"
+      label="Renter"
+      isRequired
+      hint={renterId ? `Sends “${renterId}”.` : "Try “sam” or “0498”."}
+    >
+      <RecordPicker
+        id="example-renter"
+        name="renterId"
+        records={EXAMPLE_RENTERS}
+        value={renterId}
+        onValueChange={setRenterId}
+        placeholder="Type a name, phone or email"
+        emptyMessage="No Renter matches that."
+        aria-required
+      />
+    </FormField>
+  );
+}
+
+const EXAMPLE_BOOKINGS: readonly CalendarEntry[] = [
+  {
+    id: "booking-1",
+    title: "1ABC234 · Sam Example",
+    start: "2026-12-01T01:00:00Z",
+    end: "2026-12-15T01:00:00Z",
+    href: "#booking-1",
+    tone: "active",
+  },
+  {
+    id: "booking-2",
+    title: "1XYZ789 · Alex Sample",
+    start: "2026-12-08T02:00:00Z",
+    end: "2026-12-22T02:00:00Z",
+    href: "#booking-2",
+    tone: "booked",
+  },
+];
 
 function CodeEntry() {
   const [code, setCode] = useState("");
@@ -512,6 +580,31 @@ export function ComponentCatalogue() {
         note="Choose, replace or remove one image, e.g. the Operator's logo."
       >
         <ImageUploadExample />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Date and time"
+        note="Typed part by part in Australian order, or picked from a calendar. Times are on the Operator's clock."
+      >
+        <DateTimePickerExample />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Record picker"
+        note="Picks one record, such as a Renter or a car, by typing part of it. Only listed records can be picked."
+      >
+        <RecordPickerExample />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Bookings calendar"
+        note="A month grid on a computer, a list on a phone. Each booking opens its rental."
+      >
+        <BookingsCalendar
+          entries={EXAMPLE_BOOKINGS}
+          timeZone="Australia/Perth"
+          initialDate="2026-12-01"
+        />
       </CatalogueSection>
 
       <CatalogueSection title="Code entry" note="Checked as soon as the last digit goes in.">

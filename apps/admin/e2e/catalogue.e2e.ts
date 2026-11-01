@@ -290,3 +290,96 @@ test("the make box shows its list when tapped, before typing", async ({ page }) 
   await page.getByRole("combobox", { name: "Make" }).click();
   await expect(page.getByRole("listbox").getByRole("option").first()).toBeVisible();
 });
+
+test.describe("date and time picker", () => {
+  test("is typed part by part with the keyboard, in Australian order", async ({ page }) => {
+    await openCatalogue(page);
+    const day = page.getByRole("spinbutton", { name: /day/i }).first();
+    await day.focus();
+    // Day, month, year, hour, minute, then am/pm: each part moves on once filled.
+    await page.keyboard.type("15");
+    await page.keyboard.type("01");
+    await page.keyboard.type("2027");
+    await page.keyboard.type("0230");
+    await page.keyboard.type("p");
+
+    await expect(page.getByText("Sent as “2027-01-15T14:30”.")).toBeVisible();
+  });
+
+  test("picks a day from the calendar, which closes on Escape", async ({ page }) => {
+    await openCatalogue(page);
+    const opener = page.getByRole("button", { name: "Choose from a calendar" });
+    await opener.click();
+    const calendar = page.getByRole("dialog", { name: "Calendar" });
+    await expect(calendar).toBeVisible();
+
+    await calendar.getByRole("button", { name: "Thursday 10 December 2026" }).click();
+    await expect(page.getByText("Sent as “2026-12-10T09:00”.")).toBeVisible();
+
+    await opener.click();
+    await expect(calendar).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(calendar).toBeHidden();
+  });
+
+  test("is named by its label and says it is required", async ({ page }) => {
+    await openCatalogue(page);
+    const picker = page.getByRole("group", { name: "Starts" });
+    await expect(picker).toBeVisible();
+    await expect(page.getByRole("spinbutton", { name: /day/i }).first()).toHaveAttribute(
+      "aria-required",
+      "true",
+    );
+  });
+});
+
+test.describe("record picker", () => {
+  test("finds a record by part of its second line and picks it with the keyboard", async ({
+    page,
+  }) => {
+    await openCatalogue(page);
+    const box = page.getByRole("combobox", { name: "Renter" });
+    await box.fill("0498");
+    await expect(page.getByRole("option")).toHaveCount(1);
+
+    await page.keyboard.press("Enter");
+
+    await expect(box).toHaveValue("Jo Citizen");
+    await expect(page.getByText("Sends “renter-3”.")).toBeVisible();
+  });
+
+  test("opens its list when tapped and says when nothing matches", async ({ page }) => {
+    await openCatalogue(page);
+    const box = page.getByRole("combobox", { name: "Renter" });
+    await box.click();
+    await expect(page.getByRole("option")).toHaveCount(3);
+
+    await box.fill("nobody");
+    await expect(page.getByText("No Renter matches that.")).toBeVisible();
+  });
+});
+
+test.describe("bookings calendar", () => {
+  test("shows the month's bookings, each linking to its rental", async ({ page }) => {
+    await openCatalogue(page);
+    await expect(page.getByRole("tab", { name: "Month view" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    const booking = page.getByRole("link", { name: /1ABC234 · Sam Example/ }).first();
+    await expect(booking).toHaveAttribute("href", "#booking-1");
+  });
+
+  test.describe("at phone width", () => {
+    test.use({ viewport: PHONE_VIEWPORT });
+
+    test("lists the bookings rather than squeezing a month grid", async ({ page }) => {
+      await openCatalogue(page);
+      await expect(page.getByRole("link", { name: /1XYZ789 · Alex Sample/ }).first()).toBeVisible();
+      await expect(page.getByRole("tab", { name: "List view" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+    });
+  });
+});

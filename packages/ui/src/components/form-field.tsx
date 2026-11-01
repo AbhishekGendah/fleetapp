@@ -7,6 +7,11 @@ export function fieldErrorId(fieldId: string): string {
   return `${fieldId}-error`;
 }
 
+/** The id of a field's label, for a box made of parts that names itself by it (`aria-labelledby`). */
+export function fieldLabelId(fieldId: string): string {
+  return `${fieldId}-label`;
+}
+
 /** The id of a field's hint, for the box's `aria-describedby`. */
 export function fieldHintId(fieldId: string): string {
   return `${fieldId}-hint`;
@@ -69,7 +74,7 @@ function withDescriptions(
 export function FormField(props: FormFieldProps): React.JSX.Element {
   return (
     <div className="flex flex-col gap-2">
-      <Label htmlFor={props.htmlFor} isRequired={props.isRequired}>
+      <Label id={fieldLabelId(props.htmlFor)} htmlFor={props.htmlFor} isRequired={props.isRequired}>
         {props.label}
       </Label>
       {withDescriptions(props.children, props.htmlFor, props.isRequired)}
