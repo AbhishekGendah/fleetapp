@@ -97,7 +97,7 @@
   "devDependencies": {
     "@fleetapp/config": "workspace:*",
     "@types/node": "26.6.2",
-    "@types/qrcode": "1.5.5",
+    "@types/qrcode": "1.5.6",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "eslint": "9.39.5",
