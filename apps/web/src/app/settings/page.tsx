@@ -1,10 +1,13 @@
+import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { RequiredFieldsNote } from "@fleetapp/ui/input";
+import { FileText } from "lucide-react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { appDb } from "../../lib/app-db";
 import { loadOperatorLogoUrl } from "../../lib/files/operator-logo";
-import { BUSINESS_DETAILS_ANCHOR, SIGN_IN_PATH } from "../../lib/paths";
+import { BUSINESS_DETAILS_ANCHOR, CONTRACTS_PATH, SIGN_IN_PATH } from "../../lib/paths";
 import { requireUser } from "../../lib/require-user";
 import { loadBusinessDetails } from "../../lib/settings/business-details";
 import { AppShell } from "../app-shell";
@@ -80,6 +83,22 @@ export default async function SettingsPage() {
             hint="Licence photos are identity documents: keep them only as long as you need them. The licence details themselves are kept."
             value={settings.licenceScanKeptMonths}
           />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Contracts</CardTitle>
+          <CardDescription>
+            Your rental contract and forms, written once and filled in for each rental.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline" className="w-full sm:w-auto">
+            <Link href={CONTRACTS_PATH}>
+              <FileText aria-hidden />
+              Contract templates
+            </Link>
+          </Button>
         </CardContent>
       </Card>
       <Card>

@@ -19,6 +19,7 @@ describePageChecks({
     "/rentals/new",
     "/rentals/calendar",
     "/settings",
+    "/settings/contracts",
   ],
   signedOutPages: ["/sign-in", "/forgot-password"],
   phoneViewport: PHONE_VIEWPORT,

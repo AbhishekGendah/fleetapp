@@ -2,6 +2,7 @@ import { expectAccessible } from "@fleetapp/e2e/accessibility";
 import { expect, test, type Page } from "@playwright/test";
 
 import { MINIMUM_TOUCH_TARGET_PX, PHONE_VIEWPORT } from "./e2e-settings";
+import { expectPdf } from "./pdf-checks";
 
 /**
  * Bookings as an Operator makes them: a car booked for a Renter, a second
@@ -97,6 +98,26 @@ test.describe.serial("bookings", () => {
     await expect(page.getByText("Before handover")).toBeVisible();
     await expect(page.getByText(/Still needed before the car is handed over/)).toBeVisible();
     await expectAccessible(page);
+  });
+
+  test("previews the rental's contract, listing details not on file", async ({ page }) => {
+    // The contract tests (which run first) set up the default template; make sure of one.
+    await page.goto("/settings/contracts", { waitUntil: "networkidle" });
+    if ((await page.getByText("Used for new rentals").count()) === 0) {
+      await page.getByRole("textbox", { name: /^Name/ }).fill("Rental test contract");
+      await page.getByRole("button", { name: "Add template" }).click();
+      await expect(page.getByText("Used for new rentals").first()).toBeVisible();
+    }
+    await page.goto("/rentals", { waitUntil: "networkidle" });
+    await page
+      .getByRole("link", { name: new RegExp(RENTER_NAME) })
+      .first()
+      .click();
+
+    await expect(page.getByText(/Not on file yet/)).toBeVisible();
+    await expect(page.getByRole("listitem").filter({ hasText: "Licence number" })).toBeVisible();
+    const preview = page.getByRole("link", { name: "Preview contract" });
+    await expectPdf(page, await preview.getAttribute("href"));
   });
 
   test("refuses the same car for overlapping dates, linking to the booking in the way", async ({

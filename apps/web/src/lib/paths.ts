@@ -8,6 +8,16 @@ export const RESET_PASSWORD_PATH = "/reset-password";
 export const SETTINGS_PATH = "/settings";
 /** The business details card on the Settings page, for linking straight to it. */
 export const BUSINESS_DETAILS_ANCHOR = "business-details";
+export const CONTRACTS_PATH = `${SETTINGS_PATH}/contracts`;
+
+export function contractTemplatePath(templateId: string): string {
+  return `${CONTRACTS_PATH}/${templateId}`;
+}
+
+/** The template as a PDF, each field shown by its name. */
+export function contractTemplatePreviewPath(templateId: string): string {
+  return `${contractTemplatePath(templateId)}/preview`;
+}
 
 /** The daily file clean-up, called by Vercel's scheduler (listed in vercel.json). */
 export const FILE_HOUSEKEEPING_CRON_PATH = "/api/cron/file-housekeeping";
@@ -85,6 +95,11 @@ export const NEW_RENTAL_PRESETS = ["renterId", "vehicleId"] as const;
 
 export function rentalPath(rentalId: string): string {
   return `${RENTALS_PATH}/${rentalId}`;
+}
+
+/** The rental's contract as a PDF, filled in but not issued. */
+export function rentalContractPreviewPath(rentalId: string): string {
+  return `${rentalPath(rentalId)}/contract-preview`;
 }
 
 /** The New rental form, opened from a Renter's or a car's page with them chosen. */
