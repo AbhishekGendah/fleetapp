@@ -2,6 +2,10 @@
 
 import {
   AUSTRALIAN_LOCALE,
+  MERGE_FIELD_GROUP_LABELS,
+  MERGE_FIELDS,
+  STARTER_CONTRACT,
+  templateDocumentSchema,
   formatAbn,
   formatAustralianPhone,
   pageOfRows,
@@ -19,6 +23,7 @@ import { CodeInput, TOTP_CODE_LENGTH } from "@fleetapp/ui/code-input";
 import { fieldErrorId, FormField } from "@fleetapp/ui/form-field";
 import { FormError } from "@fleetapp/ui/form-message";
 import { CameraCapture } from "@fleetapp/ui/camera-capture";
+import { ContractEditor, type EditorMergeField } from "@fleetapp/ui/contract-editor";
 import { DateTimePicker } from "@fleetapp/ui/date-time-picker";
 import { RecordPicker, type PickableRecord } from "@fleetapp/ui/record-picker";
 import { FilePicker } from "@fleetapp/ui/file-picker";
@@ -283,6 +288,33 @@ const EXAMPLE_BOOKINGS: readonly CalendarEntry[] = [
     tone: "booked",
   },
 ];
+
+const EDITOR_FIELDS: readonly EditorMergeField[] = MERGE_FIELDS.map((field) => ({
+  key: field.key,
+  label: field.label,
+  groupLabel: MERGE_FIELD_GROUP_LABELS[field.group],
+}));
+
+/** The contract editor, saying whether what it holds is a template the server would accept. */
+function ContractEditorExample() {
+  const [json, setJson] = useState(() => JSON.stringify(STARTER_CONTRACT));
+  const isAccepted = templateDocumentSchema.safeParse(JSON.parse(json)).success;
+  return (
+    <FormField
+      htmlFor="example-contract"
+      label="Contract text"
+      hint={isAccepted ? "The server would accept this." : "The server would refuse this."}
+    >
+      <ContractEditor
+        id="example-contract"
+        name="content"
+        initialContent={STARTER_CONTRACT}
+        onValueChange={setJson}
+        fields={EDITOR_FIELDS}
+      />
+    </FormField>
+  );
+}
 
 function CodeEntry() {
   const [code, setCode] = useState("");
@@ -594,6 +626,13 @@ export function ComponentCatalogue() {
         note="Picks one record, such as a Renter or a car, by typing part of it. Only listed records can be picked."
       >
         <RecordPickerExample />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Contract editor"
+        note="Headings, lists, bold, italic and underline, with Insert field for the rental's details. Nothing else can be added, so it always prints tidily."
+      >
+        <ContractEditorExample />
       </CatalogueSection>
 
       <CatalogueSection

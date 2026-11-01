@@ -383,3 +383,63 @@ test.describe("bookings calendar", () => {
     });
   });
 });
+
+test.describe("contract editor", () => {
+  test("formats with the keyboard and toolbar, and stays a template the server accepts", async ({
+    page,
+  }) => {
+    await openCatalogue(page);
+    const editor = page.getByRole("textbox", { name: "Contract text" });
+    await editor.click();
+    await page.keyboard.press("Control+End");
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Control+b");
+    await page.keyboard.type("Late fees");
+    await expect(page.getByRole("button", { name: "Bold" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await page.keyboard.press("Control+b");
+    await page.keyboard.type(" apply.");
+    await page.getByRole("button", { name: "Numbered list" }).click();
+
+    await expect(editor.locator("ol strong")).toHaveText("Late fees");
+    await expect(page.getByText("The server would accept this.")).toBeVisible();
+  });
+
+  test("inserts a field from the menu with the keyboard", async ({ page }) => {
+    await openCatalogue(page);
+    const editor = page.getByRole("textbox", { name: "Contract text" });
+    await editor.click();
+    await page.keyboard.press("Control+End");
+    const before = await editor.locator("[data-merge-field]").count();
+
+    const menuButton = page.getByRole("button", { name: "Insert field" });
+    await menuButton.focus();
+    await page.keyboard.press("Enter");
+    await page.getByRole("menuitem", { name: "Rego" }).focus();
+    await page.keyboard.press("Enter");
+
+    await expect(editor.locator("[data-merge-field]")).toHaveCount(before + 1);
+    await expect(editor.locator('[data-merge-field="carRego"]').last()).toHaveText("Rego");
+    await expect(page.getByText("The server would accept this.")).toBeVisible();
+  });
+
+  test("offers no way to add links or pictures", async ({ page }) => {
+    await openCatalogue(page);
+    const editor = page.getByRole("textbox", { name: "Contract text" });
+    await editor.click();
+    // Pasted HTML with a link and a picture keeps only the text.
+    await page.evaluate(() => {
+      const data = new DataTransfer();
+      data.setData("text/html", '<p><a href="https://example.test">Click</a><img src="x.png"></p>');
+      document.activeElement?.dispatchEvent(
+        new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }),
+      );
+    });
+    // Only real links and pictures count: the editor's own invisible spacers have no source.
+    await expect(editor.locator("a[href], img[src]")).toHaveCount(0);
+    await expect(editor).toContainText("Click");
+    await expect(page.getByText("The server would accept this.")).toBeVisible();
+  });
+});
