@@ -588,7 +588,9 @@
   greys and reds, now darker; four more forms on the shared helper; a
   JavaScript download budget per page; Renovate settings; CLAUDE.md rules
   32 (libraries first) and 33 (every screen proven in a browser). Fixed on
-  the way: test databases left a Docker volume each (25 GB).
+  the way: test databases left a Docker volume each (25 GB); the admin build
+  failed for a while (no public folder) and new settings were missing from
+  the apps' turbo.json (APP_STAGE too); both fixed, CI green.
 
 ## Next
 Phase 3 (rentals), plan first. Open idea: trim the phone rules to
