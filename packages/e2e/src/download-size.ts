@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 const BYTES_PER_KILOBYTE = 1024;
 
@@ -14,4 +14,18 @@ export async function scriptKilobytes(page: Page): Promise<number> {
       .reduce((total, entry) => total + (entry as PerformanceResourceTiming).encodedBodySize, 0),
   );
   return Math.round(bytes / BYTES_PER_KILOBYTE);
+}
+
+/**
+ * One test per page: its JavaScript must stay within its budget (compressed
+ * kilobytes), so a page cannot quietly grow heavier for phones on poor
+ * signal. Raise a budget only on purpose, with the reason in the commit.
+ */
+export function describeDownloadBudgets(budgets: Readonly<Record<string, number>>): void {
+  for (const [path, budgetKilobytes] of Object.entries(budgets)) {
+    test(`${path} downloads at most ${budgetKilobytes} KB of JavaScript`, async ({ page }) => {
+      await page.goto(path, { waitUntil: "networkidle" });
+      expect(await scriptKilobytes(page)).toBeLessThanOrEqual(budgetKilobytes);
+    });
+  }
 }
