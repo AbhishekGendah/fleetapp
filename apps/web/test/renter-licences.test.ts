@@ -205,7 +205,7 @@ describe("a Renter's licence and scans", () => {
       "uploaded",
       "deleted",
     ]);
-    expect(new Set(await listRenterFileIds(web.db, actor.operatorId, renterId))).toEqual(
+    expect(new Set(await listRenterFileIds(web.db, actor.operatorId, renterId, []))).toEqual(
       new Set([firstFront, newFront, back]),
     );
   });

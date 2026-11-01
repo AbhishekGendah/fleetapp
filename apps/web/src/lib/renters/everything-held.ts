@@ -141,12 +141,12 @@ export async function buildEverythingHeld(
     return null;
   }
   const { operatorId } = actor;
-  const [notes, scans, fileIds, noteIds, linkIds, submissions] = await Promise.all([
+  const linkIds = await listRenterLinkIds(database, operatorId, renterId);
+  const [notes, scans, fileIds, noteIds, submissions] = await Promise.all([
     listNotes(database, operatorId, renterId, { isRemovedIncluded: true }),
-    listAllLicenceScans(database, operatorId, renterId),
-    listRenterFileIds(database, operatorId, renterId),
+    listAllLicenceScans(database, operatorId, renterId, linkIds),
+    listRenterFileIds(database, operatorId, renterId, linkIds),
     listNoteIds(database, operatorId, renterId),
-    listRenterLinkIds(database, operatorId, renterId),
     listSubmissionsHeld(database, operatorId, renterId),
   ]);
   const log = await loadRecordHistory(
@@ -189,9 +189,10 @@ export async function buildEverythingHeld(
       {
         name: "Licence scans",
         table: [
-          ["Side", "Added", "Removed"],
+          ["Side", "Kind", "Added", "Removed"],
           ...scans.map((scan) => [
             LICENCE_SIDE_LABELS[scan.side],
+            scan.isSentThroughLink ? "Photo sent through a link" : "Licence scan",
             when(scan.addedAt),
             when(scan.removedAt),
           ]),

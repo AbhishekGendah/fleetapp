@@ -1,7 +1,7 @@
 import { LICENCE_SIDES, type LicenceSide } from "@fleetapp/core";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, activityLog, files } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, or, sql, type SQL } from "drizzle-orm";
 
 import type { PlannedFile } from "../files/car-files";
 import {
@@ -124,37 +124,62 @@ export async function removeLicenceScan(
   return removed > 0 ? "removed" : "not_found";
 }
 
-/** Every scan the Renter has had, removed ones too, so the Log shows each upload, view and removal. */
+/** The Renter's own files, and the photos they sent through any of their links (`linkIds`). */
+function renterOrLinkFiles(renterId: string, linkIds: readonly string[]): SQL {
+  const ownFiles = eq(files.renterId, renterId);
+  return linkIds.length === 0
+    ? ownFiles
+    : (or(ownFiles, inArray(files.renterLinkId, [...linkIds])) ?? ownFiles);
+}
+
+/**
+ * Every scan the Renter has had, and every photo sent through their links,
+ * removed ones too, so the Log shows each upload, view and removal.
+ */
 export function listRenterFileIds(
   database: FileDependencies["database"],
   operatorId: string,
   renterId: string,
+  linkIds: readonly string[],
 ): Promise<string[]> {
-  return listLoggedFileIds(database, operatorId, eq(files.renterId, renterId), [
+  return listLoggedFileIds(database, operatorId, renterOrLinkFiles(renterId, linkIds), [
     "renter_licence_scan",
+    "renter_submitted_scan",
   ]);
 }
 
 export interface LicenceScanRecord {
   side: LicenceSide;
+  /** Sent by the Renter through a link and not (or not yet) made a scan. */
+  isSentThroughLink: boolean;
   addedAt: Date;
   removedAt: Date | null;
 }
 
-/** Every scan the Renter has had, removed ones too, oldest first: for the "everything we hold" download. */
+/**
+ * Every scan the Renter has had and every licence photo sent through their
+ * links, removed ones too, oldest first: for the "everything we hold" download.
+ */
 export async function listAllLicenceScans(
   database: FileDependencies["database"],
   operatorId: string,
   renterId: string,
+  linkIds: readonly string[],
 ): Promise<LicenceScanRecord[]> {
   const rows = await withTenant(database, operatorId, (tx) =>
     tx
-      .select({ side: files.licenceSide, addedAt: files.confirmedAt, removedAt: files.deletedAt })
+      .select({
+        side: files.licenceSide,
+        purpose: files.purpose,
+        addedAt: files.confirmedAt,
+        removedAt: files.deletedAt,
+      })
       .from(files)
       .where(
         and(
           eq(files.operatorId, operatorId),
-          eq(files.renterId, renterId),
+          renterOrLinkFiles(renterId, linkIds),
+          isNotNull(files.licenceSide),
           isNotNull(files.confirmedAt),
         ),
       )
@@ -162,7 +187,14 @@ export async function listAllLicenceScans(
   );
   return rows.flatMap((row) =>
     row.side && row.addedAt
-      ? [{ side: row.side, addedAt: row.addedAt, removedAt: row.removedAt }]
+      ? [
+          {
+            side: row.side,
+            isSentThroughLink: row.purpose === "renter_submitted_scan",
+            addedAt: row.addedAt,
+            removedAt: row.removedAt,
+          },
+        ]
       : [],
   );
 }

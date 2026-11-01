@@ -101,6 +101,9 @@ describe("the Operator's review of what a Renter sent", () => {
     expect(sentSheet.table).toHaveLength(2);
     expect(JSON.stringify(sentSheet.table)).toContain("Waiting for review");
     expect(JSON.stringify(sentSheet.table)).toContain("1234567");
+    // The photos they sent are held too, so they are listed (APP 12).
+    const scansSheet = workbook!.sheets.find((sheet) => sheet.name === "Licence scans")!;
+    expect(JSON.stringify(scansSheet.table)).toContain("Photo sent through a link");
 
     const photoId = submission!.photos.front!.id;
     expect(await openSubmittedPhoto(kit.fileDeps, actor, visit.renterId, photoId)).not.toBeNull();

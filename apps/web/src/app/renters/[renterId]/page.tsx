@@ -312,6 +312,31 @@ async function DetailsTab({ renter, user }: { renter: RenterDetail; user: Signed
 }
 
 /** One Renter: their details and status, and their Log. Later phases add rentals, payments and fines. */
+/**
+ * Everything that happened to the Renter: their record, scans and photos
+ * sent through their links, notes and links. Loaded only when the tab opens.
+ */
+async function RenterLogTab({ renter, user }: { renter: RenterDetail; user: SignedInUser }) {
+  const linkIds = await listRenterLinkIds(appDb, user.operatorId, renter.id);
+  const [fileIds, noteIds] = await Promise.all([
+    listRenterFileIds(appDb, user.operatorId, renter.id, linkIds),
+    listNoteIds(appDb, user.operatorId, renter.id),
+  ]);
+  return (
+    <HistoryCard
+      user={user}
+      subjects={[
+        { entityType: ACTIVITY_ENTITY_TYPES.renter, entityIds: [renter.id] },
+        { entityType: ACTIVITY_ENTITY_TYPES.file, entityIds: fileIds },
+        { entityType: ACTIVITY_ENTITY_TYPES.renterNote, entityIds: noteIds },
+        { entityType: ACTIVITY_ENTITY_TYPES.renterLink, entityIds: linkIds },
+      ]}
+      fieldLabel={renterFieldLabel}
+      describeValue={describeRenterValue}
+    />
+  );
+}
+
 export default async function RenterPage(props: {
   params: Promise<{ renterId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -320,12 +345,7 @@ export default async function RenterPage(props: {
   const [{ renterId }, searchParams] = await Promise.all([props.params, props.searchParams]);
   const renter = await loadRenterOrNotFound(user, renterId);
   const tab = chosenTab(searchParams[TAB_PARAM]);
-  const [licenceExpiry, fileIds, noteIds, linkIds] = await Promise.all([
-    loadExpiryContext(user, "licenceExpiryWarningDays"),
-    listRenterFileIds(appDb, user.operatorId, renter.id),
-    listNoteIds(appDb, user.operatorId, renter.id),
-    listRenterLinkIds(appDb, user.operatorId, renter.id),
-  ]);
+  const licenceExpiry = await loadExpiryContext(user, "licenceExpiryWarningDays");
 
   return (
     <AppShell user={user}>
@@ -363,19 +383,7 @@ export default async function RenterPage(props: {
       {tab === "details" ? <DetailsTab renter={renter} user={user} /> : null}
       {tab === "licence" ? <LicenceTab renter={renter} user={user} expiry={licenceExpiry} /> : null}
       {tab === "notes" ? <NotesTab renter={renter} user={user} /> : null}
-      {tab === "log" ? (
-        <HistoryCard
-          user={user}
-          subjects={[
-            { entityType: ACTIVITY_ENTITY_TYPES.renter, entityIds: [renter.id] },
-            { entityType: ACTIVITY_ENTITY_TYPES.file, entityIds: fileIds },
-            { entityType: ACTIVITY_ENTITY_TYPES.renterNote, entityIds: noteIds },
-            { entityType: ACTIVITY_ENTITY_TYPES.renterLink, entityIds: linkIds },
-          ]}
-          fieldLabel={renterFieldLabel}
-          describeValue={describeRenterValue}
-        />
-      ) : null}
+      {tab === "log" ? <RenterLogTab renter={renter} user={user} /> : null}
     </AppShell>
   );
 }
