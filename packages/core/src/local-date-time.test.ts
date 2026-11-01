@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { isLocalDateTime, localDateTimeToUtc, utcToLocalDateTime } from "./local-date-time";
+import {
+  isLocalDateTime,
+  isSameLocalMinute,
+  localDateTimeToUtc,
+  utcToLocalDateTime,
+} from "./local-date-time";
 
 describe("local clock time to UTC", () => {
   it("uses Perth's fixed offset", () => {
@@ -55,5 +60,15 @@ describe("UTC to a local clock time", () => {
     expect(
       localDateTimeToUtc(utcToLocalDateTime(moment, "Australia/Darwin"), "Australia/Darwin"),
     ).toEqual(moment);
+  });
+});
+
+describe("isSameLocalMinute", () => {
+  it("sees both halves of the hour repeated when the clocks go back as the same time", () => {
+    // 5 April 2026, 2:30 am in Sydney happens twice: daylight time, then standard.
+    const first = new Date("2026-04-04T15:30:00Z");
+    const second = new Date("2026-04-04T16:30:00Z");
+    expect(isSameLocalMinute(first, second, "Australia/Sydney")).toBe(true);
+    expect(isSameLocalMinute(first, second, "Australia/Perth")).toBe(false);
   });
 });

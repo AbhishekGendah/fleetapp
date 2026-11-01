@@ -62,7 +62,10 @@ export async function saveSaleAction(
     if (!parsed.success) {
       return failedState(INVALID_MESSAGE);
     }
-    return savedOrNot(await saveSale(appDb, actor, vehicleId, parsed.data), "Sale saved.");
+    return savedOrNot(
+      await saveSale(appDb, actor, vehicleId, parsed.data, user.operatorTimezone),
+      "Sale saved.",
+    );
   });
 }
 

@@ -1,6 +1,7 @@
 import {
   changedValues,
   hasChanges,
+  isSameLocalMinute,
   localDateTimeToUtc,
   withholdChangedFields,
   withholdFields,
@@ -193,12 +194,17 @@ async function lockActiveSale(tx: AnyTransaction, operatorId: string, vehicleId:
   return sale;
 }
 
-/** Records a car's sale, setting it to Sold, or changes the sale already recorded. */
+/**
+ * Records a car's sale, setting it to Sold, or changes the sale already
+ * recorded. `timeZone` is the Operator's, whose clock the handover time was
+ * typed on.
+ */
 export async function saveSale(
   database: AnyDatabase,
   actor: ActingUser,
   vehicleId: string,
   input: SaleInput,
+  timeZone: string,
 ): Promise<SaveRecordResult> {
   return withTenant(database, actor.operatorId, async (tx) => {
     if (!(await findCurrentVehicle(tx, actor.operatorId, vehicleId))) {
@@ -206,7 +212,13 @@ export async function saveSale(
     }
     const before = await lockActiveSale(tx, actor.operatorId, vehicleId);
     if (before) {
-      return updateSale(tx, actor, before.id, before, input);
+      // When the clocks go back an hour repeats, and a typed time in it is read
+      // as its first occurrence: a time still reading the same keeps the
+      // moment stored, so re-saving never moves it an hour.
+      const soldAt = isSameLocalMinute(before.soldAt, input.soldAt, timeZone)
+        ? before.soldAt
+        : input.soldAt;
+      return updateSale(tx, actor, before.id, before, { ...input, soldAt });
     }
     const [added] = await tx
       .insert(vehicleSales)

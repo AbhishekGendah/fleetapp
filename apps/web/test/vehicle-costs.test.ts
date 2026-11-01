@@ -168,7 +168,7 @@ describe("a car's purchase, sale and costs", () => {
     const carId = await addTestCar(web, actor);
     await savePurchase(web.db, actor, carId, purchase(), PERTH);
     await savePurchase(web.db, actor, carId, purchase({ sellerPhone: "0400 000 000" }), PERTH);
-    await saveSale(web.db, actor, carId, sale());
+    await saveSale(web.db, actor, carId, sale(), PERTH);
     const { purchase: saved, sale: sold } = await loadCarCosts(web.db, actor.operatorId, carId);
 
     const lines = [...(await historyOf(saved!.id)), ...(await historyOf(sold!.id))];
@@ -197,11 +197,11 @@ describe("a car's purchase, sale and costs", () => {
         )
       )[0]!.status;
 
-    expect(await saveSale(web.db, actor, carId, sale())).toBe("saved");
+    expect(await saveSale(web.db, actor, carId, sale(), PERTH)).toBe("saved");
     expect(await statusOf()).toBe("sold");
-    expect(await saveSale(web.db, actor, carId, sale({ transferLodgedOn: "2026-10-31" }))).toBe(
-      "saved",
-    );
+    expect(
+      await saveSale(web.db, actor, carId, sale({ transferLodgedOn: "2026-10-31" }), PERTH),
+    ).toBe("saved");
     expect((await loadCarCosts(web.db, actor.operatorId, carId)).sale?.transferLodgedOn).toBe(
       "2026-10-31",
     );
@@ -223,7 +223,7 @@ describe("a car's purchase, sale and costs", () => {
       carId,
       cost({ kind: "repair", costCents: "1,100", gstCents: "100" }),
     );
-    await saveSale(web.db, actor, carId, sale({ priceCents: "27,500", gstCents: "2,500" }));
+    await saveSale(web.db, actor, carId, sale({ priceCents: "27,500", gstCents: "2,500" }), PERTH);
 
     const costs = await loadCarCosts(web.db, actor.operatorId, carId);
     // 25,000 - 22,000 - 300 - 1,000
@@ -241,7 +241,7 @@ describe("a car's purchase, sale and costs", () => {
     const [costId] = (await loadCarCosts(web.db, actor.operatorId, carId)).costs.map((c) => c.id);
 
     expect(await savePurchase(web.db, otherActor, carId, purchase(), PERTH)).toBe("not_found");
-    expect(await saveSale(web.db, otherActor, carId, sale())).toBe("not_found");
+    expect(await saveSale(web.db, otherActor, carId, sale(), PERTH)).toBe("not_found");
     expect(await addCost(web.db, otherActor, carId, cost())).toBe("not_found");
     expect(await archiveCost(web.db, otherActor, costId!)).toBe("not_found");
     expect((await loadCarCosts(web.db, otherActor.operatorId, carId)).costs).toEqual([]);

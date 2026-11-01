@@ -101,6 +101,7 @@ describe("attachments", () => {
           "Australia/Perth",
         ),
       ),
+      "Australia/Perth",
     );
     const costs = await loadCarCosts(web.db, actor.operatorId, carId);
     costId = costs.costs[0]!.id;

@@ -89,3 +89,8 @@ export function utcToLocalDateTime(moment: Date, timeZone: string): string {
     .toISOString()
     .slice(0, 16);
 }
+
+/** Whether two moments read the same on a clock in this timezone, e.g. both halves of the repeated hour. */
+export function isSameLocalMinute(first: Date, second: Date, timeZone: string): boolean {
+  return utcToLocalDateTime(first, timeZone) === utcToLocalDateTime(second, timeZone);
+}
