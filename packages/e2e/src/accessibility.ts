@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 /** The standard the app is held to: WCAG 2.2 at level AA (and the levels below). */
 const WCAG_AA_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
@@ -17,4 +17,33 @@ export async function expectAccessible(page: Page): Promise<void> {
         .join(", ")}`,
   );
   expect(problems, `Accessibility problems on ${page.url()}`).toEqual([]);
+}
+
+/**
+ * One accessibility test per page, on a computer and at phone width, and for
+ * pages seen signed out, with no sign-in. Both apps list their pages and call this.
+ */
+export function describePageChecks(options: {
+  signedInPages: readonly string[];
+  signedOutPages: readonly string[];
+  phoneViewport: { width: number; height: number };
+}): void {
+  const checkEach = (paths: readonly string[]): void => {
+    for (const path of paths) {
+      test(`${path} has no accessibility problems`, async ({ page }) => {
+        await page.goto(path, { waitUntil: "networkidle" });
+        await expectAccessible(page);
+      });
+    }
+  };
+
+  checkEach(options.signedInPages);
+  test.describe("at phone width", () => {
+    test.use({ viewport: options.phoneViewport });
+    checkEach(options.signedInPages);
+  });
+  test.describe("signed out", () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+    checkEach(options.signedOutPages);
+  });
 }
