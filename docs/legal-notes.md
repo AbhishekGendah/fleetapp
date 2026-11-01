@@ -251,7 +251,10 @@ of service) and the countries.
 - **Security (rule 26):** only fingerprints of links, codes and remembered
   phones are kept; links expire (7 days unless changed), can be cancelled,
   and a new link replaces the old one; a 6-digit code is needed on a new
-  phone (10 minutes, 5 tries, then the link locks; at most 3 codes an hour).
+  phone (10 minutes each; 10 wrong codes over the link's life lock it; at
+  most 3 codes an hour; the code is never in the email's subject or preview).
+  A link also stops once its details are approved, the Renter is archived,
+  their email changes, or the Operator is suspended.
   Before the code the page shows only the business name and a masked email.
   Link pages send no referrer, are never cached and are not indexed.
 - **Logged:** every link sent, cancelled, code emailed, phone confirmed and
@@ -290,14 +293,23 @@ of service) and the countries.
 - **APP 12 (built):** "Download everything we hold" has a "Sent through link"
   sheet with what is still held.
 - **The form is kept on the Renter's own phone (browser storage) while they
-  type**, licence number included, until they send it; it is ignored and
-  removed after the link's end date. On a shared computer someone after them
-  could see it if they never send it. Acceptable for now (their own data, on
-  a device they chose); revisit if Operators ask Renters to use a shop
-  computer.
+  type** (changed after the code review): only boxes they change, never the
+  licence number; old kept forms are swept on every visit and forgotten once
+  sent. On a shared computer someone after them could still see unsent
+  changes (address, date of birth) until the link ends. Acceptable for now
+  (their own data, on a device they chose).
 - **Address search on the link** is limited to 50 per link so a link cannot
   run up the Google bill; Google sees the address text typed (already in the
   overseas table).
+
+## Admin access to Operators' history (code review, 1 Nov 2026)
+
+- The admin login reads only who did what and when in Operators' history,
+  never the values (database column grants, migration 0025), so Renter or
+  car details can never reach AGS staff that way, whatever a future change
+  writes into the history (rule 5, APP 6 and 11).
+- Production refuses to start with the test inbox, which holds working
+  Renter links and codes; the test inbox exists in dev only (fake data).
 
 ## Business details (already built)
 

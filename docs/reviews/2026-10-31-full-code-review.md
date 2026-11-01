@@ -3,8 +3,13 @@
 Five independent reviews (database; behind-the-scenes code; screens and
 forms; money, dates, sign-in, emails, admin and build setup; the retention
 slice). Each problem was checked against the real code, most of the serious
-ones by actually running them. Duplicates are merged. Nothing here was fixed
-yet except A0.
+ones by actually running them. Duplicates are merged. Group A was fixed on
+1 Nov 2026 (approved by Abhi), with migration 0025; groups B and C follow.
+Notes on how A was done: A1 locks a link after 10 wrong codes over its life
+(no new column: the count is simply never reset); A7 refuses production on
+the test inbox at start-up, and Renter emails stay visible in the dev test
+inbox (dev holds fake data only); A8 uses a holding address plus the S3 ETag;
+A13 never keeps the licence number (decision 2).
 
 **Checked and found sound:** every table keeps each business's data apart
 (row security on and forced everywhere), the admin login cannot see Renters
@@ -14,7 +19,7 @@ fingerprints, breached-password check, email header escaping, every admin page
 checks the Admin, no secrets reach the browser, error logs hold no personal
 data. All 503 tests pass.
 
-## A. Security and personal data (fix first)
+## A. Security and personal data (fix first) — DONE 1 Nov 2026
 
 - **A0. Fixed already:** the Review button on the Details form card was
   missing (my part 4c change did not apply). Pushed.

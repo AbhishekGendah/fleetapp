@@ -522,9 +522,21 @@
   way: the settings form now takes days or months; one "bin as System" step.
   Fixed on the way: approved photos could have looked like unsent link photos.
 
+- **Full code review** (docs/reviews/2026-10-31-full-code-review.md), then
+  group A fixed (security and personal data): link code lock counted over
+  the link's life (10), pasted codes fixed, links stop on approval, archive,
+  email change, lock or suspension; sign-in attempts claimed before the
+  password is checked (no burst guessing); clean-up functions clamp their
+  own cut-offs; admin reads only who/what/when of history; production
+  refuses the test inbox and codes left email subjects; uploads go to a
+  holding address and only checked bytes move on, confirmed only by their
+  uploader, without races; address lookups on links fully capped; the phone
+  draft keeps less; both apps refuse being framed. Migration 0025. Also fixed:
+  the Review button that part 4c had missed.
+
 ## Next
-Phase 2 is complete apart from the go-live items. Next: Phase 3 (rentals),
-plan first.
+Code review groups B (things that break or mislead) and C (rules,
+accessibility, tidy-up), then Phase 3 (rentals), plan first.
 
 ## Open items
 - **Before launch: docs/launch-checklist.md** (relaxed admin sign-in, full

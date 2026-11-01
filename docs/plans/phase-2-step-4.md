@@ -33,9 +33,10 @@ Built and deployed in three parts, each tested on the dev site first.
 - **The link** (rule 26): 32 random characters in the address; only a
   fingerprint (hash) of it is stored. It is for this one form only, expires,
   and can be cancelled.
-- **The code:** 6 digits, emailed to the address on file, lasts 10 minutes,
-  5 tries; then that link is locked and the Operator sends a new one. At most
-  3 codes an hour per link. Once a code is right, that phone gets a private
+- **The code:** 6 digits, emailed to the address on file, lasts 10 minutes.
+  10 wrong codes over the link's whole life lock it (changed from 5 per code
+  after the code review: a new code must not buy more guesses); then the
+  Operator sends a new one. At most 3 codes an hour per link. Once a code is right, that phone gets a private
   cookie (also stored as a hash) and is not asked again for this link.
 - **Before the code is right the page shows almost nothing:** the
   Operator's business name and "We've emailed a code to s•••@gmail.com". No

@@ -38,7 +38,10 @@ Add to this list whenever something is relaxed or put off "until launch".
 ## Settings and services for production
 
 - [ ] Production buckets: the old-copies clean-up rule at 7 days, not 30
-  (docs/legal-notes.md, Stored files).
+  (docs/legal-notes.md, Stored files). Uploads first land under `incoming/`
+  and are moved once checked: the app's storage login needs read, write,
+  copy and delete there too, and a bucket rule removing `incoming/` objects
+  older than 2 days is a cheap backstop.
 - [ ] Google Places: a production project and key with higher caps, and an
   in-app daily limit per Operator (progress.md, Open items).
 - [ ] Google logo image in place of the "Powered by Google" text, and the
