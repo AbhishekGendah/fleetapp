@@ -36,8 +36,6 @@ test.describe("pop-up form", () => {
   });
 
   test("keeps Tab inside while open", async ({ page }) => {
-    // TODO: passes once the pop-up is on Base UI (library swap stage 5).
-    test.fail();
     await openCatalogue(page);
     await page.getByRole("button", { name: "Add an example" }).click();
     const dialog = page.getByRole("dialog", { name: "An example pop-up" });

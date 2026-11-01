@@ -1,5 +1,6 @@
 "use client";
 
+import { Dialog } from "@base-ui/react/dialog";
 import * as React from "react";
 
 import { useCloseOnBack } from "../lib/use-close-on-back";
@@ -33,60 +34,41 @@ interface FormDialogProps {
  * A button that opens a form in a pop-up: full screen on a phone, a centred
  * panel on a computer. The form is built fresh each time it opens, so it
  * always starts empty, and a form inside closes it once it has saved.
- * Escape, Close or the phone's back button shuts it without saving. Uses the browser's own dialog,
- * which keeps keyboard focus inside and is read out as a dialog.
+ * Escape, Close or the phone's back button shuts it without saving. Built on
+ * Base UI's Dialog, which keeps keyboard focus inside, returns it to the
+ * button afterwards and is read out as a dialog.
  */
 export function FormDialog(props: FormDialogProps) {
-  const dialogRef = React.useRef<HTMLDialogElement>(null);
   const [isOpen, setIsOpen] = React.useState(false);
-  const titleId = React.useId();
-
-  React.useEffect(() => {
-    const dialog = dialogRef.current;
-    if (isOpen && dialog && !dialog.open) {
-      dialog.showModal();
-    }
-  }, [isOpen]);
-
-  const controls = React.useMemo<DialogControls>(
-    () => ({ close: () => dialogRef.current?.close() }),
-    [],
-  );
+  const controls = React.useMemo<DialogControls>(() => ({ close: () => setIsOpen(false) }), []);
   useCloseOnBack(isOpen, controls.close);
 
   return (
-    <>
-      <Button
-        type="button"
-        variant={props.triggerVariant ?? (props.isMainAction ? "default" : "outline")}
-        className={cn("sm:self-start", props.isMainAction && "w-full sm:w-auto")}
-        onClick={() => setIsOpen(true)}
+    <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog.Trigger
+        render={
+          <Button
+            type="button"
+            variant={props.triggerVariant ?? (props.isMainAction ? "default" : "outline")}
+            className={cn("sm:self-start", props.isMainAction && "w-full sm:w-auto")}
+          />
+        }
       >
         {props.triggerIcon}
         {props.triggerLabel}
-      </Button>
-      <dialog
-        ref={dialogRef}
-        aria-labelledby={titleId}
-        onClose={() => setIsOpen(false)}
-        className="bg-background text-foreground m-0 h-dvh max-h-none w-full max-w-none p-0 backdrop:bg-black/40 sm:m-auto sm:h-auto sm:max-h-[90dvh] sm:max-w-lg sm:rounded-xl sm:shadow-xl"
-      >
-        <div className="flex h-full flex-col">
+      </Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/40" />
+        <Dialog.Popup className="bg-background text-foreground fixed inset-0 z-50 flex h-dvh w-full flex-col sm:inset-auto sm:top-1/2 sm:left-1/2 sm:h-auto sm:max-h-[90dvh] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:shadow-xl">
           <div className="flex items-center justify-between gap-2 border-b px-4 py-2">
-            <h2 id={titleId} className="text-primary text-lg font-bold">
-              {props.title}
-            </h2>
-            <Button type="button" variant="ghost" onClick={controls.close}>
-              Close
-            </Button>
+            <Dialog.Title className="text-primary text-lg font-bold">{props.title}</Dialog.Title>
+            <Dialog.Close render={<Button type="button" variant="ghost" />}>Close</Dialog.Close>
           </div>
           <div className="overflow-y-auto p-4">
-            {isOpen ? (
-              <DialogContext.Provider value={controls}>{props.children}</DialogContext.Provider>
-            ) : null}
+            <DialogContext.Provider value={controls}>{props.children}</DialogContext.Provider>
           </div>
-        </div>
-      </dialog>
-    </>
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
