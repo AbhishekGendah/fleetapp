@@ -1,6 +1,5 @@
 import {
   AUSTRALIAN_LOCALE,
-  LIST_PARAMS,
   listQueryString,
   type ListColumn,
   type ListDefinition,
@@ -8,13 +7,15 @@ import {
   type ListQuery,
   MAX_EXPORT_ROWS,
 } from "@fleetapp/core";
+import type { RowData } from "@tanstack/table-core";
+import { flexRender } from "@tanstack/table-core/flex-render";
 import type * as React from "react";
 
+import { buildListTable, type ListTable } from "../lib/list-table";
 import { cn } from "../lib/utils";
-import { AutoSubmitSelect } from "./auto-submit-select";
 import { Button } from "./button";
 import { Card, CardContent } from "./card";
-import { Input } from "./input";
+import { ListToolbar } from "./list-toolbar";
 
 export interface DataListColumn<Row> extends ListColumn<Row> {
   /** How the cell looks. Left out, the export value is shown as text. */
@@ -52,35 +53,16 @@ function cellContent<Row>(column: DataListColumn<Row>, row: Row): React.ReactNod
 function Toolbar<Row>(props: DataListProps<Row>) {
   const { definition, query } = props;
   return (
-    <form
-      action={props.basePath}
-      method="get"
-      className="flex flex-col gap-3 sm:flex-row sm:items-end"
-    >
-      <label className="flex flex-1 flex-col gap-2 text-sm font-medium">
-        {props.searchLabel}
-        <Input type="search" name={LIST_PARAMS.search} defaultValue={query.search} />
-      </label>
-      {definition.filters.map((filter) => (
-        <label key={filter.key} className="flex flex-col gap-2 text-sm font-medium sm:w-48">
-          {filter.label}
-          <AutoSubmitSelect name={filter.key} defaultValue={query.filters[filter.key] ?? ""}>
-            <option value="">All</option>
-            {filter.options.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </AutoSubmitSelect>
-        </label>
-      ))}
-      {/* A new search starts from the first page but keeps the sort. */}
-      <input type="hidden" name={LIST_PARAMS.sort} value={query.sort.column} />
-      <input type="hidden" name={LIST_PARAMS.direction} value={query.sort.direction} />
-      <Button type="submit" variant="outline">
-        Search
-      </Button>
-    </form>
+    <ListToolbar
+      searchLabel={props.searchLabel}
+      search={query.search}
+      filters={definition.filters.map((filter) => ({
+        key: filter.key,
+        label: filter.label,
+        options: filter.options,
+      }))}
+      filterValues={query.filters}
+    />
   );
 }
 
@@ -124,7 +106,25 @@ function RowLink(props: { href?: string; children: React.ReactNode; className?: 
   );
 }
 
-function Table<Row>(props: DataListProps<Row>) {
+/** The page's rows as a TanStack Table: each column's cell, the title one as the row's link. */
+function rowsTable<Row extends RowData>(props: DataListProps<Row>): ListTable<Row> {
+  return buildListTable(
+    props.definition.columns.map((column) => ({
+      key: column.key,
+      label: column.label,
+      cell: (row: Row) =>
+        column.isCardTitle ? (
+          <RowLink href={props.rowHref?.(row)}>{cellContent(column, row)}</RowLink>
+        ) : (
+          cellContent(column, row)
+        ),
+    })),
+    props.page.rows,
+    props.rowKey,
+  );
+}
+
+function Table<Row extends RowData>(props: DataListProps<Row> & { table: ListTable<Row> }) {
   const { definition, query } = props;
   return (
     <table className="hidden w-full text-left text-sm md:table">
@@ -133,6 +133,7 @@ function Table<Row>(props: DataListProps<Row>) {
           {definition.columns.map((column) => (
             <th
               key={column.key}
+              scope="col"
               className="py-1 pr-4 font-medium"
               aria-sort={
                 query.sort.column === column.key
@@ -148,18 +149,14 @@ function Table<Row>(props: DataListProps<Row>) {
         </tr>
       </thead>
       <tbody>
-        {props.page.rows.map((row) => (
+        {props.table.getRowModel().rows.map((row) => (
           <tr
-            key={props.rowKey(row)}
+            key={row.id}
             className={cn("border-b", props.rowHref && "hover:bg-muted/60 relative")}
           >
-            {definition.columns.map((column) => (
-              <td key={column.key} className="py-3 pr-4">
-                {column.isCardTitle ? (
-                  <RowLink href={props.rowHref?.(row)}>{cellContent(column, row)}</RowLink>
-                ) : (
-                  cellContent(column, row)
-                )}
+            {row.getAllCells().map((cell) => (
+              <td key={cell.id} className="py-3 pr-4">
+                {flexRender(cell.column.columnDef.cell, cell.getContext()) as React.ReactNode}
               </td>
             ))}
           </tr>
@@ -169,32 +166,38 @@ function Table<Row>(props: DataListProps<Row>) {
   );
 }
 
-function Cards<Row>(props: DataListProps<Row>) {
-  const columns = props.definition.columns;
-  const title = columns.find((column) => column.isCardTitle) ?? columns[0];
+function Cards<Row extends RowData>(props: DataListProps<Row> & { table: ListTable<Row> }) {
+  const titleKey = (
+    props.definition.columns.find((column) => column.isCardTitle) ?? props.definition.columns[0]
+  )?.key;
+  const labels = new Map(props.definition.columns.map((column) => [column.key, column.label]));
   return (
     <ul className="flex flex-col gap-3 md:hidden">
-      {props.page.rows.map((row) => (
-        <li key={props.rowKey(row)}>
-          <Card className={cn(props.rowHref && "active:bg-muted/60 hover:bg-muted/60 relative")}>
-            <CardContent className="flex flex-col gap-1 p-4">
-              {title ? (
-                <RowLink href={props.rowHref?.(row)} className="flex min-h-11 items-center">
-                  {cellContent(title, row)}
-                </RowLink>
-              ) : null}
-              {columns
-                .filter((column) => column !== title)
-                .map((column) => (
-                  <div key={column.key} className="flex flex-wrap items-center gap-1 text-sm">
-                    <span className="text-muted-foreground">{column.label}:</span>
-                    {cellContent(column, row)}
+      {props.table.getRowModel().rows.map((row) => {
+        const cells = row.getAllCells();
+        const title = cells.find((cell) => cell.column.id === titleKey);
+        return (
+          <li key={row.id}>
+            <Card className={cn(props.rowHref && "active:bg-muted/60 hover:bg-muted/60 relative")}>
+              <CardContent className="flex flex-col gap-1 p-4">
+                {title ? (
+                  <div className="flex min-h-11 items-center font-medium">
+                    {flexRender(title.column.columnDef.cell, title.getContext()) as React.ReactNode}
                   </div>
-                ))}
-            </CardContent>
-          </Card>
-        </li>
-      ))}
+                ) : null}
+                {cells
+                  .filter((cell) => cell !== title)
+                  .map((cell) => (
+                    <div key={cell.id} className="flex flex-wrap items-center gap-1 text-sm">
+                      <span className="text-muted-foreground">{labels.get(cell.column.id)}:</span>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext()) as React.ReactNode}
+                    </div>
+                  ))}
+              </CardContent>
+            </Card>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -235,8 +238,9 @@ function Paging<Row>(props: DataListProps<Row>) {
  * cards on a phone (rule 24), pages, and export of exactly what is shown.
  * The server applies the query; this only draws the result.
  */
-export function DataList<Row>(props: DataListProps<Row>): React.JSX.Element {
+export function DataList<Row extends RowData>(props: DataListProps<Row>): React.JSX.Element {
   const { page, itemName } = props;
+  const table = rowsTable(props);
   return (
     <div className="flex flex-col gap-4">
       <Toolbar {...props} />
@@ -262,8 +266,8 @@ export function DataList<Row>(props: DataListProps<Row>): React.JSX.Element {
         <p className="text-muted-foreground text-sm">{props.emptyMessage}</p>
       ) : (
         <>
-          <Cards {...props} />
-          <Table {...props} />
+          <Cards {...props} table={table} />
+          <Table {...props} table={table} />
           <Paging {...props} />
         </>
       )}

@@ -47,7 +47,10 @@
     "./tab-links": "./src/components/tab-links.tsx",
     "./textarea": "./src/components/textarea.tsx",
     "./theme.css": "./src/styles/theme.css",
-    "./use-form-fields": "./src/lib/use-form-fields.ts"
+    "./use-form-fields": "./src/lib/use-form-fields.ts",
+    "./list-toolbar": "./src/components/list-toolbar.tsx",
+    "./query-adapter": "./src/components/query-adapter.tsx",
+    "./app-document": "./src/components/app-document.tsx"
   },
   "scripts": {
     "lint": "eslint .",
@@ -62,11 +65,13 @@
     "@base-ui/react": "1.9.0",
     "@fleetapp/auth": "workspace:*",
     "@fleetapp/core": "workspace:*",
+    "@tanstack/table-core": "9.3.1",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "compressorjs": "1.4.0",
     "input-otp": "1.5.0",
     "lucide-react": "1.55.0",
+    "nuqs": "2.10.2",
     "qrcode": "1.5.4",
     "react-hook-form": "7.91.0",
     "tailwind-merge": "3.7.0",

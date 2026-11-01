@@ -7,6 +7,7 @@ import { Manrope } from "next/font/google";
 // invalid value fails the build/deploy instead of failing later at runtime.
 import "../env";
 import "./globals.css";
+import { AppDocument } from "@fleetapp/ui/app-document";
 
 // Downloaded when the app is built and served from the app itself.
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope", display: "swap" });
@@ -25,9 +26,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en-AU" className={manrope.variable}>
-      <body>{children}</body>
-    </html>
-  );
+  return <AppDocument fontClassName={manrope.variable}>{children}</AppDocument>;
 }

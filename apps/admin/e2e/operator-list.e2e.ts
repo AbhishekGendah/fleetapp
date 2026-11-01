@@ -19,6 +19,19 @@ function tableRows(page: Page) {
   return page.getByRole("table").locator("tbody tr");
 }
 
+test("searching updates the list without reloading the page", async ({ page }) => {
+  await openList(page);
+  await page.evaluate(() => {
+    (window as Window & { isSamePage?: boolean }).isSamePage = true;
+  });
+  await page.getByLabel("Search by name or email").fill("charlie");
+  await page.keyboard.press("Enter");
+  await expect(tableRows(page)).toHaveCount(1);
+  expect(await page.evaluate(() => (window as Window & { isSamePage?: boolean }).isSamePage)).toBe(
+    true,
+  );
+});
+
 test("search narrows the list", async ({ page }) => {
   await openList(page);
   await page.getByLabel("Search by name or email").fill("bravo");
@@ -46,9 +59,6 @@ test("sorting by a column flips between A to Z and Z to A", async ({ page }) => 
 });
 
 test("screen readers hear the column headings as headings", async ({ page }) => {
-  // TODO: today they are announced as plain cells; passes once the list is on
-  // TanStack Table (library swap stage 7).
-  test.fail();
   await openList(page);
   await expect(page.getByRole("columnheader", { name: "Status" })).toBeVisible();
 });
