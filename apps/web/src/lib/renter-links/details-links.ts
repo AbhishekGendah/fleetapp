@@ -1,4 +1,4 @@
-import { generateSecretToken, hashSecretToken } from "@fleetapp/core";
+import { describeErrorForLog, generateSecretToken, hashSecretToken } from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, renterLinks } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
@@ -29,8 +29,9 @@ export function renterLinkUrl(appUrl: string, token: string): string {
   return new URL(renterLinkPagePath(token), appUrl).toString();
 }
 
+/** `isEmailed` false: the link exists but its email failed, so the Operator copies it instead. */
 export type SendDetailsLinkResult =
-  | { status: "sent"; url: string; expiresAt: Date }
+  | { status: "sent"; url: string; expiresAt: Date; isEmailed: boolean }
   | { status: "no_email" }
   | { status: "not_found" };
 
@@ -91,17 +92,26 @@ export async function sendDetailsLink(
     return prepared;
   }
   const url = renterLinkUrl(deps.appUrl, token);
-  await deps.emailSender.send(
-    await renderRenterDetailsLinkEmail({
-      to: prepared.email,
-      renterName: prepared.name,
-      operatorName: prepared.sender.operatorName,
-      replyTo: prepared.sender.replyTo,
-      linkUrl: url,
-      validUntil: deps.describeDay(expiresAt),
-    }),
-  );
-  return { status: "sent", url, expiresAt };
+  // The old link is already cancelled and only now can this one be shown, so
+  // a failed email must still hand back the address to copy.
+  let isEmailed = true;
+  try {
+    await deps.emailSender.send(
+      await renderRenterDetailsLinkEmail({
+        to: prepared.email,
+        renterName: prepared.name,
+        operatorName: prepared.sender.operatorName,
+        replyTo: prepared.sender.replyTo,
+        linkUrl: url,
+        validUntil: deps.describeDay(expiresAt),
+      }),
+    );
+  } catch (error) {
+    // Never the error's details: they could hold the link's address.
+    console.error("Emailing a details link failed", describeErrorForLog(error));
+    isEmailed = false;
+  }
+  return { status: "sent", url, expiresAt, isEmailed };
 }
 
 /** Stops the Renter's details link working at once. */

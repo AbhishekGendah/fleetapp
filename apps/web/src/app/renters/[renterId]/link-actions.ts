@@ -58,6 +58,7 @@ export async function sendDetailsLinkAction(
       status: "sent",
       url: result.url,
       expiresText: formatDateTimeInTimeZone(result.expiresAt, user.operatorTimezone),
+      isEmailed: result.isEmailed,
     };
   } catch (error) {
     // Never the error's details: they could hold the link's address.

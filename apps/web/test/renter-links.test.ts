@@ -99,6 +99,18 @@ describe("a Renter's details link", () => {
     expect(JSON.stringify(log)).not.toContain(tokenOf(result.url));
   });
 
+  it("still hands back a working link to copy when its email fails", async () => {
+    const renterId = await addRenter();
+    const failing: EmailSender = {
+      send: async () => {
+        throw new Error("Email provider is down");
+      },
+    };
+    const result = await sendDetailsLink({ ...deps, emailSender: failing }, actor, renterId, 7);
+    expect(result).toMatchObject({ status: "sent", isEmailed: false });
+    expect(await openLink(web.db, tokenOf((result as { url: string }).url))).not.toBeNull();
+  });
+
   it("asks for a code on a new phone, remembers the phone once it is right", async () => {
     const renterId = await addRenter();
     const result = await sendDetailsLink(deps, actor, renterId, 7);

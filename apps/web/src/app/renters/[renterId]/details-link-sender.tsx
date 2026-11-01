@@ -48,9 +48,16 @@ export function DetailsLinkSender(props: {
       {state.status === "failed" ? <FormError message={state.message} /> : null}
       {state.status === "sent" ? (
         <div className="flex flex-col gap-2">
-          <p className="text-teal text-sm font-medium">
-            Emailed. It works until {state.expiresText}.
-          </p>
+          {state.isEmailed ? (
+            <p className="text-teal text-sm font-medium">
+              Emailed. It works until {state.expiresText}.
+            </p>
+          ) : (
+            <p role="alert" className="text-attention text-sm font-medium">
+              The email could not be sent. Copy the link below and send it yourself. It works until{" "}
+              {state.expiresText}.
+            </p>
+          )}
           <FormField
             htmlFor="details-link"
             label="Or copy the link into a text message"
