@@ -76,6 +76,10 @@ needed or not, and do it properly from the start, however long it takes.
    cover every place a password is set: invite acceptance, reset, change. If
    the plugin cannot reach one of them, that place calls the plugin's own
    check, never a second copy.
+   *As built:* the plugin refuses leaked passwords, and refuses every password
+   while the breach service is down; both go against Abhi's "warn, don't
+   refuse" decision. So Better Auth's exported check (`isPasswordCompromised`)
+   is used on its own for the warning, and our hand-made copy is gone.
 4. **Photos:** Compressor.js for shrinking (same size targets as rule 21),
    then the lightbox viewer.
 5. **Base UI pieces:** pop-up forms, searchable make/model box, address
