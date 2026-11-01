@@ -146,13 +146,10 @@ describe("the Operator's review of what a Renter sent", () => {
     );
 
     const log = await renterLog(visit.renterId);
-    expect(log.map((line) => line.action)).toEqual([
-      "created",
-      "submitted",
-      "updated",
-      "updated",
-      "approved",
-    ]);
+    // Lines written in one transaction share a timestamp, so their order is not fixed.
+    expect(log.map((line) => line.action).sort()).toEqual(
+      ["approved", "created", "submitted", "updated", "updated"].sort(),
+    );
     expect(JSON.stringify(log)).not.toContain("2223334");
   });
 
