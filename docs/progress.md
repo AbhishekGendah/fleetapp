@@ -602,7 +602,8 @@
   app, 173 for admin.
 
 ## Next
-Phase 3 (rentals), plan first. Open idea: trim the phone rules to
+Phase 3 (rentals): plan written (docs/plans/phase-3.md), waiting for
+Abhi's approval. Open idea: trim the phone rules to
 Australia only with libphonenumber's metadata generator (about 40 KB off
 each form page); running the generator needs Abhi's say-so.
 
