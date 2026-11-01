@@ -16,6 +16,10 @@ import type { AddressParts } from "../../../lib/address-lookup/address-from-comp
 import type { AddressSuggestion } from "../../../lib/address-lookup/google-places";
 import { fetchAddress, suggestAddresses } from "../../../lib/address-lookup/lookup";
 import {
+  addressChoiceInputSchema,
+  addressSearchInputSchema,
+} from "../../../lib/address-lookup/lookup-input";
+import {
   fileDependencies,
   finishRecordUpload,
   plannedFileSchema,
@@ -116,13 +120,20 @@ export async function sendDetailsAction(
   }
 }
 
-/** Address suggestions for the link's form: at most 50 searches per link, so it cannot run up the bill. */
+/**
+ * Address suggestions for the link's form. Searches and chosen addresses
+ * share one allowance of 50 per link, counted only once the request is
+ * well formed, so a link cannot run up the bill or use up the app's daily cap.
+ */
 export async function searchAddressesForLinkAction(
   token: string,
   query: string,
   sessionToken: string,
   nearState: AustralianStateCode | null,
 ): Promise<AddressSuggestion[]> {
+  if (!addressSearchInputSchema.safeParse({ query, sessionToken, nearState }).success) {
+    return [];
+  }
   const visit = await verifiedVisit(token);
   if (!visit || !(await countAddressSearch(appDb, visit))) {
     return [];
@@ -135,6 +146,12 @@ export async function getAddressForLinkAction(
   placeId: string,
   sessionToken: string,
 ): Promise<AddressParts | null> {
+  if (!addressChoiceInputSchema.safeParse({ placeId, sessionToken }).success) {
+    return null;
+  }
   const visit = await verifiedVisit(token);
-  return visit ? fetchAddress(placeId, sessionToken) : null;
+  if (!visit || !(await countAddressSearch(appDb, visit))) {
+    return null;
+  }
+  return fetchAddress(placeId, sessionToken);
 }

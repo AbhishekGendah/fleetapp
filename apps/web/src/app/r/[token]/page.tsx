@@ -11,6 +11,7 @@ import { loadFormStart } from "../../../lib/renter-links/submissions";
 import { checkCodeAction, sendCodeAction } from "./actions";
 import { CodeStep } from "./code-step";
 import { DetailsForm } from "./details-form";
+import { ForgetDraft } from "./forget-draft";
 import { DEVICE_COOKIE } from "./link-state";
 import { SentThanks } from "./sent-thanks";
 
@@ -83,7 +84,10 @@ export default async function RenterLinkPage(props: { params: Promise<{ token: s
   return (
     <LinkPage operatorName={visit.operatorName} title="Your details form">
       {start.status === "waiting" ? (
-        <SentThanks operatorName={visit.operatorName} />
+        <>
+          <SentThanks operatorName={visit.operatorName} />
+          <ForgetDraft linkId={visit.linkId} />
+        </>
       ) : (
         <DetailsForm
           token={token}

@@ -215,7 +215,7 @@ export async function submitDetails(
   });
 }
 
-/** Counts one address search for the link; false once it has had its 50. */
+/** Counts one address search or chosen address for the link; false once it has had its 50. */
 export async function countAddressSearch(
   database: AnyDatabase,
   visit: LinkVisit,
