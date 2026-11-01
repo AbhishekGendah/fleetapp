@@ -5,8 +5,8 @@
  * Run as part of each app's build, so the list always matches what shipped.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 const OUTPUT_PATH = join("public", "third-party-licences.txt");
 const LICENCE_FILE = /^(licen[cs]e|copying|notice)(\.(md|txt))?$/i;
@@ -44,5 +44,7 @@ const notice = [
   `${libraries.length} libraries.`,
   ...libraries.map(entryFor),
 ].join(`\n\n${"=".repeat(72)}\n\n`);
+// A fresh checkout of an app may have no public folder yet.
+mkdirSync(dirname(OUTPUT_PATH), { recursive: true });
 writeFileSync(OUTPUT_PATH, `${notice}\n`);
 console.log(`Wrote ${OUTPUT_PATH} (${libraries.length} libraries).`);

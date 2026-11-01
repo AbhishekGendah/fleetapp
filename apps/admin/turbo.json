@@ -11,7 +11,8 @@
         "AUTH_ISSUER_NAME",
         "APP_URL",
         "EMAIL_TRANSPORT",
-        "EMAIL_FROM"
+        "EMAIL_FROM",
+        "APP_STAGE"
       ]
     },
     "dev": {
@@ -23,7 +24,8 @@
         "AUTH_ISSUER_NAME",
         "APP_URL",
         "EMAIL_TRANSPORT",
-        "EMAIL_FROM"
+        "EMAIL_FROM",
+        "APP_STAGE"
       ]
     },
     "test": {

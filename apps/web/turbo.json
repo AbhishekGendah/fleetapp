@@ -17,7 +17,10 @@
         "FILE_STORAGE_REGION",
         "FILE_STORAGE_ACCESS_KEY_ID",
         "FILE_STORAGE_SECRET_ACCESS_KEY",
-        "CRON_SECRET"
+        "CRON_SECRET",
+        "GOOGLE_PLACES_API_URL",
+        "FILE_STORAGE_ENDPOINT",
+        "APP_STAGE"
       ]
     },
     "dev": {
@@ -35,7 +38,10 @@
         "FILE_STORAGE_REGION",
         "FILE_STORAGE_ACCESS_KEY_ID",
         "FILE_STORAGE_SECRET_ACCESS_KEY",
-        "CRON_SECRET"
+        "CRON_SECRET",
+        "GOOGLE_PLACES_API_URL",
+        "FILE_STORAGE_ENDPOINT",
+        "APP_STAGE"
       ]
     },
     "test": {
