@@ -21,11 +21,23 @@ export async function isDatabaseReachable(): Promise<boolean> {
 }
 
 export interface HealthReport {
-  status: "ok";
+  status: "ok" | "error";
   database: "ok" | "error";
 }
 
 /** What both apps' health endpoints answer. Says nothing beyond up or down. */
 export async function getHealthReport(): Promise<HealthReport> {
-  return { status: "ok", database: (await isDatabaseReachable()) ? "ok" : "error" };
+  const database = (await isDatabaseReachable()) ? "ok" : "error";
+  return { status: database, database };
+}
+
+const HTTP_OK = 200;
+const HTTP_SERVICE_UNAVAILABLE = 503;
+
+/** Both apps' health endpoint: 503 when the database is down, so an uptime monitor sees it. */
+export async function healthResponse(): Promise<Response> {
+  const report = await getHealthReport();
+  return Response.json(report, {
+    status: report.status === "ok" ? HTTP_OK : HTTP_SERVICE_UNAVAILABLE,
+  });
 }

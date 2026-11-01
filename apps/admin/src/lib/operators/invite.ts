@@ -1,10 +1,6 @@
 import { describeErrorForLog } from "@fleetapp/core";
-import {
-  buildInviteUrl,
-  generateSecretToken,
-  getInviteExpiry,
-  hashSecretToken,
-} from "@fleetapp/core";
+import { buildInviteUrl, getInviteExpiry } from "@fleetapp/core";
+import { generateSecretToken, hashSecretToken } from "@fleetapp/core/server";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, operatorInvites } from "@fleetapp/db/schema";
 import { renderOperatorInviteEmail } from "@fleetapp/email";
 import { eq } from "drizzle-orm";

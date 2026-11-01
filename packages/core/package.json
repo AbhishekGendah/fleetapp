@@ -3,8 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
+    "./server": "./src/server.ts",
     "./spreadsheet": "./src/spreadsheet.ts"
   },
   "scripts": {

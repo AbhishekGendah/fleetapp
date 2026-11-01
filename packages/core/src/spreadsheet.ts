@@ -1,6 +1,7 @@
 import writeXlsxFile, { type SheetData } from "write-excel-file/node";
 
 import { toCsv, type ExportCell } from "./spreadsheet-cells";
+import { contentDisposition } from "./content-disposition";
 
 /** How dates read in the exported sheet. */
 const EXCEL_DATE_FORMAT = "dd/mm/yyyy hh:mm";
@@ -59,7 +60,7 @@ function downloadResponse(
   return new Response(body, {
     headers: {
       "Content-Type": EXPORT_CONTENT_TYPES[format],
-      "Content-Disposition": `attachment; filename="${fileName}.${format}"`,
+      "Content-Disposition": contentDisposition("attachment", `${fileName}.${format}`),
       "Cache-Control": "no-store",
     },
   });

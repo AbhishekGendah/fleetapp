@@ -9,7 +9,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import type { StorageArea } from "@fleetapp/core";
+import { contentDisposition, type StorageArea } from "@fleetapp/core";
 
 import { UPLOAD_PERMISSION_SECONDS, VIEW_LINK_SECONDS, type FileStorage } from "./file-storage";
 
@@ -113,7 +113,7 @@ export function createS3FileStorage(config: S3FileStorageConfig): FileStorage {
         Key: key,
         // Shown in the browser, and saved or shared under this name.
         ResponseContentDisposition: downloadName
-          ? `inline; filename*=UTF-8''${encodeURIComponent(downloadName)}`
+          ? contentDisposition("inline", downloadName)
           : undefined,
       });
       return getSignedUrl(client, command, { expiresIn: VIEW_LINK_SECONDS });

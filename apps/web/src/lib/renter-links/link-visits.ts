@@ -1,8 +1,4 @@
 import {
-  generateLinkCode,
-  generateSecretToken,
-  hashLinkCode,
-  hashSecretToken,
   LINK_CODE_VALID_MINUTES,
   maskEmail,
   MILLISECONDS_PER_MINUTE,
@@ -11,6 +7,12 @@ import {
   MAXIMUM_LINK_CODES_PER_HOUR,
   type RenterLinkPurpose,
 } from "@fleetapp/core";
+import {
+  generateLinkCode,
+  generateSecretToken,
+  hashLinkCode,
+  hashSecretToken,
+} from "@fleetapp/core/server";
 import { recordActivity } from "@fleetapp/db/activity";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import {

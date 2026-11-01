@@ -1,5 +1,3 @@
-import { createHash, randomInt } from "node:crypto";
-
 /**
  * The rules for links a Renter opens without logging in (rule 26): each is
  * for one purpose, expires, can be cancelled, and asks for a one-time code
@@ -25,20 +23,6 @@ export const LINK_CODE_VALID_MINUTES = 10;
 export const MAXIMUM_WRONG_LINK_CODES = 10;
 /** Codes that can be emailed for one link in an hour, so a link cannot flood an inbox. */
 export const MAXIMUM_LINK_CODES_PER_HOUR = 3;
-
-/** A one-time code: 6 digits, any of a million, leading zeros kept. */
-export function generateLinkCode(): string {
-  return String(randomInt(0, 10 ** LINK_CODE_DIGITS)).padStart(LINK_CODE_DIGITS, "0");
-}
-
-/**
- * The fingerprint a code is stored by, tied to its link so the same code on
- * another link never matches. A code lives 10 minutes and a link allows 10
- * wrong guesses in all, so a fast hash is enough.
- */
-export function hashLinkCode(linkId: string, code: string): string {
-  return createHash("sha256").update(`${linkId}:${code}`).digest("hex");
-}
 
 /** "s•••@gmail.com": enough for the Renter to know where to look, too little to learn the address. */
 export function maskEmail(email: string): string {

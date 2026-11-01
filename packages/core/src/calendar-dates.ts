@@ -23,14 +23,6 @@ export function addDays(isoDate: string, days: number): string {
   return new Date(moment.getTime() + days * MILLISECONDS_PER_DAY).toISOString().slice(0, 10);
 }
 
-/** Whole days from one date to another: negative if `to` is earlier. */
-export function daysBetween(from: string, to: string): number {
-  return Math.round(
-    (new Date(`${to}T00:00:00Z`).getTime() - new Date(`${from}T00:00:00Z`).getTime()) /
-      MILLISECONDS_PER_DAY,
-  );
-}
-
 /**
  * The same day so many months later, or the month's last day when that month
  * is shorter: 31 Jan + 1 month is 28 Feb (29 in a leap year).

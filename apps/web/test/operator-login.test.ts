@@ -3,12 +3,8 @@ import { randomUUID } from "node:crypto";
 import { USER_SESSION } from "@fleetapp/auth/login-policy";
 import { base32 } from "@better-auth/utils/base32";
 import { createOTP } from "@better-auth/utils/otp";
-import {
-  generateSecretToken,
-  getInviteExpiry,
-  hashSecretToken,
-  MILLISECONDS_PER_DAY,
-} from "@fleetapp/core";
+import { getInviteExpiry, MILLISECONDS_PER_DAY } from "@fleetapp/core";
+import { generateSecretToken, hashSecretToken } from "@fleetapp/core/server";
 import {
   activityLog,
   adminUsers,

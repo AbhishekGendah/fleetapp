@@ -15,9 +15,8 @@ dist/
 build/
 
 # env files (never commit real secrets; .env.example files are tracked)
-.env
-.env.local
-.env.*.local
+.env*
+!.env.example
 
 # vercel
 .vercel

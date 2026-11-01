@@ -2,11 +2,10 @@ import {
   describeDevice,
   describeErrorForLog,
   formatDateTimeInTimeZone,
-  generateSecretToken,
-  hashSecretToken,
   joinUrl,
   SECONDS_PER_DAY,
 } from "@fleetapp/core";
+import { generateSecretToken, hashSecretToken } from "@fleetapp/core/server";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { operators, userKnownDevices, users } from "@fleetapp/db/schema";
 import { renderNewDeviceSignInEmail, type EmailSender } from "@fleetapp/email";

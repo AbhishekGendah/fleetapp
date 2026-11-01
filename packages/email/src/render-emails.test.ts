@@ -116,7 +116,7 @@ describe("the details sent back email", () => {
 
 describe("who an email is from", () => {
   it("keeps the address and swaps the name, without quotes or line breaks", () => {
-    expect(senderFor("PintoFleet <no-reply@example.test>", 'Sam\'s "Cars"\nBcc: x')).toBe(
+    expect(senderFor("Sender Name <no-reply@example.test>", 'Sam\'s "Cars"\nBcc: x')).toBe(
       '"Sam\'s CarsBcc: x" <no-reply@example.test>',
     );
     expect(senderFor("no-reply@example.test")).toBe("no-reply@example.test");

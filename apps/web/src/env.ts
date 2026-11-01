@@ -1,3 +1,6 @@
+// Secrets live here: a browser bundle that imports this fails the build.
+import "server-only";
+
 import { authEnvShape } from "@fleetapp/auth";
 import { emailEnvShape, refuseTestInboxInProduction } from "@fleetapp/email";
 import { z } from "zod";

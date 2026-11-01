@@ -18,9 +18,14 @@ const LONG_NAME_LENGTH = 6;
 const SHORT_NAME_TYPOS = 1;
 const LONG_NAME_TYPOS = 2;
 
-/** The part of a name that matters for matching: letters and digits, ignoring case. */
+/** The part of a name that matters for matching: letters and digits, ignoring case and accents. */
 export function matchingKey(text: string): string {
-  return text.toLowerCase().replace(/[^a-z0-9]/g, "");
+  // "Škoda" splits into "S" plus a separate accent mark, which is then dropped.
+  return text
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
 }
 
 function keysOf(entry: ListedName): string[] {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { addDays, addMonths, daysBetween, isCalendarDate, todayInTimeZone } from "./calendar-dates";
+import { addDays, addMonths, isCalendarDate, todayInTimeZone } from "./calendar-dates";
 import { expiryStatus } from "./expiry";
 
 describe("today where the Operator is", () => {
@@ -25,11 +25,6 @@ describe("calendar dates", () => {
     expect(addMonths("2028-01-31", 1)).toBe("2028-02-29");
     expect(addMonths("2026-08-31", 3)).toBe("2026-11-30");
     expect(addMonths("2026-12-15", 12)).toBe("2027-12-15");
-  });
-
-  it("counts days between dates", () => {
-    expect(daysBetween("2026-10-29", "2026-11-28")).toBe(30);
-    expect(daysBetween("2026-10-29", "2026-10-28")).toBe(-1);
   });
 
   it("refuses dates that do not exist", () => {

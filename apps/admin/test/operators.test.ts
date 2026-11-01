@@ -4,10 +4,10 @@ import {
   MILLISECONDS_PER_DAY,
   exportTable,
   toCsv,
-  hashSecretToken,
   matchingRows,
   parseListQuery,
 } from "@fleetapp/core";
+import { hashSecretToken } from "@fleetapp/core/server";
 import {
   activityLog,
   adminUsers,

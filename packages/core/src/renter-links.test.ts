@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { generateLinkCode, hashLinkCode, maskEmail, typedLinkCode } from "./renter-links";
+import { generateLinkCode, hashLinkCode } from "./link-codes";
+import { maskEmail, typedLinkCode } from "./renter-links";
 
 describe("one-time link codes", () => {
   it("are always 6 digits", () => {

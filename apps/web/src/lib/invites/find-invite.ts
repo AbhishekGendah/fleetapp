@@ -1,9 +1,5 @@
-import {
-  getAccountAccess,
-  hashSecretToken,
-  isInviteUsable,
-  operatorDisplayName,
-} from "@fleetapp/core";
+import { getAccountAccess, isInviteUsable, operatorDisplayName } from "@fleetapp/core";
+import { hashSecretToken } from "@fleetapp/core/server";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { operatorInvites, operators, users } from "@fleetapp/db/schema";
 import { eq } from "drizzle-orm";

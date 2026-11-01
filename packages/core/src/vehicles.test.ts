@@ -35,6 +35,11 @@ describe("latestVehicleYear", () => {
   it("allows next year's models", () => {
     expect(latestVehicleYear(new Date("2026-10-29T00:00:00Z"))).toBe(2027);
   });
+
+  it("moves on at midnight on 1 January in Australia, not in UTC", () => {
+    // 9am on 1 January 2027 in Sydney is still 2026 in UTC.
+    expect(latestVehicleYear(new Date("2026-12-31T22:00:00Z"))).toBe(2028);
+  });
 });
 
 describe("needsReturnDate", () => {

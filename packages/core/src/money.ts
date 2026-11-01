@@ -21,7 +21,9 @@ export const MAXIMUM_AMOUNT_CENTS = 10_000_000_00;
  */
 const DOLLARS_PATTERN = /^\$?\s*(\d{1,3}(,\d{3})+|\d+)(\.\d{0,2})?$/;
 /** Enough for any amount up to the maximum, so a box cannot fill with digits. */
-const MAXIMUM_WHOLE_DOLLAR_DIGITS = 9;
+const MAXIMUM_WHOLE_DOLLAR_DIGITS = String(
+  Math.floor(MAXIMUM_AMOUNT_CENTS / CENTS_PER_DOLLAR),
+).length;
 const DECIMAL_PLACES = 2;
 
 /** Cents from typed dollars, or null if it is not an amount. */

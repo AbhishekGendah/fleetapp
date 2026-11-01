@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 /**
  * The test setup both apps share. Their tests run against a real Postgres
  * with the real migrations applied, started once per run by the app's own
@@ -8,6 +10,9 @@ const CONTAINER_STARTUP_TIMEOUT_MS = 120_000;
 const TEST_TIMEOUT_MS = 30_000;
 
 export const appTestConfig = {
+  resolve: {
+    alias: { "server-only": fileURLToPath(new URL("./server-only-stub.mjs", import.meta.url)) },
+  },
   // Some tests load screen definitions written in JSX; Next builds those itself.
   oxc: { jsx: { runtime: /** @type {const} */ ("automatic") } },
   test: {

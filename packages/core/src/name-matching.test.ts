@@ -15,6 +15,8 @@ const HYUNDAI = names("i20", "i30");
 describe("matchingKey", () => {
   it("keeps only letters and digits, ignoring case", () => {
     expect(matchingKey("Sea-Lion 6")).toBe("sealion6");
+    expect(matchingKey("Škoda")).toBe(matchingKey("Skoda"));
+    expect(matchingKey("Citroën")).toBe("citroen");
     expect(matchingKey("  C-HR ")).toBe("chr");
   });
 });

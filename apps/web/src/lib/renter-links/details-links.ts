@@ -1,9 +1,5 @@
-import {
-  describeErrorForLog,
-  generateSecretToken,
-  hashSecretToken,
-  MILLISECONDS_PER_DAY,
-} from "@fleetapp/core";
+import { describeErrorForLog, MILLISECONDS_PER_DAY } from "@fleetapp/core";
+import { generateSecretToken, hashSecretToken } from "@fleetapp/core/server";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, renterLinks } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";

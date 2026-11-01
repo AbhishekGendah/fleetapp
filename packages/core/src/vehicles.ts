@@ -1,3 +1,4 @@
+import { todayInTimeZone } from "./calendar-dates";
 import { formatCents } from "./money";
 import { digitsOnly, formatWholeNumberAsTyped, groupThousands } from "./text";
 
@@ -128,8 +129,18 @@ export const EARLIEST_VEHICLE_YEAR = 1950;
 /** Next year's models go on sale during this year. */
 const MODEL_YEARS_AHEAD = 1;
 
+/**
+ * The new year reaches Australia's east coast first, so its year is used:
+ * next year's models are never refused on 1 January morning (UTC is still
+ * on the old year until 10 or 11am there). At worst Perth can enter them a
+ * few hours early, which is harmless.
+ */
+const EARLIEST_NEW_YEAR_TIMEZONE = "Australia/Sydney";
+const YEAR_LENGTH = 4;
+
 export function latestVehicleYear(today: Date): number {
-  return today.getUTCFullYear() + MODEL_YEARS_AHEAD;
+  const year = Number(todayInTimeZone(today, EARLIEST_NEW_YEAR_TIMEZONE).slice(0, YEAR_LENGTH));
+  return year + MODEL_YEARS_AHEAD;
 }
 
 export const MAXIMUM_SEATS = 15;
