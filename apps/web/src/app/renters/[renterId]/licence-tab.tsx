@@ -1,11 +1,12 @@
 import {
   expiryStatus,
   formatDateTimeInTimeZone,
-  formatDayInTimeZone,
+  formatCalendarDate,
   LICENCE_CLASS_LABELS,
   LICENCE_SIDES,
   LICENCE_TYPE_LABELS,
   licenceScanDeleteAfter,
+  todayInTimeZone,
 } from "@fleetapp/core";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
@@ -23,7 +24,7 @@ import type { ExpiryContext } from "../../../lib/vehicles/expiry-columns";
 import { ExpiryDate } from "../../cars/expiry-date";
 import { LicenceForm } from "./licence-form";
 import { saveLicenceAction } from "./licence-actions";
-import { LicenceScanSlots, type ScanSummary } from "./licence-scan-slots";
+import { LicenceScanSlots, monthsText, type ScanSummary } from "./licence-scan-slots";
 
 function LicenceDetails({ renter, expiry }: { renter: RenterDetail; expiry: ExpiryContext }) {
   if (!renter.licenceNumber || !renter.licenceClass || !renter.licenceType) {
@@ -81,13 +82,16 @@ export async function LicenceTab(props: {
             id: scan.id,
             contentType: scan.contentType,
             addedText: formatDateTimeInTimeZone(scan.addedAt, user.operatorTimezone),
-            // No rentals yet (Phase 3): counted from when it was added.
-            keptUntilText: formatDayInTimeZone(
-              licenceScanDeleteAfter(
-                { addedAt: scan.addedAt, lastRentalEndedAt: null },
-                keptMonths,
+            // TODO(Phase 3): use the same last-rental date and holds as the
+            // nightly job; until rentals exist it counts from when it was added.
+            keptUntilText: formatCalendarDate(
+              todayInTimeZone(
+                licenceScanDeleteAfter(
+                  { addedAt: scan.addedAt, lastRentalEndedAt: null },
+                  keptMonths,
+                ),
+                user.operatorTimezone,
               ),
-              user.operatorTimezone,
             ),
           }
         : null;
@@ -125,9 +129,8 @@ export async function LicenceTab(props: {
           <CardTitle>Front and back</CardTitle>
           <CardDescription>
             Kept in private storage. They only open when you press View, and every view is recorded
-            in the Log with who looked. Deleted automatically {keptMonths}{" "}
-            {keptMonths === 1 ? "month" : "months"} after the Renter&rsquo;s last rental, or after
-            they were added (Settings → Renters).
+            in the Log with who looked. Deleted automatically {monthsText(keptMonths)} after the
+            Renter&rsquo;s last rental, or after they were added (Settings → Renters).
           </CardDescription>
         </CardHeader>
         <CardContent>

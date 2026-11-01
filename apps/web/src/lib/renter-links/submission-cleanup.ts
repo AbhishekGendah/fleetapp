@@ -12,7 +12,7 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { binFilesAsSystem, type FileDependencies } from "../files/stored-files";
+import { binFilesAsSystem, SYSTEM_BIN_REASONS, type FileDependencies } from "../files/stored-files";
 
 /** What a Renter sent through a link is kept this long after the link ended, whatever came of it. */
 export const SUBMISSION_KEPT_DAYS = 30;
@@ -53,7 +53,7 @@ function binEndedLinkPhotos(
     now,
     "renter_submitted_scan",
     inArray(files.renterLinkId, endedLinks),
-    "link_ended_over_30_days",
+    SYSTEM_BIN_REASONS.linkEndedOver30Days,
   );
 }
 

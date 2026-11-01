@@ -5,7 +5,7 @@ import { appDb } from "../../../../lib/app-db";
 import { isScheduledJobRequest } from "../../../../lib/cron-auth";
 import { runFileHousekeeping } from "../../../../lib/files/file-housekeeping";
 import { removeOldSubmissions } from "../../../../lib/renter-links/submission-cleanup";
-import { binExpiredLicenceScans } from "../../../../lib/renters/scan-retention";
+import { binExpiredLicenceScans, NO_HOLDS_YET } from "../../../../lib/renters/scan-retention";
 import { appFileStorage } from "../../../../lib/storage/app-file-storage";
 
 export const runtime = "nodejs";
@@ -21,7 +21,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const deps = { database: appDb, storage: appFileStorage, now: () => new Date() };
   // Binning first: what is binned today is purged by a run 30 days later.
   const submissions = await removeOldSubmissions(deps);
-  const licenceScans = await binExpiredLicenceScans(deps);
+  // TODO(Phase 3): pass the rentals' holds (last rental end, open rentals).
+  const licenceScans = await binExpiredLicenceScans(deps, NO_HOLDS_YET);
   const files = await runFileHousekeeping(deps);
   return NextResponse.json({ submissions, licenceScans, files });
 }

@@ -13,7 +13,11 @@ import {
 } from "../src/lib/renters/licence-scans";
 import { emptyRenterForm, parseRenterForm } from "../src/lib/renters/renter-input";
 import { createRenter } from "../src/lib/renters/renter-records";
-import { binExpiredLicenceScans, type RetentionHolds } from "../src/lib/renters/scan-retention";
+import {
+  binExpiredLicenceScans,
+  NO_HOLDS_YET,
+  type RetentionHolds,
+} from "../src/lib/renters/scan-retention";
 import { saveOperatorSettings } from "../src/lib/settings/operator-settings";
 import {
   createMemoryFileStorage,
@@ -81,11 +85,11 @@ describe("licence scans deleted on a timer", () => {
   it("bins a scan kept past the setting, keeps a newer one, and is safe to run again", async () => {
     const old = await renterWithScan(actor, 400);
     const recent = await renterWithScan(actor, 100);
-    await binExpiredLicenceScans(deps);
+    await binExpiredLicenceScans(deps, NO_HOLDS_YET);
     expect(await hasFront(actor, old.renterId)).toBe(false);
     expect(await hasFront(actor, recent.renterId)).toBe(true);
     expect(await listSidesDeletedByTimer(web.db, actor.operatorId, old.renterId)).toEqual(
-      new Set(["front"]),
+      new Map([["front", 12]]),
     );
 
     const [logLine] = await withTenant(web.db, actor.operatorId, (tx) =>
@@ -96,9 +100,9 @@ describe("licence scans deleted on a timer", () => {
     );
     expect(logLine).toEqual({
       actorType: "system",
-      after: { purpose: "renter_licence_scan", reason: "kept_the_set_time" },
+      after: { purpose: "renter_licence_scan", reason: "kept_the_set_time", keptMonths: 12 },
     });
-    const again = await binExpiredLicenceScans(deps);
+    const again = await binExpiredLicenceScans(deps, NO_HOLDS_YET);
     expect(again.failedOperators).toBe(0);
     expect(await hasFront(actor, recent.renterId)).toBe(true);
   });
@@ -107,7 +111,7 @@ describe("licence scans deleted on a timer", () => {
     const mine = await renterWithScan(actor, 100);
     const theirs = await renterWithScan(otherActor, 100);
     await saveOperatorSettings(web.db, actor, { licenceScanKeptMonths: 3 });
-    await binExpiredLicenceScans(deps);
+    await binExpiredLicenceScans(deps, NO_HOLDS_YET);
     expect(await hasFront(actor, mine.renterId)).toBe(false);
     expect(await hasFront(otherActor, theirs.renterId)).toBe(true);
     await saveOperatorSettings(web.db, actor, { licenceScanKeptMonths: 12 });

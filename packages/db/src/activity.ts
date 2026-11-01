@@ -114,13 +114,19 @@ const FILE_PURPOSE_LABELS = {
   renter_submitted_scan: "Licence photo sent by the Renter",
 } satisfies Record<FilePurpose, string>;
 
-/** A file's log lines carry its purpose; anything else has none. */
-function purposeOf(values: unknown): string | null {
+/** Why the nightly clean-up removed a file, as its log line says. */
+const SYSTEM_BIN_REASON_LABELS: Readonly<Record<string, string>> = {
+  kept_the_set_time: "after the set number of months",
+  link_ended_over_30_days: "30 days after its link ended",
+};
+
+/** A text value from a log line's values, e.g. a file's purpose; null if absent. */
+function textValueOf(values: unknown, key: string): string | null {
   if (typeof values !== "object" || values === null) {
     return null;
   }
-  const purpose: unknown = Reflect.get(values, "purpose");
-  return typeof purpose === "string" ? purpose : null;
+  const value: unknown = Reflect.get(values, key);
+  return typeof value === "string" ? value : null;
 }
 
 /**
@@ -133,10 +139,16 @@ export function describeActivity(
   action: string,
   valuesAfter?: unknown,
 ): string {
-  const purpose = entityType === ACTIVITY_ENTITY_TYPES.file ? purposeOf(valuesAfter) : null;
+  const isFile = entityType === ACTIVITY_ENTITY_TYPES.file;
+  const purpose = isFile ? textValueOf(valuesAfter, "purpose") : null;
+  const reason = isFile ? textValueOf(valuesAfter, "reason") : null;
   const subject =
     purpose && Object.hasOwn(FILE_PURPOSE_LABELS, purpose)
       ? labelFor(FILE_PURPOSE_LABELS, purpose)
       : labelFor(ACTIVITY_ENTITY_LABELS, entityType);
-  return `${subject} ${labelFor(ACTIVITY_ACTION_LABELS, action)}`;
+  const why =
+    reason && Object.hasOwn(SYSTEM_BIN_REASON_LABELS, reason)
+      ? ` ${SYSTEM_BIN_REASON_LABELS[reason]}`
+      : "";
+  return `${subject} ${labelFor(ACTIVITY_ACTION_LABELS, action)}${why}`;
 }

@@ -1,5 +1,5 @@
 import { LICENCE_SIDES, type LicenceSide } from "@fleetapp/core";
-import { ACTIVITY_ACTIONS, activityLog, files } from "@fleetapp/db/schema";
+import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, activityLog, files } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 
@@ -12,12 +12,10 @@ import {
   requestUpload,
   type FileActor,
   type FileDependencies,
-  type SystemBinReason,
+  SYSTEM_BIN_REASONS,
   type UploadRequestResult,
 } from "../files/stored-files";
 import { lockCurrentRenter } from "./renter-records";
-
-const TIMER_REASON: SystemBinReason = "kept_the_set_time";
 
 export type LicenceScanUploadStart =
   Extract<UploadRequestResult, { status: "allowed" | "refused" }> | { status: "not_found" };
@@ -171,17 +169,18 @@ export async function listAllLicenceScans(
 
 /**
  * The sides whose latest scan was binned by the nightly retention timer, not
- * by a person: the Licence tab says so, so the Operator knows to ask for new
+ * by a person, with the number of months the setting was then (null if not
+ * recorded): the Licence tab says so, so the Operator knows to ask for new
  * photos rather than wonder where they went.
  */
 export async function listSidesDeletedByTimer(
   database: FileDependencies["database"],
   operatorId: string,
   renterId: string,
-): Promise<ReadonlySet<LicenceSide>> {
+): Promise<ReadonlyMap<LicenceSide, number | null>> {
   return withTenant(database, operatorId, async (tx) => {
     const deleted = await tx
-      .select({ id: files.id, side: files.licenceSide, deletedAt: files.deletedAt })
+      .select({ id: files.id, side: files.licenceSide })
       .from(files)
       .where(
         and(
@@ -197,24 +196,36 @@ export async function listSidesDeletedByTimer(
       return latest ? [{ side, id: latest.id }] : [];
     });
     if (latestPerSide.length === 0) {
-      return new Set<LicenceSide>();
+      return new Map<LicenceSide, number | null>();
     }
     const byTimer = await tx
-      .select({ id: activityLog.entityId })
+      .select({ id: activityLog.entityId, values: activityLog.valuesAfter })
       .from(activityLog)
       .where(
         and(
           eq(activityLog.operatorId, operatorId),
+          eq(activityLog.entityType, ACTIVITY_ENTITY_TYPES.file),
           inArray(
             activityLog.entityId,
             latestPerSide.map((scan) => scan.id),
           ),
           eq(activityLog.action, ACTIVITY_ACTIONS.deleted),
           eq(activityLog.actorType, "system"),
-          sql`${activityLog.valuesAfter} ->> 'reason' = ${TIMER_REASON}`,
+          sql`${activityLog.valuesAfter} ->> 'reason' = ${SYSTEM_BIN_REASONS.keptTheSetTime}`,
         ),
       );
-    const timerIds = new Set(byTimer.map((line) => line.id));
-    return new Set(latestPerSide.filter((scan) => timerIds.has(scan.id)).map((scan) => scan.side));
+    return new Map(
+      latestPerSide.flatMap((scan) => {
+        const line = byTimer.find((each) => each.id === scan.id);
+        return line ? [[scan.side, keptMonthsOf(line.values)] as const] : [];
+      }),
+    );
   });
+}
+
+/** The months recorded with a timer deletion, or null for one logged before they were. */
+function keptMonthsOf(values: unknown): number | null {
+  const months: unknown =
+    typeof values === "object" && values !== null ? Reflect.get(values, "keptMonths") : null;
+  return typeof months === "number" ? months : null;
 }

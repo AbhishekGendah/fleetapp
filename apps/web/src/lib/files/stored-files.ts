@@ -410,8 +410,12 @@ export async function openLicenceImage(
   );
 }
 
-/** Why the nightly clean-up binned a file, for its log line. */
-export type SystemBinReason = "kept_the_set_time" | "link_ended_over_30_days";
+/** Why the nightly clean-up binned a file, for its log line (and the Log's wording). */
+export const SYSTEM_BIN_REASONS = {
+  keptTheSetTime: "kept_the_set_time",
+  linkEndedOver30Days: "link_ended_over_30_days",
+} as const;
+export type SystemBinReason = (typeof SYSTEM_BIN_REASONS)[keyof typeof SYSTEM_BIN_REASONS];
 
 /**
  * Bins the Operator's matching files as the nightly clean-up (no User, rule
@@ -423,8 +427,10 @@ export async function binFilesAsSystem(
   operatorId: string,
   now: Date,
   purpose: FilePurpose,
-  which: SQL | undefined,
+  which: SQL,
   reason: SystemBinReason,
+  /** More to keep with the reason, e.g. how many months the setting was then. */
+  details: Readonly<Record<string, string | number>> = {},
 ): Promise<number> {
   const binned = await tx
     .update(files)
@@ -445,7 +451,7 @@ export async function binFilesAsSystem(
       entityType: ACTIVITY_ENTITY_TYPES.file,
       entityId: file.id,
       action: ACTIVITY_ACTIONS.deleted,
-      valuesAfter: { purpose, reason },
+      valuesAfter: { ...details, purpose, reason },
     });
   }
   return binned.length;

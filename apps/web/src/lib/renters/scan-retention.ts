@@ -1,6 +1,6 @@
 import {
-  addMonthsToMoment,
   describeErrorForLog,
+  MILLISECONDS_PER_DAY,
   licenceScanDeleteAfter,
   MINIMUM_LICENCE_SCAN_KEPT_MONTHS,
 } from "@fleetapp/core";
@@ -10,7 +10,12 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { binFilesAsSystem, licenceScanInUse, type FileDependencies } from "../files/stored-files";
+import {
+  binFilesAsSystem,
+  licenceScanInUse,
+  SYSTEM_BIN_REASONS,
+  type FileDependencies,
+} from "../files/stored-files";
 import { loadOperatorSettings } from "../settings/operator-settings";
 
 /**
@@ -35,6 +40,8 @@ export const NO_HOLDS_YET: RetentionHolds = {
   lastRentalEnds: async () => new Map(),
   rentersWithOpenMatters: async () => new Set(),
 };
+
+const SHORTEST_MONTH_DAYS = 28;
 
 const dueOperatorsSchema = z.object({ rows: z.array(z.object({ operator_id: z.uuid() })) });
 
@@ -80,10 +87,15 @@ async function findScansDue(
  */
 export async function binExpiredLicenceScans(
   deps: FileDependencies,
-  holds: RetentionHolds = NO_HOLDS_YET,
+  // Required, never defaulted: a caller that forgot it would bin the scans
+  // of Renters still on a rental.
+  holds: RetentionHolds,
 ): Promise<ScanRetentionSummary> {
   const now = deps.now();
-  const earliestDue = addMonthsToMoment(now, -MINIMUM_LICENCE_SCAN_KEPT_MONTHS);
+  // Counted in shortest months, so a scan due on the 31st is never missed.
+  const earliestDue = new Date(
+    now.getTime() - MINIMUM_LICENCE_SCAN_KEPT_MONTHS * SHORTEST_MONTH_DAYS * MILLISECONDS_PER_DAY,
+  );
   const due = dueOperatorsSchema.parse(
     await deps.database.execute(
       sql`select operator_id from app.operators_with_licence_scans_added_before(${earliestDue.toISOString()}::timestamptz) as operator_id`,
@@ -107,7 +119,8 @@ export async function binExpiredLicenceScans(
               now,
               "renter_licence_scan",
               inArray(files.id, scanIds),
-              "kept_the_set_time",
+              SYSTEM_BIN_REASONS.keptTheSetTime,
+              { keptMonths: licenceScanKeptMonths },
             );
       });
     } catch (error) {

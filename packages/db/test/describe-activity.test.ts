@@ -20,4 +20,14 @@ describe("a Log line in words", () => {
       "Car changed",
     );
   });
+
+  it("says why the nightly clean-up removed a file", () => {
+    expect(
+      describeActivity("file", "deleted", {
+        purpose: "renter_licence_scan",
+        reason: "kept_the_set_time",
+        keptMonths: 12,
+      }),
+    ).toBe("Licence scan deleted after the set number of months");
+  });
 });

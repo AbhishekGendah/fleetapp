@@ -117,14 +117,26 @@ function ScanSlot(props: {
  * The front and back of a Renter's licence. No thumbnails: a scan is only
  * fetched when View is pressed, so every look is deliberate and logged.
  */
+/** "1 month", "12 months". */
+export function monthsText(months: number): string {
+  return `${months} ${months === 1 ? "month" : "months"}`;
+}
+
 export function LicenceScanSlots(props: {
   renterId: string;
   scans: Readonly<Record<LicenceSide, ScanSummary | null>>;
-  sidesDeletedByTimer: ReadonlySet<LicenceSide>;
+  /** Sides the retention timer emptied, with the months set at the time. */
+  sidesDeletedByTimer: ReadonlyMap<LicenceSide, number | null>;
   keptMonths: number;
   isEditable: boolean;
 }) {
-  const deletedByTimerText = `Deleted after ${props.keptMonths} ${props.keptMonths === 1 ? "month" : "months"}, as set in Settings. Ask the Renter for new photos before renting.`;
+  const deletedByTimerText = (side: LicenceSide): string | null => {
+    if (!props.sidesDeletedByTimer.has(side)) {
+      return null;
+    }
+    const months = props.sidesDeletedByTimer.get(side) ?? props.keptMonths;
+    return `Deleted automatically after ${monthsText(months)}, as set in Settings then. Ask the Renter for new photos before renting.`;
+  };
   const images = LICENCE_SIDES.flatMap((side) => {
     const scan = props.scans[side];
     return scan && !isPdf(scan.contentType)
@@ -148,7 +160,7 @@ export function LicenceScanSlots(props: {
             scan={props.scans[side]}
             imageIndex={images.findIndex((image) => image.side === side)}
             isEditable={props.isEditable}
-            deletedByTimerText={props.sidesDeletedByTimer.has(side) ? deletedByTimerText : null}
+            deletedByTimerText={deletedByTimerText(side)}
           />
         ))}
       </ul>
