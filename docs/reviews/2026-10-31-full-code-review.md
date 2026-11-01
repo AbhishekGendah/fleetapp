@@ -5,7 +5,7 @@ forms; money, dates, sign-in, emails, admin and build setup; the retention
 slice). Each problem was checked against the real code, most of the serious
 ones by actually running them. Duplicates are merged. Group A was fixed on
 1 Nov 2026 (approved by Abhi), with migration 0025; group B the same day,
-with migration 0026; group C follows.
+with migration 0026; group C the same day, with migration 0027.
 Notes on how A was done: A1 locks a link after 10 wrong codes over its life
 (no new column: the count is simply never reset); A7 refuses production on
 the test inbox at start-up, and Renter emails stay visible in the dev test
@@ -124,7 +124,12 @@ data. All 503 tests pass.
 - **B13. The admin 8-hour sign-in limit isn't checked on the sign-in
   service's own pages.** Two first-Admin set-ups at once could both succeed.
 
-## C. Rules, accessibility and tidy-up
+## C. Rules, accessibility and tidy-up — DONE 1 Nov 2026
+
+Notes on how C was done: the shared sign-in rate limit (C6) is put off to the
+launch checklist (it needs a table and login-role grants; the database
+lockouts already stop guessing). The "history can't pretend" rule covers the
+admin app (Admin only) and the Operator sign-in (User or System only).
 
 - **C1. Form rules 28 and 31:**
   - the Settings number boxes accept letters and don't jump to the error;

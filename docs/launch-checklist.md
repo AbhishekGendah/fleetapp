@@ -50,6 +50,10 @@ Add to this list whenever something is relaxed or put off "until launch".
   production (the test inbox holds working links). Set `APP_STAGE=production`
   in both production Vercel projects: the apps then refuse to start on the
   test inbox.
+- [ ] Sign-in rate limit shared by all servers (Better Auth `rateLimit`
+  storage "database": a small table and login-role grants, plan first).
+  Today each server counts on its own; the password and code lockouts
+  already hold in the database, so this is a second layer (review C6).
 - [ ] Forgot-password replies take the same time for every address (send
   in the background once Postmark is in).
 - [ ] Separate production database and buckets, with real Renter data only

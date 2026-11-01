@@ -548,9 +548,23 @@
   time; settings store only what was changed; the sign-in hard limit applies
   to the login system's own endpoints; the first Admin is created under a lock.
 
+- **Code review group C** (rules, accessibility, tidy-up): Settings number
+  boxes take digits only; required notes and asterisks on the status forms,
+  licence photos and document uploads; hints and refusals read out by screen
+  readers; Retake waits while a photo sends; Tab in an address box keeps what
+  was typed; filter dropdowns wait for Enter; small links get 44px; "Rego
+  expires" column; DoTDirect only for WA; policies can be restored; repeated
+  code merged (tabs, photo slots, nightly loop, messages). Migration 0027:
+  submissions hold the same rules as Renters and must use their own Renter's
+  link; identity files must be in identity storage; history can't be wiped
+  in bulk or written as someone else; clean-up indexes; two new guard tests.
+  Also: secret helpers kept out of browser code, health check answers 503
+  when the database is down, accented makes ("Škoda") match, next year's
+  models allowed from midnight on 1 January, download names always safe.
+  Put off: a shared sign-in rate limit (launch checklist).
+
 ## Next
-Code review group C (rules, accessibility, tidy-up), then Phase 3 (rentals),
-plan first.
+Phase 3 (rentals), plan first.
 
 ## Open items
 - **Before launch: docs/launch-checklist.md** (relaxed admin sign-in, full
