@@ -11,6 +11,17 @@ import {
   MINIMUM_LICENCE_SCAN_KEPT_MONTHS,
 } from "./licence-retention";
 import {
+  DEFAULT_BOND_HOLD_DAYS,
+  DEFAULT_MINIMUM_RENTER_AGE_YEARS,
+  DEFAULT_ONGOING_NOTICE_DAYS,
+  MAXIMUM_BOND_HOLD_DAYS,
+  MAXIMUM_MINIMUM_RENTER_AGE_YEARS,
+  MAXIMUM_ONGOING_NOTICE_DAYS,
+  PART_WEEK_CHARGING,
+  WEEKDAYS,
+} from "./rentals";
+import { MINIMUM_DRIVER_AGE_YEARS } from "./renters";
+import {
   DEFAULT_EXPIRY_WARNING_DAYS,
   MAXIMUM_EXPIRY_WARNING_DAYS,
   MINIMUM_EXPIRY_WARNING_DAYS,
@@ -56,6 +67,37 @@ export const operatorSettingsSchema = z.object({
     .min(MINIMUM_LICENCE_SCAN_KEPT_MONTHS)
     .max(MAXIMUM_LICENCE_SCAN_KEPT_MONTHS)
     .default(DEFAULT_LICENCE_SCAN_KEPT_MONTHS),
+
+  // Rentals (Phase 3). Copied onto each rental when it is made (rule 14).
+  /** The youngest a Renter may be on the day the rental starts. */
+  minimumRenterAgeYears: z
+    .number()
+    .int()
+    .min(MINIMUM_DRIVER_AGE_YEARS)
+    .max(MAXIMUM_MINIMUM_RENTER_AGE_YEARS)
+    .default(DEFAULT_MINIMUM_RENTER_AGE_YEARS),
+  /** Whether a provisional (P plate) licence may rent. */
+  isProvisionalLicenceAllowed: z.boolean().default(false),
+  /** Rent is charged weekly in advance: on the start's weekday (null) or one fixed day for all. */
+  fixedChargeWeekday: z.union([z.literal(WEEKDAYS), z.null()]).default(null),
+  /** How a part week is charged: the first one, and the last after an early return. */
+  partWeekCharging: z.enum(PART_WEEK_CHARGING).default("daily_pro_rata"),
+  /** Whether the full bond must be held before the car is handed over. */
+  isBondRequiredBeforeHandover: z.boolean().default(true),
+  /** How long the bond is kept after the car comes back, for late fines and tolls. */
+  bondHoldDaysAfterReturn: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAXIMUM_BOND_HOLD_DAYS)
+    .default(DEFAULT_BOND_HOLD_DAYS),
+  /** The notice a Renter on an ongoing rental gives before returning the car. */
+  ongoingNoticeDays: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAXIMUM_ONGOING_NOTICE_DAYS)
+    .default(DEFAULT_ONGOING_NOTICE_DAYS),
 });
 
 export type OperatorSettings = z.infer<typeof operatorSettingsSchema>;

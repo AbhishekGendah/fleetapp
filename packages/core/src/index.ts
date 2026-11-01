@@ -41,3 +41,4 @@ export * from "./renters";
 export * from "./vehicles";
 export * from "./licence-retention";
 export * from "./content-disposition";
+export * from "./rentals";
