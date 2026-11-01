@@ -105,6 +105,26 @@ needed or not, and do it properly from the start, however long it takes.
 
 Each stage ends with the checks, a push, checklist rows, and progress notes.
 
+## Finishing properly (stage 9, approved 1 Nov 2026)
+
+1. Third-party licences file generated with each app's build.
+2. Google Places address as a setting (`GOOGLE_PLACES_API_URL`), the
+   suggestion box in the catalogue, and the make box opening on tap again.
+3. Browser tests for the Operator app (invite, cars and photos, Renters and
+   their link), on a local S3 (LocalStack) and a Places stand-in, with the
+   runner pieces shared in `@fleetapp/e2e`.
+4. axe-core accessibility checks on every page the tests reach; the colours
+   it found too faint were fixed.
+5. Forms onto the shared helper: forgot password, reset password, accepting
+   an invite (the "choose a password" boxes had their own checking engine)
+   and adding a document. Deliberately left as they are: the sign-in step,
+   which reads the boxes directly because browsers fill saved logins without
+   telling the page; and the code boxes (sign-in, authenticator, Renter link),
+   which check themselves once full and have nothing to check while typing.
+6. A download-size budget in CI.
+7. Renovate for dependency update pull requests (reviewed, never merged on
+   its own), and CLAUDE.md rules so all of this stays the standard.
+
 ## Already planned for Phase 3 (from day one, not built by hand)
 
 React Aria Components (date pickers and ranges, Adobe, Apache-2.0),

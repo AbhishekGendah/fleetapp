@@ -6,106 +6,88 @@ import {
   newPasswordSchema,
   type NewPasswordInput,
 } from "@fleetapp/auth/login-policy";
-import { fieldDescriptionIds, FormField } from "@fleetapp/ui/form-field";
+import { fieldErrorsOf } from "@fleetapp/core";
+import { FormField } from "@fleetapp/ui/form-field";
 import { Input } from "@fleetapp/ui/input";
-import { useMemo, useState } from "react";
-import { z } from "zod";
+import { useFormFields, type FormFields, type TextBoxProps } from "@fleetapp/ui/use-form-fields";
+import { useState } from "react";
 
 import { isPasswordKnownToHaveLeakedAction } from "./new-password-actions";
 
 type NewPasswordFieldName = keyof NewPasswordInput;
 
 const NEW_PASSWORD_FIELDS: readonly NewPasswordFieldName[] = ["password", "confirmation"];
+const EMPTY_PASSWORDS: NewPasswordInput = { password: "", confirmation: "" };
+const PASSWORD_FIELD: NewPasswordFieldName = "password";
 
 /**
- * The two "choose a password" boxes, checked as they are typed with the same
- * rule the server uses (rule 28). A box shows its problem once it has been
- * left, or once the form is submitted.
+ * The two "choose a password" boxes on the shared form helper, checked as they
+ * are typed with the same rule the server uses (rule 28). Sending first asks
+ * whether the password is known to have leaked: if so the person is warned
+ * once, and pressing the button again keeps it (a warning, never a refusal).
  */
-export function useNewPasswordChecks() {
-  const [values, setValues] = useState<NewPasswordInput>({ password: "", confirmation: "" });
-  const [checkedFields, setCheckedFields] = useState<ReadonlySet<NewPasswordFieldName>>(
-    () => new Set(),
-  );
+export function useNewPasswordForm(): {
+  form: FormFields<NewPasswordFieldName>;
+  isLeakWarningShown: boolean;
+  afterLeakCheck: (
+    send: (formData: FormData) => Promise<void>,
+  ) => (formData: FormData) => Promise<void>;
+} {
+  const form = useFormFields({
+    fields: NEW_PASSWORD_FIELDS,
+    initialValues: EMPTY_PASSWORDS,
+    validate: (values) => fieldErrorsOf(newPasswordSchema.safeParse(values)),
+    isRequired: () => true,
+  });
   // The password the person was warned about. Sending it again means "use it anyway".
   const [warnedPassword, setWarnedPassword] = useState<string | null>(null);
+  const isLeakWarningShown = warnedPassword !== null && warnedPassword === form.values.password;
 
-  const errors = useMemo(() => {
-    const parsed = newPasswordSchema.safeParse(values);
-    return parsed.success ? {} : z.flattenError(parsed.error).fieldErrors;
-  }, [values]);
-
-  const isLeakWarningShown = warnedPassword !== null && warnedPassword === values.password;
-
-  function fieldProps(name: NewPasswordFieldName): NewPasswordFieldProps {
-    return {
-      name,
-      value: values[name],
-      error: checkedFields.has(name) ? errors[name]?.[0] : undefined,
-      warning: name === "password" && isLeakWarningShown ? BREACHED_PASSWORD_WARNING : undefined,
-      onValueChange: (value) => setValues((previous) => ({ ...previous, [name]: value })),
-      onBlur: () => setCheckedFields((previous) => new Set(previous).add(name)),
+  function afterLeakCheck(
+    send: (formData: FormData) => Promise<void>,
+  ): (formData: FormData) => Promise<void> {
+    return async (formData) => {
+      const password = String(formData.get(PASSWORD_FIELD) ?? "");
+      if (password !== warnedPassword) {
+        const hasLeaked = await isPasswordKnownToHaveLeakedAction(password).catch(() => false);
+        if (hasLeaked) {
+          setWarnedPassword(password);
+          return;
+        }
+      }
+      await send(formData);
     };
   }
 
-  /**
-   * True when the form may be sent: both boxes pass, and either the password
-   * is not known to have leaked or the person has already been warned and
-   * pressed the button again. A warning, never a refusal.
-   */
-  async function isReadyToSend(): Promise<boolean> {
-    setCheckedFields(new Set(NEW_PASSWORD_FIELDS));
-    if (Object.keys(errors).length > 0) {
-      return false;
-    }
-    if (isLeakWarningShown) {
-      return true;
-    }
-    const hasLeaked = await isPasswordKnownToHaveLeakedAction(values.password).catch(() => false);
-    if (hasLeaked) {
-      setWarnedPassword(values.password);
-      return false;
-    }
-    return true;
-  }
-
-  return { values, fieldProps, isReadyToSend, isLeakWarningShown };
+  return { form, isLeakWarningShown, afterLeakCheck };
 }
 
 /** The first box's label, with the length the rule asks for. */
 export const NEW_PASSWORD_HINT = `at least ${MINIMUM_PASSWORD_LENGTH} characters`;
 
-interface NewPasswordFieldProps {
-  name: NewPasswordFieldName;
-  value: string;
-  error: string | undefined;
-  warning: string | undefined;
-  onValueChange: (value: string) => void;
-  onBlur: () => void;
-}
-
 /** One of the two "choose a password" boxes, on the invite and reset pages. */
-export function NewPasswordField(props: NewPasswordFieldProps & { label: string }) {
+export function NewPasswordField(props: {
+  form: FormFields<NewPasswordFieldName>;
+  name: NewPasswordFieldName;
+  label: string;
+  isLeakWarningShown?: boolean;
+  /** The server's answer, shown when the live check has nothing to say. */
+  serverError?: string;
+}) {
+  const boxProps: TextBoxProps = props.form.textBoxProps(props.name);
   return (
     <FormField
-      htmlFor={props.name}
+      htmlFor={boxProps.id}
       label={props.label}
       isRequired
-      warning={props.warning}
-      error={props.error}
+      warning={
+        props.name === PASSWORD_FIELD && props.isLeakWarningShown
+          ? BREACHED_PASSWORD_WARNING
+          : undefined
+      }
+      error={props.form.errorFor(props.name) ?? props.serverError}
     >
-      <Input
-        id={props.name}
-        name={props.name}
-        type="password"
-        autoComplete="new-password"
-        required
-        value={props.value}
-        onChange={(event) => props.onValueChange(event.target.value)}
-        onBlur={props.onBlur}
-        aria-invalid={props.error ? true : undefined}
-        aria-describedby={fieldDescriptionIds(props.name)}
-      />
+      <Input {...boxProps} type="password" autoComplete="new-password" />
     </FormField>
   );
 }

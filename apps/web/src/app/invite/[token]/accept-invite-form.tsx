@@ -9,7 +9,7 @@ import {
   NEW_PASSWORD_HINT,
   NewPasswordField,
   submitLabel,
-  useNewPasswordChecks,
+  useNewPasswordForm,
 } from "../../new-password-field";
 import { acceptInviteAction, type AcceptInviteState } from "./actions";
 
@@ -17,27 +17,24 @@ const INITIAL_STATE: AcceptInviteState = {};
 
 export function AcceptInviteForm(props: { token: string; email: string }) {
   const [state, formAction, isPending] = useActionState(acceptInviteAction, INITIAL_STATE);
-  const { fieldProps, isReadyToSend, isLeakWarningShown } = useNewPasswordChecks();
+  const { form, isLeakWarningShown, afterLeakCheck } = useNewPasswordForm();
   const [isChecking, setIsChecking] = useState(false);
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    setIsChecking(true);
-    const isReady = await isReadyToSend();
-    setIsChecking(false);
-    if (isReady) {
-      startTransition(() => formAction(formData));
-    }
-  }
-
-  /** The live check first; the server's answer only if it disagrees. */
-  function errorFor(name: "password" | "confirmation"): string | undefined {
-    return fieldProps(name).error ?? state.fieldErrors?.[name]?.[0];
-  }
+  // After the leak check's await, the action must be started in a transition of its own.
+  const send = afterLeakCheck(async (formData) => {
+    startTransition(() => formAction(formData));
+  });
 
   return (
-    <form action={formAction} onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+    <form
+      action={formAction}
+      onSubmit={form.submitHandler(async (formData) => {
+        setIsChecking(true);
+        await send(formData).finally(() => setIsChecking(false));
+      })}
+      noValidate
+      className="flex flex-col gap-4"
+    >
       <input type="hidden" name="token" value={props.token} />
       {/* Lets a password manager save the new password against the right login.
           Never shown, so it is not a form box the shared pieces cover. */}
@@ -52,14 +49,17 @@ export function AcceptInviteForm(props: { token: string; email: string }) {
       />
       <RequiredFieldsNote />
       <NewPasswordField
-        {...fieldProps("password")}
-        error={errorFor("password")}
+        form={form}
+        name="password"
         label={`Choose a password (${NEW_PASSWORD_HINT})`}
+        isLeakWarningShown={isLeakWarningShown}
+        serverError={state.fieldErrors?.password?.[0]}
       />
       <NewPasswordField
-        {...fieldProps("confirmation")}
-        error={errorFor("confirmation")}
+        form={form}
+        name="confirmation"
         label="Type it again"
+        serverError={state.fieldErrors?.confirmation?.[0]}
       />
       <FormError message={state.formError ?? null} />
       <Button type="submit" disabled={isPending || isChecking}>

@@ -13,37 +13,29 @@ import {
   NEW_PASSWORD_HINT,
   NewPasswordField,
   submitLabel,
-  useNewPasswordChecks,
+  useNewPasswordForm,
 } from "../new-password-field";
 
 const LINK_FAILED_MESSAGE = "This link no longer works. It may have expired or been used.";
 
 export function ResetPasswordForm(props: { token: string }) {
-  const { values, fieldProps, isReadyToSend, isLeakWarningShown } = useNewPasswordChecks();
+  const { form, isLeakWarningShown, afterLeakCheck } = useNewPasswordForm();
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDone, setIsDone] = useState(false);
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
+  const changePassword = afterLeakCheck(async (formData) => {
     setFormError(null);
-    setIsSubmitting(true);
-    if (!(await isReadyToSend())) {
-      setIsSubmitting(false);
-      return;
-    }
-
     const { error } = await authClient.resetPassword({
-      newPassword: values.password,
+      newPassword: String(formData.get("password") ?? ""),
       token: props.token,
     });
-    setIsSubmitting(false);
     if (error) {
       setFormError(LINK_FAILED_MESSAGE);
       return;
     }
     setIsDone(true);
-  }
+  });
 
   if (isDone) {
     return (
@@ -59,10 +51,22 @@ export function ResetPasswordForm(props: { token: string }) {
   }
 
   return (
-    <ClientForm className="flex flex-col gap-4" noValidate onSubmit={handleSubmit}>
+    <ClientForm
+      className="flex flex-col gap-4"
+      noValidate
+      onSubmit={form.submitHandler(async (formData) => {
+        setIsSubmitting(true);
+        await changePassword(formData).finally(() => setIsSubmitting(false));
+      })}
+    >
       <RequiredFieldsNote />
-      <NewPasswordField {...fieldProps("password")} label={`New password (${NEW_PASSWORD_HINT})`} />
-      <NewPasswordField {...fieldProps("confirmation")} label="Type it again" />
+      <NewPasswordField
+        form={form}
+        name="password"
+        label={`New password (${NEW_PASSWORD_HINT})`}
+        isLeakWarningShown={isLeakWarningShown}
+      />
+      <NewPasswordField form={form} name="confirmation" label="Type it again" />
       <FormError message={formError} />
       <SubmitButton disabled={isSubmitting}>
         {isSubmitting ? "Saving…" : submitLabel(isLeakWarningShown, "Change password")}

@@ -1,13 +1,16 @@
 "use client";
 
 import { authClient } from "@fleetapp/auth/client";
+import { fieldErrorsOf, requiredEmail } from "@fleetapp/core";
 import { AuthPageLayout } from "@fleetapp/ui/auth-page-layout";
 import { ClientForm, SubmitButton } from "@fleetapp/ui/client-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { FormField } from "@fleetapp/ui/form-field";
 import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
+import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import Link from "next/link";
 import { useState } from "react";
+import { z } from "zod";
 
 import { RESET_LINK_LIFETIME_WORDS } from "../../lib/password-reset-policy";
 import { RESET_PASSWORD_PATH, SIGN_IN_PATH } from "../../lib/paths";
@@ -18,16 +21,23 @@ import { RESET_PASSWORD_PATH, SIGN_IN_PATH } from "../../lib/paths";
  */
 const SENT_MESSAGE = `If that address has a login, we have emailed it a link to choose a new password. The link works for ${RESET_LINK_LIFETIME_WORDS}.`;
 
+const EMAIL_FIELDS = ["email"] as const;
+const forgotPasswordSchema = z.object({ email: requiredEmail });
+
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState("");
+  const form = useFormFields({
+    fields: EMAIL_FIELDS,
+    initialValues: { email: "" },
+    validate: (values) => fieldErrorsOf(forgotPasswordSchema.safeParse(values)),
+    isRequired: () => true,
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSent, setIsSent] = useState(false);
 
-  async function handleSubmit(event: React.FormEvent): Promise<void> {
-    event.preventDefault();
+  async function requestLink(formData: FormData): Promise<void> {
     setIsSubmitting(true);
     const { error } = await authClient.requestPasswordReset({
-      email,
+      email: String(formData.get("email") ?? "").trim(),
       redirectTo: RESET_PASSWORD_PATH,
     });
     if (error) {
@@ -49,18 +59,19 @@ export default function ForgotPasswordPage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {isSent ? null : (
-            <ClientForm className="flex flex-col gap-4" onSubmit={handleSubmit}>
+            <ClientForm
+              className="flex flex-col gap-4"
+              noValidate
+              onSubmit={form.submitHandler((formData) => void requestLink(formData))}
+            >
               <RequiredFieldsNote />
-              <FormField htmlFor="email" label="Email address" isRequired>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="username"
-                  required
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                />
+              <FormField
+                htmlFor={form.idFor("email")}
+                label="Email address"
+                isRequired
+                error={form.errorFor("email")}
+              >
+                <Input {...form.textBoxProps("email")} type="email" autoComplete="username" />
               </FormField>
               <SubmitButton disabled={isSubmitting}>
                 {isSubmitting ? "Sending…" : "Send me a link"}

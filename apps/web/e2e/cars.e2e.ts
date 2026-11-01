@@ -50,4 +50,23 @@ test("adds a car, then a photo, and opens it full screen", async ({ page }) => {
   await expectAccessible(page);
   await page.keyboard.press("Escape");
   await expect(viewer).toBeHidden();
+
+  // A document: the name is checked like every form, then the file is sent.
+  await page.getByRole("link", { name: "Documents" }).click();
+  await page.getByRole("button", { name: "Add a document" }).click();
+  const dialog = page.getByRole("dialog", { name: "Add a document" });
+  await dialog.getByRole("button", { name: "Save document" }).click();
+  const name = dialog.getByRole("textbox", { name: /^Name/ });
+  await expect(name).toBeFocused();
+  await expect(name).toHaveAttribute("aria-invalid", "true");
+  await name.fill("Pre-purchase inspection");
+  await dialog.locator("input[type=file]").setInputFiles({
+    name: "inspection.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.7\n%âãÏÓ\n%%EOF\n"),
+  });
+  await dialog.getByRole("button", { name: "Save document" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText("Pre-purchase inspection")).toBeVisible();
+  await expectAccessible(page);
 });

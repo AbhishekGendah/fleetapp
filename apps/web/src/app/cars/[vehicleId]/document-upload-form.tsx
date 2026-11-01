@@ -1,6 +1,6 @@
 "use client";
 
-import { FILE_PURPOSE_RULES, MAXIMUM_LINE_LENGTH, requiredLine } from "@fleetapp/core";
+import { fieldErrorsOf, FILE_PURPOSE_RULES, requiredLine } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { FilePicker } from "@fleetapp/ui/file-picker";
 import { useDialogClose } from "@fleetapp/ui/form-dialog";
@@ -8,8 +8,10 @@ import { FormField } from "@fleetapp/ui/form-field";
 import { FormSection } from "@fleetapp/ui/form-section";
 import { FormError } from "@fleetapp/ui/form-message";
 import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
+import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { z } from "zod";
 
 import { sendPaper } from "../../../lib/files/send-paper";
 import { finishCarDocumentUploadAction, startCarDocumentUploadAction } from "./file-actions";
@@ -25,33 +27,31 @@ function sendDocument(vehicleId: string, label: string, file: File): Promise<str
   );
 }
 
+const DOCUMENT_FIELDS = ["documentLabel"] as const;
+const documentInputSchema = z.object({ documentLabel: requiredLine });
+
 /** "Add a document": a name and a PDF or image. Saving closes the pop-up. */
 export function DocumentUploadForm({ vehicleId }: { vehicleId: string }) {
   const router = useRouter();
   const closeDialog = useDialogClose();
-  const [label, setLabel] = useState("");
+  const form = useFormFields({
+    fields: DOCUMENT_FIELDS,
+    initialValues: { documentLabel: "" },
+    validate: (values) => fieldErrorsOf(documentInputSchema.safeParse(values)),
+    isRequired: () => true,
+  });
   const [file, setFile] = useState<File | null>(null);
-  const [isLabelChecked, setIsLabelChecked] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
-  const labelError = isLabelChecked
-    ? requiredLine.safeParse(label).error?.issues[0]?.message
-    : undefined;
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-    setIsLabelChecked(true);
-    if (!requiredLine.safeParse(label).success) {
-      document.getElementById("documentLabel")?.focus();
-      return;
-    }
+  async function sendChosenFile(): Promise<void> {
     if (!file) {
       setMessage(CHOOSE_FILE_MESSAGE);
       return;
     }
     setIsSending(true);
     setMessage(null);
-    const problem = await sendDocument(vehicleId, label.trim(), file);
+    const problem = await sendDocument(vehicleId, form.values.documentLabel.trim(), file);
     setIsSending(false);
     if (problem) {
       setMessage(problem);
@@ -62,18 +62,19 @@ export function DocumentUploadForm({ vehicleId }: { vehicleId: string }) {
   }
 
   return (
-    <form onSubmit={(event) => void handleSubmit(event)} noValidate className="flex flex-col gap-4">
+    <form
+      onSubmit={form.submitHandler(() => void sendChosenFile())}
+      noValidate
+      className="flex flex-col gap-4"
+    >
       <RequiredFieldsNote />
-      <FormField htmlFor="documentLabel" label="Name" isRequired error={labelError}>
-        <Input
-          id="documentLabel"
-          value={label}
-          maxLength={MAXIMUM_LINE_LENGTH}
-          aria-required
-          placeholder="e.g. Pre-purchase inspection"
-          onChange={(event) => setLabel(event.target.value)}
-          onBlur={() => setIsLabelChecked(true)}
-        />
+      <FormField
+        htmlFor={form.idFor("documentLabel")}
+        label="Name"
+        isRequired
+        error={form.errorFor("documentLabel")}
+      >
+        <Input {...form.textBoxProps("documentLabel")} placeholder="e.g. Pre-purchase inspection" />
       </FormField>
       <FormSection title="File" isRequired>
         <FilePicker
