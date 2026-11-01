@@ -30,6 +30,8 @@ const envSchema = z
      * caps set there.
      */
     GOOGLE_PLACES_API_KEY: z.string().min(1),
+    /** Google Places (New): https://places.googleapis.com. A stand-in in browser tests. */
+    GOOGLE_PLACES_API_URL: z.url(),
 
     /** The bucket for logos, car photos and every other general file. Private. */
     STORAGE_BUCKET: z.string().min(1),
@@ -62,6 +64,7 @@ export const env = envSchema.parse({
   EMAIL_FROM: process.env.EMAIL_FROM,
   APP_STAGE: process.env.APP_STAGE,
   GOOGLE_PLACES_API_KEY: process.env.GOOGLE_PLACES_API_KEY,
+  GOOGLE_PLACES_API_URL: process.env.GOOGLE_PLACES_API_URL,
   STORAGE_BUCKET: process.env.STORAGE_BUCKET,
   IDENTITY_STORAGE_BUCKET: process.env.IDENTITY_STORAGE_BUCKET,
   FILE_STORAGE_REGION: process.env.FILE_STORAGE_REGION,

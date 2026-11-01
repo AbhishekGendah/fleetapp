@@ -24,6 +24,8 @@ const UNIT_ADDRESS = [
   component(["postal_code"], "6000"),
 ];
 
+const TEST_PLACES_URL = "https://places.example.test";
+
 describe("turning Google's address parts into an Australian address", () => {
   it("writes a unit before the street number with a slash", () => {
     expect(addressFromComponents(UNIT_ADDRESS)).toEqual({
@@ -121,7 +123,7 @@ describe("what the browser may ask for", () => {
 describe("the Google Places client", () => {
   it("asks for Australian suggestions with the key in a header, never the address", async () => {
     const requests: { url: string; init: RequestInit | undefined }[] = [];
-    const client = createGooglePlacesClient("test-key", async (url, init) => {
+    const client = createGooglePlacesClient("test-key", TEST_PLACES_URL, async (url, init) => {
       requests.push({ url: String(url), init });
       return Response.json({
         suggestions: [
@@ -158,7 +160,7 @@ describe("the Google Places client", () => {
 
   it("asks without a preferred area when no state is known", async () => {
     let body: Record<string, unknown> = {};
-    const client = createGooglePlacesClient("test-key", async (_url, init) => {
+    const client = createGooglePlacesClient("test-key", TEST_PLACES_URL, async (_url, init) => {
       body = JSON.parse(String(init?.body));
       return Response.json({});
     });
@@ -169,7 +171,7 @@ describe("the Google Places client", () => {
 
   it("asks only for the address parts of a chosen place", async () => {
     let fieldMask: string | null = null;
-    const client = createGooglePlacesClient("test-key", async (_url, init) => {
+    const client = createGooglePlacesClient("test-key", TEST_PLACES_URL, async (_url, init) => {
       fieldMask = new Headers(init?.headers).get("X-Goog-FieldMask");
       return Response.json({ addressComponents: UNIT_ADDRESS });
     });
@@ -181,7 +183,7 @@ describe("the Google Places client", () => {
   });
 
   it("fails with only the status when Google refuses", async () => {
-    const client = createGooglePlacesClient("test-key", async () =>
+    const client = createGooglePlacesClient("test-key", TEST_PLACES_URL, async () =>
       Response.json({ error: { message: "quota for 12 Hay Street" } }, { status: 429 }),
     );
 

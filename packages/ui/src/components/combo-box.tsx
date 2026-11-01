@@ -47,6 +47,7 @@ export function ComboBox({ options, value, onValueChange, onFocus, ...boxProps }
         onValueChange(option);
       }}
       onDismiss={() => setIsOpen(false)}
+      shouldOpenOnTap
     />
   );
 }

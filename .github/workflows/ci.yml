@@ -51,6 +51,7 @@ jobs:
           EMAIL_TRANSPORT: dev_outbox
           EMAIL_FROM: ci@example.test
           GOOGLE_PLACES_API_KEY: placeholder
+          GOOGLE_PLACES_API_URL: http://localhost:3999
           STORAGE_BUCKET: placeholder-files
           IDENTITY_STORAGE_BUCKET: placeholder-identity
           FILE_STORAGE_REGION: ap-southeast-2

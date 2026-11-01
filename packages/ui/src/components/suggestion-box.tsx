@@ -21,6 +21,8 @@ export type SuggestionBoxProps<Suggestion> = Omit<
   onDismiss: () => void;
   /** Shown under the suggestions, e.g. a credit to whoever supplied them. */
   footer?: React.ReactNode;
+  /** Opens the list when the box is tapped, before anything is typed (a list to choose from). */
+  shouldOpenOnTap?: boolean;
 };
 
 /** Base UI's reason when a suggestion is picked rather than typed. */
@@ -41,6 +43,7 @@ export function SuggestionBox<Suggestion>({
   onSuggestionChosen,
   onDismiss,
   footer,
+  shouldOpenOnTap = false,
   className,
   ...inputProps
 }: SuggestionBoxProps<Suggestion>) {
@@ -52,6 +55,7 @@ export function SuggestionBox<Suggestion>({
       // Whoever uses the box has already chosen what to suggest.
       filter={null}
       itemToStringValue={suggestionKey}
+      openOnInputClick={shouldOpenOnTap}
       value={value}
       onValueChange={(next, details) => {
         if (details.reason !== ITEM_PRESS) {

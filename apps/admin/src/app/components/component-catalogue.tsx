@@ -22,6 +22,7 @@ import { FilePicker } from "@fleetapp/ui/file-picker";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { FormattedInput } from "@fleetapp/ui/formatted-input";
 import { MoneyInput } from "@fleetapp/ui/money-input";
+import { SuggestionBox } from "@fleetapp/ui/suggestion-box";
 import { DataList, type DataListDefinition } from "@fleetapp/ui/data-list";
 import { ImageUpload } from "@fleetapp/ui/image-upload";
 import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
@@ -152,6 +153,54 @@ const EXAMPLE_MAKES = [
   { name: "Toyota", aliases: [] },
   { name: "Volkswagen", aliases: ["VW"] },
 ];
+
+/** Made-up addresses, as a lookup would return them, to try the suggestion box on. */
+const EXAMPLE_ADDRESSES = [
+  { id: "1", street: "1 Example Street", area: "Perth WA" },
+  { id: "2", street: "1 Example Road", area: "Fremantle WA" },
+  { id: "3", street: "10 Sample Avenue", area: "Subiaco WA" },
+] as const;
+
+/** The box an address lookup uses: free text, with suggestions from a lookup under it. */
+function SuggestionBoxExample() {
+  const [address, setAddress] = useState("");
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const typed = address.trim().toLowerCase();
+  const suggestions =
+    isSuggesting && typed.length > 0
+      ? EXAMPLE_ADDRESSES.filter((example) => example.street.toLowerCase().startsWith(typed))
+      : [];
+  return (
+    <FormField
+      htmlFor="example-address"
+      label="Street address"
+      hint="Try “1 ex”. Picking one fills it in; anything else can be typed."
+    >
+      <SuggestionBox
+        id="example-address"
+        value={address}
+        onValueChange={(value) => {
+          setIsSuggesting(true);
+          setAddress(value);
+        }}
+        suggestions={suggestions}
+        suggestionKey={(example) => example.id}
+        renderSuggestion={(example) => (
+          <>
+            <span className="font-medium">{example.street}</span>
+            <span className="text-muted-foreground text-xs">{example.area}</span>
+          </>
+        )}
+        onSuggestionChosen={(example) => {
+          setIsSuggesting(false);
+          setAddress(example.street);
+        }}
+        onDismiss={() => setIsSuggesting(false)}
+        footer={<p className="text-muted-foreground border-t px-3 py-2 text-xs">Example lookup</p>}
+      />
+    </FormField>
+  );
+}
 
 /** Suggests from a list as you type, ignoring spaces and capitals; anything else can still be typed. */
 function ComboBoxExample() {
@@ -442,6 +491,13 @@ export function ComponentCatalogue() {
         note="Suggests from a list as you type, and still takes anything typed. Used for car makes and models."
       >
         <ComboBoxExample />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Suggestion box"
+        note="For a lookup such as an address: free text, suggestions from the lookup under it, a credit line at the foot."
+      >
+        <SuggestionBoxExample />
       </CatalogueSection>
 
       <CatalogueSection

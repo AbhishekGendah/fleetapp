@@ -1,11 +1,12 @@
-import { STATE_AREAS, type AustralianStateCode } from "@fleetapp/core";
+import { joinUrl, STATE_AREAS, type AustralianStateCode } from "@fleetapp/core";
 import { z } from "zod";
 
 import { addressFromComponents, type AddressParts } from "./address-from-components";
 import { suggestionsInStateFirst } from "./order-suggestions";
 
-const AUTOCOMPLETE_URL = "https://places.googleapis.com/v1/places:autocomplete";
-const PLACE_URL = "https://places.googleapis.com/v1/places/";
+/** Paths under the Places (New) service address (GOOGLE_PLACES_API_URL). */
+const AUTOCOMPLETE_PATH = "/v1/places:autocomplete";
+const PLACE_PATH = "/v1/places/";
 /** A lookup that takes longer than this is given up on: the box still works without it. */
 const REQUEST_TIMEOUT_MS = 3000;
 const AUSTRALIA_REGION_CODE = "au";
@@ -81,6 +82,8 @@ async function readJson(response: Response): Promise<unknown> {
  */
 export function createGooglePlacesClient(
   apiKey: string,
+  /** The service's address, e.g. https://places.googleapis.com (a stand-in in browser tests). */
+  baseUrl: string,
   fetchImplementation: typeof fetch = fetch,
 ): GooglePlacesClient {
   return {
@@ -94,7 +97,7 @@ export function createGooglePlacesClient(
             },
           }
         : undefined;
-      const response = await fetchImplementation(AUTOCOMPLETE_URL, {
+      const response = await fetchImplementation(joinUrl(baseUrl, AUTOCOMPLETE_PATH), {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Goog-Api-Key": apiKey },
         body: JSON.stringify({
@@ -123,7 +126,7 @@ export function createGooglePlacesClient(
     },
 
     async getAddress(placeId, sessionToken) {
-      const url = `${PLACE_URL}${encodeURIComponent(placeId)}?sessionToken=${encodeURIComponent(sessionToken)}`;
+      const url = `${joinUrl(baseUrl, PLACE_PATH)}${encodeURIComponent(placeId)}?sessionToken=${encodeURIComponent(sessionToken)}`;
       const response = await fetchImplementation(url, {
         headers: { "X-Goog-Api-Key": apiKey, "X-Goog-FieldMask": PLACE_FIELD_MASK },
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),

@@ -268,3 +268,26 @@ test.describe("formatted boxes", () => {
     await expect(box).toHaveValue("$12,345,678.99");
   });
 });
+
+test.describe("suggestion box (as for an address)", () => {
+  test("a picked suggestion fills the box; anything else stays as typed", async ({ page }) => {
+    await openCatalogue(page);
+    const box = page.getByRole("combobox", { name: "Street address" });
+    await box.fill("1 ex");
+    const options = page.getByRole("listbox").getByRole("option");
+    await expect(options).toHaveCount(2);
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Enter");
+    await expect(box).toHaveValue("1 Example Street");
+
+    await box.fill("Unit 4, 1 Example Street");
+    await page.keyboard.press("Tab");
+    await expect(box).toHaveValue("Unit 4, 1 Example Street");
+  });
+});
+
+test("the make box shows its list when tapped, before typing", async ({ page }) => {
+  await openCatalogue(page);
+  await page.getByRole("combobox", { name: "Make" }).click();
+  await expect(page.getByRole("listbox").getByRole("option").first()).toBeVisible();
+});
