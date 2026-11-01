@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./server": "./src/server.ts",
-    "./spreadsheet": "./src/spreadsheet.ts"
+    "./spreadsheet": "./src/spreadsheet.ts",
+    "./testing": "./src/testing/index.ts"
   },
   "scripts": {
     "lint": "eslint .",
@@ -23,7 +24,10 @@
   },
   "dependencies": {
     "@date-fns/tz": "1.5.0",
+    "bowser": "2.15.0",
     "date-fns": "4.4.0",
+    "file-type": "22.3.0",
+    "i18n-iso-countries": "7.14.0",
     "libphonenumber-js": "1.13.15",
     "write-excel-file": "4.1.1",
     "zod": "4.6.5"
