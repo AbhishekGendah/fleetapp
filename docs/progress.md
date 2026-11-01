@@ -651,11 +651,33 @@
     that is Abhi's decision when it matters.
   - Fine admin fee merge field comes with fines (Phase 6).
 
+- Phase 3 slice 3 — signing the contract on the Renter's phone:
+  - Migration 0031: a "sign contract" link purpose; a signing link names
+    its rental, the template version and the fingerprint of the filled-in
+    text it was sent for; one live signing link per rental; signing
+    evidence (append-only, web only, never in the log).
+  - Operator: the rental's Contract card sends the contract for signing
+    once nothing is missing, shows the link waiting (Send again, Cancel
+    link) and, once signed, "Contract signed" with the signed PDF.
+    Cancelling a rental cancels its signing link.
+  - Renter: code → their details → the whole contract → two ticks → draw
+    (signature_pad) or type their name → signed. The code, opening the
+    contract and signing are recorded with time, internet address and
+    browser. If the rental or template changed since sending, signing is
+    refused. The signed PDF has the signature and a signing record page,
+    is issued for good (SHA-256) and emailed to the Renter and the
+    business. The link is then used up.
+  - New shared pieces: signature pad, contract reader (rendered on the
+    server, nothing extra downloaded). Libraries pinned: signature_pad
+    5.1.4, @tiptap/static-renderer 3.32.0.
+  - LocalStack honours the "never overwrite" save: the full browser test
+    issues a real PDF through it.
+  - Browser tests for the whole flow at phone width with axe; the signing
+    page budget is 445 KB. Checklist rows O-247 (updated), O-248 to O-259,
+    A-62 and A-63.
+
 ## Next
-Phase 3 slice 3: signing the contract on the Renter's phone (new link
-purpose, code, read, consent, draw or type a signature, certificate page,
-issued PDF emailed). Check LocalStack honours S3's "no overwrite" save in
-the browser tests when issuing first runs there.
+Phase 3 slice 4: bonds (recorded, not yet collected through Stripe).
 Open idea: trim the phone rules to Australia only with libphonenumber's
 metadata generator (about 40 KB off each form page); running the
 generator needs Abhi's say-so.

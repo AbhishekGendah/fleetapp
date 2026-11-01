@@ -348,7 +348,42 @@ of service) and the countries.
 - **Overseas:** PDFs are made on our own servers (Vercel, Sydney) with an
   open-source library; nothing is sent to another service.
 
-## Admin access to Operators' history (code review, 1 Nov 2026)
+## Signing contracts on the Renter's phone (Phase 3 slice 3, built)
+
+- **Electronic Transactions Act 1999 (Cth) s 10, and each state's own Act (e.g. WA 2011):** the
+  signer is identified (a code emailed to them, typed on their phone), the
+  method shows their intention (they sign the exact text they read; its
+  fingerprint is checked and recorded), it is reliable (each step is
+  recorded with time, internet address and browser) and they consent to
+  signing electronically (a separate tick, with the exact words kept).
+  Some documents can't be signed electronically in some states (e.g.
+  deeds, statutory declarations): a rental contract is fine, but fines
+  nominations (Phase 6) must be checked. Add to the lawyer list: confirm
+  the signing record page is enough for each state.
+- **What is stored (APP 3, 11):** for each signing step, the time, the
+  internet address and the browser description; for the signature, the
+  method, the typed name or the drawn image (inside the PDF), and the
+  consent words. Kept as signing evidence, never in the activity log or
+  error logs (rule 7). Append-only: no one can change or delete it,
+  including AGS. The admin app cannot read it.
+- **Privacy notice:** the Operator's privacy policy should say that
+  signing records the internet address and device used, and why (proof
+  of who signed). Add to the Operator terms / privacy template list.
+- **Emailed copies:** the signed PDF (with the Renter's details) is
+  emailed to the Renter and to the business email in Settings. Emails
+  pass through Postmark (US) once it is set up: already disclosed as
+  overseas sending for codes and links; the attachment adds the contract
+  itself, so the disclosure should name "documents you sign" too.
+- **Record keeping:** the signed PDF and its fingerprint are kept for good
+  like every issued document (retention period still to be set with the
+  lawyer, see Contract templates above). Spam Act: these are transactional
+  emails (no marketing, no unsubscribe needed).
+- **Changes after sending (rule 14):** if the rental's details or the
+  template change after the link was sent, signing is refused and a new
+  link must be sent, so a Renter never signs text other than what they
+  were sent.
+
+
 
 - The admin login reads only who did what and when in Operators' history,
   never the values (database column grants, migration 0025), so Renter or
