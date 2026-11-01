@@ -44,6 +44,15 @@ describe("local clock time to UTC", () => {
     );
   });
 
+  it("handles Lord Howe Island's half-hour daylight saving", () => {
+    // 4 Oct 2026: 2:00 am jumps to 2:30 am, so 2:15 am never happens.
+    expect(localDateTimeToUtc("2026-10-04T02:15", "Australia/Lord_Howe")).toBeNull();
+    // 4 Apr 2027: 2:00 am goes back to 1:30 am, so 1:45 am happens twice; the first is taken.
+    expect(localDateTimeToUtc("2027-04-04T01:45", "Australia/Lord_Howe")?.toISOString()).toBe(
+      "2027-04-03T14:45:00.000Z",
+    );
+  });
+
   it("refuses what is not a date and time", () => {
     expect(localDateTimeToUtc("2026-02-30T10:00", "Australia/Perth")).toBeNull();
     expect(localDateTimeToUtc("2026-10-30 10:00", "Australia/Perth")).toBeNull();

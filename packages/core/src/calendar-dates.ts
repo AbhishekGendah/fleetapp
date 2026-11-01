@@ -1,26 +1,31 @@
+import { TZDate } from "@date-fns/tz";
+import { addDays as addDaysTo, addMonths as addMonthsTo, format, isValid, parse } from "date-fns";
+
 /**
  * Dates with no time of day (an expiry, a paid date) are kept as
  * "YYYY-MM-DD" text, so they never shift a day with timezones. "Today" is
  * the Operator's today, in their timezone (rule 10).
  */
 
-const MILLISECONDS_PER_DAY = 86_400_000;
+const ISO_DATE_FORMAT = "yyyy-MM-dd";
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+/** Plain dates are worked on in UTC, so the server's own timezone never moves them. */
+const PLAIN_DATE_ZONE = "UTC";
+
+/** A "YYYY-MM-DD" date as midnight in UTC, for date maths. */
+function plainDate(isoDate: string): TZDate {
+  const [year = 0, month = 1, day = 1] = isoDate.split("-").map(Number);
+  return TZDate.tz(PLAIN_DATE_ZONE, year, month - 1, day);
+}
 
 /** Today's date where the Operator is, e.g. "2026-10-29". */
 export function todayInTimeZone(moment: Date, timeZone: string): string {
-  // en-CA writes dates as YYYY-MM-DD.
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(moment);
+  return format(new TZDate(moment, timeZone), ISO_DATE_FORMAT);
 }
 
 /** The date so many days after another. */
 export function addDays(isoDate: string, days: number): string {
-  const moment = new Date(`${isoDate}T00:00:00Z`);
-  return new Date(moment.getTime() + days * MILLISECONDS_PER_DAY).toISOString().slice(0, 10);
+  return format(addDaysTo(plainDate(isoDate), days), ISO_DATE_FORMAT);
 }
 
 /**
@@ -28,22 +33,12 @@ export function addDays(isoDate: string, days: number): string {
  * is shorter: 31 Jan + 1 month is 28 Feb (29 in a leap year).
  */
 export function addMonths(isoDate: string, months: number): string {
-  const [year = 0, month = 1, day = 1] = isoDate.split("-").map(Number);
-  const firstOfTarget = new Date(Date.UTC(year, month - 1 + months, 1));
-  const daysInTarget = new Date(
-    Date.UTC(firstOfTarget.getUTCFullYear(), firstOfTarget.getUTCMonth() + 1, 0),
-  ).getUTCDate();
-  firstOfTarget.setUTCDate(Math.min(day, daysInTarget));
-  return firstOfTarget.toISOString().slice(0, 10);
+  return format(addMonthsTo(plainDate(isoDate), months), ISO_DATE_FORMAT);
 }
-
-const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 /** A real calendar date in "YYYY-MM-DD" form, so "2026-02-30" is refused. */
 export function isCalendarDate(value: string): boolean {
-  if (!ISO_DATE_PATTERN.test(value)) {
-    return false;
-  }
-  const moment = new Date(`${value}T00:00:00Z`);
-  return !Number.isNaN(moment.getTime()) && moment.toISOString().slice(0, 10) === value;
+  return (
+    ISO_DATE_PATTERN.test(value) && isValid(parse(value, ISO_DATE_FORMAT, plainDate("2000-01-01")))
+  );
 }
