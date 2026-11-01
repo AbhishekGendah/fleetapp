@@ -84,3 +84,7 @@ Add to this list whenever something is relaxed or put off "until launch".
   (docs/legal/renter-privacy-policy-template.md) reviewed once by the lawyer,
   and the Operator terms saying it is a
   starting point the Operator is responsible for.
+- [ ] Operator terms say the Operator sets, and is responsible for, the
+  minimum Renter age and whether provisional licences may rent, and the
+  lawyer confirms the age discrimination exemption covers it. See
+  docs/legal-notes.md, Bookings.

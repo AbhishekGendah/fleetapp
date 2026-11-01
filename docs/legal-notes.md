@@ -302,6 +302,29 @@ of service) and the countries.
   run up the Google bill; Google sees the address text typed (already in the
   overseas table).
 
+## Bookings (Phase 3 slice 1, built)
+
+- **Personal information:** a rental links a Renter to a car and dates
+  (where and when someone has a car). It stays inside the Operator's own
+  records: row-level security keeps it to that Operator, and the admin app
+  has no access to rentals, rates or car holds (tested). Nothing new is
+  sent overseas: calendar and date pickers run in the browser.
+- **Log:** the rental's notes and a cancellation reason may hold personal
+  details, so the Log records only that they were set, never what they say
+  (the same rule as Renter notes). The warnings a booking went ahead with
+  (e.g. "licence expires during the rental") are logged as codes.
+- **Settings copied onto each rental (rule 14):** the terms a rental was
+  made under can be shown later, which helps if a Renter disputes them
+  (consumer law: the Operator must apply the terms agreed at the time).
+- **Minimum age and provisional licences:** set by each Operator, to match
+  their insurance. The Age Discrimination Act 2004 has an exemption for
+  terms based on insurance or actuarial data, which is how car hire age
+  limits are usually justified; the lawyer should confirm it covers an
+  Operator's own limit. The Operator terms should say the Operator sets and
+  is responsible for these rules. Added to the launch checklist.
+- **Do not rent:** a Renter marked Do not rent cannot be booked. The reason
+  stays the Operator's private note (already covered under Renters).
+
 ## Admin access to Operators' history (code review, 1 Nov 2026)
 
 - The admin login reads only who did what and when in Operators' history,

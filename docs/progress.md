@@ -601,11 +601,36 @@
   download store). It lists only what ships: 199 libraries for the Operator
   app, 173 for admin.
 
+- Phase 3 slice 1 — bookings (plan: docs/plans/phase-3.md):
+  - Migration 0028: `rentals`, `rental_rates` (append-only) and `car_holds`.
+    The database refuses two holds on one car that overlap (exclusion rule;
+    back-to-back allowed; ongoing = no end), refuses a status move that
+    skips a step, and refuses any change to a rental's copied settings.
+    Row-level security on all three; the admin app gets nothing (tested,
+    and the "no Renter data" guard now covers rental tables).
+  - Booking code: create as a draft or a booking, book a draft later
+    (checked again under its own settings), cancel with a reason (car
+    freed). Booking problems refuse (Do not rent, car sold or written off);
+    handover problems are allowed, logged, and listed on the rental page.
+  - Screens: Rentals in the menu, Rentals list, New rental form, rental
+    page, Rentals tab on cars and Renters, calendar (month grid on a
+    computer, list on a phone), Settings → Rentals.
+  - New shared pieces: date-time picker (React Aria), record picker (Base
+    UI), bookings calendar (FullCalendar, free views). New libraries
+    pinned: react-aria-components 1.22.1, @internationalized/date 3.12.4,
+    @fullcalendar/react 7.1.3, temporal-polyfill 1.0.6.
+  - Browser tests for the whole booking flow, phone width, keyboard, and
+    axe on every new page. Checklist rows O-225 to O-237 and A-60.
+
 ## Next
-Phase 3 (rentals): plan written (docs/plans/phase-3.md), waiting for
-Abhi's approval. Open idea: trim the phone rules to
-Australia only with libphonenumber's metadata generator (about 40 KB off
-each form page); running the generator needs Abhi's say-so.
+1. Licence scan clean-up: plug in rentals now that they exist, so a Renter
+   with a booking or an open rental never has their scans deleted (the
+   "TODO(Phase 3)" in scan-retention.ts, the nightly job and the Settings
+   warning). Small, but first.
+2. Phase 3 slice 2: contract templates and issued documents.
+Open idea: trim the phone rules to Australia only with libphonenumber's
+metadata generator (about 40 KB off each form page); running the
+generator needs Abhi's say-so.
 
 ## Open items
 - **Before launch: docs/launch-checklist.md** (relaxed admin sign-in, full
