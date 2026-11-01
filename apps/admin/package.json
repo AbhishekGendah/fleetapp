@@ -5,13 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "next dev -p 3001",
-    "build": "next build",
+    "build": "node ../../scripts/third-party-licences.mjs && next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "create-first-admin": "tsx scripts/create-first-admin.ts",
     "test": "vitest run",
-    "e2e": "tsx e2e/run.ts"
+    "e2e": "tsx e2e/run.ts",
+    "licences": "node ../../scripts/third-party-licences.mjs"
   },
   "dependencies": {
     "@fleetapp/auth": "workspace:*",

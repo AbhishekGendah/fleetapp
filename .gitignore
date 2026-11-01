@@ -38,3 +38,6 @@ pnpm-debug.log*
 **/e2e/.state/
 **/test-results/
 **/playwright-report/
+
+# Generated at build from the dependencies (scripts/third-party-licences.mjs).
+apps/*/public/third-party-licences.txt
