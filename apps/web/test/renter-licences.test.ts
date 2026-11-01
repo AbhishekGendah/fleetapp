@@ -1,3 +1,4 @@
+import { SAMPLE_JPEG } from "@fleetapp/core/testing";
 import { WITHHELD_VALUE } from "@fleetapp/core";
 import { activityLog, files } from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
@@ -30,7 +31,7 @@ import {
 } from "../src/lib/storage/memory-file-storage";
 import { seedOperatorWithUser } from "./car-fixtures";
 
-const JPEG_START = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0]);
+const JPEG_START = SAMPLE_JPEG;
 const SCAN = { contentType: "image/jpeg", sizeBytes: 300_000 };
 const LICENCE_FORM: LicenceFormValues = {
   licenceIssuedIn: "WA",

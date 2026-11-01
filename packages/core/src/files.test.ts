@@ -1,13 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  buildFileKey,
-  checkUpload,
-  detectFileType,
-  downloadName,
-  FILE_CONTENT_TYPES,
-  photoName,
-} from "./files";
+import { detectFileType } from "./file-content";
+import { buildFileKey, checkUpload, downloadName, FILE_CONTENT_TYPES, photoName } from "./files";
+import { SAMPLE_JPEG, SAMPLE_PDF, SAMPLE_PNG, SAMPLE_WEBP } from "./testing";
 
 const MEGABYTE = 1024 * 1024;
 
@@ -33,20 +28,22 @@ describe("checking an upload before it is allowed", () => {
 });
 
 describe("recognising a file from its first bytes", () => {
-  it("knows PNG, JPEG, WebP and PDF", () => {
-    expect(detectFileType(bytes(0x89, "PNG", 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0))).toBe(
-      FILE_CONTENT_TYPES.png,
-    );
-    expect(detectFileType(bytes(0xff, 0xd8, 0xff, 0xe0))).toBe(FILE_CONTENT_TYPES.jpeg);
-    expect(detectFileType(bytes("RIFF", 0, 0, 0, 0, "WEBP"))).toBe(FILE_CONTENT_TYPES.webp);
-    expect(detectFileType(bytes("%PDF-1.7"))).toBe(FILE_CONTENT_TYPES.pdf);
+  it("knows PNG, JPEG, WebP and PDF", async () => {
+    expect(await detectFileType(SAMPLE_PNG)).toBe(FILE_CONTENT_TYPES.png);
+    expect(await detectFileType(SAMPLE_JPEG)).toBe(FILE_CONTENT_TYPES.jpeg);
+    expect(await detectFileType(SAMPLE_WEBP)).toBe(FILE_CONTENT_TYPES.webp);
+    expect(await detectFileType(SAMPLE_PDF)).toBe(FILE_CONTENT_TYPES.pdf);
   });
 
-  it("refuses anything else, whatever it was called", () => {
-    expect(detectFileType(bytes("<svg xmlns"))).toBeNull();
-    expect(detectFileType(bytes("MZ", 0x90, 0))).toBeNull();
-    expect(detectFileType(bytes("RIFF", 0, 0, 0, 0, "WAVE"))).toBeNull();
-    expect(detectFileType(new Uint8Array())).toBeNull();
+  it("refuses anything else, whatever it was called", async () => {
+    expect(await detectFileType(bytes("<svg xmlns"))).toBeNull();
+    expect(await detectFileType(bytes("MZ", 0x90, 0))).toBeNull();
+    expect(await detectFileType(bytes("RIFF", 0, 0, 0, 0, "WAVE"))).toBeNull();
+    expect(await detectFileType(new Uint8Array())).toBeNull();
+  });
+
+  it("refuses a known type we do not accept", async () => {
+    expect(await detectFileType(bytes("GIF89a", 1, 0, 1, 0, 0, 0, 0))).toBeNull();
   });
 });
 

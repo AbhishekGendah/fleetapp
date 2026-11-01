@@ -1,3 +1,4 @@
+import { SAMPLE_PNG } from "@fleetapp/core/testing";
 import { randomUUID } from "node:crypto";
 
 import { activityLog, files, operators, users } from "@fleetapp/db/schema";
@@ -18,7 +19,7 @@ import {
   type MemoryFileStorage,
 } from "../src/lib/storage/memory-file-storage";
 
-const PNG_START = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
+const PNG_START = SAMPLE_PNG;
 const NOT_AN_IMAGE = new TextEncoder().encode("<svg onload=alert(1)>");
 const LOGO = { purpose: "operator_logo", contentType: "image/png", sizeBytes: 2048 } as const;
 

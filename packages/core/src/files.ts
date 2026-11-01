@@ -144,35 +144,6 @@ export function checkUpload(
   return sizeBytes > rule.maxBytes ? "too_large" : null;
 }
 
-/** Enough of a file's start to recognise every type we accept. */
-export const FILE_SIGNATURE_LENGTH = 12;
-
-const ASCII = (text: string): number[] => [...text].map((character) => character.charCodeAt(0));
-
-function startsWith(bytes: Uint8Array, expected: readonly number[], offset = 0): boolean {
-  return expected.every((value, index) => bytes[offset + index] === value);
-}
-
-/**
- * What a file really is, from its first bytes rather than its name or what
- * the browser claimed (rule 22). Null for anything we do not accept.
- */
-export function detectFileType(firstBytes: Uint8Array): FileContentType | null {
-  if (startsWith(firstBytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) {
-    return FILE_CONTENT_TYPES.png;
-  }
-  if (startsWith(firstBytes, [0xff, 0xd8, 0xff])) {
-    return FILE_CONTENT_TYPES.jpeg;
-  }
-  if (startsWith(firstBytes, ASCII("RIFF")) && startsWith(firstBytes, ASCII("WEBP"), 8)) {
-    return FILE_CONTENT_TYPES.webp;
-  }
-  if (startsWith(firstBytes, ASCII("%PDF-"))) {
-    return FILE_CONTENT_TYPES.pdf;
-  }
-  return null;
-}
-
 /**
  * Where a file lives in its bucket. Always built by the server, never taken
  * from the browser, and always under its Operator, so one Operator's files

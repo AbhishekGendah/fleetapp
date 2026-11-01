@@ -1,3 +1,4 @@
+import { SAMPLE_JPEG } from "@fleetapp/core/testing";
 import type { LicenceSide } from "@fleetapp/core";
 import type { TestConnection } from "@fleetapp/db/testing";
 import type { EmailMessage, EmailSender } from "@fleetapp/email";
@@ -22,7 +23,7 @@ import {
 } from "../src/lib/storage/memory-file-storage";
 
 export const LINK_TEST_TODAY = "2026-10-31";
-export const JPEG_START = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0]);
+export const JPEG_START = SAMPLE_JPEG;
 export const LINK_PHOTO = { contentType: "image/jpeg", sizeBytes: 300_000 };
 
 /** What the tests need to send a link and act through it. */

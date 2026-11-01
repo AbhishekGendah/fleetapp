@@ -1,15 +1,14 @@
 import {
   buildFileKey,
   checkUpload,
-  detectFileType,
   downloadName,
   FILE_PURPOSE_RULES,
-  FILE_SIGNATURE_LENGTH,
   LICENCE_SIDE_LABELS,
   type FilePurpose,
   type LicenceSide,
   type UploadProblem,
 } from "@fleetapp/core";
+import { detectFileType, FILE_SIGNATURE_LENGTH } from "@fleetapp/core/server";
 import { recordActivity } from "@fleetapp/db/activity";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import {
@@ -306,7 +305,7 @@ export async function confirmUpload(
     stored.version,
   );
   const isWhatItClaimed =
-    detectFileType(firstBytes) === file.contentType &&
+    (await detectFileType(firstBytes)) === file.contentType &&
     stored.sizeBytes <= FILE_PURPOSE_RULES[file.purpose].maxBytes;
   if (!isWhatItClaimed) {
     await refuseUpload(deps, actor, file);

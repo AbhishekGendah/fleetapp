@@ -1,3 +1,4 @@
+import { SAMPLE_JPEG } from "@fleetapp/core/testing";
 import { activityLog, files } from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { withTenant } from "@fleetapp/db/tenant-context";
@@ -28,7 +29,7 @@ import { seedOperatorWithUser } from "./car-fixtures";
 import { LINK_PHOTO } from "./renter-link-fixtures";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const JPEG_START = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0]);
+const JPEG_START = SAMPLE_JPEG;
 
 describe("licence scans deleted on a timer", () => {
   let admin: TestConnection;

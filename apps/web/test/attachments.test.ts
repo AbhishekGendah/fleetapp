@@ -1,3 +1,4 @@
+import { SAMPLE_PDF } from "@fleetapp/core/testing";
 import { activityLog, files } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
@@ -22,7 +23,7 @@ import { loadCarCosts } from "../src/lib/vehicles/cost-queries";
 import { addCost, saveSale } from "../src/lib/vehicles/cost-records";
 import { addTestCar, seedOperatorWithUser } from "./car-fixtures";
 
-const PDF_START = new TextEncoder().encode("%PDF-1.7\n%âãÏÓ");
+const PDF_START = SAMPLE_PDF;
 const PDF = { contentType: "application/pdf", sizeBytes: 40_000 };
 
 function parsedOrThrow<Output>(

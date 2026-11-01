@@ -1,3 +1,4 @@
+import { SAMPLE_JPEG, SAMPLE_PDF } from "@fleetapp/core/testing";
 import { files } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
@@ -21,8 +22,8 @@ import {
 import { archiveVehicle } from "../src/lib/vehicles/vehicle-records";
 import { addTestCar, seedOperatorWithUser } from "./car-fixtures";
 
-const JPEG_START = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0]);
-const PDF_START = new TextEncoder().encode("%PDF-1.7\n%âãÏÓ");
+const JPEG_START = SAMPLE_JPEG;
+const PDF_START = SAMPLE_PDF;
 const PERTH = "Australia/Perth";
 const PHOTO = { contentType: "image/jpeg", sizeBytes: 400_000 };
 const THUMBNAIL = { contentType: "image/jpeg", sizeBytes: 30_000 };
