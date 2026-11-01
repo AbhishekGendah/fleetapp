@@ -32,7 +32,7 @@
   --color-secondary-foreground: #0f172a;
 
   --color-muted: #f1f5f9;
-  --color-muted-foreground: #64748b;
+  --color-muted-foreground: #475569;
 
   --color-accent: #e5f4f5;
   --color-accent-foreground: #167884;
@@ -42,7 +42,7 @@
   --color-attention-soft: #fef3c7;
   --color-attention-border: #fde68a;
 
-  --color-destructive: #dc2626;
+  --color-destructive: #b91c1c;
   --color-destructive-foreground: #ffffff;
 
   --color-card: #ffffff;

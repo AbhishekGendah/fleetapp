@@ -1,4 +1,5 @@
 import { FAKE_ADDRESS } from "@fleetapp/e2e/fake-places";
+import { expectAccessible } from "@fleetapp/e2e/accessibility";
 import { expect, test } from "@playwright/test";
 
 import { latestEmailTo } from "./test-inbox";
@@ -24,6 +25,7 @@ test("adds a Renter, sends the details form, and the Renter opens it", async ({
   await page.getByRole("textbox", { name: /^Email/ }).fill(RENTER.email);
   await page.getByRole("button", { name: "Add Renter" }).click();
   await expect(page.getByRole("heading", { name: RENTER.name })).toBeVisible();
+  await expectAccessible(page);
 
   await page.getByRole("button", { name: "Send details form" }).click();
   await expect(page.getByRole("button", { name: "Send again" })).toBeVisible();
@@ -35,6 +37,7 @@ test("adds a Renter, sends the details form, and the Renter opens it", async ({
   const renterContext = await browser.newContext({ storageState: undefined });
   const renterPage = await renterContext.newPage();
   await renterPage.goto(link ?? "", { waitUntil: "networkidle" });
+  await expectAccessible(renterPage);
   await renterPage.getByRole("button", { name: "Email me a code" }).click();
   await expect(renterPage.getByLabel(/Type the code/)).toBeVisible();
   const codeEmail = await latestEmailTo(RENTER.email);
@@ -43,6 +46,7 @@ test("adds a Renter, sends the details form, and the Renter opens it", async ({
 
   const home = renterPage.getByRole("combobox", { name: /^Home address/ });
   await expect(home).toBeVisible();
+  await expectAccessible(renterPage);
   await home.fill("1 Exa");
   await renterPage
     .getByRole("listbox")

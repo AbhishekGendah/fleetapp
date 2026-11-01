@@ -1,3 +1,4 @@
+import { expectAccessible } from "@fleetapp/e2e/accessibility";
 import { expect, test } from "@playwright/test";
 
 import { samplePhoto } from "./sample-photo";
@@ -31,6 +32,7 @@ test("adds a car, then a photo, and opens it full screen", async ({ page }) => {
 
   await page.getByRole("button", { name: "Add car" }).click();
   await expect(page.getByRole("heading", { name: CAR.rego })).toBeVisible();
+  await expectAccessible(page);
 
   await page.getByRole("link", { name: "Photos" }).click();
   await page
@@ -39,11 +41,13 @@ test("adds a car, then a photo, and opens it full screen", async ({ page }) => {
     .setInputFiles(await samplePhoto(page, "car.jpg"));
   const opener = page.getByRole("button", { name: /^Open photo/ }).first();
   await expect(opener).toBeVisible();
+  await expectAccessible(page);
 
   await opener.click();
   const viewer = page.getByRole("dialog");
   await expect(viewer).toBeVisible();
   await expect(viewer.locator("img")).toHaveCount(1);
+  await expectAccessible(page);
   await page.keyboard.press("Escape");
   await expect(viewer).toBeHidden();
 });

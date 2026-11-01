@@ -9,7 +9,8 @@
     "./local-s3": "./src/local-s3.ts",
     "./processes": "./src/processes.ts",
     "./settings": "./src/settings.ts",
-    "./playwright-config": "./src/playwright-config.ts"
+    "./playwright-config": "./src/playwright-config.ts",
+    "./accessibility": "./src/accessibility.ts"
   },
   "scripts": {
     "lint": "eslint .",
@@ -17,14 +18,15 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1152.0",
-    "@better-auth/utils": "0.4.2"
+    "@better-auth/utils": "0.4.2",
+    "@axe-core/playwright": "4.14.0"
   },
   "devDependencies": {
     "@fleetapp/config": "workspace:*",
+    "@playwright/test": "1.56.1",
     "@types/node": "26.6.2",
     "eslint": "9.39.5",
-    "typescript": "6.0.3",
-    "@playwright/test": "1.56.1"
+    "typescript": "6.0.3"
   },
   "peerDependencies": {
     "@playwright/test": "1.56.1"
