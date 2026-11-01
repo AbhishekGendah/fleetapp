@@ -10,6 +10,8 @@ export interface MemoryFileStorage extends FileStorage {
   /** What the browser would have sent, as if it had used the permission. */
   receive(area: StorageArea, key: string, bytes: Uint8Array): void;
   has(area: StorageArea, key: string): boolean;
+  /** Everything stored at an address, for a test to check what was saved. */
+  read(area: StorageArea, key: string): Uint8Array | undefined;
   /** Every permission handed out, newest last. */
   readonly permissions: UploadPermissionRequest[];
 }
@@ -46,6 +48,13 @@ export function createMemoryFileStorage(): MemoryFileStorage {
       stored.delete(address(area, fromKey));
       return true;
     },
+    async save(area, key, bytes) {
+      if (stored.has(address(area, key))) {
+        throw new Error("Something is already stored at that address.");
+      }
+      versions += 1;
+      stored.set(address(area, key), { bytes, version: String(versions) });
+    },
     async remove(area, key) {
       stored.delete(address(area, key));
     },
@@ -59,6 +68,9 @@ export function createMemoryFileStorage(): MemoryFileStorage {
     },
     has(area, key) {
       return stored.has(address(area, key));
+    },
+    read(area, key) {
+      return stored.get(address(area, key))?.bytes;
     },
   };
 }

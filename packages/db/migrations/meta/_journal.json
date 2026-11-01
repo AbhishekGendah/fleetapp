@@ -211,6 +211,13 @@
       "when": 1793551330237,
       "tag": "0029_contracts",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1793551732920,
+      "tag": "0030_keep_confirmed_issued_documents",
+      "breakpoints": true
     }
   ]
 }

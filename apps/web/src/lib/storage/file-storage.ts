@@ -42,6 +42,11 @@ export interface FileStorage {
    * changed after they were checked; nothing is moved then.
    */
   promote(area: StorageArea, fromKey: string, toKey: string, version: string): Promise<boolean>;
+  /**
+   * Saves a file the app made itself, such as an issued PDF. Never replaces
+   * what is already at the address: an issued document is never overwritten.
+   */
+  save(area: StorageArea, key: string, bytes: Uint8Array, contentType: string): Promise<void>;
   remove(area: StorageArea, key: string): Promise<void>;
   /**
    * A link that works for VIEW_LINK_SECONDS. With a name, saving or sharing

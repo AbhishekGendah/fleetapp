@@ -4,6 +4,7 @@ import {
   GetObjectCommand,
   HeadObjectCommand,
   NotFound,
+  PutObjectCommand,
   S3Client,
   S3ServiceException,
 } from "@aws-sdk/client-s3";
@@ -108,6 +109,19 @@ export function createS3FileStorage(config: S3FileStorageConfig): FileStorage {
       }
       await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: fromKey }));
       return true;
+    },
+
+    async save(area, key, bytes, contentType) {
+      await client.send(
+        new PutObjectCommand({
+          Bucket: bucketFor(area),
+          Key: key,
+          Body: bytes,
+          ContentType: contentType,
+          // Refused if anything is already there (S3 conditional writes).
+          IfNoneMatch: "*",
+        }),
+      );
     },
 
     async remove(area, key) {

@@ -68,7 +68,7 @@ describe("contracts", () => {
     return row!.id;
   }
 
-  async function addPdfFile(operatorId: string): Promise<string> {
+  async function addPdfFile(operatorId: string, isConfirmed = true): Promise<string> {
     const id = randomUUID();
     await withTenant(web.db, operatorId, (tx) =>
       tx.insert(schema.files).values({
@@ -79,7 +79,7 @@ describe("contracts", () => {
         objectKey: buildFileKey(operatorId, "issued_document", id),
         contentType: "application/pdf",
         sizeBytes: PDF_BYTES,
-        confirmedAt: new Date(),
+        confirmedAt: isConfirmed ? new Date() : null,
       }),
     );
     return id;
@@ -275,6 +275,20 @@ describe("contracts", () => {
       ];
 
       expect(codes).toEqual(codes.map(() => POSTGRES_ERROR_CODES.restrictViolation));
+    });
+
+    it("lets a PDF still being saved be cleaned up if saving fails", async () => {
+      const fileId = await addPdfFile(operatorAId, false);
+
+      const binned = await withTenant(web.db, operatorAId, (tx) =>
+        tx
+          .update(schema.files)
+          .set({ deletedAt: new Date() })
+          .where(eq(schema.files.id, fileId))
+          .returning({ id: schema.files.id }),
+      );
+
+      expect(binned).toEqual([{ id: fileId }]);
     });
 
     it("needs a real SHA-256 fingerprint, and numbers each kind's versions once", async () => {

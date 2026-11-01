@@ -12,8 +12,7 @@ import {
   listSidesDeletedByTimer,
   startLicenceScanUpload,
 } from "../src/lib/renters/licence-scans";
-import { emptyRentalForm, parseRentalForm } from "../src/lib/rentals/rental-input";
-import { cancelRental, createRental } from "../src/lib/rentals/rental-records";
+import { cancelRental } from "../src/lib/rentals/rental-records";
 import { RENTAL_RETENTION_HOLDS } from "../src/lib/rentals/retention-holds";
 import { emptyRenterForm, parseRenterForm } from "../src/lib/renters/renter-input";
 import { createRenter } from "../src/lib/renters/renter-records";
@@ -29,7 +28,8 @@ import {
   createMemoryFileStorage,
   type MemoryFileStorage,
 } from "../src/lib/storage/memory-file-storage";
-import { addTestCar, seedOperatorWithUser } from "./car-fixtures";
+import { seedOperatorWithUser } from "./car-fixtures";
+import { bookTestRental } from "./rental-fixtures";
 import { LINK_PHOTO } from "./renter-link-fixtures";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -156,30 +156,8 @@ describe("licence scans deleted on a timer", () => {
   });
 
   describe("with real rentals", () => {
-    const TIME_ZONE = "Australia/Perth";
-
-    /** Books a car for the Renter, well in the future. */
-    async function bookFor(owner: ActingUser, renterId: string): Promise<string> {
-      const vehicleId = await addTestCar(web, owner);
-      const input = parseRentalForm(
-        {
-          ...emptyRentalForm({ renterId, vehicleId }),
-          plannedStart: "2027-06-01T09:00",
-          plannedEnd: "2027-06-29T09:00",
-          weeklyRateCents: "350",
-          bondCents: "500",
-        },
-        TIME_ZONE,
-      );
-      const result = await createRental(web.db, owner, input.data!, "booked", {
-        timeZone: TIME_ZONE,
-        now: new Date(),
-      });
-      if (result.status !== "saved") {
-        throw new Error(result.status);
-      }
-      return result.rentalId;
-    }
+    const bookFor = async (owner: ActingUser, renterId: string): Promise<string> =>
+      (await bookTestRental(web, owner, renterId)).rentalId;
 
     it("keeps the scans of a Renter with a booking, and lets go once it is cancelled", async () => {
       const owner = await seedOperatorWithUser(admin, "Booked Retention Pty Ltd");
