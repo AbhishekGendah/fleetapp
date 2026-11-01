@@ -534,9 +534,23 @@
   draft keeps less; both apps refuse being framed. Migration 0025. Also fixed:
   the Review button that part 4c had missed.
 
+- **Code review group B** (things that break or mislead): CI now builds both
+  apps (as Vercel does, after a test-inbox check stopped deployments for a
+  while) and checks formatting, and migrations run only after CI passes;
+  friendly error and not-found pages; no upload stuck on Sending; retention
+  fixes (year on Kept until, months recorded with timer deletions, reason in
+  the Log, holds required, month ends, migration 0026 backfill); photos sent
+  through links in the everything-held download and the Log; a warning before
+  lowering how long scans are kept; a failed link email still shows the link;
+  the database pool survives Neon closing idle connections; the nightly run
+  works in parts and batches; downloads in local time and no apostrophes in
+  Excel; re-saving a sale in the repeated daylight-saving hour keeps its
+  time; settings store only what was changed; the sign-in hard limit applies
+  to the login system's own endpoints; the first Admin is created under a lock.
+
 ## Next
-Code review groups B (things that break or mislead) and C (rules,
-accessibility, tidy-up), then Phase 3 (rentals), plan first.
+Code review group C (rules, accessibility, tidy-up), then Phase 3 (rentals),
+plan first.
 
 ## Open items
 - **Before launch: docs/launch-checklist.md** (relaxed admin sign-in, full

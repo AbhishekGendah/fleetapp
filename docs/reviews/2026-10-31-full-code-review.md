@@ -4,7 +4,8 @@ Five independent reviews (database; behind-the-scenes code; screens and
 forms; money, dates, sign-in, emails, admin and build setup; the retention
 slice). Each problem was checked against the real code, most of the serious
 ones by actually running them. Duplicates are merged. Group A was fixed on
-1 Nov 2026 (approved by Abhi), with migration 0025; groups B and C follow.
+1 Nov 2026 (approved by Abhi), with migration 0025; group B the same day,
+with migration 0026; group C follows.
 Notes on how A was done: A1 locks a link after 10 wrong codes over its life
 (no new column: the count is simply never reset); A7 refuses production on
 the test inbox at start-up, and Renter emails stay visible in the dev test
@@ -75,7 +76,7 @@ data. All 503 tests pass.
   can stay forever on a shared phone. Fix: save only what they type, leave out
   the licence number, and sweep old drafts on every visit.
 
-## B. Things that break or mislead (fix next)
+## B. Things that break or mislead (fix next) — DONE 1 Nov 2026
 
 - **B1. No error page:** if the connection drops while saving, the whole page
   turns into a blank error screen (for Renters too). Fix: friendly error pages
