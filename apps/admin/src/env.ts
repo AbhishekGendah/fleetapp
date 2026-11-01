@@ -35,5 +35,5 @@ export const env = envSchema.parse({
   APP_URL: process.env.APP_URL,
   EMAIL_TRANSPORT: process.env.EMAIL_TRANSPORT,
   EMAIL_FROM: process.env.EMAIL_FROM,
-  VERCEL_ENV: process.env.VERCEL_ENV,
+  APP_STAGE: process.env.APP_STAGE,
 });

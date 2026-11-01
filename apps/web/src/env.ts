@@ -57,7 +57,7 @@ export const env = envSchema.parse({
   AUTH_ISSUER_NAME: process.env.AUTH_ISSUER_NAME,
   EMAIL_TRANSPORT: process.env.EMAIL_TRANSPORT,
   EMAIL_FROM: process.env.EMAIL_FROM,
-  VERCEL_ENV: process.env.VERCEL_ENV,
+  APP_STAGE: process.env.APP_STAGE,
   GOOGLE_PLACES_API_KEY: process.env.GOOGLE_PLACES_API_KEY,
   STORAGE_BUCKET: process.env.STORAGE_BUCKET,
   IDENTITY_STORAGE_BUCKET: process.env.IDENTITY_STORAGE_BUCKET,

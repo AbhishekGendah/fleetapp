@@ -11,8 +11,12 @@ export const emailEnvShape = {
   EMAIL_TRANSPORT: z.enum(EMAIL_TRANSPORTS),
   /** Sender name and address, e.g. `Name <no-reply@example.com>`. */
   EMAIL_FROM: z.string().min(1),
-  /** Set by Vercel itself on its servers; empty on a laptop or in CI. */
-  VERCEL_ENV: z.enum(["production", "preview", "development"]).optional(),
+  /**
+   * Ours, not Vercel's: "production" only in the real production project
+   * (with real Renters). Vercel calls the dev site "production" too, since it
+   * is built from main, so its own label cannot be used for this.
+   */
+  APP_STAGE: z.enum(["development", "production"]).optional(),
 };
 
 /**
@@ -20,10 +24,10 @@ export const emailEnvShape = {
  * admin site shows it: production must never start on it (fail fast).
  */
 export function refuseTestInboxInProduction(
-  env: { EMAIL_TRANSPORT: string; VERCEL_ENV?: string | undefined },
+  env: { EMAIL_TRANSPORT: string; APP_STAGE?: string | undefined },
   context: z.RefinementCtx,
 ): void {
-  if (env.VERCEL_ENV === "production" && env.EMAIL_TRANSPORT === "dev_outbox") {
+  if (env.APP_STAGE === "production" && env.EMAIL_TRANSPORT === "dev_outbox") {
     context.addIssue({
       code: "custom",
       path: ["EMAIL_TRANSPORT"],

@@ -47,7 +47,9 @@ Add to this list whenever something is relaxed or put off "until launch".
 - [ ] Google logo image in place of the "Powered by Google" text, and the
   storage carve-out confirmed on Google's policy page (docs/legal-notes.md).
 - [ ] Postmark set up; `EMAIL_TRANSPORT=dev_outbox` never set in
-  production (the test inbox holds working links).
+  production (the test inbox holds working links). Set `APP_STAGE=production`
+  in both production Vercel projects: the apps then refuse to start on the
+  test inbox.
 - [ ] Forgot-password replies take the same time for every address (send
   in the background once Postmark is in).
 - [ ] Separate production database and buckets, with real Renter data only
