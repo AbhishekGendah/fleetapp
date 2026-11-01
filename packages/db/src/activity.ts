@@ -59,6 +59,7 @@ const ACTIVITY_ENTITY_LABELS = {
   [ACTIVITY_ENTITY_TYPES.renter]: "Renter",
   [ACTIVITY_ENTITY_TYPES.renterNote]: "Note",
   [ACTIVITY_ENTITY_TYPES.renterLink]: "Details form link",
+  [ACTIVITY_ENTITY_TYPES.rental]: "Rental",
 } satisfies Record<ActivityEntityType, string>;
 
 /** What each action reads as after the record's name: "Car archived". */

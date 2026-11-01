@@ -3,7 +3,6 @@ import { sql } from "drizzle-orm";
 import {
   check,
   date,
-  foreignKey,
   index,
   integer,
   pgEnum,
@@ -13,26 +12,16 @@ import {
   unique,
   uniqueIndex,
   uuid,
-  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 import { auditColumns, primaryKeyColumn } from "./columns";
 import { australianStateEnum } from "./enums";
 import { operatorIdColumn } from "./operators";
 import { amountChecks } from "./vehicle-paperwork";
-import { vehicles } from "./vehicles";
+import { carLink } from "./vehicles";
 
 export const purchaseSourceEnum = pgEnum("purchase_source", PURCHASE_SOURCES);
 export const vehicleCostKindEnum = pgEnum("vehicle_cost_kind", VEHICLE_COST_KINDS);
-
-/** The two-column link to a car, so no row can point at another Operator's car. */
-function carLink(name: string, table: { vehicleId: AnyPgColumn; operatorId: AnyPgColumn }) {
-  return foreignKey({
-    name: `${name}_vehicle_fk`,
-    columns: [table.vehicleId, table.operatorId],
-    foreignColumns: [vehicles.id, vehicles.operatorId],
-  });
-}
 
 /**
  * How a car was bought: one per car. The seller's details are kept for

@@ -22,6 +22,8 @@ import {
   unique,
   uniqueIndex,
   uuid,
+  type AnyPgColumn,
+  type ForeignKeyBuilder,
 } from "drizzle-orm/pg-core";
 
 import { auditColumns, primaryKeyColumn } from "./columns";
@@ -101,6 +103,18 @@ export const vehicles = pgTable(
     ),
   ],
 );
+
+/** The two-column link to a car, so no row can point at another Operator's car. */
+export function carLink(
+  name: string,
+  table: { vehicleId: AnyPgColumn; operatorId: AnyPgColumn },
+): ForeignKeyBuilder {
+  return foreignKey({
+    name: `${name}_vehicle_fk`,
+    columns: [table.vehicleId, table.operatorId],
+    foreignColumns: [vehicles.id, vehicles.operatorId],
+  });
+}
 
 /** Where a reading came from. Only purchase and manual are used until rentals and servicing exist. */
 export const ODOMETER_SOURCES = [

@@ -189,20 +189,23 @@ describe("schema guards", () => {
     expect(unscoped.map((row) => row.rule)).toEqual([]);
   });
 
-  it("grants the admin logins nothing on any Renter table", async () => {
+  it("grants the admin logins nothing on any Renter or rental table", async () => {
     // Admin cannot read Renter personal data in v1. Any table named for
-    // Renters is covered, so a new one is checked without remembering to.
+    // Renters or rentals is covered, and on any other table the column linking
+    // a row to a Renter or a rental, so a new one is checked without
+    // remembering to. (The admin app may see a file's size, never whose it is.)
     const result = await owner.db.execute<{ table_name: string; grantee: string }>(sql`
       SELECT DISTINCT table_name, grantee
       FROM information_schema.role_table_grants
       WHERE table_schema = 'public'
-        AND table_name LIKE 'renter%'
+        AND (table_name LIKE 'renter%' OR table_name LIKE 'rental%')
         AND grantee IN (${ADMIN_APP_ROLE}, ${ADMIN_AUTH_ROLE})
       UNION
       SELECT DISTINCT table_name, grantee
       FROM information_schema.column_privileges
       WHERE table_schema = 'public'
-        AND table_name LIKE 'renter%'
+        AND (table_name LIKE 'renter%' OR table_name LIKE 'rental%'
+          OR column_name IN ('renter_id', 'rental_id'))
         AND grantee IN (${ADMIN_APP_ROLE}, ${ADMIN_AUTH_ROLE})
     `);
 
