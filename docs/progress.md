@@ -563,6 +563,21 @@
   models allowed from midnight on 1 January, download names always safe.
   Put off: a shared sign-in rate limit (launch checklist).
 
+- **Library swap** (docs/plans/library-swap.md, approved): every hand-built
+  piece an established library does, swapped. Browser tests first
+  (Playwright on the admin app against a throwaway database, in CI), which
+  found four real gaps, all now fixed. Then: dates on date-fns, phones on
+  libphonenumber-js, the country list, device names (Bowser), file types
+  (file-type), CSV (Papa Parse), typo suggestions (Fuse.js), the
+  breached-password check from Better Auth, photo shrinking (Compressor.js),
+  the photo viewer (yet-another-react-lightbox, with zoom), pop-ups and
+  searchable boxes on Base UI, the code box on input-otp, forms on React
+  Hook Form, lists on TanStack Table and nuqs (search without a page
+  reload), money and formatted boxes on react-number-format. Kept native on
+  purpose: dropdowns and tick boxes. Behaviour changes: Tab in the make box
+  keeps what was typed; CSV puts quotes round escaped text. A local
+  database now uses the standard Postgres driver (tests only).
+
 ## Next
 Phase 3 (rentals), plan first.
 

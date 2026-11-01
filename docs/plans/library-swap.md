@@ -1,6 +1,6 @@
 # Plan — Swap hand-built pieces for established libraries
 
-Status: draft for Abhi's approval (1 Nov 2026). Before Phase 3.
+Status: approved and built (1 Nov 2026). Before Phase 3.
 
 Abhi's decision: wherever an established library does the job, use it,
 needed or not, and do it properly from the start, however long it takes.

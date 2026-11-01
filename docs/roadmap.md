@@ -52,6 +52,10 @@ Status: ✅ done · 🔨 in progress · ⏳ not started. Last checked 1 Nov 2026
 - Step 5 ✅ Retention (scheduled deletion of old licence scans).
 - Full code review before Phase 3 ✅ (docs/reviews/2026-10-31-full-code-review.md).
 
+## Library swap ✅ (plan: docs/plans/library-swap.md)
+- Hand-built pieces replaced by established libraries, with browser tests
+  (Playwright) proving each one. Done 1 Nov 2026.
+
 ## Phase 3 — Rentals ⏳ **Next, plan first.**
 - Bookings, calendar, double-booking prevention.
 - Contract templates, signing.

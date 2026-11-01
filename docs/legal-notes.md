@@ -336,6 +336,21 @@ of service) and the countries.
   2003 does not require an unsubscribe link for them. Any marketing
   email later needs consent and an unsubscribe link.
 
+## Libraries used (library swap, 1 Nov 2026)
+
+- Every library added is MIT or Apache-2.0, which allow commercial use. None
+  is AGPL or "source available" (ua-parser-js was avoided because it is now
+  AGPL). The list with reasons is in docs/plans/library-swap.md.
+- Apache-2.0 asks that its licence notice travels with the code. Fuse.js
+  (typo suggestions) is Apache-2.0 and is sent to browsers; Playwright is
+  Apache-2.0 but only used for testing. A "third-party licences" page or
+  file must be in place before launch (docs/launch-checklist.md).
+- No library receives personal data: they all run on our servers or in the
+  browser. The breached-password check sends only the first 5 characters of
+  a fingerprint of the password to Have I Been Pwned, as before.
+- Photos: shrinking on the phone also drops the location details phones
+  add to photos, which is good for privacy (APP 11).
+
 ## Coming with later features (check when built)
 
 - **Identity documents (licence scans):** collect only what is needed,
