@@ -133,3 +133,21 @@ export async function binExpiredLicenceScans(
   }
   return summary;
 }
+
+/**
+ * How many of the Operator's scans the nightly clean-up would bin with this
+ * many months: shown before the setting is lowered, so nothing goes unawares.
+ */
+export async function countScansDueWith(
+  database: FileDependencies["database"],
+  operatorId: string,
+  keptMonths: number,
+  now: Date,
+  holds: RetentionHolds,
+): Promise<number> {
+  return withTenant(
+    database,
+    operatorId,
+    async (tx) => (await findScansDue(tx, operatorId, keptMonths, now, holds)).length,
+  );
+}

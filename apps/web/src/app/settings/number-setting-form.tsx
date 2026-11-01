@@ -15,6 +15,7 @@ import {
   type NumberSetting,
 } from "../../lib/settings/number-setting-input";
 import { saveNumberSettingAction } from "./number-setting-actions";
+import { CONFIRMED_AMOUNT_FIELD, type NumberSettingState } from "./number-setting-state";
 
 /** One setting that is a number of days or months, e.g. how early "Due soon" shows. */
 export function NumberSettingForm(props: {
@@ -23,7 +24,7 @@ export function NumberSettingForm(props: {
   value: number;
   hint?: string;
 }) {
-  const [state, formAction, isPending] = useActionState(
+  const [state, formAction, isPending] = useActionState<NumberSettingState, FormData>(
     saveNumberSettingAction.bind(null, props.setting),
     INITIAL_CHANGE_STATE,
   );
@@ -59,7 +60,17 @@ export function NumberSettingForm(props: {
           className="sm:w-32"
         />
       </FormField>
-      {form.isResultShown && !isPending ? <FormResult state={state} /> : null}
+      {!isPending && state.status === "confirm" && state.amount === form.values.amount ? (
+        <>
+          <p role="alert" className="text-attention text-sm font-medium">
+            {state.message}
+          </p>
+          <input type="hidden" name={CONFIRMED_AMOUNT_FIELD} value={state.amount} />
+        </>
+      ) : null}
+      {form.isResultShown && !isPending && state.status !== "confirm" ? (
+        <FormResult state={state} />
+      ) : null}
       <Button type="submit" variant="outline" disabled={isPending} className="sm:self-start">
         {isPending ? "Saving…" : "Save"}
       </Button>

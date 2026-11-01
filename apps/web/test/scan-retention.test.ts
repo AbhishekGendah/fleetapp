@@ -15,6 +15,7 @@ import { emptyRenterForm, parseRenterForm } from "../src/lib/renters/renter-inpu
 import { createRenter } from "../src/lib/renters/renter-records";
 import {
   binExpiredLicenceScans,
+  countScansDueWith,
   NO_HOLDS_YET,
   type RetentionHolds,
 } from "../src/lib/renters/scan-retention";
@@ -105,6 +106,17 @@ describe("licence scans deleted on a timer", () => {
     const again = await binExpiredLicenceScans(deps, NO_HOLDS_YET);
     expect(again.failedOperators).toBe(0);
     expect(await hasFront(actor, recent.renterId)).toBe(true);
+  });
+
+  it("counts the scans a lower setting would delete, before it is saved", async () => {
+    const counter = await seedOperatorWithUser(admin, "Counting Retention Pty Ltd");
+    await renterWithScan(counter, 100);
+    await renterWithScan(counter, 10);
+    const count = (months: number) =>
+      countScansDueWith(web.db, counter.operatorId, months, new Date(), NO_HOLDS_YET);
+    expect(await count(12)).toBe(0);
+    expect(await count(3)).toBe(1);
+    expect(await count(1)).toBe(1);
   });
 
   it("follows each Operator's own setting, and never another's", async () => {
