@@ -10,7 +10,7 @@ import {
   type InMemoryListRules,
   type ListDefinition,
 } from "./list-query";
-import { exportTable, neutraliseSpreadsheetText, toCsv } from "./spreadsheet-cells";
+import { exportTable, toCsv } from "./spreadsheet-cells";
 
 interface Car {
   rego: string;
@@ -111,11 +111,9 @@ describe("applying a list's query", () => {
 
 describe("exporting a list", () => {
   it("makes a CSV cell that starts like a formula plain text, but leaves numbers alone", () => {
-    expect(neutraliseSpreadsheetText('=HYPERLINK("http://evil")')).toBe(
-      '\'=HYPERLINK("http://evil")',
+    expect(toCsv([['=HYPERLINK("http://evil")', "@SUM(A1)", "Smith", -5]])).toContain(
+      '"\'=HYPERLINK(""http://evil"")","\'@SUM(A1)",Smith,-5',
     );
-    expect(neutraliseSpreadsheetText("@SUM(A1)")).toBe("'@SUM(A1)");
-    expect(neutraliseSpreadsheetText("Smith")).toBe("Smith");
     const table = exportTable(
       CAR_LIST.columns,
       [{ rego: "+61400", status: "rented", odometer: -5 }],
@@ -123,7 +121,7 @@ describe("exporting a list", () => {
     );
     // Kept as typed in the table (an Excel text cell never runs); neutralised in CSV.
     expect(table[1]).toEqual(["+61400", -5, "rented"]);
-    expect(toCsv(table)).toContain("'+61400,-5,rented");
+    expect(toCsv(table)).toContain(`"'+61400",-5,rented`);
   });
 
   it("writes dates in the reader's timezone, with no zone to mislead", () => {

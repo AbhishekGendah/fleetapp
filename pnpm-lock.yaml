@@ -249,12 +249,18 @@ importers:
       file-type:
         specifier: 22.3.0
         version: 22.3.0
+      fuse.js:
+        specifier: 7.5.0
+        version: 7.5.0
       i18n-iso-countries:
         specifier: 7.14.0
         version: 7.14.0
       libphonenumber-js:
         specifier: 1.13.15
         version: 1.13.15
+      papaparse:
+        specifier: 5.7.0
+        version: 5.7.0
       write-excel-file:
         specifier: 4.1.1
         version: 4.1.1
@@ -268,6 +274,9 @@ importers:
       '@types/node':
         specifier: 26.6.2
         version: 26.6.2
+      '@types/papaparse':
+        specifier: 5.5.2
+        version: 5.5.2
       eslint:
         specifier: 9.39.5
         version: 9.39.5(jiti@2.7.0)
@@ -1965,6 +1974,9 @@ packages:
   '@types/node@26.6.2':
     resolution: {integrity: sha512-X1P21scMv4zGKLYqjdGjaKa7COa0RKVYYZZN/NfvLQ1JegxFhdhpZG/Lyn8AXx6CDUavKAd11v6BvfpkDByK8g==}
 
+  '@types/papaparse@5.5.2':
+    resolution: {integrity: sha512-gFnFp/JMzLHCwRf7tQHrNnfhN4eYBVYYI897CGX4MY1tzY9l2aLkVyx2IlKZ/SAqDbB3I1AOZW5gTMGGsqWliA==}
+
   '@types/pg@8.15.5':
     resolution: {integrity: sha512-LF7lF6zWEKxuT3/OR8wAZGzkg4ENGXFNyiV/JeOt9z5B+0ZVwbql9McqX5c/WStFq1GaGso7H1AzP/qSzmlCKQ==}
 
@@ -2904,6 +2916,10 @@ packages:
   functions-have-names@1.2.3:
     resolution: {integrity: sha512-xckBUXyTIqT97tq2x2AMb+g163b5JFysYk0x4qxNFwbfQkmNZoiRHb6sPzI9/QV33WeuvVYBUIiD4NzNIyqaRQ==}
 
+  fuse.js@7.5.0:
+    resolution: {integrity: sha512-sQtrEfA+ez/3G0cCZecF70oqpCRttCexYUG4mUrtWL49ULUzUyxokt5kyqwtKzj1270RaKih+hcP3qLcumccow==}
+    engines: {node: '>=10'}
+
   generator-function@2.0.1:
     resolution: {integrity: sha512-SFdFmIJi+ybC0vjlHN0ZGVGHc3lgE0DxPAT0djjVg+kjOnSqclqmj0KQ7ykTOLP6YxoqOvuAODGdcHJn+43q3g==}
     engines: {node: '>= 0.4'}
@@ -3580,6 +3596,9 @@ packages:
   p-try@2.2.0:
     resolution: {integrity: sha512-R4nPAVTAU0B9D35/Gk3uJf/7XYbQcyohSKdvAxIRSNghFl4e71hVoGnBNQz9cWaXxO2I10KTC+3jMdvvoKw6dQ==}
     engines: {node: '>=6'}
+
+  papaparse@5.7.0:
+    resolution: {integrity: sha512-qBGxg/7Q3Kl9Wfhrz2Z74UnvnHTXLNG6jmKJFeBvP2+y4lV7So+7SR62+Zd47JvdrCkX+nDcnr0ObPzek/+6RA==}
 
   parent-module@1.0.1:
     resolution: {integrity: sha512-GQ2EWRpQV8/o+Aw8YqtfZZPfNRWZYkbidE9k5rpl/hC3vtHHBfGm2Ifi6qWV+coDGkrUKZAxE3Lot5kcsRlh+g==}
@@ -5490,6 +5509,10 @@ snapshots:
     dependencies:
       undici-types: 8.9.0
 
+  '@types/papaparse@5.5.2':
+    dependencies:
+      '@types/node': 26.6.2
+
   '@types/pg@8.15.5':
     dependencies:
       '@types/node': 26.6.2
@@ -6532,6 +6555,8 @@ snapshots:
 
   functions-have-names@1.2.3: {}
 
+  fuse.js@7.5.0: {}
+
   generator-function@2.0.1: {}
 
   gensync@1.0.0-beta.2: {}
@@ -7144,6 +7169,8 @@ snapshots:
       p-limit: 3.1.0
 
   p-try@2.2.0: {}
+
+  papaparse@5.7.0: {}
 
   parent-module@1.0.1:
     dependencies:
