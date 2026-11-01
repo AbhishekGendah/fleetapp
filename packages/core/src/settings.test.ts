@@ -37,6 +37,12 @@ describe("Operator settings", () => {
     });
   });
 
+  it("stores only what was set, so later defaults still reach the rest", () => {
+    const { document, settings } = applySettingsChanges(exampleSchema, {}, { bondHoldDays: 21 });
+    expect(document).toEqual({ bondHoldDays: 21 });
+    expect(settings.bondHoldDays).toBe(21);
+  });
+
   it("refuses a change that does not fit", () => {
     expect(() => applySettingsChanges(exampleSchema, {}, { bondHoldDays: -1 })).toThrow(
       InvalidSettingsError,

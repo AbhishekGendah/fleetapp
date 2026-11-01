@@ -130,8 +130,9 @@ describe("exporting a list", () => {
     const sydneyAfternoon = new Date("2026-10-30T03:15:00Z");
     expect(toCsv([[sydneyAfternoon]])).toContain("2026-10-30 03:15");
     const columns = [{ key: "at", label: "At", exportValue: (row: { at: Date }) => row.at }];
-    const [, [at]] = exportTable(columns, [{ at: sydneyAfternoon }], "Australia/Sydney");
-    expect(toCsv([[at!]])).toContain("2026-10-30 14:15");
+    const table = exportTable(columns, [{ at: sydneyAfternoon }], "Australia/Sydney");
+    const at = table[1]?.[0] ?? null;
+    expect(toCsv([[at]])).toContain("2026-10-30 14:15");
   });
 
   it("writes CSV that spreadsheet programs read correctly", () => {

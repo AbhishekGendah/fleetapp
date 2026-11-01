@@ -87,15 +87,17 @@ export function readSettings<Schema extends z.ZodType>(
 }
 
 /**
- * The document to store after a change: the current settings with the
- * changes laid over them, checked against the schema as a whole.
+ * After a change: the document to store (only what the Operator has set,
+ * so a default changed later still reaches every setting they never
+ * touched) and the settings it gives, checked against the schema as a whole.
  */
 export function applySettingsChanges<Schema extends z.ZodType>(
   schema: Schema,
   current: StoredSettings,
   changes: StoredSettings,
-): z.infer<Schema> {
-  return readSettings(schema, { ...current, ...changes });
+): { document: StoredSettings; settings: z.infer<Schema> } {
+  const document = { ...current, ...changes };
+  return { document, settings: readSettings(schema, document) };
 }
 
 export interface SettingsSnapshot<Settings> {

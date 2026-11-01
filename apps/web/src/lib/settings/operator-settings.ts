@@ -52,18 +52,22 @@ export async function saveOperatorSettings(
   await withTenant(database, actor.operatorId, async (tx) => {
     const row = await readStoredSettings(tx, actor.operatorId, true);
     const before = readSettings(operatorSettingsSchema, row?.stored ?? {});
-    const after = applySettingsChanges(operatorSettingsSchema, row?.stored ?? {}, changes);
+    const { document, settings: after } = applySettingsChanges(
+      operatorSettingsSchema,
+      row?.stored ?? {},
+      changes,
+    );
     const changed = changedValues(before, after, SETTING_NAMES);
     if (!hasChanges(changed)) {
       return;
     }
     await tx
       .insert(operatorSettings)
-      .values({ operatorId: actor.operatorId, settings: after })
+      .values({ operatorId: actor.operatorId, settings: document })
       .onConflictDoUpdate({
         target: operatorSettings.operatorId,
         set: {
-          settings: after,
+          settings: document,
           version: sql`${operatorSettings.version} + 1`,
           updatedAt: new Date(),
         },
