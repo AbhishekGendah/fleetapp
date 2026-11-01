@@ -578,8 +578,22 @@
   keeps what was typed; CSV puts quotes round escaped text. A local
   database now uses the standard Postgres driver (tests only).
 
+- **Finishing the swap properly** (plan stage 9): a third-party licences
+  file built with each app; the Google Places address is a setting
+  (GOOGLE_PLACES_API_URL); the suggestion box in the catalogue; the make box
+  opens on tap again (lost in stage 5); browser tests for the Operator app
+  (invite and authenticator, a car with a photo and a document, a Renter
+  and their link) on LocalStack and a Places stand-in, sharing one toolkit
+  (@fleetapp/e2e); axe-core checks on every page, which found too-faint
+  greys and reds, now darker; four more forms on the shared helper; a
+  JavaScript download budget per page; Renovate settings; CLAUDE.md rules
+  32 (libraries first) and 33 (every screen proven in a browser). Fixed on
+  the way: test databases left a Docker volume each (25 GB).
+
 ## Next
-Phase 3 (rentals), plan first.
+Phase 3 (rentals), plan first. Open idea: trim the phone rules to
+Australia only with libphonenumber's metadata generator (about 40 KB off
+each form page); running the generator needs Abhi's say-so.
 
 ## Open items
 - **Before launch: docs/launch-checklist.md** (relaxed admin sign-in, full

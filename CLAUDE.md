@@ -34,6 +34,8 @@ Never use "client", "customer" or "tenant" for these in code.
   - packages/core: pure domain logic (money, dates, ledger, matching)
   - packages/ui: shared components
   - packages/config: shared tsconfig / eslint
+  - packages/e2e: shared browser-test toolkit (runners, stand-ins,
+    accessibility and download-size checks)
 - Next.js latest stable, App Router, TypeScript strict. Next 16+ uses
   proxy.ts instead of middleware.ts.
 - PostgreSQL on Neon, Sydney region. Separate dev and production
@@ -51,7 +53,13 @@ Never use "client", "customer" or "tenant" for these in code.
 - SMS: interface. Provider TBD.
 - Hosting: Vercel, functions pinned to syd1. apps/web and apps/admin are
   separate Vercel projects.
-- Tests: Vitest.
+- Tests: Vitest (unit and database), Playwright (browser), axe-core
+  (accessibility). Browser tests run each app against throwaway stores:
+  Postgres, LocalStack for S3, a Google Places stand-in.
+- Shared pieces are built on established libraries (docs/plans/library-swap.md):
+  Base UI, React Hook Form, TanStack Table, nuqs, react-number-format,
+  date-fns, libphonenumber-js and others. Use them; never rebuild what
+  they do.
 
 ## Development environment
 - Development happens in Claude Code on the web. No local machine is
@@ -157,6 +165,19 @@ Never use "client", "customer" or "tenant" for these in code.
     allow digits only and stop at their length. The same rule is applied
     again on the server when saving. Where no format fits (e.g. a policy
     number whose pattern differs by insurer), say why in the plan.
+32. Proper by default: wherever an established library does a job, use it
+    rather than building it, even when building looks quicker. Established
+    means widely used, maintained (released in the last year), and licensed
+    MIT, Apache-2.0, BSD or ISC (never AGPL or "source available"; a tool
+    used only in tests may be MPL-2.0, like axe-core). Pin the
+    exact version, released at least 14 days ago, and state why in the
+    commit. Hand-building is allowed only with the reason written in the
+    plan (e.g. the browser's own control is better, or nothing fits).
+33. Every screen is proven in a real browser: a new or changed screen gets
+    Playwright tests in its app's e2e folder (keyboard use, phone width),
+    an axe-core accessibility check (WCAG 2.2 AA, no exceptions without a
+    written reason), and a JavaScript download budget. A budget is raised
+    only on purpose, with the reason in the commit.
 
 ## How to work
 - Read the relevant docs/design/*.md file before working on an area.
@@ -168,7 +189,15 @@ Never use "client", "customer" or "tenant" for these in code.
 - Tests are required for: money and GST calculations, the ledger,
   possession and fine matching, timezone handling, and tenant isolation
   (a test proving Operator A cannot read Operator B's data).
-- Don't add a dependency without stating why.
+- Don't add a dependency without stating why (rule 32 says which kind).
+- Dependency updates come as Renovate pull requests (weekly, only releases
+  at least 14 days old, security fixes at once). Each is reviewed and its
+  CI must pass; none merges by itself.
+- Before pushing: typecheck, lint, unit tests, duplicates, format, both
+  builds, and the browser tests of any app whose screens changed
+  (`pnpm --filter <app> e2e`). CI runs all of them again.
+- Browser tests use made-up data in stores that exist for one run; they
+  leave nothing behind (no files, volumes or containers).
 - Check the legal side of every task as part of the review: privacy
   (Australian Privacy Principles, data sent overseas), consumer law,
   Spam Act, a third party's terms, record keeping. Write anything that

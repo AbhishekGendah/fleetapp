@@ -1,0 +1,42 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":dependencyDashboard"],
+  "timezone": "Australia/Perth",
+  "schedule": ["before 9am on monday"],
+  "rangeStrategy": "pin",
+  "minimumReleaseAge": "14 days",
+  "automerge": false,
+  "prConcurrentLimit": 5,
+  "labels": ["dependencies"],
+  "vulnerabilityAlerts": { "enabled": true, "minimumReleaseAge": null, "labels": ["security"] },
+  "postUpdateOptions": ["pnpmDedupe"],
+  "packageRules": [
+    {
+      "description": "Packages released together are updated together.",
+      "matchPackageNames": ["next", "eslint-config-next", "@next/**"],
+      "groupName": "Next.js"
+    },
+    {
+      "description": "Playwright, the browsers CI installs and the CI runner move together (see ci.yml).",
+      "matchPackageNames": ["@playwright/test", "playwright", "playwright-core"],
+      "groupName": "Playwright"
+    },
+    {
+      "description": "Our lint and type tooling, one pull request a week.",
+      "matchPackageNames": [
+        "eslint",
+        "typescript",
+        "typescript-eslint",
+        "@eslint/**",
+        "prettier",
+        "prettier-plugin-*"
+      ],
+      "groupName": "Lint and type tooling"
+    },
+    {
+      "description": "Database tooling: a change here is checked against the migrations.",
+      "matchPackageNames": ["drizzle-orm", "drizzle-kit"],
+      "groupName": "Drizzle"
+    }
+  ]
+}

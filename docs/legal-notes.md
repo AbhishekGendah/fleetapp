@@ -348,6 +348,14 @@ of service) and the countries.
 - No library receives personal data: they all run on our servers or in the
   browser. The breached-password check sends only the first 5 characters of
   a fingerprint of the password to Have I Been Pwned, as before.
+- A third-party licences file is now generated with each app's build
+  (public/third-party-licences.txt, every shipped library with its licence
+  and notice files). It still needs a link from the terms or privacy page.
+- Test-only tools with other licences, never shipped: axe-core (MPL-2.0),
+  LocalStack (Apache-2.0, a Docker image). Build-time and server-only pieces
+  under LGPL-3.0 (Next's image resizer, libvips), MPL-2.0 (the CSS compiler)
+  and CC-BY-4.0 (browser-support data) are unmodified and not sent to
+  browsers, so they place no duty on our code.
 - Photos: shrinking on the phone also drops the location details phones
   add to photos, which is good for privacy (APP 11).
 

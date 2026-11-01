@@ -54,12 +54,14 @@ Add to this list whenever something is relaxed or put off "until launch".
   storage "database": a small table and login-role grants, plan first).
   Today each server counts on its own; the password and code lockouts
   already hold in the database, so this is a second layer (review C6).
-- [ ] A third-party licences notice (generated from the dependencies) shipped
-  with both apps: Apache-2.0 libraries such as Fuse.js ask for it
-  (docs/legal-notes.md, Libraries used).
+- [ ] Link the generated third-party licences file
+  (/third-party-licences.txt, built with each app) from the terms or
+  privacy page (docs/legal-notes.md, Libraries used).
+- [ ] Renovate pull requests are being reviewed weekly (they begin once the
+  Renovate app is installed on the repository).
 - [ ] Browser tests run on Ubuntu 24.04 in CI because Playwright 1.56 does
   not support 26.04: move to ubuntu-latest when Playwright is upgraded
-  (with the browser it needs).
+  (with the browser it needs; Renovate groups these).
 - [ ] Forgot-password replies take the same time for every address (send
   in the background once Postmark is in).
 - [ ] Separate production database and buckets, with real Renter data only
