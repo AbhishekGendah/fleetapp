@@ -1,7 +1,8 @@
 "use client";
 
 import { digitsOnly } from "@fleetapp/core";
-import { useEffect, useRef, useState } from "react";
+import { OTPInput, REGEXP_ONLY_DIGITS } from "input-otp";
+import { useEffect, useRef } from "react";
 
 import { cn } from "../lib/utils";
 
@@ -27,15 +28,13 @@ export interface CodeInputProps {
 }
 
 /**
- * A one-time code shown as one box per digit.
- *
- * It is a single real input laid invisibly over the boxes, not one input per
- * box. So pasting a whole code fills every box, an authenticator app or
+ * A one-time code shown as one box per digit, on input-otp (the library
+ * shadcn uses). It is a single real input behind the boxes, not one input
+ * per box, so pasting a whole code fills every box, an authenticator app or
  * password manager can fill it in, the phone shows its number pad, and a
  * screen reader hears one field rather than six.
  */
 export function CodeInput(props: CodeInputProps) {
-  const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const wasDisabled = useRef(false);
 
@@ -48,67 +47,56 @@ export function CodeInput(props: CodeInputProps) {
     wasDisabled.current = Boolean(props.isDisabled);
   }, [props.isDisabled]);
 
-  const activeIndex = Math.min(props.value.length, props.length - 1);
-
-  function acceptDigits(digits: string): void {
-    props.onChange(digits);
-    if (digits.length === props.length && digits !== props.value) {
-      props.onComplete?.(digits);
-    }
-  }
-
-  // A pasted whole code replaces what is there, rather than being added after
-  // the digits already typed and cut short.
-  function handlePaste(event: React.ClipboardEvent<HTMLInputElement>): void {
-    const pasted = digitsOnly(event.clipboardData.getData("text"));
-    if (pasted.length < props.length) {
-      return;
-    }
-    event.preventDefault();
-    acceptDigits(pasted.slice(0, props.length));
-  }
-
   return (
-    <div className="relative">
-      <input
-        ref={inputRef}
-        id={props.id}
-        name={props.name}
-        type="text"
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        pattern="[0-9]*"
-        maxLength={props.length}
-        required
-        autoFocus={props.autoFocus}
-        aria-label={props.ariaLabel}
-        value={props.value}
-        disabled={props.isDisabled}
-        onChange={(event) => acceptDigits(digitsOnly(event.target.value).slice(0, props.length))}
-        onPaste={handlePaste}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
-        // 16px or more stops phones zooming in on focus; the text itself is
-        // invisible because the boxes underneath show it.
-        className="absolute inset-0 h-full w-full cursor-text text-base opacity-0"
-      />
-      <div aria-hidden className="flex justify-between gap-1.5">
-        {Array.from({ length: props.length }, (_, index) => {
-          const isActive = isFocused && index === activeIndex;
-          return (
+    <OTPInput
+      ref={inputRef}
+      id={props.id}
+      name={props.name}
+      maxLength={props.length}
+      value={props.value}
+      onChange={props.onChange}
+      onComplete={(code: string) => props.onComplete?.(code)}
+      pattern={REGEXP_ONLY_DIGITS}
+      // A pasted "123 456" or "Your code is 123456" still gives the digits.
+      pasteTransformer={(pasted) => digitsOnly(pasted).slice(0, props.length)}
+      onPaste={(event) => {
+        // A whole code replaces the digits already there, rather than being added after them.
+        const pasted = digitsOnly(event.clipboardData.getData("text"));
+        if (pasted.length < props.length) {
+          return;
+        }
+        event.preventDefault();
+        const code = pasted.slice(0, props.length);
+        props.onChange(code);
+        props.onComplete?.(code);
+      }}
+      inputMode="numeric"
+      autoComplete="one-time-code"
+      required
+      autoFocus={props.autoFocus}
+      aria-label={props.ariaLabel}
+      disabled={props.isDisabled}
+      // 16px or more stops phones zooming in on focus.
+      className="text-base"
+      containerClassName="flex justify-between gap-1.5"
+      render={({ slots }) => (
+        <>
+          {slots.map((slot, index) => (
             <span
               key={index}
               className={cn(
                 "bg-card flex h-12 max-w-12 flex-1 items-center justify-center rounded-lg border text-xl font-semibold",
-                isActive && "border-teal ring-teal/30 ring-2",
+                slot.isActive && "border-teal ring-teal/30 ring-2",
               )}
             >
-              {props.value[index] ??
-                (isActive ? <span className="bg-teal animate-caret-blink h-6 w-0.5" /> : null)}
+              {slot.char ??
+                (slot.hasFakeCaret ? (
+                  <span className="bg-teal animate-caret-blink h-6 w-0.5" />
+                ) : null)}
             </span>
-          );
-        })}
-      </div>
-    </div>
+          ))}
+        </>
+      )}
+    />
   );
 }

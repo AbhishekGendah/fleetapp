@@ -66,6 +66,7 @@
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "compressorjs": "1.4.0",
+    "input-otp": "1.5.0",
     "lucide-react": "1.55.0",
     "qrcode": "1.5.4",
     "tailwind-merge": "3.7.0",
