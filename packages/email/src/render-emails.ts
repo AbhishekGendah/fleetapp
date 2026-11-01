@@ -90,7 +90,12 @@ export function renderRenterLinkCodeEmail(
 ): Promise<EmailMessage> {
   const { to, replyTo, ...props } = input;
   return fromOperator(
-    renderEmail(to, `Your code: ${props.code}`, createElement(RenterLinkCodeEmail, props)),
+    // Not the code itself: subjects show on lock screens and in mail logs.
+    renderEmail(
+      to,
+      `Your code for ${props.operatorName}`,
+      createElement(RenterLinkCodeEmail, props),
+    ),
     props.operatorName,
     replyTo,
   );

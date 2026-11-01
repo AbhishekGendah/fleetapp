@@ -94,7 +94,7 @@ describe("Renter emails", () => {
       code: "042917",
       validFor: "10 minutes",
     });
-    expect(message.subject).toContain("042917");
+    expect(message.subject).not.toContain("042917");
     expect(message.text).toContain("042917");
   });
 });

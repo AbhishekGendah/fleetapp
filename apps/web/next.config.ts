@@ -17,6 +17,16 @@ const nextConfig: NextConfig = {
 
   async headers() {
     return [
+      // No other site may show these pages inside its own (clickjacking), and
+      // browsers must not guess a file's type from its contents.
+      {
+        source: "/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+        ],
+      },
       // An invite's or reset link's secret is in its address. No referrer
       // means clicking any link on the page does not hand it to another site.
       ...SECRET_LINK_PAGES.map((source) => ({

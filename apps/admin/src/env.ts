@@ -1,28 +1,30 @@
 import { authEnvShape } from "@fleetapp/auth";
-import { emailEnvShape } from "@fleetapp/email";
+import { emailEnvShape, refuseTestInboxInProduction } from "@fleetapp/email";
 import { z } from "zod";
 
 // Validated once at import time so a missing/invalid variable fails fast
 // instead of surfacing as a confusing runtime error later.
-const envSchema = z.object({
-  ...authEnvShape,
-  ...emailEnvShape,
+const envSchema = z
+  .object({
+    ...authEnvShape,
+    ...emailEnvShape,
 
-  ADMIN_URL: z.url(),
+    ADMIN_URL: z.url(),
 
-  /** Connection string for `admin_app_role`: everything except credentials. */
-  DATABASE_URL: z.string().min(1),
+    /** Connection string for `admin_app_role`: everything except credentials. */
+    DATABASE_URL: z.string().min(1),
 
-  /**
-   * Connection string for `admin_auth_role`, used only by the login system.
-   * Separate on purpose: the rest of the admin app runs on DATABASE_URL, whose
-   * role cannot read a password hash or an authenticator secret.
-   */
-  AUTH_DATABASE_URL: z.string().min(1),
+    /**
+     * Connection string for `admin_auth_role`, used only by the login system.
+     * Separate on purpose: the rest of the admin app runs on DATABASE_URL, whose
+     * role cannot read a password hash or an authenticator secret.
+     */
+    AUTH_DATABASE_URL: z.string().min(1),
 
-  /** The Operator app's address, to build the links in invite emails. */
-  APP_URL: z.url(),
-});
+    /** The Operator app's address, to build the links in invite emails. */
+    APP_URL: z.url(),
+  })
+  .superRefine(refuseTestInboxInProduction);
 
 export const env = envSchema.parse({
   ADMIN_URL: process.env.ADMIN_URL,
@@ -33,4 +35,5 @@ export const env = envSchema.parse({
   APP_URL: process.env.APP_URL,
   EMAIL_TRANSPORT: process.env.EMAIL_TRANSPORT,
   EMAIL_FROM: process.env.EMAIL_FROM,
+  VERCEL_ENV: process.env.VERCEL_ENV,
 });

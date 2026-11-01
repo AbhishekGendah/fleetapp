@@ -13,11 +13,16 @@ const INVALID_EMAIL_OR_PASSWORD = {
   message: "Invalid email or password",
 } as const;
 
-/** Where the wrong-password count lives. Each app passes its own table. */
+/**
+ * Where the attempt count lives. Each app passes its own table. An attempt
+ * is counted before its password is checked, so guesses sent all at once
+ * cannot slip past the limit together.
+ */
 export interface SignInLockoutStore {
-  findLockedUntil(userId: string): Promise<Date | null>;
-  /** Counts a wrong password; says whether that one started a lockout. */
-  recordFailure(userId: string, now: Date): Promise<{ isNowLocked: boolean }>;
+  /** Counts an attempt; false when the login is locked or has no attempts left. */
+  claimAttempt(userId: string, now: Date): Promise<{ isAllowed: boolean }>;
+  /** After a wrong password: locks the login if it has used its attempts; says whether this did. */
+  lockIfOutOfAttempts(userId: string, now: Date): Promise<{ isNowLocked: boolean }>;
   clearFailures(userId: string): Promise<void>;
 }
 
@@ -65,7 +70,9 @@ function isWrongPassword(returned: unknown): boolean {
  * Better Auth's own defence is a rate limit held in each server's memory,
  * which on Vercel resets constantly and is spread across many servers. This
  * keeps the count per login instead, so it holds however many servers there
- * are and however often they restart.
+ * are and however often they restart. Each attempt is counted before the
+ * password is checked and a right password clears the count, so at most
+ * five wrong guesses are ever checked before the login locks.
  */
 export function signInLockout(options: SignInLockoutOptions): BetterAuthPlugin {
   const now = options.now ?? (() => new Date());
@@ -82,8 +89,8 @@ export function signInLockout(options: SignInLockoutOptions): BetterAuthPlugin {
             if (!userId) {
               return;
             }
-            const lockedUntil = await options.store.findLockedUntil(userId);
-            if (!lockedUntil || lockedUntil.getTime() <= now().getTime()) {
+            const { isAllowed } = await options.store.claimAttempt(userId, now());
+            if (isAllowed) {
               return;
             }
             // Hashing anyway keeps a locked login exactly as slow to answer
@@ -111,7 +118,7 @@ export function signInLockout(options: SignInLockoutOptions): BetterAuthPlugin {
               return;
             }
 
-            const { isNowLocked } = await options.store.recordFailure(userId, now());
+            const { isNowLocked } = await options.store.lockIfOutOfAttempts(userId, now());
             await options.onSignInFailed?.(userId);
             if (isNowLocked) {
               await options.onLockedOut?.(userId);

@@ -36,4 +36,15 @@ describe("pages whose address holds a secret", () => {
       ]),
     );
   });
+
+  it("are never shown inside another site, like every page", async () => {
+    const rules = (await nextConfig.headers?.()) ?? [];
+    const everyPage = rules.find((rule) => rule.source === "/:path*");
+    expect(everyPage?.headers).toEqual(
+      expect.arrayContaining([
+        { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+        { key: "X-Frame-Options", value: "DENY" },
+      ]),
+    );
+  });
 });

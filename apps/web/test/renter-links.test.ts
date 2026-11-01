@@ -24,7 +24,8 @@ import { seedOperatorWithUser } from "./car-fixtures";
 
 const APP_URL = "https://app.example.test";
 const DAY_MS = 24 * 60 * 60 * 1000;
-const CODE_IN_SUBJECT = /(\d{6})/;
+/** The code stands alone on its own line in the email's text. */
+const CODE_IN_TEXT = /^\s*(\d{6})\s*$/m;
 
 describe("a Renter's details link", () => {
   let admin: TestConnection;
@@ -53,7 +54,7 @@ describe("a Renter's details link", () => {
   }
 
   function lastCode(): string {
-    return CODE_IN_SUBJECT.exec(sent.at(-1)!.subject)![1]!;
+    return CODE_IN_TEXT.exec(sent.at(-1)!.text)![1]!;
   }
 
   beforeAll(async () => {

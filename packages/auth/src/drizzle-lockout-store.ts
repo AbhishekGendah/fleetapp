@@ -40,13 +40,6 @@ function firstRow(result: unknown): Record<string, unknown> | undefined {
   return typeof row === "object" && row !== null ? (row as Record<string, unknown>) : undefined;
 }
 
-function parseTimestamp(value: unknown): Date | null {
-  if (value instanceof Date) {
-    return value;
-  }
-  return typeof value === "string" ? new Date(value) : null;
-}
-
 export function createDrizzleLockoutStore(
   database: SqlExecutor,
   columns: LockoutTable,
@@ -54,35 +47,54 @@ export function createDrizzleLockoutStore(
   const matchesLogin = (userId: string): SQL =>
     sql`${columns.userId} = ${userId} AND ${columns.providerId} = ${CREDENTIAL_PROVIDER_ID}`;
 
+  const lockUntil = (now: Date): string =>
+    new Date(now.getTime() + SIGN_IN_LOCKOUT_MINUTES * MILLISECONDS_PER_MINUTE).toISOString();
+
   return {
-    async findLockedUntil(userId) {
+    // One statement, holding the account row, so attempts sent at the same
+    // moment are counted one after another. An attempt is refused while the
+    // login is locked or once five are in flight or failed. Finding five
+    // unresolved (a server stopped mid-attempt) locks the login there and
+    // then, so a stuck count heals into an ordinary lockout.
+    async claimAttempt(userId, now) {
+      const isLocked = sql`attempt_state.locked_until IS NOT NULL AND attempt_state.locked_until > ${now.toISOString()}::timestamptz`;
+      const isOutOfAttempts = sql`attempt_state.failed >= ${MAX_FAILED_SIGN_INS}`;
       const result = await database.execute(sql`
-        SELECT ${columns.signInLockedUntil} AS locked_until FROM ${columns.table}
+        WITH attempt_state AS (
+          SELECT ${columns.failedSignInCount} AS failed, ${columns.signInLockedUntil} AS locked_until
+          FROM ${columns.table} WHERE ${matchesLogin(userId)} FOR UPDATE
+        )
+        UPDATE ${columns.table} SET
+          ${columnName(columns.failedSignInCount)} = CASE
+            WHEN ${isLocked} THEN attempt_state.failed
+            WHEN ${isOutOfAttempts} THEN 0
+            ELSE attempt_state.failed + 1 END,
+          ${columnName(columns.signInLockedUntil)} = CASE
+            WHEN ${isLocked} THEN attempt_state.locked_until
+            WHEN ${isOutOfAttempts} THEN ${lockUntil(now)}::timestamptz
+            ELSE attempt_state.locked_until END
+        FROM attempt_state
         WHERE ${matchesLogin(userId)}
+        RETURNING (${isLocked} OR ${isOutOfAttempts}) AS is_refused
       `);
-      return parseTimestamp(firstRow(result)?.locked_until);
+      return { isAllowed: firstRow(result)?.is_refused !== true };
     },
 
-    // One statement, so two wrong guesses at the same moment are both counted.
-    // Reaching the limit starts the lockout and resets the count, so the next
-    // five wrong guesses after it ends lock the login again.
-    async recordFailure(userId, now) {
-      const lockedUntil = new Date(
-        now.getTime() + SIGN_IN_LOCKOUT_MINUTES * MILLISECONDS_PER_MINUTE,
-      );
-      const reachesLimit = sql`${columns.failedSignInCount} + 1 >= ${MAX_FAILED_SIGN_INS}`;
+    // Locking resets the count, so the next five wrong guesses after it ends
+    // lock the login again. Only the first wrong answer to reach the limit
+    // locks it, so the lockout is logged once.
+    async lockIfOutOfAttempts(userId, now) {
       const result = await database.execute(sql`
         UPDATE ${columns.table} SET
-          ${columnName(columns.failedSignInCount)} =
-            CASE WHEN ${reachesLimit} THEN 0 ELSE ${columns.failedSignInCount} + 1 END,
-          ${columnName(columns.signInLockedUntil)} =
-            CASE WHEN ${reachesLimit} THEN ${lockedUntil.toISOString()}::timestamptz
-                 ELSE ${columns.signInLockedUntil} END
+          ${columnName(columns.failedSignInCount)} = 0,
+          ${columnName(columns.signInLockedUntil)} = ${lockUntil(now)}::timestamptz
         WHERE ${matchesLogin(userId)}
-        RETURNING ${columns.signInLockedUntil} AS locked_until
+          AND ${columns.failedSignInCount} >= ${MAX_FAILED_SIGN_INS}
+          AND (${columns.signInLockedUntil} IS NULL
+               OR ${columns.signInLockedUntil} <= ${now.toISOString()}::timestamptz)
+        RETURNING 1 AS locked
       `);
-      const newLockedUntil = parseTimestamp(firstRow(result)?.locked_until);
-      return { isNowLocked: newLockedUntil !== null && newLockedUntil.getTime() > now.getTime() };
+      return { isNowLocked: firstRow(result) !== undefined };
     },
 
     async clearFailures(userId) {

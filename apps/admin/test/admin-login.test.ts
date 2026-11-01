@@ -289,6 +289,14 @@ describe("the admin login", () => {
     const signInWith = (password: string) =>
       clockedAuth.api.signInEmail({ body: { email, password } });
 
+    async function failureCount(): Promise<number> {
+      const entries = await connection.db
+        .select({ action: adminActivityLog.action })
+        .from(adminActivityLog)
+        .where(eq(adminActivityLog.adminUserId, adminUserId));
+      return entries.filter((entry) => entry.action === "sign_in_failed").length;
+    }
+
     it("starts the count again after a right password", async () => {
       for (let attempt = 0; attempt < 4; attempt += 1) {
         await refusalOf(signInWith(WRONG_PASSWORD));
@@ -325,6 +333,17 @@ describe("the admin login", () => {
       clock = new Date(clock.getTime() + SIXTEEN_MINUTES_MS);
 
       await expect(signInWith(TEST_PASSWORD)).resolves.toBeDefined();
+    });
+
+    it("checks at most five wrong passwords sent all at once, then refuses even the right one", async () => {
+      const failuresBefore = await failureCount();
+      const guesses = Array.from({ length: 20 }, () =>
+        signInWith(WRONG_PASSWORD).catch(() => null),
+      );
+      await Promise.all(guesses);
+
+      expect((await failureCount()) - failuresBefore).toBeLessThanOrEqual(5);
+      await refusalOf(signInWith(TEST_PASSWORD));
     });
   });
 });

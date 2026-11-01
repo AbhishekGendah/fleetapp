@@ -15,7 +15,8 @@ const codeStyle = { fontSize: "28px", fontWeight: 700, letterSpacing: "6px" };
 export function RenterLinkCodeEmail(props: RenterLinkCodeEmailProps): ReactElement {
   return (
     <EmailLayout
-      preview={`Your code is ${props.code}`}
+      // Not the code: previews show on lock screens.
+      preview={`Your code to open your details form from ${props.operatorName}`}
       heading="Your code"
       senderName={props.operatorName}
     >
