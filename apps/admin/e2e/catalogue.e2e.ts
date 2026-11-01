@@ -198,3 +198,30 @@ test.describe("image upload", () => {
     expect(width).toBe(MAX_EDGE_PX);
   });
 });
+
+test.describe("photo viewer", () => {
+  test("opens full screen, steps through and closes on Escape", async ({ page }) => {
+    await openCatalogue(page);
+    await page.getByRole("button", { name: "Open Example 001" }).click();
+
+    const viewer = page.getByRole("dialog");
+    await expect(viewer).toBeVisible();
+    await expect(viewer).toContainText("1 of 2");
+    await page.keyboard.press("ArrowRight");
+    await expect(viewer).toContainText("2 of 2");
+    await expect(viewer.getByRole("link", { name: "Open to save or share" })).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(viewer).toBeHidden();
+  });
+
+  test("fetches only the photo on screen, as each view of a licence is logged", async ({
+    page,
+  }) => {
+    await openCatalogue(page);
+    await page.getByRole("button", { name: "Open Example 001" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    const viewerImages = page.getByRole("dialog").locator("img");
+    await expect(viewerImages).toHaveCount(1);
+  });
+});

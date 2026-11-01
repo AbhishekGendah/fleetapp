@@ -6,3 +6,6 @@ declare module "*.svg" {
   const image: { src: string; width: number; height: number };
   export default image;
 }
+
+/** Stylesheets that come with a library, bundled by Next.js. */
+declare module "*.css";

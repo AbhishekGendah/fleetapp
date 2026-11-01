@@ -1,14 +1,17 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, ExternalLink, X } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import * as React from "react";
+import Lightbox from "yet-another-react-lightbox";
+import Captions from "yet-another-react-lightbox/plugins/captions";
+import Counter from "yet-another-react-lightbox/plugins/counter";
+import Zoom from "yet-another-react-lightbox/plugins/zoom";
+import "yet-another-react-lightbox/styles.css";
+import "yet-another-react-lightbox/plugins/captions.css";
+import "yet-another-react-lightbox/plugins/counter.css";
 
 import { useCloseOnBack } from "../lib/use-close-on-back";
 import { cn } from "../lib/utils";
-import { Button } from "./button";
-
-/** A sideways drag this long (in pixels) counts as a swipe to the next or previous image. */
-const SWIPE_DISTANCE_PX = 50;
 
 export interface ViewerImage {
   /** Where the full-size image is fetched from. */
@@ -17,145 +20,81 @@ export interface ViewerImage {
   label: string;
 }
 
+/**
+ * Only the image on screen is fetched, never its neighbours ahead of time:
+ * opening a licence photo is a logged view (rule 8), so each fetch must be one.
+ */
+const NO_PRELOADING = 0;
+
+const VIEWER_LABELS = {
+  Previous: "Previous",
+  Next: "Next",
+  Close: "Close",
+  Lightbox: "Image viewer",
+} as const;
+
 const OpenerContext = React.createContext<((index: number) => void) | null>(null);
 
-function useSwipe(onPrevious: () => void, onNext: () => void) {
-  const startX = React.useRef<number | null>(null);
-  return {
-    onPointerDown: (event: React.PointerEvent) => {
-      startX.current = event.clientX;
-    },
-    onPointerUp: (event: React.PointerEvent) => {
-      const distance = startX.current === null ? 0 : event.clientX - startX.current;
-      startX.current = null;
-      if (distance > SWIPE_DISTANCE_PX) {
-        onPrevious();
-      } else if (distance < -SWIPE_DISTANCE_PX) {
-        onNext();
-      }
-    },
-  };
+/** Hands the image to the phone's own viewer, where it can be saved or shared. */
+function OpenToSaveButton(props: { image: ViewerImage | undefined }): React.JSX.Element | null {
+  if (!props.image) {
+    return null;
+  }
+  return (
+    <a
+      href={props.image.src}
+      target="_blank"
+      rel="noopener"
+      className="yarl__button inline-flex min-h-11 items-center gap-2 text-sm font-medium"
+    >
+      <ExternalLink aria-hidden className="size-5" />
+      Open to save or share
+    </a>
+  );
 }
 
 /**
  * Opens images full screen inside the app, instead of in a separate browser
- * tab with no way back. ✕, Escape or the phone's back button closes it;
- * arrows, the keyboard or a swipe move between the images. Only the image
- * on screen is fetched, so opening one is a single view (some are logged).
- * "Open to save or share" hands the image to the phone's own viewer.
+ * tab with no way back, using yet-another-react-lightbox: ✕, Escape or the
+ * phone's back button closes it; arrows, the keyboard or a swipe move
+ * between the images; pinch or double-tap zooms. "Open to save or share"
+ * hands the image to the phone's own viewer.
  * Wrap the thumbnails or links in this and make each an `ImageViewerOpener`.
  */
 export function ImageViewer(props: {
   images: readonly ViewerImage[];
   children: React.ReactNode;
 }): React.JSX.Element {
-  const dialogRef = React.useRef<HTMLDialogElement>(null);
   const [openIndex, setOpenIndex] = React.useState<number | null>(null);
-  const count = props.images.length;
-  const image = openIndex === null ? null : props.images[openIndex];
-  const close = React.useCallback(() => dialogRef.current?.close(), []);
+  const close = React.useCallback(() => setOpenIndex(null), []);
   useCloseOnBack(openIndex !== null, close);
-
-  React.useEffect(() => {
-    if (openIndex !== null && dialogRef.current && !dialogRef.current.open) {
-      dialogRef.current.showModal();
-    }
-  }, [openIndex]);
-
-  const step = (by: number) =>
-    setOpenIndex((index) => (index === null ? null : (index + by + count) % count));
-  const swipe = useSwipe(
-    () => step(-1),
-    () => step(1),
-  );
-  const hasSeveral = count > 1;
+  const slides = props.images.map((image) => ({
+    src: image.src,
+    alt: image.label,
+    title: image.label,
+  }));
+  const isSingle = props.images.length <= 1;
 
   return (
     <OpenerContext.Provider value={setOpenIndex}>
       {props.children}
-      <dialog
-        ref={dialogRef}
-        aria-label={image?.label ?? "Image"}
-        onClose={() => setOpenIndex(null)}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowLeft") {
-            step(-1);
-          } else if (event.key === "ArrowRight") {
-            step(1);
-          }
+      <Lightbox
+        open={openIndex !== null}
+        index={openIndex ?? 0}
+        close={close}
+        slides={slides}
+        labels={VIEWER_LABELS}
+        plugins={[Captions, Counter, Zoom]}
+        carousel={{ preload: NO_PRELOADING, finite: isSingle }}
+        counter={{ separator: " of " }}
+        controller={{ closeOnBackdropClick: false }}
+        render={isSingle ? { buttonPrev: () => null, buttonNext: () => null } : undefined}
+        on={{ view: ({ index }) => setOpenIndex(index) }}
+        toolbar={{
+          buttons: [<OpenToSaveButton key="open" image={props.images[openIndex ?? 0]} />, "close"],
         }}
-        className="m-0 h-dvh max-h-none w-full max-w-none bg-black p-0 text-white backdrop:bg-black"
-      >
-        {image ? (
-          <div className="flex h-full flex-col">
-            <div className="flex items-center gap-2 px-2 pt-[max(0.25rem,env(safe-area-inset-top))]">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label="Close"
-                className="text-white hover:bg-white/15 hover:text-white"
-                onClick={close}
-              >
-                <X className="size-6!" aria-hidden />
-              </Button>
-              <p className="min-w-0 flex-1 truncate text-sm font-medium">{image.label}</p>
-              {hasSeveral ? (
-                <p className="shrink-0 pr-2 text-sm text-white/70">
-                  {(openIndex ?? 0) + 1} of {count}
-                </p>
-              ) : null}
-            </div>
-            <div className="relative min-h-0 flex-1 touch-pan-y select-none" {...swipe}>
-              <img
-                key={image.src}
-                src={image.src}
-                alt={image.label}
-                draggable={false}
-                className="size-full object-contain"
-              />
-              {hasSeveral ? (
-                <>
-                  <StepButton side="left" label="Previous" onClick={() => step(-1)} />
-                  <StepButton side="right" label="Next" onClick={() => step(1)} />
-                </>
-              ) : null}
-            </div>
-            <div className="flex justify-center px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
-              <Button
-                asChild
-                variant="ghost"
-                className="text-white hover:bg-white/15 hover:text-white"
-              >
-                <a href={image.src} target="_blank" rel="noopener">
-                  <ExternalLink aria-hidden />
-                  Open to save or share
-                </a>
-              </Button>
-            </div>
-          </div>
-        ) : null}
-      </dialog>
+      />
     </OpenerContext.Provider>
-  );
-}
-
-function StepButton(props: { side: "left" | "right"; label: string; onClick: () => void }) {
-  const Icon = props.side === "left" ? ChevronLeft : ChevronRight;
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      aria-label={props.label}
-      className={cn(
-        "absolute top-1/2 -translate-y-1/2 rounded-full bg-black/40 text-white hover:bg-black/60 hover:text-white",
-        props.side === "left" ? "left-2" : "right-2",
-      )}
-      onClick={props.onClick}
-    >
-      <Icon className="size-6!" aria-hidden />
-    </Button>
   );
 }
 

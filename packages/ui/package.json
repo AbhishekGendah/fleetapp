@@ -67,7 +67,8 @@
     "compressorjs": "1.4.0",
     "lucide-react": "1.55.0",
     "qrcode": "1.5.4",
-    "tailwind-merge": "3.7.0"
+    "tailwind-merge": "3.7.0",
+    "yet-another-react-lightbox": "3.33.0"
   },
   "devDependencies": {
     "@fleetapp/config": "workspace:*",
