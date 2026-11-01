@@ -5,7 +5,7 @@ before any code is written. Detail of what is built is in
 docs/progress.md; what must happen before the first real Operator is in
 docs/launch-checklist.md.
 
-Status: ✅ done · 🔨 in progress · ⏳ not started. Last checked 30 Oct 2026.
+Status: ✅ done · 🔨 in progress · ⏳ not started. Last checked 1 Nov 2026.
 
 ## Phase 1 — Foundation ✅
 
@@ -31,7 +31,7 @@ Status: ✅ done · 🔨 in progress · ⏳ not started. Last checked 30 Oct 202
 - Mobile app shell and shared list component.
 - Added: installable phone app (home-screen icon, install guide card).
 
-## Phase 2 — Core records 🔨 (plan: docs/plans/phase-2.md)
+## Phase 2 — Core records ✅ (plan: docs/plans/phase-2.md)
 - Step 1 — Cars ✅: add, find, edit, archive, status.
   - Added: starting odometer reading on the add form, and odometer
     readings on the car page (taken early from Phase 5).
@@ -44,14 +44,15 @@ Status: ✅ done · 🔨 in progress · ⏳ not started. Last checked 30 Oct 202
   - 2b ✅ Purchase, sale (buyer and seller details, lodge-transfer
     reminder), other costs, Costs tab with totals. Transfer papers and
     receipts are uploaded in 2c.
-  - 2c ⏳ Photos and documents (incl. attachments for rego, insurance,
-    receipts and purchase/sale transfer papers). **Next.**
-- Step 3 ⏳ Renters (licence, licence scans, "do not rent", duplicates).
+  - 2c ✅ Photos and documents (incl. attachments for rego, insurance,
+    receipts and purchase/sale transfer papers), in-app camera, photo viewer.
+- Step 3 ✅ Renters (licence, licence scans, "do not rent", duplicates).
   Also narrows what admins can see in the activity log (rule 5).
-- Step 4 ⏳ Renter links and self-onboarding.
-- Step 5 ⏳ Retention (scheduled deletion of old licence scans).
+- Step 4 ✅ Renter links and self-onboarding (details form, Operator review).
+- Step 5 ✅ Retention (scheduled deletion of old licence scans).
+- Full code review before Phase 3 ✅ (docs/reviews/2026-10-31-full-code-review.md).
 
-## Phase 3 — Rentals ⏳
+## Phase 3 — Rentals ⏳ **Next, plan first.**
 - Bookings, calendar, double-booking prevention.
 - Contract templates, signing.
 - Handover/return reports (must work offline-ish, rule 25).
@@ -106,7 +107,8 @@ Works through docs/launch-checklist.md, including:
 
 ## Runs alongside every phase
 - Abhi's test checklist (Google Sheet, link in docs/progress.md): every
-  new or changed field, button and screen gets its row.
+  new or changed field, button and screen gets its row. Abhi has chosen
+  to test everything in one go near the end, taking his time (1 Nov 2026).
 - Legal check of each task, written to docs/legal-notes.md.
 
 ## Decided along the way
