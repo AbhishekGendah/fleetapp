@@ -220,3 +220,51 @@ test.describe("photo viewer", () => {
     await expect(viewerImages).toHaveCount(1);
   });
 });
+
+test.describe("formatted boxes", () => {
+  test("the ABN box spaces its digits as you type", async ({ page }) => {
+    await openCatalogue(page);
+    const box = page.getByLabel("Formats as you type (ABN)");
+    await box.pressSequentially("51824753556");
+    await expect(box).toHaveValue("51 824 753 556");
+  });
+
+  test("Backspace after a space takes the digit before it", async ({ page }) => {
+    await openCatalogue(page);
+    const box = page.getByLabel("Formats as you type (phone)");
+    await box.pressSequentially("0412345");
+    await expect(box).toHaveValue("0412 345");
+    await page.keyboard.press("Backspace");
+    await page.keyboard.press("Backspace");
+    await page.keyboard.press("Backspace");
+    await page.keyboard.press("Backspace");
+    await expect(box).toHaveValue("041");
+  });
+
+  test("typing in the middle keeps the cursor where it was", async ({ page }) => {
+    await openCatalogue(page);
+    const box = page.getByLabel("Formats as you type (phone)");
+    await box.pressSequentially("041245678");
+    // Put the cursor after "0412" and type the missing 3.
+    await box.evaluate((input: HTMLInputElement) => input.setSelectionRange(4, 4));
+    await page.keyboard.type("3");
+    await expect(box).toHaveValue("0412 345 678");
+    expect(await box.evaluate((input: HTMLInputElement) => input.selectionStart)).toBe(6);
+  });
+
+  test("+61 can be typed and becomes the national number", async ({ page }) => {
+    await openCatalogue(page);
+    const box = page.getByLabel("Formats as you type (phone)");
+    await box.pressSequentially("+61412345678");
+    await expect(box).toHaveValue("0412 345 678");
+  });
+
+  test("the money box stops at the largest amount", async ({ page }) => {
+    await openCatalogue(page);
+    const box = page.getByLabel("Formats as you type (dollars)");
+    await box.pressSequentially("1234567890123");
+    await expect(box).toHaveValue("$12,345,678");
+    await box.pressSequentially(".999");
+    await expect(box).toHaveValue("$12,345,678.99");
+  });
+});
