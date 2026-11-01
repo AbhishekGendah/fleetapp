@@ -592,6 +592,10 @@
   failed for a while (no public folder) and new settings were missing from
   the apps' turbo.json (APP_STAGE too); both fixed, CI green.
 
+- Abhi added GOOGLE_PLACES_API_URL (config) to the web Vercel project and
+  installed Renovate (Renovate only, scan and alert). Renovate's Dependency
+  Dashboard is GitHub issue #3; update pull requests start on Mondays.
+
 ## Next
 Phase 3 (rentals), plan first. Open idea: trim the phone rules to
 Australia only with libphonenumber's metadata generator (about 40 KB off

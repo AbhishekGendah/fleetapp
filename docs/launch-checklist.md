@@ -57,8 +57,9 @@ Add to this list whenever something is relaxed or put off "until launch".
 - [ ] Link the generated third-party licences file
   (/third-party-licences.txt, built with each app) from the terms or
   privacy page (docs/legal-notes.md, Libraries used).
-- [ ] Renovate pull requests are being reviewed weekly (they begin once the
-  Renovate app is installed on the repository).
+- [ ] Renovate pull requests are being reviewed weekly (Renovate installed
+  1 Nov 2026, "Renovate only", scan and alert; its Dependency Dashboard is
+  issue #3 on GitHub).
 - [ ] Browser tests run on Ubuntu 24.04 in CI because Playwright 1.56 does
   not support 26.04: move to ubuntu-latest when Playwright is upgraded
   (with the browser it needs; Renovate groups these).
