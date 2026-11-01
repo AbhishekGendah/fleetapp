@@ -3,6 +3,7 @@ import { exportDownload, isExportFormat } from "@fleetapp/core/spreadsheet";
 import type { NextRequest } from "next/server";
 
 import { appDb } from "../../../../lib/app-db";
+import { ADMIN_DISPLAY_TIMEZONE } from "../../../../lib/format";
 import { listOperators } from "../../../../lib/operators/queries";
 import { requireAdmin } from "../../../../lib/require-admin";
 import { OPERATOR_LIST, OPERATOR_LIST_RULES } from "../../operator-list";
@@ -30,5 +31,9 @@ export async function GET(
   const query = parseListQuery(OPERATOR_LIST, Object.fromEntries(request.nextUrl.searchParams));
   const operators = await listOperators(appDb, new Date());
   const rows = matchingRows(operators, OPERATOR_LIST_RULES, query).slice(0, MAX_EXPORT_ROWS);
-  return exportDownload(exportTable(OPERATOR_LIST.columns, rows), format, EXPORT_FILE_NAME);
+  return exportDownload(
+    exportTable(OPERATOR_LIST.columns, rows, ADMIN_DISPLAY_TIMEZONE),
+    format,
+    EXPORT_FILE_NAME,
+  );
 }

@@ -5,7 +5,6 @@ import {
   LICENCE_CLASS_LABELS,
   LICENCE_SIDE_LABELS,
   LICENCE_TYPE_LABELS,
-  neutraliseSpreadsheetText,
   RENTER_STATUS_LABELS,
   type ExportCell,
 } from "@fleetapp/core";
@@ -27,9 +26,9 @@ import { loadRenter, type RenterDetail } from "./renter-queries";
 
 const NOT_GIVEN = "Not given";
 
-/** Text as a cell that cannot run as a formula when the file is opened. */
+/** Text as a cell; an Excel text cell never runs as a formula. */
 function text(value: string | null | undefined): ExportCell {
-  return value ? neutraliseSpreadsheetText(value) : NOT_GIVEN;
+  return value || NOT_GIVEN;
 }
 
 function fieldRows(lines: readonly [string, string | null][]): ExportCell[][] {

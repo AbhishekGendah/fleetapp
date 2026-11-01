@@ -118,8 +118,10 @@ describe("a Renter's notes and everything held about them", () => {
     const cells = JSON.stringify(workbook?.sheets);
     expect(cells).toContain("1234567");
     expect(cells).toContain("0499 999 999");
-    // A note that looks like a formula cannot run when the file is opened.
-    expect(cells).toContain(`'=HYPERLINK`);
+    // Kept exactly as written: Excel text cells never run as formulas, so no
+    // apostrophe is added (CSV files neutralise it when written).
+    expect(cells).toContain(`=HYPERLINK`);
+    expect(cells).not.toContain(`'=HYPERLINK`);
     const logSheet = workbook!.sheets.find((sheet) => sheet.name === "Log")!;
     expect(logSheet.table.some((row) => row.includes("Note added"))).toBe(true);
     expect(logSheet.table.some((row) => row[3] === "Phone, Date of birth")).toBe(true);

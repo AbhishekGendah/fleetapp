@@ -27,7 +27,7 @@ function toSheetData(table: readonly ExportCell[][]): SheetData {
   );
 }
 
-/** One named sheet of a workbook. Text cells must already be neutralised. */
+/** One named sheet of a workbook. Text is written as text cells, which never run as formulas. */
 export interface WorkbookSheet {
   name: string;
   table: readonly ExportCell[][];

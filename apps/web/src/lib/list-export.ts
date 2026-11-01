@@ -27,5 +27,9 @@ export async function listExportResponse<Row>(
   }
   const query = parseListQuery(list.definition, Object.fromEntries(request.nextUrl.searchParams));
   const rows = await list.loadRows(user, query, format);
-  return exportDownload(exportTable(list.definition.columns, rows), format, list.fileName);
+  return exportDownload(
+    exportTable(list.definition.columns, rows, user.operatorTimezone),
+    format,
+    list.fileName,
+  );
 }

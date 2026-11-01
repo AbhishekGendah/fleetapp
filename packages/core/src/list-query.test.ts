@@ -110,16 +110,28 @@ describe("applying a list's query", () => {
 });
 
 describe("exporting a list", () => {
-  it("makes a cell that starts like a formula plain text, but leaves numbers alone", () => {
+  it("makes a CSV cell that starts like a formula plain text, but leaves numbers alone", () => {
     expect(neutraliseSpreadsheetText('=HYPERLINK("http://evil")')).toBe(
       '\'=HYPERLINK("http://evil")',
     );
     expect(neutraliseSpreadsheetText("@SUM(A1)")).toBe("'@SUM(A1)");
     expect(neutraliseSpreadsheetText("Smith")).toBe("Smith");
-    const table = exportTable(CAR_LIST.columns, [
-      { rego: "+61400", status: "rented", odometer: -5 },
-    ]);
-    expect(table[1]).toEqual(["'+61400", -5, "rented"]);
+    const table = exportTable(
+      CAR_LIST.columns,
+      [{ rego: "+61400", status: "rented", odometer: -5 }],
+      "Australia/Perth",
+    );
+    // Kept as typed in the table (an Excel text cell never runs); neutralised in CSV.
+    expect(table[1]).toEqual(["+61400", -5, "rented"]);
+    expect(toCsv(table)).toContain("'+61400,-5,rented");
+  });
+
+  it("writes dates in the reader's timezone, with no zone to mislead", () => {
+    const sydneyAfternoon = new Date("2026-10-30T03:15:00Z");
+    expect(toCsv([[sydneyAfternoon]])).toContain("2026-10-30 03:15");
+    const columns = [{ key: "at", label: "At", exportValue: (row: { at: Date }) => row.at }];
+    const [, [at]] = exportTable(columns, [{ at: sydneyAfternoon }], "Australia/Sydney");
+    expect(toCsv([[at!]])).toContain("2026-10-30 14:15");
   });
 
   it("writes CSV that spreadsheet programs read correctly", () => {

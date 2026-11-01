@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import {
   MILLISECONDS_PER_DAY,
   exportTable,
+  toCsv,
   hashSecretToken,
   matchingRows,
   parseListQuery,
@@ -192,8 +193,8 @@ describe("Operators and invites", () => {
       const rows = matchingRows(operators, OPERATOR_LIST_RULES, query);
       expect(rows.map((row) => row.id)).toEqual([result.operatorId]);
 
-      const [, exported] = exportTable(OPERATOR_LIST.columns, rows);
-      expect(String(exported?.[0]).startsWith("'=")).toBe(true);
+      const csv = toCsv(exportTable(OPERATOR_LIST.columns, rows, "Australia/Perth"));
+      expect(csv).toContain("'=HYPERLINK");
     });
 
     it("shows how much each Operator stores, from sizes alone", async () => {
