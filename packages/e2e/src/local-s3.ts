@@ -44,7 +44,7 @@ export async function startLocalS3(options: {
     LOCALSTACK_IMAGE,
   ]);
   const stop = async (): Promise<void> => {
-    await run("docker", ["rm", "--force", name]).catch(() => undefined);
+    await run("docker", ["rm", "--force", "--volumes", name]).catch(() => undefined);
   };
   try {
     const { stdout } = await run("docker", ["port", name, String(S3_PORT)]);

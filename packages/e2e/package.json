@@ -10,7 +10,8 @@
     "./processes": "./src/processes.ts",
     "./settings": "./src/settings.ts",
     "./playwright-config": "./src/playwright-config.ts",
-    "./accessibility": "./src/accessibility.ts"
+    "./accessibility": "./src/accessibility.ts",
+    "./download-size": "./src/download-size.ts"
   },
   "scripts": {
     "lint": "eslint .",

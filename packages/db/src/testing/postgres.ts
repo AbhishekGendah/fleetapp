@@ -12,6 +12,7 @@ const run = promisify(execFile);
  * whatever `latest` happens to be today.
  */
 const POSTGRES_IMAGE = "postgres:17-alpine";
+const POSTGRES_DATA_DIRECTORY = "/var/lib/postgresql/data";
 
 /**
  * Set this to a superuser connection string to test against a Postgres that is
@@ -131,13 +132,16 @@ async function startContainer(): Promise<Server> {
     containerName,
     "--env",
     `POSTGRES_PASSWORD=${superuserPassword}`,
+    // In memory: quicker, and nothing is left on disk once the container goes.
+    "--tmpfs",
+    POSTGRES_DATA_DIRECTORY,
     "--publish",
     "127.0.0.1::5432",
     POSTGRES_IMAGE,
   ]);
 
   const stop = async (): Promise<void> => {
-    await run("docker", ["rm", "--force", containerName]);
+    await run("docker", ["rm", "--force", "--volumes", containerName]);
   };
 
   try {
