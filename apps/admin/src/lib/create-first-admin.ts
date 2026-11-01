@@ -7,6 +7,7 @@ import {
   adminActivityLog,
   adminUsers,
 } from "@fleetapp/db/schema";
+import { sql } from "drizzle-orm";
 
 import type { AdminAuth } from "./auth-options";
 
@@ -49,8 +50,13 @@ export interface CreateFirstAdminInput {
  * it would any other password.
  *
  * The "is there already an Admin?" check and the writes happen in one
- * transaction, so two of these running at once cannot both succeed.
+ * transaction holding a lock only this uses, so two of these running at once
+ * take turns and the second finds the first's Admin (a plain transaction
+ * would let both see none and both succeed).
  */
+/** Any fixed number: the lock only this function takes, held until its transaction ends. */
+const FIRST_ADMIN_LOCK_KEY = 4_130_001;
+
 export async function createFirstAdmin(
   input: CreateFirstAdminInput,
 ): Promise<{ adminUserId: string }> {
@@ -69,6 +75,7 @@ export async function createFirstAdmin(
   const hashedPassword = await passwordHasher.hash(input.password);
 
   return input.database.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${FIRST_ADMIN_LOCK_KEY})`);
     const existing = await tx.select({ id: adminUsers.id }).from(adminUsers).limit(1);
 
     if (existing.length > 0) {

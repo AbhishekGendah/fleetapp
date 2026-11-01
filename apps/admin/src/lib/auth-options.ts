@@ -13,6 +13,7 @@ import {
   MAXIMUM_PASSWORD_LENGTH,
   MINIMUM_PASSWORD_LENGTH,
   RECOVERY_CODES,
+  sessionMaxAge,
   signInLockout,
   TWO_FACTOR_LOCKOUT,
   VERIFY_CODE_PATH,
@@ -104,6 +105,7 @@ function buildAdminAuthOptions(config: AdminAuthConfig) {
     },
 
     plugins: [
+      sessionMaxAge({ maxAgeSeconds: ADMIN_SESSION.maxAgeSeconds, now: config.now }),
       signInLockout({
         store: createDrizzleLockoutStore(config.database, {
           table: adminAccounts,

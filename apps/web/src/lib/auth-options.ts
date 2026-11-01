@@ -4,6 +4,7 @@ import {
   MAXIMUM_PASSWORD_LENGTH,
   MINIMUM_PASSWORD_LENGTH,
   RECOVERY_CODES,
+  sessionMaxAge,
   signInLockout,
   TWO_FACTOR_LOCKOUT,
   USER_SESSION,
@@ -124,6 +125,7 @@ function buildUserAuthOptions(config: UserAuthConfig) {
     },
 
     plugins: [
+      sessionMaxAge({ maxAgeSeconds: USER_SESSION.maxAgeSeconds, now: config.now }),
       signInLockout({
         store: lockoutStore,
         now: config.now,

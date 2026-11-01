@@ -161,6 +161,29 @@ describe("the admin login", () => {
       expect(lastsMs).toBeLessThanOrEqual(ADMIN_SESSION.idleSeconds * 1000);
     });
 
+    it("ends a sign-in at its hard limit on the login system's own endpoints too", async () => {
+      let clock = new Date();
+      const clockedAuth = createAdminAuth({
+        database: connection.db,
+        baseURL: TEST_BASE_URL,
+        secret: TEST_SECRET,
+        issuerName: TEST_ISSUER,
+        recordActivity: async () => undefined,
+        now: () => clock,
+      });
+      const signIn = await clockedAuth.api.signInEmail({
+        body: { email, password: TEST_PASSWORD },
+        asResponse: true,
+      });
+      const headers = new Headers({ cookie: signIn.headers.get("set-cookie") ?? "" });
+      await expect(clockedAuth.api.listSessions({ headers })).resolves.toBeDefined();
+
+      clock = new Date(clock.getTime() + (ADMIN_SESSION.maxAgeSeconds + 60) * 1000);
+      expect(await refusalOf(clockedAuth.api.listSessions({ headers }))).toMatchObject({
+        code: "SESSION_EXPIRED",
+      });
+    });
+
     it("leaves an Admin without an authenticator short of admin access", async () => {
       // The password alone does create a session — but an Admin who has not
       // enrolled is not let into the app. requireAdmin() sends them to
