@@ -4,6 +4,7 @@ import { FILE_PURPOSE_RULES } from "@fleetapp/core";
 import { ImageUpload } from "@fleetapp/ui/image-upload";
 import { useRouter } from "next/navigation";
 
+import { orSendFailed } from "../../lib/files/or-send-failed";
 import { SEND_FAILED_MESSAGE, sendToStorage } from "../../lib/files/send-to-storage";
 import { finishLogoUploadAction, removeLogoAction, startLogoUploadAction } from "./logo-actions";
 
@@ -12,7 +13,11 @@ const LOGO_RULE = FILE_PURPOSE_RULES.operator_logo;
 export function LogoUpload({ logoUrl }: { logoUrl: string | null }) {
   const router = useRouter();
 
-  async function handleUpload(image: Blob): Promise<string | null> {
+  function handleUpload(image: Blob): Promise<string | null> {
+    return orSendFailed(() => sendLogo(image));
+  }
+
+  async function sendLogo(image: Blob): Promise<string | null> {
     const start = await startLogoUploadAction({ contentType: image.type, sizeBytes: image.size });
     if (start.status === "refused") {
       return start.message;

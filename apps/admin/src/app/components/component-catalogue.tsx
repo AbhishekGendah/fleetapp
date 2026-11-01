@@ -32,6 +32,7 @@ import { Textarea } from "@fleetapp/ui/textarea";
 import { TabLinks } from "@fleetapp/ui/tab-links";
 import { ImageViewer, ImageViewerOpener } from "@fleetapp/ui/image-viewer";
 import { PageHeader } from "@fleetapp/ui/page-header";
+import { ProblemPanel } from "@fleetapp/ui/problem-panel";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
 import { Camera, Gauge, History, Paperclip, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -350,6 +351,17 @@ export function ComponentCatalogue() {
         note="Every page below a main section: a back arrow one level up, and the title. Stays at the top on a phone."
       >
         <PageHeader backHref="#" backLabel="Cars" title="1ABC234" aside={<Badge>Sold</Badge>} />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Problem panel"
+        note="A whole page when something could not be shown: an error (with Try again) or a page that does not exist."
+      >
+        <ProblemPanel
+          title="That didn't load"
+          message="Check your connection and try again."
+          actions={<Button>Try again</Button>}
+        />
       </CatalogueSection>
 
       <CatalogueSection

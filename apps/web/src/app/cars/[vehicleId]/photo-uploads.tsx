@@ -10,6 +10,7 @@ import { Camera, Images } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { orSendFailed } from "../../../lib/files/or-send-failed";
 import { SEND_FAILED_MESSAGE, sendToStorage } from "../../../lib/files/send-to-storage";
 import { finishCarPhotoUploadAction, startCarPhotoUploadAction } from "./file-actions";
 
@@ -73,7 +74,7 @@ export function PhotoUploads({ vehicleId }: { vehicleId: string }) {
 
   async function send(item: PendingPhoto): Promise<void> {
     update(item.key, { status: "sending", message: null });
-    const problem = await sendPhoto(vehicleId, item.file);
+    const problem = await orSendFailed(() => sendPhoto(vehicleId, item.file));
     if (problem) {
       update(item.key, { status: "failed", message: problem });
       return;

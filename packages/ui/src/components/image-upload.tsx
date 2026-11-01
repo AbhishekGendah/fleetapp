@@ -28,6 +28,8 @@ export interface ImageUploadProps {
  * Choose, replace or remove one image. The image is shrunk on the device
  * first (rule 21); the app decides where it goes and checks it again.
  */
+const CONNECTION_PROBLEM_MESSAGE = "That did not go through. Check your connection and try again.";
+
 export function ImageUpload(props: ImageUploadProps): React.JSX.Element {
   const inputRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -41,15 +43,29 @@ export function ImageUpload(props: ImageUploadProps): React.JSX.Element {
     }
     setIsBusy(true);
     setMessage(null);
-    const image = await shrinkImage(file);
-    setMessage(image ? await props.onUpload(image) : UNREADABLE_IMAGE_MESSAGE);
-    setIsBusy(false);
+    try {
+      const image = await shrinkImage(file);
+      setMessage(image ? await props.onUpload(image) : UNREADABLE_IMAGE_MESSAGE);
+    } catch (error) {
+      // A dropped connection must never leave the button stuck on busy.
+      console.warn("An image upload did not finish", error instanceof Error ? error.name : "");
+      setMessage(CONNECTION_PROBLEM_MESSAGE);
+    } finally {
+      setIsBusy(false);
+    }
   }
 
   async function handleRemove(): Promise<void> {
     setIsBusy(true);
-    await props.onRemove?.();
-    setIsBusy(false);
+    setMessage(null);
+    try {
+      await props.onRemove?.();
+    } catch (error) {
+      console.warn("Removing an image did not finish", error instanceof Error ? error.name : "");
+      setMessage(CONNECTION_PROBLEM_MESSAGE);
+    } finally {
+      setIsBusy(false);
+    }
   }
 
   return (

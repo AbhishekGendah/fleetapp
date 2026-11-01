@@ -36,6 +36,7 @@
     "./logo": "./src/components/logo.tsx",
     "./money-input": "./src/components/money-input.tsx",
     "./page-header": "./src/components/page-header.tsx",
+    "./problem-panel": "./src/components/problem-panel.tsx",
     "./record-list": "./src/components/record-list.tsx",
     "./select": "./src/components/select.tsx",
     "./shrink-image": "./src/lib/shrink-image.ts",
