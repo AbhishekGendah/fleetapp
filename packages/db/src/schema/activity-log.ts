@@ -119,6 +119,8 @@ export const ACTIVITY_ACTIONS = {
   sentBack: "sent_back",
   /** What a Renter sent, removed by the daily clean-up 30 days after its link ended. */
   submissionRemoved: "submission_removed",
+  /** A Renter signed through their link: the contract was issued. */
+  signed: "signed",
 } as const;
 
 export type ActivityEntityType = (typeof ACTIVITY_ENTITY_TYPES)[keyof typeof ACTIVITY_ENTITY_TYPES];

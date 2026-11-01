@@ -49,6 +49,18 @@ const styles = StyleSheet.create({
     color: BRAND.colours.mutedText,
   },
   notice: { fontFamily: FONTS.bold, color: BRAND.colours.danger },
+  signatureBlock: {
+    marginTop: 16,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: BRAND.colours.border,
+  },
+  signatureImage: { height: 60, maxWidth: 220, objectFit: "contain", marginVertical: 4 },
+  typedSignature: { fontFamily: FONTS.italic, fontSize: 18, marginVertical: 6 },
+  recordRow: { flexDirection: "row", marginBottom: 4 },
+  recordLabel: { width: 150, color: BRAND.colours.mutedText },
+  recordValue: { flex: 1 },
+  fingerprint: { fontFamily: "Courier", fontSize: 8 },
 });
 
 function fontFor(marks: readonly { type: string }[] | undefined): string {
@@ -136,6 +148,64 @@ function blockElement(block: TemplateBlock, key: number): ReactElement {
   }
 }
 
+/** How the document was signed, shown under its text. */
+export interface PdfSignature {
+  /** "Signed by Sam Example". */
+  signedByText: string;
+  /** "Signed electronically on 3 Nov 2026, 2:15 pm AWST". */
+  signedAtText: string;
+  /** A drawn signature, as PNG bytes. */
+  drawnPng?: Uint8Array;
+  /** A typed signature: the name as typed. */
+  typedName?: string;
+}
+
+/** The last page: each step of the signing, and the fingerprint of the text signed. */
+export interface PdfSigningRecord {
+  rows: readonly (readonly [label: string, value: string])[];
+  /** The SHA-256 of the text the Renter was shown and signed. */
+  contentFingerprint: string;
+}
+
+function SignatureBlock({ signature }: { signature: PdfSignature }): ReactElement {
+  return (
+    <View style={styles.signatureBlock} wrap={false}>
+      <Text style={styles.heading}>{signature.signedByText}</Text>
+      {signature.drawnPng ? (
+        // eslint-disable-next-line jsx-a11y/alt-text -- a PDF image; the text above names it
+        <Image
+          src={{ data: Buffer.from(signature.drawnPng), format: "png" }}
+          style={styles.signatureImage}
+        />
+      ) : (
+        <Text style={styles.typedSignature}>{signature.typedName}</Text>
+      )}
+      <Text>{signature.signedAtText}</Text>
+    </View>
+  );
+}
+
+function SigningRecordPage({ record }: { record: PdfSigningRecord }): ReactElement {
+  return (
+    <View break>
+      <Text style={[styles.heading, { fontSize: HEADING_SIZES[2] }]}>Signing record</Text>
+      <Text style={styles.paragraph}>
+        How this document was signed electronically. Times are on the business&apos;s clock.
+      </Text>
+      {record.rows.map(([label, value]) => (
+        <View key={label} style={styles.recordRow} wrap={false}>
+          <Text style={styles.recordLabel}>{label}</Text>
+          <Text style={styles.recordValue}>{value}</Text>
+        </View>
+      ))}
+      <Text style={[styles.paragraph, { marginTop: 10 }]}>
+        Fingerprint (SHA-256) of the contract text the Renter was shown and signed:
+      </Text>
+      <Text style={styles.fingerprint}>{record.contentFingerprint}</Text>
+    </View>
+  );
+}
+
 export interface DocumentPdfInput {
   /** The PDF's title, e.g. "Rental contract 1ABC234". */
   title: string;
@@ -147,6 +217,8 @@ export interface DocumentPdfInput {
   logo?: { data: Buffer; format: "png" | "jpg" } | undefined;
   /** In red in every footer, e.g. "Preview: not issued". */
   notice?: string | undefined;
+  signature?: PdfSignature | undefined;
+  signingRecord?: PdfSigningRecord | undefined;
 }
 
 /** The PDF's bytes. */
@@ -160,6 +232,8 @@ export async function renderDocumentPdf(input: DocumentPdfInput): Promise<Uint8A
           <Image src={input.logo} style={styles.logo} />
         ) : null}
         {input.document.content.map(blockElement)}
+        {input.signature ? <SignatureBlock signature={input.signature} /> : null}
+        {input.signingRecord ? <SigningRecordPage record={input.signingRecord} /> : null}
         <View style={styles.footer} fixed>
           <Text>
             {input.businessName}

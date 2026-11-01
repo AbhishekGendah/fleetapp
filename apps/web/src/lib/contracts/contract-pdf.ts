@@ -68,6 +68,18 @@ async function businessNameOf(
   return business?.tradingName ?? business?.legalName ?? "";
 }
 
+/** The business's name and logo, as every PDF it issues shows them. */
+export async function loadPdfBranding(
+  deps: Pick<FileDependencies, "database" | "storage">,
+  operatorId: string,
+): Promise<Pick<DocumentPdfInput, "businessName" | "logo">> {
+  const [logo, businessName] = await Promise.all([
+    loadLogo(deps, operatorId),
+    businessNameOf(deps.database, operatorId),
+  ]);
+  return { logo, businessName };
+}
+
 export interface RentalContractPdf {
   pdf: Uint8Array;
   /** Fields the template uses that have nothing on file for this rental. */
@@ -85,15 +97,10 @@ export async function renderRentalContract(
   if (!data) {
     return null;
   }
-  const [logo, businessName] = await Promise.all([
-    loadLogo(deps, operatorId),
-    businessNameOf(deps.database, operatorId),
-  ]);
   const pdf = await renderDocumentPdf({
+    ...(await loadPdfBranding(deps, operatorId)),
     title: request.title,
-    businessName,
     document: fillMergeFields(request.template, data),
-    logo,
     notice: request.notice,
   });
   return { pdf, missing: missingMergeFields(request.template, data) };
@@ -110,15 +117,10 @@ export async function renderTemplatePreview(
   operatorId: string,
   request: { title: string; template: TemplateDocument },
 ): Promise<Uint8Array> {
-  const [logo, businessName] = await Promise.all([
-    loadLogo(deps, operatorId),
-    businessNameOf(deps.database, operatorId),
-  ]);
   return renderDocumentPdf({
+    ...(await loadPdfBranding(deps, operatorId)),
     title: request.title,
-    businessName,
     document: fillMergeFields(request.template, FIELD_NAMES),
-    logo,
     notice: PREVIEW_NOTICE,
   });
 }

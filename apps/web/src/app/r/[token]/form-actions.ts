@@ -46,7 +46,12 @@ const ALREADY_SENT_MESSAGE = "Your details were already sent.";
  * form step starts here, so a forwarded link or an old page can do nothing.
  */
 async function verifiedVisit(token: string): Promise<LinkVisit | null> {
-  return openVerifiedLink(appDb, token, (await cookies()).get(DEVICE_COOKIE)?.value);
+  return openVerifiedLink(
+    appDb,
+    token,
+    (await cookies()).get(DEVICE_COOKIE)?.value,
+    "details_form",
+  );
 }
 
 const photoRequestSchema = plannedFileSchema.extend({ side: z.enum(LICENCE_SIDES) });

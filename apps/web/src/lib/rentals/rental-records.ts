@@ -20,6 +20,7 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser, type UserChange } from "../acting-user";
+import { cancelLiveLinks } from "../renter-links/cancel-links";
 import { snapshotOperatorSettings } from "../settings/operator-settings";
 import { findBookingProblems, lockBookingParties } from "./booking-checks";
 import {
@@ -264,6 +265,8 @@ export async function cancelRental(
       return "not_allowed";
     }
     await releaseCarHolds(tx, actor.operatorId, rental.id, now);
+    // Nobody should sign the contract of a rental that is not going ahead.
+    await cancelLiveLinks(tx, actor, rental.renterId, now, { rentalId: rental.id });
     await tx
       .update(rentals)
       .set({ status: "cancelled", cancelledAt: now, cancellationReason: input.reason })

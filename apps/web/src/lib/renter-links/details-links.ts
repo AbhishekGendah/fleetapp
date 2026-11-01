@@ -10,7 +10,7 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { recordUserChange, type ActingUser } from "../acting-user";
 import { renterLinkPagePath } from "../paths";
 import { lockCurrentRenter } from "../renters/renter-records";
-import { cancelLiveLinks } from "./cancel-links";
+import { cancelLiveLinks, DETAILS_LINKS } from "./cancel-links";
 import { loadLinkSender } from "./link-email";
 
 const PURPOSE = "details_form";
@@ -58,7 +58,7 @@ export async function sendDetailsLink(
     if (!renter.email) {
       return { status: "no_email" as const };
     }
-    await cancelLiveLinks(tx, actor, renterId, now);
+    await cancelLiveLinks(tx, actor, renterId, now, DETAILS_LINKS);
     const [link] = await tx
       .insert(renterLinks)
       .values({
@@ -122,7 +122,7 @@ export async function cancelDetailsLink(
   now: Date,
 ): Promise<"cancelled" | "none"> {
   return withTenant(database, actor.operatorId, async (tx) =>
-    (await cancelLiveLinks(tx, actor, renterId, now)) ? "cancelled" : "none",
+    (await cancelLiveLinks(tx, actor, renterId, now, DETAILS_LINKS)) ? "cancelled" : "none",
   );
 }
 

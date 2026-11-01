@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  renderContractSignedEmail,
   renderNewDeviceSignInEmail,
   renderOperatorInviteEmail,
   renderPasswordResetEmail,
   renderRenterDetailsLinkEmail,
   renderRenterDetailsSentBackEmail,
   renderRenterLinkCodeEmail,
+  renderRenterSigningLinkEmail,
 } from "./render-emails";
 import { senderFor } from "./email-sender";
 
@@ -120,5 +122,58 @@ describe("who an email is from", () => {
       '"Sam\'s CarsBcc: x" <no-reply@example.test>',
     );
     expect(senderFor("no-reply@example.test")).toBe("no-reply@example.test");
+  });
+});
+
+describe("the contract emails", () => {
+  const PDF = {
+    fileName: "Contract.pdf",
+    contentType: "application/pdf",
+    content: new Uint8Array([1]),
+  };
+
+  it("sends the signing link from the business, with the link in both versions", async () => {
+    const message = await renderRenterSigningLinkEmail({
+      to: "sam@example.test",
+      renterName: "Sam",
+      operatorName: "Sam's Cars Pty Ltd",
+      rentalSummary: "1ABC234 Toyota Corolla, from 1 June 2027",
+      linkUrl: "https://app.example.test/r/a-secret",
+      validUntil: "Friday 6 November",
+      replyTo: "hello@samscars.test",
+    });
+
+    expect(message).toMatchObject({
+      fromName: "Sam's Cars Pty Ltd",
+      replyTo: "hello@samscars.test",
+    });
+    expect(message.text).toContain("https://app.example.test/r/a-secret");
+  });
+
+  it("attaches the signed contract: from the business to the Renter, and to the business", async () => {
+    const shared = {
+      renterName: "Sam",
+      operatorName: "Sam's Cars Pty Ltd",
+      rentalSummary: "1ABC234 Toyota Corolla, from 1 June 2027",
+      signedAt: "3 Nov 2026, 2:15 pm AWST",
+      attachment: PDF,
+    };
+    const toRenter = await renderContractSignedEmail({
+      ...shared,
+      to: "sam@example.test",
+      audience: "renter",
+    });
+    const toBusiness = await renderContractSignedEmail({
+      ...shared,
+      to: "hello@samscars.test",
+      audience: "operator",
+    });
+
+    expect(toRenter).toMatchObject({ fromName: "Sam's Cars Pty Ltd", attachments: [PDF] });
+    expect(toBusiness.fromName).toBeUndefined();
+    expect(toBusiness.subject).toBe(
+      "Contract signed: Sam, 1ABC234 Toyota Corolla, from 1 June 2027",
+    );
+    expect(toBusiness.attachments).toEqual([PDF]);
   });
 });

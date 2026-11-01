@@ -361,3 +361,27 @@ export async function loadDefaultTemplate(
   );
   return template ? loadTemplate(database, operatorId, template.id) : null;
 }
+
+/** One version's text, if it is the Operator's. */
+export async function loadTemplateVersion(
+  database: AnyDatabase,
+  operatorId: string,
+  versionId: string,
+): Promise<{ id: string; templateId: string; content: TemplateDocument } | null> {
+  const [version] = await withTenant(database, operatorId, (tx) =>
+    tx
+      .select({
+        id: contractTemplateVersions.id,
+        templateId: contractTemplateVersions.templateId,
+        content: contractTemplateVersions.content,
+      })
+      .from(contractTemplateVersions)
+      .where(
+        and(
+          eq(contractTemplateVersions.id, versionId),
+          eq(contractTemplateVersions.operatorId, operatorId),
+        ),
+      ),
+  );
+  return version ?? null;
+}

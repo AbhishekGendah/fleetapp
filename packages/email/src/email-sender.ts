@@ -9,6 +9,14 @@ export interface EmailMessage {
   fromName?: string;
   /** Where a reply goes, e.g. the Operator's email for Renter emails. */
   replyTo?: string;
+  /** Files sent with it, e.g. a signed contract. */
+  attachments?: readonly EmailAttachment[];
+}
+
+export interface EmailAttachment {
+  fileName: string;
+  contentType: string;
+  content: Uint8Array;
 }
 
 /**

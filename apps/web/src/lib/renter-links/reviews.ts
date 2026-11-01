@@ -25,7 +25,7 @@ import {
   lockCurrentRenter,
   logRenterActivity,
 } from "../renters/renter-records";
-import { cancelLiveLinks } from "./cancel-links";
+import { cancelLiveLinks, DETAILS_LINKS } from "./cancel-links";
 import type { LinkDependencies } from "./details-links";
 import { loadLinkSender } from "./link-email";
 
@@ -239,7 +239,7 @@ export async function approveSubmission(
       await adoptPhotosAsScans(tx, actor, now, renterId, submissionId);
       await markReviewed(tx, actor, submissionId, now, { status: "approved" });
       // Single-purpose (rule 26): once its details are approved, the link is done.
-      await cancelLiveLinks(tx, actor, renterId, now);
+      await cancelLiveLinks(tx, actor, renterId, now, DETAILS_LINKS);
       await logRenterActivity(tx, actor, renterId, ACTIVITY_ACTIONS.approved);
       return "approved";
     });

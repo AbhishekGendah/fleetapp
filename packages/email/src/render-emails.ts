@@ -1,7 +1,7 @@
 import { render } from "@react-email/components";
 import { createElement, type ReactElement } from "react";
 
-import type { EmailMessage } from "./email-sender";
+import type { EmailAttachment, EmailMessage } from "./email-sender";
 import {
   NewDeviceSignInEmail,
   type NewDeviceSignInEmailProps,
@@ -17,6 +17,11 @@ import {
   type RenterDetailsSentBackEmailProps,
 } from "./templates/renter-details-sent-back";
 import { RenterLinkCodeEmail, type RenterLinkCodeEmailProps } from "./templates/renter-link-code";
+import {
+  RenterSigningLinkEmail,
+  type RenterSigningLinkEmailProps,
+} from "./templates/renter-signing-link";
+import { ContractSignedEmail, type ContractSignedEmailProps } from "./templates/contract-signed";
 
 /** Turns one template into the HTML and plain-text versions email clients need. */
 async function renderEmail(
@@ -114,4 +119,44 @@ export function renderRenterDetailsSentBackEmail(
     props.operatorName,
     replyTo,
   );
+}
+
+export function renderRenterSigningLinkEmail(
+  input: FromOperator<RenterSigningLinkEmailProps>,
+): Promise<EmailMessage> {
+  const { to, replyTo, ...props } = input;
+  return fromOperator(
+    renderEmail(
+      to,
+      `Your rental contract from ${props.operatorName}`,
+      createElement(RenterSigningLinkEmail, props),
+    ),
+    props.operatorName,
+    replyTo,
+  );
+}
+
+/**
+ * The signed contract, attached: to the Renter from the business (replies go
+ * to the business), or to the business itself.
+ */
+export async function renderContractSignedEmail(
+  input: WithRecipient<ContractSignedEmailProps> & {
+    replyTo?: string;
+    attachment: EmailAttachment;
+  },
+): Promise<EmailMessage> {
+  const { to, replyTo, attachment, ...props } = input;
+  const isForRenter = props.audience === "renter";
+  const message = await renderEmail(
+    to,
+    isForRenter
+      ? `Your signed rental contract with ${props.operatorName}`
+      : `Contract signed: ${props.renterName}, ${props.rentalSummary}`,
+    createElement(ContractSignedEmail, props),
+  );
+  const withFile = { ...message, attachments: [attachment] };
+  return isForRenter
+    ? fromOperator(Promise.resolve(withFile), props.operatorName, replyTo)
+    : withFile;
 }

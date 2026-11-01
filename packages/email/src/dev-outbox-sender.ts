@@ -23,6 +23,7 @@ export function createDevOutboxSender(config: DevOutboxSenderConfig): EmailSende
         subject: message.subject,
         html: message.html,
         text: message.text,
+        attachmentNames: (message.attachments ?? []).map((attachment) => attachment.fileName),
       });
     },
   };

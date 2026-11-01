@@ -24,8 +24,11 @@ import type { FileDependencies } from "../files/stored-files";
 const PURPOSE = "issued_document";
 const AREA = FILE_PURPOSE_RULES[PURPOSE].area;
 
-/** Who issued it: a User, or the app on its own (e.g. once a Renter has signed). */
-export type IssuingActor = { operatorId: string; userId: string } | { operatorId: string };
+/** Who issued it: a User, a Renter's link (they signed), or the app on its own. */
+export type IssuingActor =
+  | { operatorId: string; userId: string }
+  | { operatorId: string; linkId: string }
+  | { operatorId: string };
 
 export interface IssueRequest {
   rentalId: string;
@@ -33,6 +36,11 @@ export interface IssueRequest {
   /** The template version it was made from; none for a report. */
   templateVersionId: string | null;
   pdf: Uint8Array;
+  /**
+   * Runs in the same transaction that records the document, e.g. to keep the
+   * signing evidence with it: neither is ever kept without the other.
+   */
+  onIssued?: (tx: AnyTransaction, documentId: string) => Promise<void>;
 }
 
 export type IssueResult =
@@ -41,6 +49,18 @@ export type IssueResult =
 
 function userIdOf(actor: IssuingActor): string | null {
   return "userId" in actor ? actor.userId : null;
+}
+
+function logActorOf(actor: IssuingActor): {
+  type: "user" | "renter_link" | "system";
+  id: string | null;
+} {
+  if ("userId" in actor) {
+    return { type: "user", id: actor.userId };
+  }
+  return "linkId" in actor
+    ? { type: "renter_link", id: actor.linkId }
+    : { type: "system", id: null };
 }
 
 async function nextVersion(
@@ -136,15 +156,15 @@ export async function issueDocument(
     if (!document) {
       throw new Error("The document was not saved.");
     }
-    const userId = userIdOf(actor);
     await recordActivity(tx, {
       operatorId: actor.operatorId,
-      actor: userId ? { type: "user", id: userId } : { type: "system", id: null },
+      actor: logActorOf(actor),
       entityType: ACTIVITY_ENTITY_TYPES.issuedDocument,
       entityId: document.id,
       action: ACTIVITY_ACTIONS.created,
       valuesAfter: { kind: request.kind, version, rentalId: request.rentalId, sha256 },
     });
+    await request.onIssued?.(tx, document.id);
     return { status: "issued", documentId: document.id, version, sha256 };
   });
 }
