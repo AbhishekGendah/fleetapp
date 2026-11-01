@@ -50,6 +50,12 @@ needed or not, and do it properly from the start, however long it takes.
 - **Dropdowns use the phone's own picker** (native select). On phones that
   is the most usable and most accessible dropdown there is; replacing it with a
   custom one would be a step backwards. Searchable boxes do move to Base UI.
+- **Tick boxes stay the browser's own checkbox** (decided while building
+  stage 5): it is already the accessible standard; Base UI's is a styled copy.
+- **Code box on input-otp, not Base UI's OTP field** (decided while building
+  stage 5): input-otp keeps one real input behind the boxes, so paste,
+  autofill and screen readers treat the code as one field; Base UI's uses
+  one input per digit. input-otp is also the one shadcn uses.
 - **Car and Renter tabs** stay as links, because they change the page
   address. A tabs library is for panels within one page.
 - **Camera capture**: no established library does a live camera with

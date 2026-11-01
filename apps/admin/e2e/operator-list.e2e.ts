@@ -8,6 +8,7 @@ import { E2E_OPERATORS, PHONE_VIEWPORT } from "./e2e-settings";
  * to TanStack Table and nuqs (library swap stage 7).
  */
 const LIST_PATH = "/operators";
+const MINIMUM_TOUCH_TARGET_PX = 44;
 const [ALPHA, BRAVO, CHARLIE] = E2E_OPERATORS;
 
 async function openList(page: Page, query = ""): Promise<void> {
@@ -73,4 +74,12 @@ test.describe("at phone width", () => {
       await expect(page.getByRole("link", { name: operator.legalName })).toBeVisible();
     }
   });
+});
+
+test("a link drawn as a button keeps its text and tap size", async ({ page }) => {
+  await openList(page);
+  const newOperator = page.getByRole("link", { name: "New Operator" });
+  await expect(newOperator).toBeVisible();
+  const box = await newOperator.boundingBox();
+  expect(box?.height ?? 0).toBeGreaterThanOrEqual(MINIMUM_TOUCH_TARGET_PX);
 });

@@ -40,12 +40,15 @@ test.describe("pop-up form", () => {
     await page.getByRole("button", { name: "Add an example" }).click();
     const dialog = page.getByRole("dialog", { name: "An example pop-up" });
     await expect(dialog).toBeVisible();
+    const isFocusInside = () =>
+      dialog.evaluate((element) => element.contains(document.activeElement));
+    // The pop-up moves focus inside as it opens; wait for that before pressing Tab.
+    await expect.poll(isFocusInside).toBe(true);
 
     for (let step = 0; step < 6; step += 1) {
       await page.keyboard.press("Tab");
-      expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(
-        true,
-      );
+      // Focus passes an edge guard on its way round, so let it settle.
+      await expect.poll(isFocusInside).toBe(true);
     }
   });
 });

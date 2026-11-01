@@ -47,6 +47,18 @@ export function CodeInput(props: CodeInputProps) {
     wasDisabled.current = Boolean(props.isDisabled);
   }, [props.isDisabled]);
 
+  // Full is full (rule 31): once every box has a digit, another key would
+  // replace the last one. Backspace, or tapping a box to change it, still works.
+  function acceptTyped(next: string): void {
+    const isFull = props.value.length === props.length;
+    const onlyLastDigitChanged =
+      next.length === props.length && next.slice(0, -1) === props.value.slice(0, -1);
+    if (isFull && onlyLastDigitChanged) {
+      return;
+    }
+    props.onChange(next);
+  }
+
   return (
     <OTPInput
       ref={inputRef}
@@ -54,7 +66,7 @@ export function CodeInput(props: CodeInputProps) {
       name={props.name}
       maxLength={props.length}
       value={props.value}
-      onChange={props.onChange}
+      onChange={acceptTyped}
       onComplete={(code: string) => props.onComplete?.(code)}
       pattern={REGEXP_ONLY_DIGITS}
       // A pasted "123 456" or "Your code is 123456" still gives the digits.

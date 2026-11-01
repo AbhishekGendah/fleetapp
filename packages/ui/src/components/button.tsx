@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Slot } from "@radix-ui/react-slot";
+import { useRender } from "@base-ui/react/use-render";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "../lib/utils";
@@ -39,12 +39,23 @@ export interface ButtonProps
   asChild?: boolean;
 }
 
+/**
+ * With `asChild`, the one element inside (a link, say) is drawn as the
+ * button instead of a <button>, through Base UI's useRender.
+ */
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button";
-    return (
-      <Comp ref={ref} className={cn(buttonVariants({ variant, size, className }))} {...props} />
-    );
+  ({ className, variant, size, asChild = false, children, ...props }, ref) => {
+    const classes = cn(buttonVariants({ variant, size, className }));
+    const childElement = asChild && React.isValidElement(children) ? children : undefined;
+    return useRender({
+      defaultTagName: "button",
+      render: childElement,
+      ref,
+      // The link keeps its own text; a plain button gets the children given.
+      props: childElement
+        ? { ...props, className: classes }
+        : { ...props, className: classes, children },
+    });
   },
 );
 Button.displayName = "Button";
