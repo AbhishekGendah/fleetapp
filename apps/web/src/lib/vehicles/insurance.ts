@@ -8,7 +8,7 @@ import {
   type ActivityAction,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser, type UserChange } from "../acting-user";
 import { findCurrentVehicle } from "./current-vehicle";
@@ -175,6 +175,42 @@ export async function archivePolicy(
       .set({ archivedAt: new Date() })
       .where(eq(insurancePolicies.id, policyId));
     await logPolicyChange(tx, actor, policyId, ACTIVITY_ACTIONS.archived);
+    return "changed";
+  });
+}
+
+/**
+ * Brings back a policy archived by mistake. Refused if a current policy with
+ * the same number already covers those dates, as an edit would be.
+ */
+export async function restorePolicy(
+  database: AnyDatabase,
+  actor: ActingUser,
+  policyId: string,
+): Promise<PolicyChangeResult | "duplicate"> {
+  return withTenant(database, actor.operatorId, async (tx) => {
+    const [archived] = await tx
+      .select()
+      .from(insurancePolicies)
+      .where(
+        and(
+          eq(insurancePolicies.id, policyId),
+          eq(insurancePolicies.operatorId, actor.operatorId),
+          isNotNull(insurancePolicies.archivedAt),
+        ),
+      )
+      .for("update");
+    if (!archived) {
+      return "not_found";
+    }
+    if (await findSamePolicy(tx, actor.operatorId, archived, policyId)) {
+      return "duplicate";
+    }
+    await tx
+      .update(insurancePolicies)
+      .set({ archivedAt: null })
+      .where(eq(insurancePolicies.id, policyId));
+    await logPolicyChange(tx, actor, policyId, ACTIVITY_ACTIONS.restored);
     return "changed";
   });
 }

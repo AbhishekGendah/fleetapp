@@ -11,7 +11,7 @@ import {
 } from "@fleetapp/db/schema";
 import { qualified } from "@fleetapp/db/qualified";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, count, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, count, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { findCurrentVehicle } from "../vehicles/current-vehicle";

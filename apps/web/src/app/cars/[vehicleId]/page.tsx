@@ -31,11 +31,7 @@ import { listCarFileIds } from "../../../lib/files/car-files";
 import { loadCarCosts } from "../../../lib/vehicles/cost-queries";
 import { loadPaperworkIds } from "../../../lib/vehicles/paperwork-queries";
 import { requireUser, type SignedInUser } from "../../../lib/require-user";
-import {
-  describeVehicleValue,
-  VEHICLE_FIELD_LABELS,
-  vehicleFieldLabel,
-} from "../../../lib/vehicles/vehicle-labels";
+import { describeVehicleValue, VEHICLE_FIELD_LABELS } from "../../../lib/vehicles/vehicle-labels";
 import type { VehicleDetail } from "../../../lib/vehicles/vehicle-queries";
 import { CarHistoryCard } from "../car-history-card";
 import { VehicleStatusBadge } from "../vehicle-status-badge";

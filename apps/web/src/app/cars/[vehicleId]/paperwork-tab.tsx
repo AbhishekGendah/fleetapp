@@ -1,10 +1,8 @@
 import {
   expiryStatus,
   formatCalendarDate,
-  formatCents,
   formatPremium,
   INSURANCE_COVER_TYPE_LABELS,
-  regoTermLabel,
 } from "@fleetapp/core";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import Link from "next/link";
@@ -21,24 +19,17 @@ import { carPath, INSURANCE_PATH, policyPath } from "../../../lib/paths";
 import type { SignedInUser } from "../../../lib/require-user";
 import type { ExpiryContext } from "../../../lib/vehicles/expiry-columns";
 import { loadExpiryContext } from "../../../lib/vehicles/expiry-context";
-import { emptyPolicyForm, emptyRegoForm } from "../../../lib/vehicles/paperwork-input";
+import { emptyPolicyForm } from "../../../lib/vehicles/paperwork-input";
 import {
   listPoliciesToJoin,
   loadVehiclePaperwork,
   type Policy,
-  type Registration,
 } from "../../../lib/vehicles/paperwork-queries";
 import type { VehicleDetail } from "../../../lib/vehicles/vehicle-queries";
 import { ExpiryDate } from "../expiry-date";
 import { PolicyForm } from "../policy-form";
 import { RegoCard } from "./rego-card";
-import {
-  addPolicyForCarAction,
-  addRegoAction,
-  joinPolicyAction,
-  leavePolicyAction,
-  removeRegoAction,
-} from "./paperwork-actions";
+import { addPolicyForCarAction, joinPolicyAction, leavePolicyAction } from "./paperwork-actions";
 
 function PolicyLine(props: {
   vehicle: VehicleDetail;

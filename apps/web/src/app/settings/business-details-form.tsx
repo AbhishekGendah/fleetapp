@@ -19,7 +19,7 @@ import { Checkbox } from "@fleetapp/ui/checkbox";
 import { FormError } from "@fleetapp/ui/form-message";
 import { FormattedInput } from "@fleetapp/ui/formatted-input";
 import { FormSection } from "@fleetapp/ui/form-section";
-import { fieldErrorId, FormField } from "@fleetapp/ui/form-field";
+import { FormField } from "@fleetapp/ui/form-field";
 import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
 import { Select } from "@fleetapp/ui/select";
 import { AustralianStateOptions } from "@fleetapp/ui/state-options";

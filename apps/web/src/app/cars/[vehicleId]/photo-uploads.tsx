@@ -1,6 +1,6 @@
 "use client";
 
-import { PICKED_PHOTO_MAX_BYTES } from "@fleetapp/core";
+import { formatFileSize, PICKED_PHOTO_MAX_BYTES } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { CameraCapture } from "@fleetapp/ui/camera-capture";
 import { FilePicker } from "@fleetapp/ui/file-picker";
@@ -14,7 +14,7 @@ import { orSendFailed } from "../../../lib/files/or-send-failed";
 import { SEND_FAILED_MESSAGE, sendToStorage } from "../../../lib/files/send-to-storage";
 import { finishCarPhotoUploadAction, startCarPhotoUploadAction } from "./file-actions";
 
-const TOO_LARGE_MESSAGE = "That photo is too large (over 25 MB).";
+const TOO_LARGE_MESSAGE = `That photo is too large (over ${formatFileSize(PICKED_PHOTO_MAX_BYTES)}).`;
 const UNREADABLE_MESSAGE = "This photo could not be opened here. Save it as a JPEG and try again.";
 
 /** One chosen photo on its way: shown until it is saved, with Try again if it fails. */

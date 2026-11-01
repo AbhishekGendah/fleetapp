@@ -13,7 +13,7 @@ const IDEAL_HEIGHT_PX = 1440;
 const FLASH_MS = 150;
 
 const NO_CAMERA_MESSAGE =
-  "The camera could not be opened. Allow this app to use the camera in your phone's settings, or use Add photos instead.";
+  "The camera could not be opened. Allow this app to use the camera in your phone's settings, or choose a file instead.";
 
 interface TakenPhoto {
   key: string;

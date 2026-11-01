@@ -9,6 +9,7 @@ import { withExpiryStatuses } from "../src/lib/vehicles/expiry-columns";
 import {
   addVehicleToPolicy,
   archivePolicy,
+  restorePolicy,
   createPolicy,
   removeVehicleFromPolicy,
   updatePolicy,
@@ -266,6 +267,19 @@ describe("rego, insurance and the due-soon setting", () => {
     expect(await updatePolicy(web.db, actor, policyId, policy({ policyNumber: "MINE" }))).toBe(
       "unchanged",
     );
+  });
+
+  it("restores an archived policy, unless the same number already covers those dates", async () => {
+    const first = await createPolicy(web.db, actor, policy({ policyNumber: "BACK-1" }), []);
+    const firstId = first.status === "created" ? first.policyId : "";
+    await archivePolicy(web.db, actor, firstId);
+    expect(await restorePolicy(web.db, otherActor, firstId)).toBe("not_found");
+    expect(await restorePolicy(web.db, actor, firstId)).toBe("changed");
+    expect(await restorePolicy(web.db, actor, firstId)).toBe("not_found");
+
+    await archivePolicy(web.db, actor, firstId);
+    await createPolicy(web.db, actor, policy({ policyNumber: "BACK-1" }), []);
+    expect(await restorePolicy(web.db, actor, firstId)).toBe("duplicate");
   });
 
   it("refuses the same renewal twice and a second running direct debit, and flags a take-over", async () => {

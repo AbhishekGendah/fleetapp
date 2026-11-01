@@ -27,7 +27,8 @@ export function StopDirectDebitForm(props: {
   return (
     <ChangeFormShell form={changeForm} submitLabel="Stop direct debit">
       <p className="text-muted-foreground text-sm">
-        Cancel it in DoTDirect too. Adding a 3, 6, 9 or 12 month renewal stops it here by itself.
+        Cancel it with the state transport department too (DoTDirect in WA). Adding a 3, 6, 9 or 12
+        month renewal stops it here by itself.
       </p>
       <FormField
         htmlFor="stoppedOn"

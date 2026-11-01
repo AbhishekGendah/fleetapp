@@ -10,8 +10,9 @@ import type { WithExpiryStatuses } from "../../lib/vehicles/expiry-columns";
 import { ExpiryDate, RegoExpiry } from "./expiry-date";
 
 /** What an export shows for a car on a rego direct debit, which has no expiry. */
-const REGO_DIRECT_DEBIT_EXPORT = "Direct debit";
 import { VehicleStatusBadge } from "./vehicle-status-badge";
+
+const REGO_DIRECT_DEBIT_EXPORT = "Direct debit";
 
 function carName(vehicle: VehicleSummary): string {
   return [vehicle.make, vehicle.model, vehicle.variant].filter(Boolean).join(" ");
@@ -49,7 +50,7 @@ export const CAR_LIST: DataListDefinition<CarListRow> = {
     },
     {
       key: "regoExpires",
-      label: "Rego",
+      label: "Rego expires",
       isSortable: true,
       exportValue: (vehicle) =>
         vehicle.isRegoOnDirectDebit ? REGO_DIRECT_DEBIT_EXPORT : vehicle.regoExpiresOn,

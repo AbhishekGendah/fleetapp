@@ -2,7 +2,6 @@
 
 import { authClient } from "@fleetapp/auth/client";
 import { AuthPageLayout } from "@fleetapp/ui/auth-page-layout";
-import { Button } from "@fleetapp/ui/button";
 import { ClientForm, SubmitButton } from "@fleetapp/ui/client-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { FormField } from "@fleetapp/ui/form-field";

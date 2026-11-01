@@ -8,7 +8,7 @@ import { ACTIVITY_ENTITY_TYPES } from "@fleetapp/db/schema";
 import { Badge } from "@fleetapp/ui/badge";
 import { PageHeader } from "@fleetapp/ui/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
-import { Archive, Unlink } from "lucide-react";
+import { Archive, ArchiveRestore, Unlink } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -29,6 +29,7 @@ import { PolicyForm } from "../../policy-form";
 import {
   addCarToPolicyAction,
   archivePolicyAction,
+  restorePolicyAction,
   removeCarFromPolicyAction,
   updatePolicyAction,
 } from "../actions";
@@ -156,7 +157,24 @@ export default async function PolicyPage(props: { params: Promise<{ policyId: st
         </Card>
       )}
 
-      {isArchived ? null : (
+      {isArchived ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Archived</CardTitle>
+            <CardDescription>
+              Archived by mistake? Restore brings it back, with its cars and history.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ActionButton
+              action={restorePolicyAction.bind(null, policy.id)}
+              label="Restore this policy"
+              pendingLabel="Restoring…"
+              icon={<ArchiveRestore aria-hidden />}
+            />
+          </CardContent>
+        </Card>
+      ) : (
         <Card>
           <CardHeader>
             <CardTitle>Archive</CardTitle>

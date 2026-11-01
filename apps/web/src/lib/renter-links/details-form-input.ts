@@ -1,4 +1,4 @@
-import { emptyForm, REQUIRED_MESSAGE } from "@fleetapp/core";
+import { emptyForm, OVERSEAS_ISSUER, REQUIRED_MESSAGE } from "@fleetapp/core";
 import type { z } from "zod";
 
 import {
@@ -83,7 +83,7 @@ export function isRequiredDetailsField(
     return true;
   }
   if (field === "licenceCountry") {
-    return values.licenceIssuedIn === "overseas";
+    return values.licenceIssuedIn === OVERSEAS_ISSUER;
   }
   return (LICENCE_FORM_FIELDS as readonly string[]).includes(field);
 }

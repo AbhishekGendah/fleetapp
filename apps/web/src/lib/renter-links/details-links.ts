@@ -1,5 +1,5 @@
 import { describeErrorForLog, generateSecretToken, hashSecretToken } from "@fleetapp/core";
-import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
+import type { AnyDatabase } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, renterLinks } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import type { EmailSender } from "@fleetapp/email";

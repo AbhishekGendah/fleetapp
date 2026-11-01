@@ -11,6 +11,7 @@ import { runUserChange } from "../../../lib/run-change";
 import {
   addVehicleToPolicy,
   archivePolicy,
+  restorePolicy,
   createPolicy,
   removeVehicleFromPolicy,
   updatePolicy,
@@ -27,6 +28,7 @@ import { POLICY_CARS_FIELD } from "../policy-form";
 const INVALID_MESSAGE =
   "Some details are not right, so nothing was saved. Check them and try again.";
 const NOT_FOUND_MESSAGE = "That policy could not be found. It may have been archived.";
+const DUPLICATE_MESSAGE = "Another policy with this number already covers these dates.";
 const CAR_NOT_FOUND_MESSAGE = "That car could not be found. It may have been archived.";
 
 /** Checks the policy's id from the page, then runs the change and refreshes its pages. */
@@ -102,7 +104,7 @@ export async function updatePolicyAction(
   return changePolicy(policyId, "Changing a policy", async (actor) => {
     const result = await updatePolicy(appDb, actor, policyId, parsed.data);
     if (result === "duplicate") {
-      return failedState("Another policy with this number already covers these dates.");
+      return failedState(DUPLICATE_MESSAGE);
     }
     return result === "not_found" ? failedState(NOT_FOUND_MESSAGE) : savedState("Saved.");
   });
@@ -117,6 +119,19 @@ export async function archivePolicyAction(
       ? savedState("Archived.")
       : failedState(NOT_FOUND_MESSAGE),
   );
+}
+
+export async function restorePolicyAction(
+  policyId: string,
+  _previous: ChangeFormState,
+): Promise<ChangeFormState> {
+  return changePolicy(policyId, "Restoring a policy", async (actor) => {
+    const result = await restorePolicy(appDb, actor, policyId);
+    if (result === "duplicate") {
+      return failedState(DUPLICATE_MESSAGE);
+    }
+    return result === "changed" ? savedState("Restored.") : failedState(NOT_FOUND_MESSAGE);
+  });
 }
 
 export async function addCarToPolicyAction(
