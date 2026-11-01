@@ -107,7 +107,7 @@ describe("a Renter's details link", () => {
     expect(await sendLinkCode(deps, visit)).toBe("sent");
     const code = lastCode();
     const wrong = code === "000000" ? "111111" : "000000";
-    expect(await checkLinkCode(deps, visit, wrong)).toEqual({ status: "wrong", triesLeft: 4 });
+    expect(await checkLinkCode(deps, visit, wrong)).toEqual({ status: "wrong", triesLeft: 9 });
     const right = await checkLinkCode(deps, visit, code);
     if (right.status !== "right") {
       throw new Error(right.status);
@@ -118,19 +118,25 @@ describe("a Renter's details link", () => {
     expect(await checkLinkCode(deps, visit, code)).toEqual({ status: "expired" });
   });
 
-  it("locks after 5 wrong codes, and sends at most 3 codes an hour", async () => {
+  it("locks after 10 wrong codes over the link's life, and sends at most 3 codes an hour", async () => {
     const renterId = await addRenter();
     const result = await sendDetailsLink(deps, actor, renterId, 7);
     const visit = (await openLink(web.db, tokenOf((result as { url: string }).url)))!;
     expect(await sendLinkCode(deps, visit)).toBe("sent");
+    const wrong = () => (lastCode() === "000000" ? "111111" : "000000");
+    for (let i = 0; i < 5; i += 1) {
+      await checkLinkCode(deps, visit, wrong());
+    }
+    // A new code does not buy more guesses, and a short code is not a guess.
     expect(await sendLinkCode(deps, visit)).toBe("sent");
+    expect(await checkLinkCode(deps, visit, "12")).toEqual({ status: "incomplete" });
+    expect(await checkLinkCode(deps, visit, wrong())).toEqual({ status: "wrong", triesLeft: 4 });
     expect(await sendLinkCode(deps, visit)).toBe("sent");
     expect(await sendLinkCode(deps, visit)).toBe("too_many");
-    const wrong = lastCode() === "000000" ? "111111" : "000000";
-    for (let i = 0; i < 4; i += 1) {
-      await checkLinkCode(deps, visit, wrong);
+    for (let i = 0; i < 3; i += 1) {
+      await checkLinkCode(deps, visit, wrong());
     }
-    expect(await checkLinkCode(deps, visit, wrong)).toEqual({ status: "locked" });
+    expect(await checkLinkCode(deps, visit, wrong())).toEqual({ status: "locked" });
     expect(await checkLinkCode(deps, visit, lastCode())).toEqual({ status: "locked" });
     expect(await loadDetailsLink(web.db, actor.operatorId, renterId, new Date())).toMatchObject({
       isLocked: true,

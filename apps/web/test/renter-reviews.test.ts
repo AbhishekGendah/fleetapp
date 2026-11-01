@@ -1,5 +1,5 @@
 import { parseListQuery } from "@fleetapp/core";
-import { activityLog, files, renterSubmissions } from "@fleetapp/db/schema";
+import { activityLog, files, renterLinks, renterSubmissions } from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, asc, eq, inArray } from "drizzle-orm";
@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import { RENTER_LIST } from "../src/app/renters/renter-list";
 import type { ActingUser } from "../src/lib/acting-user";
-import type { LinkVisit } from "../src/lib/renter-links/link-visits";
+import { openLink, type LinkVisit } from "../src/lib/renter-links/link-visits";
 import {
   approveSubmission,
   loadSubmissionForReview,
@@ -22,6 +22,7 @@ import { buildEverythingHeld } from "../src/lib/renters/everything-held";
 import { saveLicence } from "../src/lib/renters/licence-records";
 import { listLicenceScans } from "../src/lib/renters/licence-scans";
 import { loadRenter, listRenterPage } from "../src/lib/renters/renter-queries";
+import { archiveRenter, updateRenter } from "../src/lib/renters/renter-records";
 import { seedOperatorWithUser } from "./car-fixtures";
 import {
   detailsSent,
@@ -134,6 +135,8 @@ describe("the Operator's review of what a Renter sent", () => {
     expect(scans.front).not.toBeNull();
     expect(scans.back).not.toBeNull();
     expect(await loadSubmissionForReview(web.db, actor.operatorId, visit.renterId)).toBeNull();
+    // Single-purpose: the link stops working once its details are approved.
+    expect(await openLink(web.db, visit.token)).toBeNull();
     // A second approval of the same submission finds nothing waiting.
     expect(await approveSubmission(kit.fileDeps, actor, visit.renterId, submissionId)).toBe(
       "not_found",
@@ -202,6 +205,19 @@ describe("the Operator's review of what a Renter sent", () => {
     expect(JSON.stringify(log)).not.toContain("blurry");
   });
 
+  it("stops the link when the Renter is archived or their email is corrected", async () => {
+    const archived = await openRenterLink(kit);
+    await archiveRenter(web.db, actor, archived.renterId);
+    expect(await openLink(web.db, archived.token)).toBeNull();
+
+    const corrected = await openRenterLink(kit);
+    await updateRenter(web.db, actor, corrected.renterId, {
+      ...(await loadRenter(web.db, actor.operatorId, corrected.renterId))!,
+      email: "right@example.test",
+    });
+    expect(await openLink(web.db, corrected.token)).toBeNull();
+  });
+
   it("cannot send back once the Renter has no working link", async () => {
     const visit = await openRenterLink(kit);
     await sendEverything(kit, visit);
@@ -216,19 +232,22 @@ describe("the Operator's review of what a Renter sent", () => {
     await sendEverything(kit, approved, { licenceNumber: "8889990" });
     await approveSubmission(kit.fileDeps, actor, approved.renterId, await waitingId(approved));
 
-    const tooSoon = await removeOldSubmissions({
-      ...kit.fileDeps,
-      now: () => new Date(Date.now() + 20 * DAY_MS),
-    });
-    expect(tooSoon.removedSubmissions).toBe(0);
+    // The database keeps its own clock for this rule, so the links' ends are moved back.
+    const endLinks = (daysAgo: number) =>
+      withTenant(web.db, actor.operatorId, (tx) =>
+        tx
+          .update(renterLinks)
+          .set({ cancelledAt: new Date(Date.now() - daysAgo * DAY_MS) })
+          .where(inArray(renterLinks.id, [abandoned.linkId, approved.linkId])),
+      );
+    await endLinks(20);
+    expect((await removeOldSubmissions(kit.fileDeps)).removedSubmissions).toBe(0);
 
-    // Links last 7 days: 40 days on, each ended more than 30 days ago.
-    const later = { ...kit.fileDeps, now: () => new Date(Date.now() + 40 * DAY_MS) };
-    const summary = await removeOldSubmissions(later);
+    await endLinks(40);
+    const summary = await removeOldSubmissions(kit.fileDeps);
     expect(summary.failedOperators).toBe(0);
     expect(summary.removedSubmissions).toBeGreaterThanOrEqual(2);
 
-    // Approved ones go too: by then everything is on the Renter's record.
     const left = await withTenant(web.db, actor.operatorId, (tx) =>
       tx
         .select({ renterId: renterSubmissions.renterId })
@@ -251,6 +270,6 @@ describe("the Operator's review of what a Renter sent", () => {
       actorType: "system",
     });
     // Safe to run again.
-    expect((await removeOldSubmissions(later)).removedSubmissions).toBe(0);
+    expect((await removeOldSubmissions(kit.fileDeps)).removedSubmissions).toBe(0);
   });
 });

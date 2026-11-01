@@ -5,7 +5,8 @@ import {
   hashSecretToken,
   LINK_CODE_VALID_MINUTES,
   maskEmail,
-  MAXIMUM_LINK_CODE_TRIES,
+  LINK_CODE_DIGITS,
+  MAXIMUM_WRONG_LINK_CODES,
   MAXIMUM_LINK_CODES_PER_HOUR,
   type RenterLinkPurpose,
 } from "@fleetapp/core";
@@ -161,7 +162,6 @@ export async function sendLinkCode(
       .set({
         codeHash: hashLinkCode(link.id, code),
         codeExpiresAt: new Date(now.getTime() + LINK_CODE_VALID_MINUTES * MILLISECONDS_PER_MINUTE),
-        codeTries: 0,
         codesWindowStartedAt: isNewWindow ? now : link.codesWindowStartedAt,
         codesInWindow: codesInWindow + 1,
         updatedAt: now,
@@ -191,14 +191,16 @@ export async function sendLinkCode(
 
 export type CheckCodeResult =
   | { status: "right"; deviceToken: string }
+  | { status: "incomplete" }
   | { status: "wrong"; triesLeft: number }
   | { status: "expired" }
   | { status: "locked" };
 
 /**
  * Checks a typed code. Right: the code is used up and this phone is
- * remembered for the link (its cookie's fingerprint is kept). Wrong 5 times:
- * the link locks, and the Operator must send a new one.
+ * remembered for the link (its cookie's fingerprint is kept). Wrong 10 times
+ * over the link's life (`code_tries` is never reset): the link locks, and
+ * the Operator must send a new one. Fewer than 6 digits is not a guess.
  */
 export async function checkLinkCode(
   deps: { database: AnyDatabase; now: () => Date },
@@ -206,6 +208,9 @@ export async function checkLinkCode(
   typedCode: string,
 ): Promise<CheckCodeResult> {
   const now = deps.now();
+  if (typedCode.length !== LINK_CODE_DIGITS) {
+    return { status: "incomplete" };
+  }
   return withTenant(deps.database, visit.operatorId, async (tx): Promise<CheckCodeResult> => {
     const link = await lockLink(tx, visit.linkId);
     if (link.lockedAt) {
@@ -218,7 +223,7 @@ export async function checkLinkCode(
       const deviceToken = generateSecretToken();
       await tx
         .update(renterLinks)
-        .set({ codeHash: null, codeExpiresAt: null, codeTries: 0, updatedAt: now })
+        .set({ codeHash: null, codeExpiresAt: null, updatedAt: now })
         .where(eq(renterLinks.id, link.id));
       await tx.insert(renterLinkDevices).values({
         operatorId: link.operatorId,
@@ -229,7 +234,7 @@ export async function checkLinkCode(
       return { status: "right", deviceToken };
     }
     const tries = link.codeTries + 1;
-    const isNowLocked = tries >= MAXIMUM_LINK_CODE_TRIES;
+    const isNowLocked = tries >= MAXIMUM_WRONG_LINK_CODES;
     await tx
       .update(renterLinks)
       .set({ codeTries: tries, lockedAt: isNowLocked ? now : null, updatedAt: now })
@@ -238,7 +243,7 @@ export async function checkLinkCode(
       await logLink(tx, visit, ACTIVITY_ACTIONS.locked);
       return { status: "locked" };
     }
-    return { status: "wrong", triesLeft: MAXIMUM_LINK_CODE_TRIES - tries };
+    return { status: "wrong", triesLeft: MAXIMUM_WRONG_LINK_CODES - tries };
   });
 }
 

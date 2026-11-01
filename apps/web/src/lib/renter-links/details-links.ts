@@ -9,6 +9,7 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { recordUserChange, type ActingUser } from "../acting-user";
 import { renterLinkPagePath } from "../paths";
 import { lockCurrentRenter } from "../renters/renter-records";
+import { cancelLiveLinks } from "./cancel-links";
 import { loadLinkSender } from "./link-email";
 
 const PURPOSE = "details_form";
@@ -32,36 +33,6 @@ export type SendDetailsLinkResult =
   | { status: "sent"; url: string; expiresAt: Date }
   | { status: "no_email" }
   | { status: "not_found" };
-
-/** Cancels the Renter's details link still in play, if any, inside the caller's transaction. */
-async function cancelLiveLinks(
-  tx: AnyTransaction,
-  actor: ActingUser,
-  renterId: string,
-  now: Date,
-): Promise<boolean> {
-  const cancelled = await tx
-    .update(renterLinks)
-    .set({ cancelledAt: now })
-    .where(
-      and(
-        eq(renterLinks.operatorId, actor.operatorId),
-        eq(renterLinks.renterId, renterId),
-        eq(renterLinks.purpose, PURPOSE),
-        isNull(renterLinks.cancelledAt),
-      ),
-    )
-    .returning({ id: renterLinks.id });
-  for (const link of cancelled) {
-    await recordUserChange(tx, actor, {
-      entityType: ACTIVITY_ENTITY_TYPES.renterLink,
-      entityId: link.id,
-      action: ACTIVITY_ACTIONS.revoked,
-      valuesAfter: { renterId },
-    });
-  }
-  return cancelled.length > 0;
-}
 
 /**
  * Sends a Renter their details form link by email (rule 26): a new secret

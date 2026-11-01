@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { LIST_PAGE_SIZE, parseListQuery } from "@fleetapp/core";
 import { missingListRules } from "@fleetapp/core";
 import { activityLog, operators, users } from "@fleetapp/db/schema";
+import { withTenant } from "@fleetapp/db/tenant-context";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
@@ -245,10 +246,12 @@ describe("cars", () => {
     await updateVehicle(web.db, actor, vehicleId, { ...car, model: "Corolla" });
     await updateVehicle(web.db, actor, vehicleId, { ...car, model: "Corolla" });
 
-    const updates = await admin.db
-      .select({ valuesBefore: activityLog.valuesBefore, valuesAfter: activityLog.valuesAfter })
-      .from(activityLog)
-      .where(and(eq(activityLog.entityId, vehicleId), eq(activityLog.action, "updated")));
+    const updates = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx
+        .select({ valuesBefore: activityLog.valuesBefore, valuesAfter: activityLog.valuesAfter })
+        .from(activityLog)
+        .where(and(eq(activityLog.entityId, vehicleId), eq(activityLog.action, "updated"))),
+    );
     expect(updates).toEqual([
       { valuesBefore: { model: "Camry" }, valuesAfter: { model: "Corolla" } },
     ]);

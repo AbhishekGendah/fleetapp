@@ -17,8 +17,12 @@ export const MAXIMUM_RENTER_LINK_DAYS = 30;
 
 export const LINK_CODE_DIGITS = 6;
 export const LINK_CODE_VALID_MINUTES = 10;
-/** Wrong codes allowed before the link locks and the Operator must send a new one. */
-export const MAXIMUM_LINK_CODE_TRIES = 5;
+/**
+ * Wrong codes allowed over the link's whole life before it locks and the
+ * Operator must send a new one. Counted per link, not per code, so asking for
+ * a new code never buys more guesses.
+ */
+export const MAXIMUM_WRONG_LINK_CODES = 10;
 /** Codes that can be emailed for one link in an hour, so a link cannot flood an inbox. */
 export const MAXIMUM_LINK_CODES_PER_HOUR = 3;
 
@@ -29,8 +33,8 @@ export function generateLinkCode(): string {
 
 /**
  * The fingerprint a code is stored by, tied to its link so the same code on
- * another link never matches. A code lives 10 minutes and allows 5 tries,
- * so a fast hash is enough.
+ * another link never matches. A code lives 10 minutes and a link allows 10
+ * wrong guesses in all, so a fast hash is enough.
  */
 export function hashLinkCode(linkId: string, code: string): string {
   return createHash("sha256").update(`${linkId}:${code}`).digest("hex");

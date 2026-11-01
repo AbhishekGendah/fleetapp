@@ -176,6 +176,13 @@
       "when": 1793467408532,
       "tag": "0024_licence_scan_retention",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1793493584459,
+      "tag": "0025_review_security_fixes",
+      "breakpoints": true
     }
   ]
 }

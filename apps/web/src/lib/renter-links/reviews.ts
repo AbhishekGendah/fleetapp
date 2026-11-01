@@ -25,6 +25,7 @@ import {
   lockCurrentRenter,
   logRenterActivity,
 } from "../renters/renter-records";
+import { cancelLiveLinks } from "./cancel-links";
 import type { LinkDependencies } from "./details-links";
 import { loadLinkSender } from "./link-email";
 
@@ -237,6 +238,8 @@ export async function approveSubmission(
       await applyLicence(tx, actor, before, licence);
       await adoptPhotosAsScans(tx, actor, now, renterId, submissionId);
       await markReviewed(tx, actor, submissionId, now, { status: "approved" });
+      // Single-purpose (rule 26): once its details are approved, the link is done.
+      await cancelLiveLinks(tx, actor, renterId, now);
       await logRenterActivity(tx, actor, renterId, ACTIVITY_ACTIONS.approved);
       return "approved";
     });
@@ -248,7 +251,7 @@ export async function approveSubmission(
   }
 }
 
-/** "link_ended": the Renter has no working details link to correct it with; send a new one first. */
+/** "link_ended": the Renter has no working details link (expired, cancelled or locked); send a new one first. */
 export type SendBackResult =
   { status: "sent_back"; isEmailed: boolean } | { status: "link_ended" } | { status: "not_found" };
 
@@ -284,7 +287,7 @@ export async function sendBackSubmission(
       .limit(1);
     // The Renter corrects it through the details link they have now: the one
     // they sent from, or a newer one the Operator sent since.
-    if (!link || link.expiresAt <= now) {
+    if (!link || link.expiresAt <= now || link.lockedAt !== null) {
       return { status: "link_ended" as const };
     }
     await markReviewed(tx, actor, submission.id, now, {

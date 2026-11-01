@@ -44,8 +44,11 @@ export function recordingEmailSender(sentEmails: EmailMessage[]): EmailSender {
   };
 }
 
+/** A link as opened, with the secret from its address for opening it again. */
+export type OpenedLink = LinkVisit & { token: string };
+
 /** A Renter started from a phone call, and the details link they were sent. */
-export async function openRenterLink(kit: LinkTestKit, name = "Sam Example"): Promise<LinkVisit> {
+export async function openRenterLink(kit: LinkTestKit, name = "Sam Example"): Promise<OpenedLink> {
   const parsed = parseRenterForm(
     { ...emptyRenterForm(), fullName: name, email: "sam@example.test" },
     LINK_TEST_TODAY,
@@ -55,7 +58,8 @@ export async function openRenterLink(kit: LinkTestKit, name = "Sam Example"): Pr
   if (result.status !== "sent") {
     throw new Error(result.status);
   }
-  return (await openLink(kit.web.db, result.url.split("/r/")[1]!))!;
+  const token = result.url.split("/r/")[1]!;
+  return { ...(await openLink(kit.web.db, token))!, token };
 }
 
 /** Sends one licence photo through the link, as the Renter's phone does. */

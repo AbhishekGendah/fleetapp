@@ -1,6 +1,11 @@
 "use server";
 
-import { describeErrorForLog, typedLinkCode } from "@fleetapp/core";
+import {
+  describeErrorForLog,
+  LINK_CODE_DIGITS,
+  MAXIMUM_LINK_CODES_PER_HOUR,
+  typedLinkCode,
+} from "@fleetapp/core";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -13,7 +18,8 @@ import { DEVICE_COOKIE, linkPagePath, type CodeStepState } from "./link-state";
 const GONE_MESSAGE = "This link no longer works. Ask the business that sent it for a new one.";
 const LOCKED_MESSAGE =
   "Too many wrong codes, so this link is locked. Ask the business that sent it for a new one.";
-const TOO_MANY_MESSAGE = "We have sent 3 codes in the last hour. Use the latest one, or try later.";
+const TOO_MANY_MESSAGE = `We have sent ${MAXIMUM_LINK_CODES_PER_HOUR} codes in the last hour. Use the latest one, or try later.`;
+const INCOMPLETE_MESSAGE = `Type all ${LINK_CODE_DIGITS} digits of the code.`;
 const EXPIRED_CODE_MESSAGE = "That code has run out. Press Email me a code for a new one.";
 const FAILED_MESSAGE = "Something went wrong. Try again in a moment.";
 
@@ -44,13 +50,16 @@ export async function sendCodeAction(
   }
 }
 
-/** Checks the typed code; when right, remembers this phone for the link and shows the form. */
+/**
+ * Checks the code as typed or pasted (passed in, not read from the form, so
+ * a paste is never sent before the box shows it); when right, remembers this
+ * phone for the link and shows the form.
+ */
 export async function checkCodeAction(
   token: string,
   _previous: CodeStepState,
-  formData: FormData,
+  typed: unknown,
 ): Promise<CodeStepState> {
-  const typed = formData.get("code");
   let deviceToken: string;
   let expiresAt: Date;
   try {
@@ -65,6 +74,9 @@ export async function checkCodeAction(
     );
     if (result.status === "locked") {
       return { status: "problem", message: LOCKED_MESSAGE };
+    }
+    if (result.status === "incomplete") {
+      return { status: "problem", message: INCOMPLETE_MESSAGE };
     }
     if (result.status === "expired") {
       return { status: "problem", message: EXPIRED_CODE_MESSAGE };

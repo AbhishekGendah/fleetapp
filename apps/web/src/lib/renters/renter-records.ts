@@ -10,6 +10,7 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser, type UserChange } from "../acting-user";
+import { cancelLiveLinks } from "../renter-links/cancel-links";
 import type { RenterInput, RenterStatusInput } from "./renter-input";
 
 /** Every detail the form sets. All personal, so the log only says which changed. */
@@ -102,10 +103,17 @@ export async function applyRenterDetails(
   if (!hasChanges(changes)) {
     return "unchanged";
   }
+  // Only the form's own fields, whatever else the object carries.
+  const details = Object.fromEntries(RENTER_FIELDS.map((field) => [field, input[field]]));
   await tx
     .update(renters)
-    .set(input)
+    .set(details)
     .where(and(eq(renters.id, before.id), eq(renters.operatorId, actor.operatorId)));
+  // Codes go to the address a link was sent to: a corrected email must not
+  // leave a link open to the old (perhaps someone else's) inbox.
+  if (Object.hasOwn(changes.valuesAfter, "email")) {
+    await cancelLiveLinks(tx, actor, before.id, new Date());
+  }
   await logRenterActivity(
     tx,
     actor,
@@ -178,6 +186,9 @@ async function setRenterArchived(
       .returning({ id: renters.id });
     if (!changed) {
       return "unchanged";
+    }
+    if (shouldArchive) {
+      await cancelLiveLinks(tx, actor, renterId, new Date());
     }
     const action = shouldArchive ? ACTIVITY_ACTIONS.archived : ACTIVITY_ACTIONS.restored;
     await logRenterActivity(tx, actor, renterId, action);

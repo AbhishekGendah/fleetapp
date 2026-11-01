@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { REQUIRED_BUSINESS_DETAIL_FIELDS } from "@fleetapp/core";
 import { activityLog, operators } from "@fleetapp/db/schema";
+import { withTenant } from "@fleetapp/db/tenant-context";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
@@ -144,11 +145,14 @@ describe("saving business details", () => {
   const parse = (form: Record<string, unknown>): BusinessDetailsInput =>
     businessDetailsInputSchema.parse(form);
 
+  // Read as the Operator: the admin app never sees history values.
   async function historyLines() {
-    return admin.db
-      .select({ valuesBefore: activityLog.valuesBefore, valuesAfter: activityLog.valuesAfter })
-      .from(activityLog)
-      .where(and(eq(activityLog.operatorId, operatorId), eq(activityLog.action, "updated")));
+    return withTenant(web.db, operatorId, (tx) =>
+      tx
+        .select({ valuesBefore: activityLog.valuesBefore, valuesAfter: activityLog.valuesAfter })
+        .from(activityLog)
+        .where(and(eq(activityLog.operatorId, operatorId), eq(activityLog.action, "updated"))),
+    );
   }
 
   it("saves the details and logs only what changed, before and after", async () => {

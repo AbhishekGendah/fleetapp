@@ -6,7 +6,7 @@ import { CodeInput } from "@fleetapp/ui/code-input";
 import { FormError } from "@fleetapp/ui/form-message";
 import { FormField } from "@fleetapp/ui/form-field";
 import { Mail } from "lucide-react";
-import { useActionState, useRef, useState } from "react";
+import { startTransition, useActionState, useState } from "react";
 
 import { INITIAL_CODE_STEP_STATE, type CodeStepState } from "./link-state";
 
@@ -17,7 +17,7 @@ import { INITIAL_CODE_STEP_STATE, type CodeStepState } from "./link-state";
 export function CodeStep(props: {
   maskedEmail: string;
   sendCode: (state: CodeStepState) => Promise<CodeStepState>;
-  checkCode: (state: CodeStepState, formData: FormData) => Promise<CodeStepState>;
+  checkCode: (state: CodeStepState, code: string) => Promise<CodeStepState>;
 }) {
   const [sendState, sendAction, isSending] = useActionState(
     props.sendCode,
@@ -28,8 +28,13 @@ export function CodeStep(props: {
     INITIAL_CODE_STEP_STATE,
   );
   const [code, setCode] = useState("");
-  const checkFormRef = useRef<HTMLFormElement>(null);
   const isCodeSent = sendState.status === "code_sent" || checkState.status === "problem";
+
+  // The box empties as the code goes, so a wrong one is never typed over.
+  function submitCode(completed: string): void {
+    setCode("");
+    startTransition(() => checkAction(completed));
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -52,8 +57,15 @@ export function CodeStep(props: {
         {sendState.status === "problem" ? <FormError message={sendState.message} /> : null}
       </form>
       {isCodeSent ? (
-        <form ref={checkFormRef} action={checkAction} className="flex flex-col gap-3">
-          <FormField htmlFor="code" label="Type the code">
+        <form
+          noValidate
+          onSubmit={(event) => {
+            event.preventDefault();
+            submitCode(code);
+          }}
+          className="flex flex-col gap-3"
+        >
+          <FormField htmlFor="code" label="Type the code" isRequired>
             <CodeInput
               id="code"
               name="code"
@@ -62,7 +74,7 @@ export function CodeStep(props: {
               length={LINK_CODE_DIGITS}
               autoFocus
               isDisabled={isChecking}
-              onComplete={() => checkFormRef.current?.requestSubmit()}
+              onComplete={submitCode}
             />
           </FormField>
           {checkState.status === "problem" ? <FormError message={checkState.message} /> : null}

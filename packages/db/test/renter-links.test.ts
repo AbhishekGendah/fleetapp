@@ -252,6 +252,38 @@ describe("Renter links", () => {
     }
   });
 
+  it("stops a link working while its Operator is suspended", async () => {
+    const live = linkRow(operatorBId, { renterId: renterBId });
+    await withTenant(web.db, operatorBId, async (tx) => {
+      await tx
+        .update(schema.renterLinks)
+        .set({ cancelledAt: new Date() })
+        .where(eq(schema.renterLinks.renterId, renterBId));
+      await tx.insert(schema.renterLinks).values(live);
+    });
+    expect(await lookUp(live.tokenHash)).toHaveLength(1);
+    const suspend = (suspendedAt: Date | null) =>
+      admin.db
+        .update(schema.operators)
+        .set({ suspendedAt })
+        .where(eq(schema.operators.id, operatorBId));
+    await suspend(new Date());
+    expect(await lookUp(live.tokenHash)).toEqual([]);
+    await suspend(null);
+    expect(await lookUp(live.tokenHash)).toHaveLength(1);
+  });
+
+  it("lets the admin app see who did what in the history, never the values", async () => {
+    const columns = await postgresErrorCodeOf(
+      admin.db.select({ values: schema.activityLog.valuesAfter }).from(schema.activityLog),
+    );
+    expect(columns).toBe(POSTGRES_ERROR_CODES.insufficientPrivilege);
+    await admin.db
+      .select({ action: schema.activityLog.action, at: schema.activityLog.occurredAt })
+      .from(schema.activityLog)
+      .limit(1);
+  });
+
   it("allows one live link of a kind per Renter", async () => {
     const code = await postgresErrorCodeOf(
       withTenant(web.db, operatorBId, (tx) =>
