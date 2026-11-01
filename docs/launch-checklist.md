@@ -70,6 +70,17 @@ Add to this list whenever something is relaxed or put off "until launch".
 - [ ] Switch from pushing to main to branches and pull requests (CLAUDE.md).
 - [ ] Admin password reset built (progress.md, Open items).
 
+## Domain and releases
+
+- [ ] pintofleet.com.au (and pintofleet.au) bought; app., admin. (and
+  staging. / staging-admin. if used) pointed at Vercel; APP_URL, ADMIN_URL
+  and EMAIL_FROM updated; Postmark sending records added; Google Places key
+  and Stripe updated for the new addresses. The altus addresses redirected
+  or retired. See docs/roadmap.md, Phase 9.
+- [ ] Branches + pull requests: `main` protected (checks must pass, Abhi
+  approves), previews password-protected on dev data, production updated
+  only from an approved build.
+
 ## Legal
 
 - [ ] Everything in docs/legal-notes.md reviewed by a lawyer: privacy

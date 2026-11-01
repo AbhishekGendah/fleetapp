@@ -56,7 +56,7 @@ Status: ✅ done · 🔨 in progress · ⏳ not started. Last checked 1 Nov 2026
 - Hand-built pieces replaced by established libraries, with browser tests
   (Playwright) proving each one. Done 1 Nov 2026.
 
-## Phase 3 — Rentals ⏳ **Next, plan first.**
+## Phase 3 — Rentals ⏳ (plan: docs/plans/phase-3.md; slice 1 bookings ✅, slice 2 next)
 - Bookings, calendar, double-booking prevention.
 - Contract templates, signing.
 - Handover/return reports (must work offline-ish, rule 25).
@@ -93,7 +93,20 @@ Status: ✅ done · 🔨 in progress · ⏳ not started. Last checked 1 Nov 2026
 - AGS subscription billing (pricing model still to decide).
 - Read-only mode.
 - Spreadsheet import of cars and Renters.
-- Demo Operator.
+- Demo Operator: a "Seed demo data" button (GitHub Actions, dev/staging
+  only, refuses production) that makes a fresh demo business full of
+  varied made-up cars, Renters and rentals. Discussed 1 Nov 2026; Abhi to
+  say when. Open choice: a new demo business each run (recommended) or
+  fill the existing "Fleet test" business.
+- Support access, the Dayforce way (discussed 1 Nov 2026, to plan before
+  more than a handful of Operators): AGS staff pick an Operator in admin,
+  give a reason, and open their Operator app read-only, time-limited, with
+  a banner, every page logged in the Operator's Log. Changes rule 5 (admin
+  cannot read Renter data in v1), so it needs a plan, Operator terms and
+  privacy policy wording, and the lawyer. Optional per-Operator "ask me
+  first".
+- Error tracking service (alerts, grouped errors, no personal data) before
+  scaling: a new service, so a decision on which and where it stores data.
 
 ## Phase 9 — Go-live hardening ⏳
 Works through docs/launch-checklist.md, including:
@@ -107,7 +120,17 @@ Works through docs/launch-checklist.md, including:
 - Vercel Pro.
 - Postmark.
 - Production S3.
-- Switch to branches + PRs.
+- Switch to branches + PRs (how it will work, agreed 1 Nov 2026): each
+  feature on its own branch with a password-protected Vercel preview on dev
+  data; Abhi tests there once; his approval merges to main; production gets
+  that exact build. `main` protected (checks + approval). A permanent
+  staging copy is optional at first, added when several features run at
+  once or a demo site is wanted.
+- Domain: pintofleet.com.au (plus pintofleet.au). app.pintofleet.com.au
+  (Operator app), admin.pintofleet.com.au, staging.pintofleet.com.au and
+  staging-admin.pintofleet.com.au; pintofleet.com.au itself for a public
+  website later. Only settings change (APP_URL, ADMIN_URL, EMAIL_FROM),
+  plus DNS, Postmark sending records, Google Places key and Stripe.
 
 ## Runs alongside every phase
 - Abhi's test checklist (Google Sheet, link in docs/progress.md): every
