@@ -1,10 +1,10 @@
-import { describeErrorForLog, MILLISECONDS_PER_DAY } from "@fleetapp/core";
+import { MILLISECONDS_PER_DAY } from "@fleetapp/core";
 import { recordActivity } from "@fleetapp/db/activity";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, files } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
-import { z } from "zod";
 
+import { findDueOperators, forEachOperator } from "../jobs/due-operators";
 import { incomingKeyFor, type FileDependencies } from "./stored-files";
 
 /** A deleted file can be recovered for this long, then it goes for good (rule 23). */
@@ -13,8 +13,8 @@ export const DELETED_FILE_KEPT_DAYS = 30;
 const UNFINISHED_UPLOAD_HOURS = 24;
 const HOURS_PER_DAY = 24;
 
-/** What the database driver hands back for the function's rows. */
-const dueOperatorsSchema = z.object({ rows: z.array(z.object({ operator_id: z.uuid() })) });
+/** At most this many files per Operator per run, so one big backlog cannot run past the time limit; the next run carries on. */
+const FILES_PER_RUN = 500;
 
 type PurgeReason = "deleted_over_30_days" | "upload_never_finished";
 
@@ -40,14 +40,16 @@ function cutoffsFor(now: Date): Cutoffs {
 }
 
 /** Which Operators have work waiting: IDs only, through the one narrow database function. */
-async function operatorsWithWork(deps: FileDependencies, cutoffs: Cutoffs): Promise<string[]> {
-  const result: unknown = await deps.database.execute(sql`
-    SELECT operator_id FROM app.operators_with_file_housekeeping_due(
-      ${cutoffs.deletedBefore.toISOString()}::timestamptz,
-      ${cutoffs.unfinishedBefore.toISOString()}::timestamptz
-    ) AS operator_id
-  `);
-  return dueOperatorsSchema.parse(result).rows.map((row) => row.operator_id);
+function operatorsWithWork(deps: FileDependencies, cutoffs: Cutoffs): Promise<string[]> {
+  return findDueOperators(
+    deps.database,
+    sql`
+      SELECT operator_id FROM app.operators_with_file_housekeeping_due(
+        ${cutoffs.deletedBefore.toISOString()}::timestamptz,
+        ${cutoffs.unfinishedBefore.toISOString()}::timestamptz
+      ) AS operator_id
+    `,
+  );
 }
 
 /** One Operator's due files, read with that Operator's tenant context set (rule 3). */
@@ -71,7 +73,8 @@ async function findDueFiles(deps: FileDependencies, operatorId: string, cutoffs:
             lt(files.createdAt, cutoffs.unfinishedBefore),
           ),
         ),
-      ),
+      )
+      .limit(FILES_PER_RUN),
   );
 }
 
@@ -113,25 +116,17 @@ export async function runFileHousekeeping(deps: FileDependencies): Promise<House
   const now = deps.now();
   const cutoffs = cutoffsFor(now);
   const operatorIds = await operatorsWithWork(deps, cutoffs);
-  const summary: HousekeepingSummary = {
-    operators: operatorIds.length,
-    purged: 0,
-    failedOperators: 0,
-  };
-
-  for (const operatorId of operatorIds) {
-    try {
-      for (const file of await findDueFiles(deps, operatorId, cutoffs)) {
-        await purgeFile(deps, operatorId, file, now);
-        summary.purged += 1;
-      }
-    } catch (error) {
-      summary.failedOperators += 1;
-      console.error("File clean-up failed for an Operator", {
-        operatorId,
-        ...describeErrorForLog(error),
-      });
+  const run = await forEachOperator(operatorIds, "File clean-up", async (operatorId) => {
+    const due = await findDueFiles(deps, operatorId, cutoffs);
+    for (const file of due) {
+      await purgeFile(deps, operatorId, file, now);
     }
-  }
+    return due.length;
+  });
+  const summary: HousekeepingSummary = {
+    operators: run.operators,
+    purged: run.done,
+    failedOperators: run.failedOperators,
+  };
   return summary;
 }

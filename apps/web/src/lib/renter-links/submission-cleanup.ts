@@ -1,4 +1,4 @@
-import { describeErrorForLog, MILLISECONDS_PER_DAY } from "@fleetapp/core";
+import { MILLISECONDS_PER_DAY } from "@fleetapp/core";
 import { recordActivity } from "@fleetapp/db/activity";
 import type { AnyTransaction } from "@fleetapp/db/client";
 import {
@@ -13,13 +13,13 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { binFilesAsSystem, SYSTEM_BIN_REASONS, type FileDependencies } from "../files/stored-files";
+import { findDueOperators, forEachOperator } from "../jobs/due-operators";
 
 /** What a Renter sent through a link is kept this long after the link ended, whatever came of it. */
 export const SUBMISSION_KEPT_DAYS = 30;
 
 const SYSTEM_ACTOR = { type: "system", id: null } as const;
 
-const dueOperatorsSchema = z.object({ rows: z.array(z.object({ operator_id: z.uuid() })) });
 const removedSchema = z.object({
   rows: z.array(z.object({ submission_id: z.uuid(), renter_id: z.uuid() })),
 });
@@ -114,29 +114,21 @@ export async function removeOldSubmissions(
 ): Promise<SubmissionCleanupSummary> {
   const now = deps.now();
   const cutoff = new Date(now.getTime() - SUBMISSION_KEPT_DAYS * MILLISECONDS_PER_DAY);
-  const due = dueOperatorsSchema.parse(
-    await deps.database.execute(
-      sql`select operator_id from app.operators_with_abandoned_renter_submissions(${cutoff.toISOString()}::timestamptz) as operator_id`,
-    ),
-  ).rows;
+  const operatorIds = await findDueOperators(
+    deps.database,
+    sql`select operator_id from app.operators_with_abandoned_renter_submissions(${cutoff.toISOString()}::timestamptz) as operator_id`,
+  );
+  let removedPhotos = 0;
+  const run = await forEachOperator(operatorIds, "Submission clean-up", async (operatorId) => {
+    const cleaned = await cleanUpOperator(deps, operatorId, cutoff, now);
+    removedPhotos += cleaned.photos;
+    return cleaned.submissions;
+  });
   const summary: SubmissionCleanupSummary = {
-    operators: due.length,
-    removedSubmissions: 0,
-    removedPhotos: 0,
-    failedOperators: 0,
+    operators: run.operators,
+    removedSubmissions: run.done,
+    removedPhotos,
+    failedOperators: run.failedOperators,
   };
-  for (const { operator_id: operatorId } of due) {
-    try {
-      const cleaned = await cleanUpOperator(deps, operatorId, cutoff, now);
-      summary.removedSubmissions += cleaned.submissions;
-      summary.removedPhotos += cleaned.photos;
-    } catch (error) {
-      summary.failedOperators += 1;
-      console.error("Submission clean-up failed for an Operator", {
-        operatorId,
-        ...describeErrorForLog(error),
-      });
-    }
-  }
   return summary;
 }

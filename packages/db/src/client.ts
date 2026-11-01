@@ -1,3 +1,4 @@
+import { describeErrorForLog } from "@fleetapp/core";
 import { neonConfig, Pool } from "@neondatabase/serverless";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { drizzle, type NeonDatabase } from "drizzle-orm/neon-serverless";
@@ -25,6 +26,9 @@ export type AnyDatabase = PgDatabase<PgQueryResultHKT, typeof schema>;
 /** A transaction on any of them, as `database.transaction()` hands it over. */
 export type AnyTransaction = Parameters<Parameters<AnyDatabase["transaction"]>[0]>[0];
 
+/** Idle connections are let go after this, before Neon's own timeout closes them under us. */
+const IDLE_CONNECTION_MS = 10_000;
+
 declare global {
   // `var` is required here: ambient global declarations don't support `let`/`const`.
   var __fleetappDbPools: Map<string, Pool> | undefined;
@@ -46,7 +50,13 @@ function getPool(connectionString: string): Pool {
     return existing;
   }
 
-  const pool = new Pool({ connectionString });
+  const pool = new Pool({ connectionString, idleTimeoutMillis: IDLE_CONNECTION_MS });
+  // Neon closes idle connections when its database sleeps; the pool reports
+  // that as an "error" event, which with no listener would crash the server.
+  // A dropped idle connection is simply replaced on the next query.
+  pool.on("error", (error: unknown) => {
+    console.warn("An idle database connection was closed", describeErrorForLog(error));
+  });
   pools.set(connectionString, pool);
   return pool;
 }

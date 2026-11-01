@@ -1,5 +1,4 @@
 import {
-  describeErrorForLog,
   MILLISECONDS_PER_DAY,
   licenceScanDeleteAfter,
   MINIMUM_LICENCE_SCAN_KEPT_MONTHS,
@@ -8,7 +7,6 @@ import type { AnyTransaction } from "@fleetapp/db/client";
 import { files } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { inArray, sql } from "drizzle-orm";
-import { z } from "zod";
 
 import {
   binFilesAsSystem,
@@ -16,6 +14,7 @@ import {
   SYSTEM_BIN_REASONS,
   type FileDependencies,
 } from "../files/stored-files";
+import { findDueOperators, forEachOperator } from "../jobs/due-operators";
 import { loadOperatorSettings } from "../settings/operator-settings";
 
 /**
@@ -43,7 +42,8 @@ export const NO_HOLDS_YET: RetentionHolds = {
 
 const SHORTEST_MONTH_DAYS = 28;
 
-const dueOperatorsSchema = z.object({ rows: z.array(z.object({ operator_id: z.uuid() })) });
+/** At most this many scans per Operator per run. */
+const SCANS_PER_RUN = 500;
 
 export interface ScanRetentionSummary {
   operators: number;
@@ -96,41 +96,37 @@ export async function binExpiredLicenceScans(
   const earliestDue = new Date(
     now.getTime() - MINIMUM_LICENCE_SCAN_KEPT_MONTHS * SHORTEST_MONTH_DAYS * MILLISECONDS_PER_DAY,
   );
-  const due = dueOperatorsSchema.parse(
-    await deps.database.execute(
-      sql`select operator_id from app.operators_with_licence_scans_added_before(${earliestDue.toISOString()}::timestamptz) as operator_id`,
-    ),
-  ).rows;
+  const operatorIds = await findDueOperators(
+    deps.database,
+    sql`select operator_id from app.operators_with_licence_scans_added_before(${earliestDue.toISOString()}::timestamptz) as operator_id`,
+  );
+  const run = await forEachOperator(operatorIds, "Licence scan retention", async (operatorId) => {
+    const { licenceScanKeptMonths } = await loadOperatorSettings(deps.database, operatorId);
+    return withTenant(deps.database, operatorId, async (tx) => {
+      // A limited batch per run, so a big backlog (a setting just lowered)
+      // can never run past the time limit; the next night carries on.
+      const scanIds = (await findScansDue(tx, operatorId, licenceScanKeptMonths, now, holds)).slice(
+        0,
+        SCANS_PER_RUN,
+      );
+      return scanIds.length === 0
+        ? 0
+        : binFilesAsSystem(
+            tx,
+            operatorId,
+            now,
+            "renter_licence_scan",
+            inArray(files.id, scanIds),
+            SYSTEM_BIN_REASONS.keptTheSetTime,
+            { keptMonths: licenceScanKeptMonths },
+          );
+    });
+  });
   const summary: ScanRetentionSummary = {
-    operators: due.length,
-    binnedScans: 0,
-    failedOperators: 0,
+    operators: run.operators,
+    binnedScans: run.done,
+    failedOperators: run.failedOperators,
   };
-  for (const { operator_id: operatorId } of due) {
-    try {
-      const { licenceScanKeptMonths } = await loadOperatorSettings(deps.database, operatorId);
-      summary.binnedScans += await withTenant(deps.database, operatorId, async (tx) => {
-        const scanIds = await findScansDue(tx, operatorId, licenceScanKeptMonths, now, holds);
-        return scanIds.length === 0
-          ? 0
-          : binFilesAsSystem(
-              tx,
-              operatorId,
-              now,
-              "renter_licence_scan",
-              inArray(files.id, scanIds),
-              SYSTEM_BIN_REASONS.keptTheSetTime,
-              { keptMonths: licenceScanKeptMonths },
-            );
-      });
-    } catch (error) {
-      summary.failedOperators += 1;
-      console.error("Licence scan retention failed for an Operator", {
-        operatorId,
-        ...describeErrorForLog(error),
-      });
-    }
-  }
   return summary;
 }
 
