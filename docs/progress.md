@@ -691,11 +691,36 @@
   - Bond entries in the rental's Log (amount, kind and how only).
   - Checklist rows O-260 to O-265.
 
+- Phase 3 slice 5 — handover on the Operator's phone:
+  - Migration 0033: inspections (handover and return checklists),
+    damage marks, possessions (the database refuses two possessions of one
+    car that overlap), checklist photos linked to their checklist, the car
+    status Rented. A finished checklist, its marks and photos can never be
+    changed. Web app only.
+  - Rental page: Handover card (start, continue, cancel; once done, the
+    report). Checklist page at phone width: photos on the list, kilometres
+    (never below the car's last reading), fuel, keys, accessories, notes,
+    damage on a car outline (tap, or choose the area), and the Renter's
+    signature on the phone; a reason is needed if the bond is short.
+    Acceptance needs the contract signed and no licence or car problems.
+  - On acceptance: the report PDF (with small copies of the photos and the
+    signature) is fixed and emailed; the rental is Active, possession
+    starts, the car is Rented, its kilometres recorded.
+  - Poor signal: the page opens with no signal once visited; photos and
+    marks wait on the phone and send themselves. New libraries: dexie
+    4.4.7, serwist and @serwist/turbopack 9.5.13, esbuild 0.28.2.
+  - Settings → Rentals: the handover photo list (8 by default).
+  - Found and fixed on the way: the Renter's Licence tab failed to open
+    (since the scan retention fix on 1 Nov); now covered by the handover
+    browser test.
+  - Browser tests for the whole handover at phone width, with no signal
+    part way; handover page budget 730 KB. Checklist rows O-266 to O-276
+    and A-64.
+
 ## Next
-Phase 3 slice 5: handover on the Operator's phone (photo checklist that
-works with poor signal, the Renter accepts on the phone, possession
-starts). Includes blocking the handover while the bond is short, with an
-override and reason.
+Phase 3 slice 6: the return (same checklist, side-by-side with the
+handover photos, new damage highlighted, possession ends, car back to
+Available).
 Open idea: trim the phone rules to Australia only with libphonenumber's
 metadata generator (about 40 KB off each form page); running the
 generator needs Abhi's say-so.

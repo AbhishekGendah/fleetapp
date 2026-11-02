@@ -348,7 +348,40 @@ of service) and the countries.
 - **Overseas:** PDFs are made on our own servers (Vercel, Sydney) with an
   open-source library; nothing is sent to another service.
 
-## Bonds (Phase 3 slice 4, built)
+## Handover on the Operator's phone (Phase 3 slice 5, built)
+
+- **The Renter's acceptance (Electronic Transactions Act):** the Renter
+  signs with their finger on the Operator's phone, in person. The app
+  records who was signed in (the Operator's User), when, the exact words
+  accepted and the signature, inside the fixed report. Identity rests on
+  the Operator checking the Renter against their licence at the car: the
+  Operator terms and training notes should say so (add to the lawyer list
+  with the signing record question).
+- **Possession (fines, tolls):** possession starts at the moment of
+  acceptance and is recorded against the car with no overlaps allowed.
+  This is the record fines are matched to in Phase 6, so the time must be
+  right: it is the server's clock at acceptance, never typed.
+- **Photos (APP 3, 11):** handover photos show the car, but can catch
+  people, other number plates or the inside of the car (belongings).
+  They are kept with the rental like other car photos, in general
+  storage, and can no longer be removed once the handover is finished
+  (they are evidence). The retention period for car photos is still to
+  be set with the lawyer (already on the list); rule 23's move to cheaper
+  storage after a year applies.
+- **Kept on the phone (APP 11, security):** while a handover is under way
+  the phone keeps what was typed, the photos waiting to send and the
+  checklist page (the Renter's name, the car, the kilometres). Only the
+  handover page is kept, never other pages. It is wiped once the Renter
+  accepts on that phone, and anything older than 7 days is wiped
+  automatically. A lost phone still holds up to a week of handovers: the
+  Operator terms should ask Operators to lock their phones (screen lock).
+- **Bond short at handover:** the Operator can hand the car over with the
+  bond not yet paid only by giving a reason; the reason is kept with the
+  handover and the Log records that it happened.
+- **Emails:** the report goes to the Renter and to the business email, as
+  for signed contracts (transactional; Postmark when set up).
+
+
 
 - **No GST on a bond:** it is security, not payment for a supply, so no
   GST is recorded on it. When part of a bond is kept to cover a charge

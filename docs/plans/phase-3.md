@@ -1,6 +1,6 @@
 # Phase 3 plan — Rentals
 
-Status: approved (1 Nov 2026). Slices 1 (bookings), 2 (contract templates) and 3 (signing) built 1 Nov 2026, slice 4 (bonds) 2 Nov 2026; slice 5 next.
+Status: approved (1 Nov 2026). Slices 1 (bookings), 2 (contract templates) and 3 (signing) built 1 Nov 2026, slices 4 (bonds) and 5 (handover) 2 Nov 2026; slice 6 next.
 Design: docs/design/04 (rentals), 05 (contracts, signing, handovers), the
 bond part of 06, the Renter-link part of 08, the dashboard part of 09.
 
@@ -181,6 +181,12 @@ signal, and the Renter accepts it there and then.
 - **The car outline:** a simple drawing of a car's top and sides that
   damage is tapped onto. Hand-built, with the reason in the plan: no
   maintained library does this; it is a picture with tap points.
+- Built 2 Nov 2026. Changes from the plan while building: the outline is
+  seen from above only (one drawing, with a list of the car's areas for
+  keyboard and screen-reader users); Serwist keeps only the handover page
+  and the app's script files (nothing saved up front, so no other page's
+  details are kept on the phone); the bond block from slice 4 is here, as
+  a reason required to hand over with the bond short.
 
 ## Slice 6 — Return
 
