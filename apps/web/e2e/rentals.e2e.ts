@@ -1,8 +1,9 @@
 import { expectAccessible } from "@fleetapp/e2e/accessibility";
 import { expect, test } from "@playwright/test";
 
-import { MINIMUM_TOUCH_TARGET_PX, PHONE_VIEWPORT } from "./e2e-settings";
+import { PHONE_VIEWPORT } from "./e2e-settings";
 import { expectPdf } from "./pdf-checks";
+import { expectNoSidewaysScroll, expectTappableButtons } from "./phone-checks";
 import { addCarToBook, fillRental, type RentalParties, type TypedMoment } from "./rental-steps";
 
 /**
@@ -49,7 +50,7 @@ test.describe.serial("bookings", () => {
 
     await expect(page.getByRole("heading", { name: `${CAR_REGO} · ${RENTER_NAME}` })).toBeVisible();
     await expect(page.getByText("Booked", { exact: true }).first()).toBeVisible();
-    await expect(page.getByText("Before handover")).toBeVisible();
+    await expect(page.getByText("Before handover", { exact: true })).toBeVisible();
     await expect(page.getByText(/Still needed before the car is handed over/)).toBeVisible();
     await expectAccessible(page);
   });
@@ -72,6 +73,49 @@ test.describe.serial("bookings", () => {
     await expect(page.getByRole("listitem").filter({ hasText: "Licence number" })).toBeVisible();
     const preview = page.getByRole("link", { name: "Preview contract" });
     await expectPdf(page, await preview.getAttribute("href"));
+  });
+
+  test("records bond received, lists the rest before handover, and corrects an entry", async ({
+    page,
+  }) => {
+    await page.goto("/rentals", { waitUntil: "networkidle" });
+    await page
+      .getByRole("link", { name: new RegExp(RENTER_NAME) })
+      .first()
+      .click();
+    const bondLine = (label: string) =>
+      page.locator("dt", { hasText: label }).locator("xpath=following-sibling::dd[1]");
+    await expect(page.getByText("Bond still to receive before handover: $500.00.")).toBeVisible();
+
+    await page.getByRole("button", { name: "Record bond received" }).click();
+    const dialog = page.getByRole("dialog", { name: "Record bond received" });
+    const amount = dialog.getByRole("textbox", { name: /^Amount/ });
+    await expect(amount).toHaveValue("$500.00");
+    await amount.fill("");
+    await amount.pressSequentially("200");
+    const reference = dialog.getByRole("textbox", { name: /^Reference/ });
+    await reference.pressSequentially("ref 42");
+    await expect(reference).toHaveValue("REF 42");
+    await expectAccessible(page);
+    await dialog.getByRole("button", { name: "Record bond" }).click();
+
+    await expect(bondLine("Held now")).toHaveText("$200.00");
+    await expect(bondLine("Still to receive")).toHaveText("$300.00");
+    await expect(page.getByText("Bond still to receive before handover: $300.00.")).toBeVisible();
+    await expect(page.getByText("Reference REF 42")).toBeVisible();
+
+    await page.getByRole("button", { name: "Correct", exact: true }).click();
+    const correction = page.getByRole("dialog", { name: "Correct this bond entry" });
+    await correction
+      .getByRole("textbox", { name: /^Why is it being corrected/ })
+      .fill("Wrong rental");
+    await correction.getByRole("button", { name: "Correct this entry" }).click();
+
+    await expect(bondLine("Held now")).toHaveText("$0.00");
+    await expect(page.getByText("Corrected", { exact: true })).toBeVisible();
+    await expect(page.getByText("Why: Wrong rental")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Correct", exact: true })).toHaveCount(0);
+    await expectAccessible(page);
   });
 
   test("refuses the same car for overlapping dates, linking to the booking in the way", async ({
@@ -157,18 +201,24 @@ test.describe.serial("bookings", () => {
   });
 });
 
-test.describe("the New rental form at phone width", () => {
+test.describe("rentals at phone width", () => {
   test.use({ viewport: PHONE_VIEWPORT });
 
   test("fits the screen, with buttons big enough to tap", async ({ page }) => {
     await page.goto("/rentals/new", { waitUntil: "networkidle" });
-    const isScrollingSideways = await page.evaluate(
-      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
-    );
-    expect(isScrollingSideways).toBe(false);
-    for (const name of ["Book", "Save as draft"]) {
-      const box = await page.getByRole("button", { name, exact: true }).boundingBox();
-      expect(box?.height ?? 0).toBeGreaterThanOrEqual(MINIMUM_TOUCH_TARGET_PX);
-    }
+    await expectNoSidewaysScroll(page);
+    await expectTappableButtons(page, ["Book", "Save as draft"]);
+  });
+
+  test("a rental's page, with its bond, fits the screen", async ({ page }) => {
+    // A booking still waiting for its bond, so the bond card has its button.
+    await page.goto("/rentals?status=booked", { waitUntil: "networkidle" });
+    await page
+      .getByRole("link", { name: new RegExp(RENTER_NAME) })
+      .first()
+      .click();
+    await expect(page.getByRole("heading", { name: "Bond" })).toBeVisible();
+    await expectNoSidewaysScroll(page);
+    await expectTappableButtons(page, ["Record bond received"]);
   });
 });

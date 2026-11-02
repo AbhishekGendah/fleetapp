@@ -4,6 +4,7 @@ import { expect, test } from "@playwright/test";
 
 import { PHONE_VIEWPORT } from "./e2e-settings";
 import { expectPdf } from "./pdf-checks";
+import { expectNoSidewaysScroll } from "./phone-checks";
 
 /**
  * Contract templates as an Operator writes them: add one from the starter
@@ -71,10 +72,7 @@ test.describe.serial("contract templates", () => {
       await page.goto("/settings/contracts", { waitUntil: "networkidle" });
       await page.getByRole("link", { name: TEMPLATE_NAME }).click();
       await expect(page.getByRole("textbox", { name: /^Contract text/ })).toBeVisible();
-      const isScrollingSideways = await page.evaluate(
-        () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
-      );
-      expect(isScrollingSideways).toBe(false);
+      await expectNoSidewaysScroll(page);
     });
   });
 });

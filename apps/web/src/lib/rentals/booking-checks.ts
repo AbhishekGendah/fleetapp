@@ -1,5 +1,6 @@
 import {
   bookingProblems,
+  isBondShortForHandover,
   operatorSettingsSchema,
   readSettings,
   todayInTimeZone,
@@ -12,6 +13,7 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { files, renters, vehicles } from "@fleetapp/db/schema";
 import { and, countDistinct, eq, isNull } from "drizzle-orm";
 
+import { bondAccountOf, selectBondMovements } from "../bonds/bond-account";
 import { licenceScanInUse } from "../files/stored-files";
 
 /** Both sides of a licence: front and back. */
@@ -111,7 +113,8 @@ export async function findBookingProblems(
 }
 
 /**
- * What still stands between a rental's Renter and its car, checked now under
+ * What still stands between a rental's Renter and its car (including bond
+ * still to receive, when the rental's rules want it first), checked now under
  * the rules the rental was made with (rule 14). Nothing is locked: this is
  * for showing on the rental's page.
  */
@@ -119,10 +122,12 @@ export async function loadRentalProblems(
   database: AnyDatabase,
   operatorId: string,
   rental: {
+    id: string;
     renterId: string;
     vehicleId: string;
     plannedStart: Date;
     plannedEnd: Date | null;
+    bondCents: number;
     settingsSnapshot: Record<string, unknown>;
   },
   clock: { timeZone: string; now: Date },
@@ -134,6 +139,18 @@ export async function loadRentalProblems(
     }
     const settings = readSettings(operatorSettingsSchema, rental.settingsSnapshot);
     const period = { start: rental.plannedStart, end: rental.plannedEnd, ...clock };
-    return findBookingProblems(tx, parties, period, settings);
+    const problems = await findBookingProblems(tx, parties, period, settings);
+    const bond = bondAccountOf(
+      await selectBondMovements(tx, operatorId, rental.id),
+      rental.bondCents,
+    );
+    const isBondShort = isBondShortForHandover({
+      isRequiredBeforeHandover: settings.isBondRequiredBeforeHandover,
+      requiredCents: rental.bondCents,
+      heldCents: bond.heldCents,
+    });
+    return isBondShort
+      ? [...problems, { code: "bond_short", level: "handover", owingCents: bond.owingCents }]
+      : problems;
   });
 }

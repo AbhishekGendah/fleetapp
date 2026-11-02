@@ -1,0 +1,159 @@
+import { type ManualPaymentMethod } from "@fleetapp/core";
+import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
+import {
+  ACTIVITY_ACTIONS,
+  ACTIVITY_ENTITY_TYPES,
+  bondMovements,
+  rentals,
+} from "@fleetapp/db/schema";
+import { withTenant } from "@fleetapp/db/tenant-context";
+import { and, eq } from "drizzle-orm";
+
+import { recordUserChange, type ActingUser } from "../acting-user";
+import {
+  BOND_OPEN_STATUSES,
+  bondAccountOf,
+  selectBondMovements,
+  type BondAccount,
+} from "./bond-account";
+import type { BondReceivedInput, BondReversalInput } from "./bond-input";
+
+export type BondReceivedResult =
+  | { status: "saved"; account: BondAccount }
+  | { status: "more_than_owing"; owingCents: number }
+  | { status: "not_found" | "not_open" };
+
+export type BondReversalResult =
+  | { status: "saved"; account: BondAccount }
+  | { status: "not_found" | "not_reversible" | "would_go_below_nothing" };
+
+/**
+ * The rental, locked so two entries made at once cannot both pass the
+ * checks against the same balance; null if it is not this Operator's.
+ */
+async function lockRental(tx: AnyTransaction, operatorId: string, rentalId: string) {
+  const [rental] = await tx
+    .select({ id: rentals.id, status: rentals.status, bondCents: rentals.bondCents })
+    .from(rentals)
+    .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, operatorId)))
+    .for("update");
+  return rental ?? null;
+}
+
+function logBondMovement(
+  tx: AnyTransaction,
+  actor: ActingUser,
+  movement: { id: string; kind: string; amountCents: number; method: ManualPaymentMethod | null },
+): Promise<void> {
+  // Amount, kind and method only: references and reasons stay with the bond (rule 7).
+  return recordUserChange(tx, actor, {
+    entityType: ACTIVITY_ENTITY_TYPES.bondMovement,
+    entityId: movement.id,
+    action: ACTIVITY_ACTIONS.created,
+    valuesAfter: {
+      kind: movement.kind,
+      amountCents: movement.amountCents,
+      method: movement.method,
+    },
+  });
+}
+
+/**
+ * Records bond received by hand. Refused for a closed or cancelled rental,
+ * and when it is more than the rest of the bond: an overpayment is money
+ * owed back, which the ledger handles (Phase 4), not the bond.
+ */
+export async function recordBondReceived(
+  database: AnyDatabase,
+  actor: ActingUser,
+  rentalId: string,
+  input: BondReceivedInput,
+): Promise<BondReceivedResult> {
+  return withTenant(database, actor.operatorId, async (tx) => {
+    const rental = await lockRental(tx, actor.operatorId, rentalId);
+    if (!rental) {
+      return { status: "not_found" as const };
+    }
+    if (!BOND_OPEN_STATUSES.has(rental.status)) {
+      return { status: "not_open" as const };
+    }
+    const before = bondAccountOf(
+      await selectBondMovements(tx, actor.operatorId, rentalId),
+      rental.bondCents,
+    );
+    if (input.amountCents > before.owingCents) {
+      return { status: "more_than_owing" as const, owingCents: before.owingCents };
+    }
+    const [movement] = await tx
+      .insert(bondMovements)
+      .values({
+        operatorId: actor.operatorId,
+        rentalId,
+        kind: "received",
+        amountCents: input.amountCents,
+        method: input.method,
+        reference: input.reference,
+        occurredOn: input.occurredOn,
+        createdByUserId: actor.userId,
+      })
+      .returning({ id: bondMovements.id });
+    await logBondMovement(tx, actor, {
+      id: movement!.id,
+      kind: "received",
+      amountCents: input.amountCents,
+      method: input.method,
+    });
+    const movements = await selectBondMovements(tx, actor.operatorId, rentalId);
+    return { status: "saved" as const, account: bondAccountOf(movements, rental.bondCents) };
+  });
+}
+
+/**
+ * Corrects an entry the only way the bond allows (rule 11): a reversal that
+ * undoes it exactly, dated today, with the reason. Each entry once; never a
+ * reversal of a reversal; never leaving less than nothing held.
+ */
+export async function reverseBondMovement(
+  database: AnyDatabase,
+  actor: ActingUser,
+  target: { rentalId: string; movementId: string },
+  input: BondReversalInput,
+  today: string,
+): Promise<BondReversalResult> {
+  return withTenant(database, actor.operatorId, async (tx) => {
+    const rental = await lockRental(tx, actor.operatorId, target.rentalId);
+    if (!rental) {
+      return { status: "not_found" as const };
+    }
+    const movements = await selectBondMovements(tx, actor.operatorId, target.rentalId);
+    const before = bondAccountOf(movements, rental.bondCents);
+    const reversed = movements.find((movement) => movement.id === target.movementId);
+    if (!reversed || !before.reversibleIds.has(reversed.id)) {
+      return { status: reversed ? ("not_reversible" as const) : ("not_found" as const) };
+    }
+    if (reversed.kind === "received" && reversed.amountCents > before.heldCents) {
+      return { status: "would_go_below_nothing" as const };
+    }
+    const [movement] = await tx
+      .insert(bondMovements)
+      .values({
+        operatorId: actor.operatorId,
+        rentalId: target.rentalId,
+        kind: "reversal",
+        amountCents: reversed.amountCents,
+        occurredOn: today,
+        note: input.note,
+        reversesId: reversed.id,
+        createdByUserId: actor.userId,
+      })
+      .returning({ id: bondMovements.id });
+    await logBondMovement(tx, actor, {
+      id: movement!.id,
+      kind: "reversal",
+      amountCents: reversed.amountCents,
+      method: null,
+    });
+    const after = await selectBondMovements(tx, actor.operatorId, target.rentalId);
+    return { status: "saved" as const, account: bondAccountOf(after, rental.bondCents) };
+  });
+}

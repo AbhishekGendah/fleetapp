@@ -1,6 +1,7 @@
 import {
   DETAIL_NEEDED_LABELS,
   formatCalendarDate,
+  formatCents,
   formatDateTimeInTimeZone,
   VEHICLE_STATUS_LABELS,
   type BookingProblem,
@@ -27,6 +28,8 @@ export function bookingProblemMessage(problem: BookingProblem): string {
       return `The Renter is under ${problem.minimumAge}, your minimum age.`;
     case "provisional_licence":
       return "The Renter has a provisional licence, which your settings do not allow.";
+    case "bond_short":
+      return `Bond still to receive before handover: ${formatCents(problem.owingCents)}.`;
     case "licence_expires_during":
       return `The Renter's licence expires on ${formatCalendarDate(problem.expiresOn)}, during the rental.`;
   }

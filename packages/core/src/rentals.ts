@@ -114,6 +114,7 @@ export type BookingProblem =
   | { code: "licence_expired_by_start"; level: "handover"; expiresOn: string }
   | { code: "under_minimum_age"; level: "handover"; minimumAge: number }
   | { code: "provisional_licence"; level: "handover" }
+  | { code: "bond_short"; level: "handover"; owingCents: number }
   | { code: "licence_expires_during"; level: "notice"; expiresOn: string };
 
 /** A car that has left the fleet can never be booked. */

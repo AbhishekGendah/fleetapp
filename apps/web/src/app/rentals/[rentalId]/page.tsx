@@ -38,6 +38,7 @@ import { AppShell } from "../../app-shell";
 import { RentalBadges } from "../rental-status-badge";
 import { bookDraftAction, cancelRentalAction } from "./actions";
 import { CancelRentalForm } from "./cancel-form";
+import { BondCard } from "./bond-card";
 import { ContractCard } from "./contract-card";
 
 export const runtime = "nodejs";
@@ -262,6 +263,7 @@ export default async function RentalPage(props: {
           <BeforeHandoverCard rental={rental} clock={clock} user={user} />
           <ContractCard rental={rental} user={user} clock={clock} />
           <SummaryCard rental={rental} timeZone={user.operatorTimezone} />
+          <BondCard rental={rental} user={user} clock={clock} />
           <RatesCard rental={rental} />
           <ActionsCard rental={rental} />
         </>

@@ -1,8 +1,10 @@
 import {
+  BOND_MOVEMENT_KIND_LABELS,
   formatCalendarDate,
   formatCents,
   formatDateTimeInTimeZone,
   RENTAL_STATUS_LABELS,
+  PAYMENT_METHOD_LABELS,
   RENTAL_TYPE_LABELS,
   WEEKDAY_LABELS,
   WEEKDAYS,
@@ -25,6 +27,9 @@ const RENTAL_FIELD_LABELS: Readonly<Record<string, string>> = {
   cancellationReason: "Why it was cancelled",
   settingsVersion: "Settings version",
   warnings: "Booked with these warnings",
+  kind: "Bond entry",
+  amountCents: "Amount",
+  method: "How",
 };
 
 /** A warning a booking went ahead with, in a few words, for the Log. */
@@ -36,11 +41,12 @@ const BOOKING_PROBLEM_LABELS: Readonly<Record<BookingProblem["code"], string>> =
   licence_expired_by_start: "licence expires before the start",
   under_minimum_age: "Renter under the minimum age",
   provisional_licence: "provisional licence",
+  bond_short: "bond not yet received in full",
   licence_expires_during: "licence expires during the rental",
 };
 
 const MOMENT_FIELDS = new Set(["plannedStart", "plannedEnd"]);
-const CENTS_FIELDS = new Set(["weeklyRateCents", "bondCents"]);
+const CENTS_FIELDS = new Set(["weeklyRateCents", "bondCents", "amountCents"]);
 /** Other records, shown on the rental's page; the Log only says they were set. */
 const RECORD_FIELDS = new Set(["renterId", "vehicleId"]);
 
@@ -48,12 +54,18 @@ export function rentalFieldLabel(field: string): string {
   return RENTAL_FIELD_LABELS[field] ?? field;
 }
 
+/** The fields stored as a code and shown by its label. */
+const CODED_FIELD_LABELS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  status: RENTAL_STATUS_LABELS,
+  type: RENTAL_TYPE_LABELS,
+  kind: BOND_MOVEMENT_KIND_LABELS,
+  method: PAYMENT_METHOD_LABELS,
+};
+
 function describeLabelled(field: string, text: string): string | null {
-  if (field === "status" && Object.hasOwn(RENTAL_STATUS_LABELS, text)) {
-    return RENTAL_STATUS_LABELS[text as keyof typeof RENTAL_STATUS_LABELS];
-  }
-  if (field === "type" && Object.hasOwn(RENTAL_TYPE_LABELS, text)) {
-    return RENTAL_TYPE_LABELS[text as keyof typeof RENTAL_TYPE_LABELS];
+  const labels = CODED_FIELD_LABELS[field];
+  if (labels && Object.hasOwn(labels, text)) {
+    return labels[text] ?? null;
   }
   const weekday = WEEKDAYS.find((day) => String(day) === text);
   return field === "chargeWeekday" && weekday ? WEEKDAY_LABELS[weekday] : null;

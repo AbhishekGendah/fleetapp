@@ -4,6 +4,7 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 
 import { MINIMUM_TOUCH_TARGET_PX, PHONE_VIEWPORT } from "./e2e-settings";
 import { addCarToBook, fillRental, type RentalParties, type TypedMoment } from "./rental-steps";
+import { expectNoSidewaysScroll } from "./phone-checks";
 import { latestEmailTo } from "./test-inbox";
 
 /**
@@ -136,10 +137,7 @@ test.describe.serial("signing a contract", () => {
     await expect(contract.getByText("End of contract")).toBeVisible();
     await expectAccessible(phone);
     expect(await scriptKilobytes(phone)).toBeLessThanOrEqual(SIGNING_PAGE_BUDGET_KB);
-    const isScrollingSideways = await phone.evaluate(
-      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
-    );
-    expect(isScrollingSideways).toBe(false);
+    await expectNoSidewaysScroll(phone);
 
     // A typed name must be the name on the contract: checked as it is typed.
     await phone.getByLabel(/^How do you want to sign/).selectOption("typed");
