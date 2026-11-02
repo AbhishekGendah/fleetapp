@@ -1,40 +1,21 @@
-import { FUEL_LEVEL_LABELS, operatorSettingsSchema, readSettings } from "@fleetapp/core";
+import { operatorSettingsSchema, readSettings } from "@fleetapp/core";
 import { PageHeader } from "@fleetapp/ui/page-header";
 import { redirect } from "next/navigation";
 
 import { AppShell } from "../../../app-shell";
 import { appDb } from "../../../../lib/app-db";
-import {
-  loadCompletedHandover,
-  type HandoverView,
-} from "../../../../lib/handover/handover-queries";
+import { loadCompletedHandover } from "../../../../lib/handover/handover-queries";
 import { initialReturnValues } from "../../../../lib/handover/return-input";
 import { rentalPath } from "../../../../lib/paths";
-import { checklistData, savedPhoto } from "../handover/checklist-page-data";
-import { HandoverChecklist, type HandoverComparison } from "../handover/handover-checklist";
+import { checklistData } from "../handover/checklist-page-data";
+import { HandoverChecklist } from "../handover/handover-checklist";
 import { loadChecklistPage } from "../handover/load-checklist-page";
 import { OfflineReady } from "../handover/offline-ready";
+import { comparisonWith } from "./comparison";
 import { LazyReturnForm } from "./lazy-return-form";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-/** What the handover found, for each step of the return to show beside it. */
-function comparisonWith(handover: HandoverView): HandoverComparison {
-  return {
-    photos: Object.fromEntries(
-      [...handover.photos].map(([name, photo]) => [name, savedPhoto(handover.vehicleId, photo)]),
-    ),
-    marks: handover.damageMarks.map((mark) => ({
-      id: mark.id,
-      x: mark.x,
-      y: mark.y,
-      description: mark.description,
-      photo: mark.photo ? savedPhoto(handover.vehicleId, mark.photo) : null,
-    })),
-    fuelLabel: handover.fuelLevel ? FUEL_LEVEL_LABELS[handover.fuelLevel] : null,
-  };
-}
 
 /** The return checklist under way for a rental; back to the rental if there is none. */
 export default async function ReturnPage(props: { params: Promise<{ rentalId: string }> }) {

@@ -114,6 +114,11 @@ export function rentalPath(rentalId: string): string {
   return `${RENTALS_PATH}/${rentalId}`;
 }
 
+/** A car swap's checklist on the phone: the old car's return, or the new car's handover. */
+export function rentalSwapPath(rentalId: string, car: "old" | "new"): string {
+  return `${rentalPath(rentalId)}/swap/${car}`;
+}
+
 /** The rental's contract as a PDF, filled in but not issued. */
 export function rentalContractPreviewPath(rentalId: string): string {
   return `${rentalPath(rentalId)}/contract-preview`;
@@ -128,7 +133,7 @@ export const DOCUMENT_ID_PARAM = "document";
  */
 export function rentalDocumentPath(
   rentalId: string,
-  kind: "contract" | "handover_report" | "return_report" | "change_of_terms",
+  kind: "contract" | "handover_report" | "return_report" | "change_of_terms" | "swap_form",
   documentId?: string,
 ): string {
   const path = `${rentalPath(rentalId)}/documents/${kind}`;

@@ -3,6 +3,9 @@ import { formatCents, formatKilometres, type HandoverGap } from "@fleetapp/core"
 import type { CompleteHandoverResult } from "../../../../lib/handover/complete-handover";
 import { bookingProblemMessage } from "../../../../lib/rentals/rental-messages";
 
+/** Said whenever the Renter is to sign on the phone and has not. */
+export const SIGNATURE_NEEDED = "Ask the Renter to sign in the box.";
+
 /** What finishing the handover came back with, for its form. */
 export type CompleteHandoverState =
   { status: "idle" } | { status: "completed" } | { status: "problem"; message: string };
@@ -40,7 +43,7 @@ export function completionMessage(
     case "contract_unsigned":
       return "The Renter has not signed the contract yet. Send it for signing from the rental's page.";
     case "no_signature":
-      return "Ask the Renter to sign in the box.";
+      return SIGNATURE_NEEDED;
     case "finished_already":
       return "This handover is already finished.";
     case "not_found":

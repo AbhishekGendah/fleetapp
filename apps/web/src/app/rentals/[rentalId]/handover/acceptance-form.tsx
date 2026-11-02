@@ -1,19 +1,15 @@
 "use client";
 
 import { formatCents } from "@fleetapp/core";
-import { Button } from "@fleetapp/ui/button";
 import { FormField } from "@fleetapp/ui/form-field";
-import { FormError } from "@fleetapp/ui/form-message";
 import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
-import { SignaturePad } from "@fleetapp/ui/signature-pad";
-import { CheckCircle2 } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
 
 import { completeHandoverAction } from "./actions";
 import { useForgetWhenDone } from "./use-forget-when-done";
-import { INITIAL_COMPLETE_STATE } from "./handover-state";
+import { INITIAL_COMPLETE_STATE, SIGNATURE_NEEDED } from "./handover-state";
+import { RenterSignatureStep } from "./renter-signature-step";
 
-const SIGNATURE_NEEDED = "Ask the Renter to sign in the box.";
 const REASON_NEEDED = "Say why the car goes before the bond is paid.";
 
 /**
@@ -77,16 +73,15 @@ export function AcceptanceForm(props: {
           />
         </FormField>
       ) : null}
-      <FormField htmlFor="renter-signature" label={`${props.renterName}'s signature`} isRequired>
-        <SignaturePad id="renter-signature" name="drawnSignature" onValueChange={setSignature} />
-      </FormField>
-      <FormError
-        message={problem ?? (state.status === "problem" && !isPending ? state.message : null)}
+      <RenterSignatureStep
+        id="renter-signature"
+        renterName={props.renterName}
+        onSignatureChange={setSignature}
+        problem={problem ?? (state.status === "problem" ? state.message : null)}
+        isPending={isPending}
+        submitLabel="The Renter accepts the car"
+        pendingLabel="Handing over…"
       />
-      <Button type="submit" disabled={isPending} className="w-full">
-        <CheckCircle2 aria-hidden />
-        {isPending ? "Handing over…" : "The Renter accepts the car"}
-      </Button>
     </form>
   );
 }

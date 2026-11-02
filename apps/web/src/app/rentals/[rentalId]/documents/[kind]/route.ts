@@ -20,6 +20,7 @@ const OPENABLE = {
   handover_report: "Handover report.pdf",
   return_report: "Return report.pdf",
   change_of_terms: "Change of terms.pdf",
+  swap_form: "Car swap.pdf",
 } as const;
 const kindSchema = z.enum(Object.keys(OPENABLE) as [keyof typeof OPENABLE]);
 

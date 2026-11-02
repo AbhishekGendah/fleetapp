@@ -1,7 +1,7 @@
 import { formatKilometres, RETURN_TIME_MESSAGES } from "@fleetapp/core";
 
 import type { CompleteReturnResult } from "../../../../lib/handover/complete-return";
-import { gapsMessage } from "../handover/handover-state";
+import { gapsMessage, SIGNATURE_NEEDED } from "../handover/handover-state";
 
 /** What finishing the return came back with, for its form. */
 export type CompleteReturnState =
@@ -23,7 +23,7 @@ export function returnRefusalMessage(
     case "signature_required":
       return "Your settings need the Renter's signature at the return. Ask them to sign in the box.";
     case "no_signature":
-      return "Ask the Renter to sign in the box.";
+      return SIGNATURE_NEEDED;
     case "car_status":
       return "Choose Available, In service or Off road for the car.";
     case "finished_already":

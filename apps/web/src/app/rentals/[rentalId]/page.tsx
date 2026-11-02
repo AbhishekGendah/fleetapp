@@ -43,6 +43,7 @@ import { BondCard } from "./bond-card";
 import { ChangesCard } from "./changes-card";
 import { ContractCard } from "./contract-card";
 import { HandoverCard, ReturnCard } from "./handover-card";
+import { SwapCard } from "./swap-card";
 import { DamageList } from "../../cars/damage-list";
 import { listRentalDamage } from "../../../lib/damage/damage-queries";
 
@@ -298,6 +299,7 @@ export default async function RentalPage(props: {
           <ContractCard rental={rental} user={user} clock={clock} />
           <SummaryCard rental={rental} timeZone={user.operatorTimezone} />
           <ChangesCard rental={rental} user={user} clock={clock} />
+          <SwapCard rental={rental} user={user} />
           <ReturnCard rental={rental} user={user} />
           <RentalDamageCard rental={rental} user={user} />
           <HandoverCard rental={rental} user={user} />

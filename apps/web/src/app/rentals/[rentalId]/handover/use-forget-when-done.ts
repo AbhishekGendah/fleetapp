@@ -7,18 +7,21 @@ import { forgetHandover } from "../../../../lib/handover/offline/handover-store"
 import { rentalPath } from "../../../../lib/paths";
 
 /**
- * Once a checklist is finished, wipes it from the phone (what was typed,
+ * Once a checklist is finished (or a swap's two), wipes it from the phone (what was typed,
  * waiting photos, the saved page) and goes back to the rental.
  */
 export function useForgetWhenDone(
   isDone: boolean,
-  checklist: { inspectionId: string; rentalId: string },
+  checklist: { inspectionId: string; rentalId: string; otherInspectionId?: string },
 ): void {
   const router = useRouter();
-  const { inspectionId, rentalId } = checklist;
+  const { inspectionId, rentalId, otherInspectionId } = checklist;
   useEffect(() => {
     if (isDone) {
-      void forgetHandover(inspectionId).then(() => router.push(rentalPath(rentalId)));
+      const forgotten = [inspectionId, ...(otherInspectionId ? [otherInspectionId] : [])].map(
+        forgetHandover,
+      );
+      void Promise.all(forgotten).then(() => router.push(rentalPath(rentalId)));
     }
-  }, [isDone, inspectionId, rentalId, router]);
+  }, [isDone, inspectionId, otherInspectionId, rentalId, router]);
 }

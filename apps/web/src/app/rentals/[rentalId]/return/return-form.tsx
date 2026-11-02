@@ -21,11 +21,10 @@ import {
   type ReturnFormValues,
 } from "../../../../lib/handover/return-input";
 import { CarStatusFields } from "../../../cars/[vehicleId]/car-status-fields";
+import { SIGNATURE_NEEDED } from "../handover/handover-state";
 import { useForgetWhenDone } from "../handover/use-forget-when-done";
 import { completeReturnAction } from "./actions";
 import { INITIAL_RETURN_STATE } from "./return-state";
-
-const SIGNATURE_NEEDED = "Ask the Renter to sign in the box.";
 
 /**
  * The return's last step: when the car came back (now, or the real time of

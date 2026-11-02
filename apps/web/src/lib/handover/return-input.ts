@@ -30,23 +30,44 @@ export interface ReturnFormInput {
   carAfter: VehicleStatusInput;
 }
 
+/** Where a car goes once it is back (a return or a swap): the status boxes, as typed. */
+export function carAfterFields(statuses: readonly [string, ...string[]]): {
+  status: z.ZodEnum<Record<string, string>>;
+  statusReason: z.ZodString;
+  statusExpectedBack: z.ZodString;
+} {
+  return {
+    status: z.enum(statuses, REQUIRED_MESSAGE),
+    statusReason: z.string(),
+    statusExpectedBack: z.string(),
+  };
+}
+
+/** Those boxes checked as a car status (a reason and date for the workshop), or the problems added. */
+export function parseCarAfter(
+  carAfter: { status: string; statusReason: string; statusExpectedBack: string },
+  context: z.RefinementCtx,
+): VehicleStatusInput | typeof z.NEVER {
+  const parsed = vehicleStatusInputSchema.safeParse(carAfter);
+  if (!parsed.success) {
+    parsed.error.issues.forEach((issue) => context.addIssue({ ...issue, code: "custom" }));
+    return z.NEVER;
+  }
+  return parsed.data;
+}
+
 export function returnFormSchema(timeZone: string): z.ZodType<ReturnFormInput, ReturnFormValues> {
   return z
     .object({
       returnedAt: requiredLocalMoment(timeZone),
       isRenterPresent: z.string().transform((value) => value === TICKED),
-      status: z.enum(STATUSES_AFTER_RETURN, REQUIRED_MESSAGE),
-      statusReason: z.string(),
-      statusExpectedBack: z.string(),
+      ...carAfterFields(STATUSES_AFTER_RETURN),
     })
-    .transform(({ returnedAt, isRenterPresent, ...carAfter }, context) => {
-      const parsed = vehicleStatusInputSchema.safeParse(carAfter);
-      if (!parsed.success) {
-        parsed.error.issues.forEach((issue) => context.addIssue({ ...issue, code: "custom" }));
-        return z.NEVER;
-      }
-      return { returnedAt, isRenterPresent, carAfter: parsed.data };
-    });
+    .transform(({ returnedAt, isRenterPresent, ...carAfter }, context) => ({
+      returnedAt,
+      isRenterPresent,
+      carAfter: parseCarAfter(carAfter, context),
+    }));
 }
 
 export function isRequiredReturnField(field: ReturnFormField, values: ReturnFormValues): boolean {

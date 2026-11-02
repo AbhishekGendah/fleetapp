@@ -39,10 +39,11 @@ export async function listPickableRenters(
   }));
 }
 
-/** The Operator's current cars that can still be booked, by rego. */
+/** The Operator's current cars that can still be booked (or, for a swap, only Available ones), by rego. */
 export async function listPickableCars(
   database: AnyDatabase,
   operatorId: string,
+  options: { isAvailableOnly?: boolean } = {},
 ): Promise<PickableRecord[]> {
   const rows = await withTenant(database, operatorId, (tx) =>
     tx
@@ -59,6 +60,7 @@ export async function listPickableCars(
           eq(vehicles.operatorId, operatorId),
           isNull(vehicles.archivedAt),
           notInArray(vehicles.status, [...CARS_GONE]),
+          options.isAvailableOnly ? eq(vehicles.status, "available") : undefined,
         ),
       )
       .orderBy(asc(vehicles.rego)),

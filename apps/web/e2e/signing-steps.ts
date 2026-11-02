@@ -1,3 +1,4 @@
+import type { ContractTemplateKind } from "@fleetapp/core";
 import { expect, type Browser, type Page } from "@playwright/test";
 
 import { PHONE_VIEWPORT } from "./e2e-settings";
@@ -11,7 +12,7 @@ const CODE_PATTERN = /\b(\d{6})\b/;
  */
 export async function startTemplate(
   page: Page,
-  template: { name: string; kind?: "contract" | "change_of_terms" },
+  template: { name: string; kind?: ContractTemplateKind },
 ): Promise<void> {
   await page.goto("/settings/contracts", { waitUntil: "networkidle" });
   if (template.kind) {
@@ -44,4 +45,15 @@ export async function openSigningOnPhone(
   await expect(phone.getByRole("group", { name: "1. Check your details" })).toBeVisible();
   await phone.waitForLoadState("networkidle");
   return phone;
+}
+
+/** The Renter draws a line across the signature box on the Operator's phone. */
+export async function drawRenterSignature(page: Page): Promise<void> {
+  const pad = page.getByRole("img", { name: /signature$/ });
+  await pad.scrollIntoViewIfNeeded();
+  const box = (await pad.boundingBox())!;
+  await page.mouse.move(box.x + 20, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width - 20, box.y + 30, { steps: 10 });
+  await page.mouse.up();
 }

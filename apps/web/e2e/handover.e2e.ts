@@ -14,6 +14,7 @@ import {
   type TypedMoment,
 } from "./rental-steps";
 import { samplePhoto } from "./sample-photo";
+import { drawRenterSignature } from "./signing-steps";
 import { recordSignedContract } from "./test-records";
 
 /**
@@ -161,13 +162,7 @@ test.describe.serial("handing a car over", () => {
 
       await accept.click();
       await expect(page.getByText("Ask the Renter to sign in the box.")).toBeVisible();
-      const pad = page.getByRole("img", { name: /signature$/ });
-      await pad.scrollIntoViewIfNeeded();
-      const box = (await pad.boundingBox())!;
-      await page.mouse.move(box.x + 20, box.y + box.height / 2);
-      await page.mouse.down();
-      await page.mouse.move(box.x + box.width - 20, box.y + 30, { steps: 10 });
-      await page.mouse.up();
+      await drawRenterSignature(page);
       await page
         .getByRole("textbox", { name: /Why does the car go anyway/ })
         .fill("Bond paid Friday");

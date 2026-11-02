@@ -49,3 +49,57 @@ export async function markRentalOut(rentalId: string): Promise<void> {
     await client.end();
   }
 }
+
+/**
+ * Records a finished handover with no photos straight in the test
+ * database: the rental out, the car Rented at 1,000 km, the Renter holding
+ * it since yesterday. For tests of what comes after a handover (a car
+ * swap), as the handover itself is proven in handover.e2e.ts.
+ */
+export async function recordHandover(rentalId: string): Promise<void> {
+  const client = new Client({ connectionString: process.env.E2E_SUPERUSER_URL });
+  await client.connect();
+  try {
+    const { rows } = await client.query<{
+      operator_id: string;
+      vehicle_id: string;
+      renter_id: string;
+      user_id: string;
+    }>(
+      `SELECT r.operator_id, r.vehicle_id, r.renter_id, u.id AS user_id
+       FROM rentals r JOIN users u ON u.operator_id = r.operator_id
+       WHERE r.id = $1 LIMIT 1`,
+      [rentalId],
+    );
+    const rental = rows[0]!;
+    const handedOverAt = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const inspectionId = randomUUID();
+    await client.query(
+      `INSERT INTO inspections (id, operator_id, rental_id, vehicle_id, kind, status, photo_names,
+         odometer_km, fuel_level, keys_count, started_by_user_id, acceptance_text, completed_at)
+       VALUES ($1, $2, $3, $4, 'handover', 'completed', '{}', 1000, 'full', 2, $5,
+         'Accepted in the test.', $6)`,
+      [inspectionId, rental.operator_id, rentalId, rental.vehicle_id, rental.user_id, handedOverAt],
+    );
+    await client.query(
+      `INSERT INTO possessions (operator_id, rental_id, vehicle_id, renter_id, started_at,
+         handover_inspection_id)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        rental.operator_id,
+        rentalId,
+        rental.vehicle_id,
+        rental.renter_id,
+        handedOverAt,
+        inspectionId,
+      ],
+    );
+    await client.query("UPDATE rentals SET status = 'active', handed_over_at = $2 WHERE id = $1", [
+      rentalId,
+      handedOverAt,
+    ]);
+    await client.query("UPDATE vehicles SET status = 'rented' WHERE id = $1", [rental.vehicle_id]);
+  } finally {
+    await client.end();
+  }
+}

@@ -1,4 +1,10 @@
-import { formatDateTimeInTimeZone, type InspectionKind, type RentalStatus } from "@fleetapp/core";
+import {
+  canSwapCar,
+  formatDateTimeInTimeZone,
+  type InspectionKind,
+  type RentalStatus,
+} from "@fleetapp/core";
+import { withTenant } from "@fleetapp/db/tenant-context";
 import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
@@ -8,10 +14,13 @@ import Link from "next/link";
 import { appDb } from "../../../lib/app-db";
 import { loadRentalHandoverStatus } from "../../../lib/handover/handover-queries";
 import { rentalDocumentPath, rentalHandoverPath, rentalReturnPath } from "../../../lib/paths";
+import { swapUnderWay } from "../../../lib/rentals/car-swaps";
 import type { RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { SignedInUser } from "../../../lib/require-user";
 import { cancelHandoverAction, startHandoverAction } from "./handover/actions";
 import { cancelReturnAction, startReturnAction } from "./return/actions";
+
+const SWAP_FIRST = "A car swap is under way. Finish or cancel it first.";
 
 /** How each checklist reads on the rental's page, and what it starts from. */
 interface ChecklistCardWording {
@@ -96,6 +105,8 @@ async function ChecklistCard(props: {
   rental: RentalDetail;
   user: SignedInUser;
   doneAt: Date | null;
+  /** Why it cannot start now (a car swap under way), shown instead of the start button. */
+  waitingFor?: string | null;
 }) {
   const wording = WORDING[props.kind];
   const { rental, user } = props;
@@ -134,6 +145,8 @@ async function ChecklistCard(props: {
               </Button>
             </form>
           </>
+        ) : props.waitingFor ? (
+          <p className="text-muted-foreground text-sm">{props.waitingFor}</p>
         ) : (
           <form action={wording.start.bind(null, rental.id)}>
             <Button type="submit" className="w-full sm:w-auto">
@@ -153,6 +166,17 @@ export function HandoverCard({ rental, user }: { rental: RentalDetail; user: Sig
 }
 
 /** The car coming back: the checklist beside the handover's, then the return report. */
-export function ReturnCard({ rental, user }: { rental: RentalDetail; user: SignedInUser }) {
-  return <ChecklistCard kind="return" rental={rental} user={user} doneAt={rental.returnedAt} />;
+export async function ReturnCard({ rental, user }: { rental: RentalDetail; user: SignedInUser }) {
+  const swap = canSwapCar(rental.status)
+    ? await withTenant(appDb, user.operatorId, (tx) => swapUnderWay(tx, user.operatorId, rental.id))
+    : null;
+  return (
+    <ChecklistCard
+      kind="return"
+      rental={rental}
+      user={user}
+      doneAt={rental.returnedAt}
+      waitingFor={swap ? SWAP_FIRST : null}
+    />
+  );
 }
