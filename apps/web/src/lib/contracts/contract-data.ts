@@ -100,7 +100,7 @@ function rentalFields(
   rental: RentalDetail,
   clock: RentalClock,
   excessCents: number | null,
-): Omit<ContractData, keyof FieldsOf<"business" | "renter" | "car" | "change">> &
+): Omit<ContractData, keyof FieldsOf<"business" | "renter" | "car" | "change" | "swap">> &
   Pick<ContractData, "insuranceExcess"> {
   const onClock = (moment: Date) => formatDateTimeInTimeZone(moment, clock.timeZone);
   // The rental's own settings (rule 14), not today's.
@@ -124,13 +124,21 @@ function rentalFields(
  */
 /** The change-of-terms fields, which only a change-of-terms form fills in. */
 export type ChangeFields = FieldsOf<"change">;
+/** The car swap fields, which only a swap form fills in. */
+export type SwapFields = FieldsOf<"swap">;
+/** The fields one kind of form fills in on top of the rental's own. */
+export type FormOnlyFields = ChangeFields | SwapFields;
 
-export const NO_CHANGE_FIELDS: ChangeFields = {
+const NO_FORM_ONLY_FIELDS: ChangeFields & SwapFields = {
   changeSummary: null,
   changeReason: null,
   changeNewRate: null,
   changeRateFrom: null,
   changeNewEnd: null,
+  swapOldCar: null,
+  swapNewCar: null,
+  swapAt: null,
+  swapReason: null,
 };
 
 export async function loadContractData(
@@ -163,7 +171,7 @@ export async function loadContractData(
     carYear: String(vehicle.year),
     carVin: vehicle.vin,
     ...rentalFields(rental, clock, excessCents),
-    ...NO_CHANGE_FIELDS,
+    ...NO_FORM_ONLY_FIELDS,
   };
   return data;
 }

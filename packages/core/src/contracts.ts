@@ -25,7 +25,14 @@ export const ISSUED_DOCUMENT_KINDS = [
 ] as const;
 export type IssuedDocumentKind = (typeof ISSUED_DOCUMENT_KINDS)[number];
 
-export const MERGE_FIELD_GROUPS = ["business", "renter", "car", "rental", "change"] as const;
+export const MERGE_FIELD_GROUPS = [
+  "business",
+  "renter",
+  "car",
+  "rental",
+  "change",
+  "swap",
+] as const;
 export type MergeFieldGroup = (typeof MERGE_FIELD_GROUPS)[number];
 
 export const MERGE_FIELD_GROUP_LABELS: Readonly<Record<MergeFieldGroup, string>> = {
@@ -34,6 +41,7 @@ export const MERGE_FIELD_GROUP_LABELS: Readonly<Record<MergeFieldGroup, string>>
   car: "Car",
   rental: "Rental",
   change: "Change of terms (filled in only on that form)",
+  swap: "Car swap (filled in only on that form)",
 };
 
 /**
@@ -73,6 +81,10 @@ export const MERGE_FIELDS = [
   { key: "changeNewRate", label: "New weekly rate", group: "change" },
   { key: "changeRateFrom", label: "New rate applies from", group: "change" },
   { key: "changeNewEnd", label: "New end", group: "change" },
+  { key: "swapOldCar", label: "Car handed back", group: "swap" },
+  { key: "swapNewCar", label: "Car received", group: "swap" },
+  { key: "swapAt", label: "When swapped", group: "swap" },
+  { key: "swapReason", label: "Why swapped", group: "swap" },
 ] as const satisfies readonly { key: string; label: string; group: MergeFieldGroup }[];
 
 export type MergeFieldKey = (typeof MERGE_FIELDS)[number]["key"];
@@ -384,9 +396,44 @@ export const STARTER_CHANGE_OF_TERMS: TemplateDocument = {
   ],
 };
 
-/** What a new template of each kind starts as. The swap form gets its own with car swaps. */
+/**
+ * The starter car swap form: the car handed back and the car received, when
+ * and why, with a note for the business's own wording. No legal wording.
+ */
+export const STARTER_SWAP_FORM: TemplateDocument = {
+  type: "doc",
+  content: [
+    heading(1, "Car swap"),
+    paragraph(
+      text(
+        "Before you use this template: add your own wording, and have it checked by a lawyer.",
+        true,
+      ),
+    ),
+    paragraph(
+      text("Between "),
+      field("businessLegalName"),
+      text(" and "),
+      field("renterFullName"),
+      text(", for the rental that started "),
+      field("rentalStart"),
+      text("."),
+    ),
+    heading(2, "The swap"),
+    paragraph(text("Car handed back: ", true), field("swapOldCar")),
+    paragraph(text("Car received: ", true), field("swapNewCar")),
+    paragraph(text("When: "), field("swapAt")),
+    paragraph(text("Why: "), field("swapReason")),
+    yourTermsNote("the swap, and the condition of each car (see the two reports)"),
+    paragraph(text("Everything else in the rental contract stays the same, for the car received.")),
+    heading(2, "Signature"),
+    paragraph(text("Signed by the Renter on the business's device.")),
+  ],
+};
+
+/** What a new template of each kind starts as. */
 export const STARTER_TEMPLATES: Readonly<Record<ContractTemplateKind, TemplateDocument>> = {
   contract: STARTER_CONTRACT,
-  swap_form: STARTER_CONTRACT,
+  swap_form: STARTER_SWAP_FORM,
   change_of_terms: STARTER_CHANGE_OF_TERMS,
 };

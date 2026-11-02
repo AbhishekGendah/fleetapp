@@ -63,6 +63,11 @@ export const inspections = pgTable(
      * acceptance then holds what the business recorded instead.
      */
     isRenterAbsent: boolean("is_renter_absent").notNull().default(false),
+    /**
+     * One of a car swap's pair (the old car's return, the new car's
+     * handover): the rental's own first handover and final return are not.
+     */
+    isForSwap: boolean("is_for_swap").notNull().default(false),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     ...timestampColumns,
@@ -72,13 +77,14 @@ export const inspections = pgTable(
     carLink("inspections", table),
     unique("inspections_id_operator_unique").on(table.id, table.operatorId),
     index("inspections_rental_idx").on(table.operatorId, table.rentalId),
-    // One checklist of each kind under way per rental, and one finished handover.
+    // One checklist of each kind under way per rental, and one finished handover
+    // and return outside car swaps (each swap adds its own pair).
     uniqueIndex("inspections_one_in_progress")
       .on(table.operatorId, table.rentalId, table.kind)
       .where(sql`${table.status} = 'in_progress'`),
     uniqueIndex("inspections_one_completed")
       .on(table.operatorId, table.rentalId, table.kind)
-      .where(sql`${table.status} = 'completed'`),
+      .where(sql`${table.status} = 'completed' and not ${table.isForSwap}`),
     check("inspections_odometer", sql`${table.odometerKm} is null or ${table.odometerKm} >= 0`),
     check(
       "inspections_keys",

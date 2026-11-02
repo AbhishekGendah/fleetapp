@@ -7,6 +7,7 @@ import {
   missingMergeFields,
   STARTER_CHANGE_OF_TERMS,
   STARTER_CONTRACT,
+  STARTER_SWAP_FORM,
   templateDocumentSchema,
   type ContractData,
   type TemplateDocument,
@@ -36,6 +37,7 @@ describe("contract templates", () => {
   it("accepts the starter contract and every field in the menu is unique", () => {
     expect(templateDocumentSchema.safeParse(STARTER_CONTRACT).success).toBe(true);
     expect(templateDocumentSchema.safeParse(STARTER_CHANGE_OF_TERMS).success).toBe(true);
+    expect(templateDocumentSchema.safeParse(STARTER_SWAP_FORM).success).toBe(true);
     expect(mergeFieldsUsed(STARTER_CHANGE_OF_TERMS)).toEqual(
       expect.arrayContaining(["changeSummary", "changeReason"]),
     );
