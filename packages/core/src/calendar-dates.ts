@@ -1,5 +1,12 @@
 import { TZDate } from "@date-fns/tz";
-import { addDays as addDaysTo, addMonths as addMonthsTo, format, isValid, parse } from "date-fns";
+import {
+  addDays as addDaysTo,
+  addMonths as addMonthsTo,
+  differenceInCalendarDays,
+  format,
+  isValid,
+  parse,
+} from "date-fns";
 
 /**
  * Dates with no time of day (an expiry, a paid date) are kept as
@@ -26,6 +33,11 @@ export function todayInTimeZone(moment: Date, timeZone: string): string {
 /** The date so many days after another. */
 export function addDays(isoDate: string, days: number): string {
   return format(addDaysTo(plainDate(isoDate), days), ISO_DATE_FORMAT);
+}
+
+/** Whole days from one date to a later one: 0 for the same day, negative if earlier. */
+export function daysBetween(fromIsoDate: string, toIsoDate: string): number {
+  return differenceInCalendarDays(plainDate(toIsoDate), plainDate(fromIsoDate));
 }
 
 /**

@@ -1,8 +1,6 @@
-import { loadVehicleCatalogue } from "@fleetapp/db/vehicle-catalogue";
 import { issuedDocuments, possessions, rentals, renters, vehicles } from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { todayInTimeZone } from "@fleetapp/core";
 import { and, count, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
@@ -10,13 +8,8 @@ import type { ActingUser } from "../src/lib/acting-user";
 import type { DemoContext } from "../src/lib/demo-data/demo-context";
 import { isDemoDataAllowedFor } from "../src/lib/demo-data/demo-gate";
 import { DEMO_CAR_COUNT, DEMO_RENTALS, DEMO_RENTERS } from "../src/lib/demo-data/demo-plan";
-import { DEMO_STEPS, runDemoStep } from "../src/lib/demo-data/demo-steps";
 import { seedOperatorWithUser } from "./car-fixtures";
-import { TEST_TIME_ZONE } from "./rental-fixtures";
-import { linkTestKit } from "./renter-link-fixtures";
-
-/** A whole demo run makes hundreds of records, PDFs and photos. */
-const WHOLE_RUN_MS = 300_000;
+import { demoTestContext, runEveryDemoStep, WHOLE_DEMO_RUN_MS } from "./demo-fixtures";
 
 describe("demo data", () => {
   let admin: TestConnection;
@@ -24,14 +17,6 @@ describe("demo data", () => {
   let actor: ActingUser;
   let otherOperator: ActingUser;
   let context: DemoContext;
-
-  async function runEveryStep(): Promise<number> {
-    let added = 0;
-    for (const step of DEMO_STEPS) {
-      added += await runDemoStep(context, step.key);
-    }
-    return added;
-  }
 
   function countOf(table: typeof vehicles | typeof renters | typeof rentals, operatorId: string) {
     return withTenant(web.db, operatorId, async (tx) => {
@@ -48,15 +33,7 @@ describe("demo data", () => {
     web = connectAs(inject("webAppRoleUrl"));
     actor = await seedOperatorWithUser(admin, "Demo Data Rentals Pty Ltd");
     otherOperator = await seedOperatorWithUser(admin, "Other Demo Rentals Pty Ltd");
-    const kit = linkTestKit(web, actor);
-    context = {
-      deps: { ...kit.fileDeps, emailSender: kit.linkDeps.emailSender },
-      actor,
-      timeZone: TEST_TIME_ZONE,
-      today: todayInTimeZone(new Date(), TEST_TIME_ZONE),
-      catalogue: await loadVehicleCatalogue(web.db),
-      links: kit.linkDeps,
-    };
+    context = await demoTestContext(web, actor);
   });
 
   afterAll(async () => {
@@ -81,7 +58,7 @@ describe("demo data", () => {
   it(
     "fills the business with cars, Renters and rentals in every state, and adds nothing the second time",
     async () => {
-      await runEveryStep();
+      await runEveryDemoStep(context);
 
       expect(await countOf(vehicles, actor.operatorId)).toBe(DEMO_CAR_COUNT);
       expect(await countOf(renters, actor.operatorId)).toBe(DEMO_RENTERS.length);
@@ -119,9 +96,9 @@ describe("demo data", () => {
       expect(handedOver?.total).toBe(14);
       expect(held?.total).toBe(14);
 
-      expect(await runEveryStep()).toBe(0);
+      expect(await runEveryDemoStep(context)).toBe(0);
       expect(await countOf(vehicles, otherOperator.operatorId)).toBe(0);
     },
-    WHOLE_RUN_MS,
+    WHOLE_DEMO_RUN_MS,
   );
 });
