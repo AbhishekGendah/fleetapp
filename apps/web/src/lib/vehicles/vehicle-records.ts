@@ -45,7 +45,8 @@ export interface DuplicateVehicle {
 export type SaveVehicleResult = { status: "saved"; vehicleId: string } | DuplicateVehicle;
 
 /** Changes to an archived car wait until it is restored. */
-export type ChangeVehicleResult = "changed" | "unchanged" | "not_found";
+/** "rented": the car is with a Renter; its status follows the handover and return. */
+export type ChangeVehicleResult = "changed" | "unchanged" | "not_found" | "rented";
 
 function pickVehicleFields(
   input: VehicleInput | NewVehicleInput,
@@ -208,6 +209,9 @@ export async function applyVehicleStatus(
   const before = await lockVehicle(tx, actor.operatorId, vehicleId);
   if (!before || before.archivedAt) {
     return "not_found";
+  }
+  if (before.status === "rented") {
+    return "rented";
   }
   const changes = changedValues(before, input, STATUS_FIELDS);
   if (!hasChanges(changes)) {

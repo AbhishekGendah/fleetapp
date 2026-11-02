@@ -16,6 +16,7 @@ import {
   unique,
   uuid,
   type AnyPgColumn,
+  type ForeignKeyBuilder,
 } from "drizzle-orm/pg-core";
 
 import { primaryKeyColumn, timestampColumns } from "./columns";
@@ -31,7 +32,7 @@ export const rentalStatusEnum = pgEnum("rental_status", RENTAL_STATUSES);
  * end exactly as the next begins. Written and read as Postgres's own text
  * form, e.g. ["2026-11-10 01:00:00+00",) for one with no end.
  */
-const timeRange = customType<{ data: string; driverData: string }>({
+export const timeRange = customType<{ data: string; driverData: string }>({
   dataType: () => "tstzrange",
 });
 
@@ -106,7 +107,10 @@ export const rentals = pgTable(
 );
 
 /** The two-column link to a rental. */
-function rentalLink(name: string, table: { rentalId: AnyPgColumn; operatorId: AnyPgColumn }) {
+export function rentalLink(
+  name: string,
+  table: { rentalId: AnyPgColumn; operatorId: AnyPgColumn },
+): ForeignKeyBuilder {
   return foreignKey({
     name: `${name}_rental_fk`,
     columns: [table.rentalId, table.operatorId],

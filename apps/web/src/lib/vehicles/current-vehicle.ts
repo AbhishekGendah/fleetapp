@@ -1,3 +1,4 @@
+import type { VehicleStatus } from "@fleetapp/core";
 import type { AnyTransaction } from "@fleetapp/db/client";
 import { vehicles } from "@fleetapp/db/schema";
 import { and, eq, isNull } from "drizzle-orm";
@@ -7,9 +8,9 @@ export async function findCurrentVehicle(
   tx: AnyTransaction,
   operatorId: string,
   vehicleId: string,
-): Promise<{ id: string } | undefined> {
+): Promise<{ id: string; status: VehicleStatus } | undefined> {
   const [vehicle] = await tx
-    .select({ id: vehicles.id })
+    .select({ id: vehicles.id, status: vehicles.status })
     .from(vehicles)
     .where(
       and(

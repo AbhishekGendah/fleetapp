@@ -22,3 +22,4 @@ export * from "./rentals";
 export * from "./contracts";
 export * from "./signing";
 export * from "./bonds";
+export * from "./inspections";

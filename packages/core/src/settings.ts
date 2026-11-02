@@ -21,6 +21,7 @@ import {
   WEEKDAYS,
 } from "./rentals";
 import { MINIMUM_DRIVER_AGE_YEARS } from "./renters";
+import { DEFAULT_HANDOVER_PHOTOS, handoverPhotoListSchema } from "./handover";
 import {
   DEFAULT_EXPIRY_WARNING_DAYS,
   MAXIMUM_EXPIRY_WARNING_DAYS,
@@ -91,6 +92,8 @@ export const operatorSettingsSchema = z.object({
     .min(0)
     .max(MAXIMUM_BOND_HOLD_DAYS)
     .default(DEFAULT_BOND_HOLD_DAYS),
+  /** The photos the handover checklist asks for, in order. */
+  handoverPhotos: handoverPhotoListSchema.default([...DEFAULT_HANDOVER_PHOTOS]),
   /** The notice a Renter on an ongoing rental gives before returning the car. */
   ongoingNoticeDays: z
     .number()

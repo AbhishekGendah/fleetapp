@@ -5,7 +5,7 @@ import {
   localDateTimeToUtc,
   withholdChangedFields,
   withholdFields,
-  type VehicleStatus,
+  type OperatorVehicleStatus,
 } from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import {
@@ -33,7 +33,8 @@ import { findCurrentVehicle } from "./current-vehicle";
 import { addReading, withdrawReading } from "./odometer";
 import { applyVehicleStatus } from "./vehicle-records";
 
-export type SaveRecordResult = "saved" | "unchanged" | "not_found";
+/** "rented": the car is with a Renter, so it cannot be sold until it comes back. */
+export type SaveRecordResult = "saved" | "unchanged" | "not_found" | "rented";
 
 const PURCHASE_RECORD_FIELDS = [
   "purchasedOn",
@@ -59,7 +60,7 @@ const SALE_FIELDS = [
 ] as const satisfies readonly (keyof SaleInput)[];
 
 /** The status a car takes when sold, and goes back to if the sale falls through. */
-function statusOnly(status: VehicleStatus) {
+function statusOnly(status: OperatorVehicleStatus) {
   return { status, statusReason: null, statusExpectedBack: null };
 }
 
@@ -207,8 +208,12 @@ export async function saveSale(
   timeZone: string,
 ): Promise<SaveRecordResult> {
   return withTenant(database, actor.operatorId, async (tx) => {
-    if (!(await findCurrentVehicle(tx, actor.operatorId, vehicleId))) {
+    const car = await findCurrentVehicle(tx, actor.operatorId, vehicleId);
+    if (!car) {
       return "not_found";
+    }
+    if (car.status === "rented") {
+      return "rented";
     }
     const before = await lockActiveSale(tx, actor.operatorId, vehicleId);
     if (before) {

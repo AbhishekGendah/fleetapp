@@ -35,6 +35,9 @@ export async function changeStatusAction(
   }
   return changeCar(vehicleId, "Changing a car's status", async (actor) => {
     const result = await changeVehicleStatus(appDb, actor, vehicleId, parsed.data);
+    if (result === "rented") {
+      return failedState("This car is with a Renter. Its status changes when it comes back.");
+    }
     return result === "not_found" ? failedState(NOT_FOUND_MESSAGE) : savedState("Status saved.");
   });
 }

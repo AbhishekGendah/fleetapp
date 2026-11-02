@@ -23,12 +23,16 @@ import {
 import { changeCar, NOT_FOUND_MESSAGE } from "./change-car";
 
 // The browser runs the same checks first, so this is only reached by a request that skipped them.
+const CAR_RENTED_MESSAGE = "This car is with a Renter. It can be sold once it has come back.";
 const INVALID_MESSAGE =
   "Some details are not right, so nothing was saved. Check them and try again.";
 
 function savedOrNot(result: SaveRecordResult, savedMessage: string): ChangeFormState {
   if (result === "not_found") {
     return failedState(NOT_FOUND_MESSAGE);
+  }
+  if (result === "rented") {
+    return failedState(CAR_RENTED_MESSAGE);
   }
   return savedState(result === "unchanged" ? "Nothing had changed." : savedMessage);
 }

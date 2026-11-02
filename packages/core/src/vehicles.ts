@@ -7,21 +7,25 @@ import { digitsOnly, formatWholeNumberAsTyped, groupThousands } from "./text";
  * them as you type and the server checks them again on save.
  */
 
-/**
- * What a car is doing. "rented" arrives with rentals (Phase 3) and is only
- * ever set by the system, from who has the car.
- */
-export const VEHICLE_STATUSES = [
+/** The statuses an Operator can choose. */
+export const OPERATOR_VEHICLE_STATUSES = [
   "available",
   "in_service",
   "off_road",
   "sold",
   "written_off",
 ] as const;
+/**
+ * What a car is doing. "rented" is only ever set by the system, from who has
+ * the car: at the handover, and back at the return.
+ */
+export const VEHICLE_STATUSES = [...OPERATOR_VEHICLE_STATUSES, "rented"] as const;
 export type VehicleStatus = (typeof VEHICLE_STATUSES)[number];
+export type OperatorVehicleStatus = (typeof OPERATOR_VEHICLE_STATUSES)[number];
 
 export const VEHICLE_STATUS_LABELS: Readonly<Record<VehicleStatus, string>> = {
   available: "Available",
+  rented: "Rented",
   in_service: "In service",
   off_road: "Off road",
   sold: "Sold",

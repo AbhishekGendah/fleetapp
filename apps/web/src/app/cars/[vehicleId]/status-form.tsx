@@ -4,7 +4,7 @@ import {
   fieldErrorsOf,
   needsReturnDate,
   VEHICLE_STATUS_LABELS,
-  VEHICLE_STATUSES,
+  OPERATOR_VEHICLE_STATUSES,
 } from "@fleetapp/core";
 import { FormField } from "@fleetapp/ui/form-field";
 import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
@@ -50,7 +50,7 @@ export function StatusForm(props: {
           {...form.boxProps("status")}
           onChange={(event) => form.setValue("status", event.target.value)}
         >
-          {VEHICLE_STATUSES.map((status) => (
+          {OPERATOR_VEHICLE_STATUSES.map((status) => (
             <option key={status} value={status}>
               {VEHICLE_STATUS_LABELS[status]}
             </option>

@@ -22,6 +22,7 @@ import {
 
 import { auditColumns, primaryKeyColumn } from "./columns";
 import { files } from "./files";
+import { inspectionLink } from "./inspections";
 import { operatorIdColumn } from "./operators";
 import { rentals } from "./rentals";
 import { users } from "./users";
@@ -107,6 +108,8 @@ export const issuedDocuments = pgTable(
     kind: issuedDocumentKindEnum("kind").notNull(),
     version: integer("version").notNull(),
     templateVersionId: uuid("template_version_id"),
+    /** The handover or return checklist a report was made from. */
+    inspectionId: uuid("inspection_id"),
     fileId: uuid("file_id").notNull(),
     sha256: text("sha256").notNull(),
     /** Who issued it; none when the app did on its own (e.g. once a Renter signs). */
@@ -138,6 +141,11 @@ export const issuedDocuments = pgTable(
       table.version,
     ),
     unique("issued_documents_file_unique").on(table.fileId),
+    inspectionLink("issued_documents", table),
+    check(
+      "issued_documents_report_inspection",
+      sql`(${table.kind}::text in ('handover_report', 'return_report')) = (${table.inspectionId} is not null)`,
+    ),
     unique("issued_documents_id_operator_unique").on(table.id, table.operatorId),
     check("issued_documents_version", sql`${table.version} > 0`),
     check("issued_documents_sha256", sql`${table.sha256} ~ '^[0-9a-f]{64}$'`),

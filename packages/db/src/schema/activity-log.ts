@@ -74,6 +74,8 @@ export const ACTIVITY_ENTITY_TYPES = {
   contractTemplate: "contract_template",
   issuedDocument: "issued_document",
   bondMovement: "bond_movement",
+  inspection: "inspection",
+  damageMark: "damage_mark",
 } as const;
 
 /** What happened to it. No free text at call sites. */

@@ -16,6 +16,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { primaryKeyColumn, timestampColumns } from "./columns";
+import { inspectionDamageMarks, inspectionLink } from "./inspections";
 import { operatorIdColumn } from "./operators";
 import { renterLinks, renterSubmissions } from "./renter-links";
 import { renters } from "./renters";
@@ -85,6 +86,11 @@ export const files = pgTable(
     /** A licence photo sent through a Renter's link, and the submission it went with once sent. */
     renterLinkId: uuid("renter_link_id"),
     submissionId: uuid("submission_id"),
+    /** A car photo taken for a handover or return checklist, and which photo on its list it is. */
+    inspectionId: uuid("inspection_id"),
+    inspectionPhotoName: text("inspection_photo_name"),
+    /** A photo of a damage mark on that checklist. */
+    damageMarkId: uuid("damage_mark_id"),
 
     /** The upload arrived and really is the type it claimed. */
     confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
@@ -119,6 +125,27 @@ export const files = pgTable(
     recordLink("renter", table.renterId, table.operatorId, renters),
     recordLink("renter_link", table.renterLinkId, table.operatorId, renterLinks),
     recordLink("submission", table.submissionId, table.operatorId, renterSubmissions),
+    inspectionLink("files", table),
+    recordLink("damage_mark", table.damageMarkId, table.operatorId, inspectionDamageMarks),
+    // A checklist photo is a car photo of that checklist: one of its list, or a damage mark's.
+    check(
+      "files_inspection_photos",
+      sql`(${table.inspectionId} is null or ${table.purpose}::text = 'vehicle_photo')
+        and (${table.inspectionPhotoName} is null or ${table.inspectionId} is not null)
+        and (${table.damageMarkId} is null or ${table.inspectionId} is not null)
+        and (${table.inspectionPhotoName} is null or ${table.damageMarkId} is null)`,
+    ),
+    // One photo in use for each name on a checklist, and one for each damage mark: a retake replaces it.
+    uniqueIndex("files_one_inspection_photo")
+      .on(table.operatorId, table.inspectionId, table.inspectionPhotoName)
+      .where(
+        sql`${table.inspectionPhotoName} is not null and ${table.confirmedAt} is not null and ${table.deletedAt} is null`,
+      ),
+    uniqueIndex("files_one_damage_photo")
+      .on(table.operatorId, table.damageMarkId)
+      .where(
+        sql`${table.damageMarkId} is not null and ${table.confirmedAt} is not null and ${table.deletedAt} is null`,
+      ),
     index("files_vehicle_idx").on(table.operatorId, table.vehicleId, table.purpose),
     // For the nightly clean-up's look-ups by link, by submission and by scan age.
     index("files_renter_link_idx")

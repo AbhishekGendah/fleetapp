@@ -4,6 +4,7 @@ import { Badge, type BadgeTone } from "@fleetapp/ui/badge";
 /** Ready to rent, off the road for now, or gone from the fleet. */
 const STATUS_TONES: Readonly<Record<VehicleStatus, BadgeTone>> = {
   available: "good",
+  rented: "good",
   in_service: "attention",
   off_road: "attention",
   sold: "neutral",

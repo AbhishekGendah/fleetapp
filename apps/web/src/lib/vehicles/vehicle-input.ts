@@ -18,7 +18,7 @@ import {
   REQUIRED_MESSAGE,
   requiredLine,
   TRANSMISSIONS,
-  VEHICLE_STATUSES,
+  OPERATOR_VEHICLE_STATUSES,
   needsReturnDate,
   type VehicleCatalogue,
 } from "@fleetapp/core";
@@ -203,7 +203,7 @@ export function typedRego(raw: string): string {
 /** A car's status as chosen on the status form. */
 export const vehicleStatusInputSchema = z
   .object({
-    status: z.enum(VEHICLE_STATUSES, "Choose a status."),
+    status: z.enum(OPERATOR_VEHICLE_STATUSES, "Choose a status."),
     statusReason: optionalLine,
     statusExpectedBack: optionalLine.refine(
       (value) => value === null || isCalendarDate(value),

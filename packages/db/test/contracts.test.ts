@@ -293,9 +293,9 @@ describe("contracts", () => {
 
     it("needs a real SHA-256 fingerprint, and numbers each kind's versions once", async () => {
       const badFingerprint = await postgresErrorCodeOf(issue({ sha256: "not-a-fingerprint" }));
-      await issue({ kind: "handover_report", version: 1, templateVersionId: null });
+      await issue({ kind: "swap_form", version: 1, templateVersionId: null });
       const sameVersion = await postgresErrorCodeOf(
-        issue({ kind: "handover_report", version: 1, templateVersionId: null }),
+        issue({ kind: "swap_form", version: 1, templateVersionId: null }),
       );
 
       expect([badFingerprint, sameVersion]).toEqual([CHECK_VIOLATION, UNIQUE_VIOLATION]);
