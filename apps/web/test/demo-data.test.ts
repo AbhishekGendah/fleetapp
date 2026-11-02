@@ -72,6 +72,7 @@ describe("demo data", () => {
       );
       expect(Object.fromEntries(statuses.map((row) => [row.status, row.total]))).toEqual({
         active: 14,
+        returned: 3,
         booked: 10,
         draft: 6,
         cancelled: 4,
@@ -93,8 +94,8 @@ describe("demo data", () => {
           .from(possessions)
           .where(eq(possessions.operatorId, actor.operatorId)),
       );
-      expect(handedOver?.total).toBe(14);
-      expect(held?.total).toBe(14);
+      expect(handedOver?.total).toBe(17);
+      expect(held?.total).toBe(17);
 
       expect(await runEveryDemoStep(context)).toBe(0);
       expect(await countOf(vehicles, otherOperator.operatorId)).toBe(0);

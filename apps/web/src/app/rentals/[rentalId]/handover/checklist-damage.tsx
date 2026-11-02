@@ -32,8 +32,19 @@ const PLACE_NEEDED = "Tap the outline where the damage is, or choose the area.";
  * keyboard), describe it and add it; then photograph each mark. Marks are
  * kept on the phone until there is signal, like the photos.
  */
+/** Damage the handover found, shown greyed at a return; letters keep it apart from new damage. */
+export interface ExistingMark {
+  id: string;
+  x: number;
+  y: number;
+  description: string;
+}
+
+const letterOf = (index: number): string => String.fromCharCode("A".charCodeAt(0) + index);
+
 export function ChecklistDamage(props: {
   marks: readonly DamageMarkItem[];
+  existingMarks?: readonly ExistingMark[];
   onAdd: (mark: { x: number; y: number; description: string }) => Promise<void>;
   onRemove: (serverId: string) => Promise<void>;
   onTake: (target: QueuedPhotoTarget, file: File) => Promise<void>;
@@ -64,7 +75,16 @@ export function ChecklistDamage(props: {
     setDescription("");
   }
 
+  const existing = props.existingMarks ?? [];
   const outlineMarks = [
+    ...existing.map((mark, index) => ({
+      id: `existing-${mark.id}`,
+      x: mark.x,
+      y: mark.y,
+      label: `Already there at handover, ${letterOf(index)}: ${mark.description}`,
+      badge: letterOf(index),
+      tone: "existing" as const,
+    })),
     ...props.marks.map((mark, index) => ({
       id: mark.key,
       x: mark.x,
@@ -86,6 +106,19 @@ export function ChecklistDamage(props: {
           setPlace(position);
         }}
       />
+      {existing.length > 0 ? (
+        <div className="text-muted-foreground text-sm">
+          <p className="font-medium">Already there at handover (greyed):</p>
+          <ul className="list-inside list-disc">
+            {existing.map((mark, index) => (
+              <li key={mark.id}>
+                {letterOf(index)}. {mark.description}
+              </li>
+            ))}
+          </ul>
+          <p>Mark only damage that is new.</p>
+        </div>
+      ) : null}
       <FormField htmlFor="damage-area" label="Or choose where on the car">
         <CarAreaSelect id="damage-area" value={area} onAreaChosen={handleAreaChosen} />
       </FormField>

@@ -1,8 +1,11 @@
 import {
   BOND_MOVEMENT_KIND_LABELS,
+  bondHeldUntil,
   formatCalendarDate,
   formatCents,
+  operatorSettingsSchema,
   PAYMENT_METHOD_LABELS,
+  readSettings,
   todayInTimeZone,
 } from "@fleetapp/core";
 import { Badge } from "@fleetapp/ui/badge";
@@ -83,6 +86,12 @@ function BondEntries({ rentalId, account }: { rentalId: string; account: BondAcc
  * from the entries, never stored), every entry, and recording bond received
  * by bank transfer or cash. Card and direct debit come with Stripe.
  */
+/** The bond is kept this long after the car came back, under the rental's own settings (rule 14). */
+function heldUntil(rental: RentalDetail, returnedAt: Date, timeZone: string): string {
+  const settings = readSettings(operatorSettingsSchema, rental.settingsSnapshot);
+  return bondHeldUntil(returnedAt, settings.bondHoldDaysAfterReturn, timeZone);
+}
+
 export async function BondCard({
   rental,
   user,
@@ -113,6 +122,14 @@ export async function BondCard({
             ["Required", formatCents(rental.bondCents)],
             ["Held now", formatCents(account.heldCents)],
             ["Still to receive", formatCents(account.owingCents)],
+            ...(rental.returnedAt
+              ? ([
+                  [
+                    "Held until",
+                    formatCalendarDate(heldUntil(rental, rental.returnedAt, clock.timeZone)),
+                  ],
+                ] as const)
+              : []),
           ]}
         />
         {account.movements.length > 0 ? (

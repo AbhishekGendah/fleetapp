@@ -3,8 +3,8 @@ import type { ReactElement } from "react";
 
 import { EmailLayout, SmallPrint } from "./email-layout";
 
-/** The fixed documents emailed as a copy once made: a signed contract, a handover report. */
-export const COPIED_DOCUMENT_KINDS = ["contract", "handover_report"] as const;
+/** The fixed documents emailed as a copy once made: a signed contract, a handover or return report. */
+export const COPIED_DOCUMENT_KINDS = ["contract", "handover_report", "return_report"] as const;
 export type CopiedDocumentKind = (typeof COPIED_DOCUMENT_KINDS)[number];
 
 export interface DocumentCopyEmailProps {
@@ -53,6 +53,19 @@ const WORDING: Readonly<Record<CopiedDocumentKind, Wording>> = {
       `${props.renterName} accepted ${props.rentalSummary} on ${props.at}. The handover report is attached, and kept with the rental.`,
     smallPrint: (at) =>
       `Accepted on ${at}. The report is fixed: it can never be changed, so it shows the car as it was handed over.`,
+  },
+  return_report: {
+    preview: {
+      renter: "Your car return report",
+      operator: (renterName) => `${renterName}'s car is back`,
+    },
+    heading: { renter: "Your return report", operator: "Car returned" },
+    renterLine: (props) =>
+      `You returned ${props.rentalSummary} to ${props.operatorName}. The return report, with the kilometres, fuel and photos of the car at handover and at return, is attached: keep it for your records.`,
+    operatorLine: (props) =>
+      `${props.renterName}'s car, ${props.rentalSummary}, was returned on ${props.at}. The return report is attached, and kept with the rental.`,
+    smallPrint: (at) =>
+      `Returned on ${at}. The report is fixed: it can never be changed, so it shows the car as it came back.`,
   },
 };
 

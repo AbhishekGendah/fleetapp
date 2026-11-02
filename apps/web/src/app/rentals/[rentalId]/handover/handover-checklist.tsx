@@ -4,15 +4,14 @@ import { Button } from "@fleetapp/ui/button";
 import { FormSection } from "@fleetapp/ui/form-section";
 import { CloudOff, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback } from "react";
+import { useCallback, type ReactNode } from "react";
 
 import type {
   QueuedChange,
   QueuedPhotoTarget,
 } from "../../../../lib/handover/offline/queued-changes";
-import { AcceptanceForm } from "./acceptance-form";
 import { removeDamageMarkAction } from "./actions";
-import type { ChecklistData } from "./checklist-data";
+import type { ChecklistData, SavedMark, SavedPhoto } from "./checklist-data";
 import { ChecklistDamage, type DamageMarkItem } from "./checklist-damage";
 import { ChecklistDetails } from "./checklist-details";
 import { ChecklistPhotos, useTakePhoto, type PhotoState } from "./checklist-photos";
@@ -93,18 +92,33 @@ function damageItems(data: ChecklistData, queued: readonly QueuedChange[]): Dama
   return [...saved, ...local];
 }
 
+/** At a return: what the handover found, to compare each step with. */
+export interface HandoverComparison {
+  photos: Record<string, SavedPhoto>;
+  marks: SavedMark[];
+  fuelLabel: string | null;
+}
+
 /**
- * The handover checklist on the Operator's phone: photos, details, damage,
- * then the Renter's acceptance. Everything is kept on the phone first and
- * sent when there is signal (rule 25); acceptance needs the server to have
- * it all, as the report is made from what the server holds.
+ * A checklist on the Operator's phone, the handover's or the return's:
+ * photos, details, damage, then the last step (the Renter's acceptance, or
+ * finishing the return). Everything is kept on the phone first and sent
+ * when there is signal (rule 25); the last step needs the server to have
+ * it all, as the report is made from what the server holds. A return shows
+ * the handover beside each step.
  */
 export function HandoverChecklist({
   data,
   lastKilometres,
+  comparison,
+  damageTitle,
+  finalStep,
 }: {
   data: ChecklistData;
   lastKilometres: number | null;
+  comparison?: HandoverComparison;
+  damageTitle: string;
+  finalStep: { title: string; form: ReactNode };
 }) {
   const router = useRouter();
   const { queued, state, enqueue, sendNow } = useHandoverQueue(data.inspectionId);
@@ -136,6 +150,7 @@ export function HandoverChecklist({
         <ChecklistPhotos
           photoNames={data.photoNames}
           stateOf={photoState}
+          handoverPhotoOf={comparison ? (name) => comparison.photos[name] : undefined}
           onTake={take}
           problem={problem}
         />
@@ -146,11 +161,13 @@ export function HandoverChecklist({
           inspectionId={data.inspectionId}
           initialValues={data.details}
           lastKilometres={lastKilometres}
+          handoverFuel={comparison?.fuelLabel}
         />
       </FormSection>
-      <FormSection title="3. Damage already on the car">
+      <FormSection title={`3. ${damageTitle}`}>
         <ChecklistDamage
           marks={damageItems(data, queued)}
+          existingMarks={comparison?.marks}
           onAdd={(mark) =>
             enqueue({
               kind: "mark",
@@ -163,15 +180,9 @@ export function HandoverChecklist({
           onTake={take}
         />
       </FormSection>
-      <FormSection title="4. The Renter accepts the car">
+      <FormSection title={`4. ${finalStep.title}`}>
         {isReady ? (
-          <AcceptanceForm
-            rentalId={data.rentalId}
-            inspectionId={data.inspectionId}
-            renterName={data.renterName}
-            summary={data.carLabel}
-            bondShortCents={data.bondShortCents}
-          />
+          finalStep.form
         ) : (
           <div className="text-muted-foreground flex flex-col gap-1 text-sm">
             {data.gaps.length > 0 ? <p>{gapsMessage(data.gaps)}</p> : null}

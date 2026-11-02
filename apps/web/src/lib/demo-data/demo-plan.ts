@@ -133,7 +133,12 @@ export const DEMO_RENTERS: readonly DemoRenterPlan[] = [
 ];
 
 /** How the demo rental stands once made. */
-export type DemoRentalKind = "active" | "booked" | "draft" | "cancelled";
+export type DemoRentalKind = "active" | "returned" | "booked" | "draft" | "cancelled";
+
+/** Handed over in the past: still out (active), or already back (returned). */
+export function wasHandedOver(kind: DemoRentalKind): boolean {
+  return kind === "active" || kind === "returned";
+}
 
 export interface DemoRentalPlan {
   /** Kept in the rental's notes, so the button can tell which are there already. */
@@ -157,6 +162,18 @@ export interface DemoRentalPlan {
   bondOverrideReason?: string;
   /** For an active rental: damage already on the car at the handover. */
   damage?: readonly string[];
+  /** For a returned rental: how it came back. */
+  returned?: DemoReturnPlan;
+}
+
+export interface DemoReturnPlan {
+  /** Days from today it came back, at this time. */
+  days: number;
+  time: string;
+  isRenterAbsent: boolean;
+  newDamage?: readonly string[];
+  /** Off to the workshop instead of available again. */
+  toWorkshop?: { reason: string; backInDays: number };
 }
 
 interface RentalTerms {
@@ -182,8 +199,8 @@ function rental(
     weeks: terms.weeks,
     weeklyRateCents: terms.rate,
     bondCents: terms.bond,
-    bondPaidCents: kind === "active" ? terms.bond : 0,
-    contract: kind === "active" ? "signed" : "none",
+    bondPaidCents: wasHandedOver(kind) ? terms.bond : 0,
+    contract: wasHandedOver(kind) ? "signed" : "none",
     ...extra,
   };
 }
@@ -459,9 +476,55 @@ export const DEMO_RENTALS: readonly DemoRentalPlan[] = [
     { weeks: 12, rate: RATE_HYBRID, bond: BOND_STANDARD },
     { note: "A second car for the same Renter, maybe." },
   ),
+  // Already back: an early return, a late one with new damage, an after-hours drop-off.
+  rental(
+    "R35",
+    "returned",
+    { car: 34, renter: 23, startDays: -40 },
+    { weeks: 4, rate: RATE_HYBRID, bond: BOND_STANDARD },
+    {
+      note: "Brought back early: the Renter left for Melbourne.",
+      returned: { days: -15, time: "16:00", isRenterAbsent: false },
+    },
+  ),
+  rental(
+    "R36",
+    "returned",
+    { car: 35, renter: 28, startDays: -30 },
+    { weeks: 2, rate: RATE_ELECTRIC, bond: BOND_HIGH },
+    {
+      note: "Came back six days late, with a scratch.",
+      returned: {
+        days: -10,
+        time: "11:00",
+        isRenterAbsent: false,
+        newDamage: ["Scratch on boot lid"],
+      },
+    },
+  ),
+  rental(
+    "R37",
+    "returned",
+    { car: 36, renter: 29, startDays: -20 },
+    { weeks: ONGOING, rate: RATE_LARGE, bond: BOND_HIGH },
+    {
+      note: "Dropped off after hours; keys in the lock box.",
+      returned: {
+        days: -3,
+        time: "21:30",
+        isRenterAbsent: true,
+        toWorkshop: { reason: "Service after a long rental", backInDays: 4 },
+      },
+    },
+  ),
 ];
 
 /** The rentals handed over in the past: each is its own step, as each takes a while. */
-export const DEMO_ACTIVE_RENTAL_CODES = DEMO_RENTALS.filter((plan) => plan.kind === "active").map(
+export const DEMO_ACTIVE_RENTAL_CODES = DEMO_RENTALS.filter((plan) => wasHandedOver(plan.kind)).map(
   (plan) => plan.code,
 );
+
+/** Those already back: each return is a step of its own too. */
+export const DEMO_RETURNED_RENTAL_CODES = DEMO_RENTALS.filter(
+  (plan) => plan.kind === "returned",
+).map((plan) => plan.code);

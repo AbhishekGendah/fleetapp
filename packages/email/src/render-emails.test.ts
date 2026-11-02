@@ -193,4 +193,20 @@ describe("the contract emails", () => {
     expect(toRenter.subject).toBe("Your car handover report from Sam's Cars Pty Ltd");
     expect(toRenter.text).toContain("The report you accepted");
   });
+
+  it("words a return report's copy as the car returned", async () => {
+    const toBusiness = await renderDocumentCopyEmail({
+      kind: "return_report",
+      audience: "operator",
+      to: "office@example.test",
+      renterName: "Sam",
+      operatorName: "Sam's Cars Pty Ltd",
+      rentalSummary: "1ABC234 Toyota Corolla",
+      at: "29 Jun 2027, 6:40 pm AWST",
+      attachment: PDF,
+    });
+
+    expect(toBusiness.subject).toMatch(/^Car returned: Sam/);
+    expect(toBusiness.text).toContain("was returned on 29 Jun 2027, 6:40 pm AWST");
+  });
 });

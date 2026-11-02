@@ -92,6 +92,11 @@ export const operatorSettingsSchema = z.object({
     .min(0)
     .max(MAXIMUM_BOND_HOLD_DAYS)
     .default(DEFAULT_BOND_HOLD_DAYS),
+  /**
+   * Whether the Renter must sign at the return. Off by default
+   * (docs/design/05): an after-hours drop-off has nobody to sign.
+   */
+  isRenterSignatureAtReturnRequired: z.boolean().default(false),
   /** The photos the handover checklist asks for, in order. */
   handoverPhotos: handoverPhotoListSchema.default([...DEFAULT_HANDOVER_PHOTOS]),
   /** The notice a Renter on an ongoing rental gives before returning the car. */

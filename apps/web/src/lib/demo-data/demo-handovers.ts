@@ -47,7 +47,10 @@ async function takeDemoPhoto(
   await sendDemoPhoto(context, start, picture);
 }
 
-async function photographEverything(context: DemoContext, view: HandoverView): Promise<void> {
+export async function photographEverything(
+  context: DemoContext,
+  view: HandoverView,
+): Promise<void> {
   for (const photoName of view.photoNames) {
     if (!view.photos.has(photoName)) {
       await takeDemoPhoto(context, view.inspectionId, { photoName }, pictureForPhoto(photoName));
@@ -55,16 +58,17 @@ async function photographEverything(context: DemoContext, view: HandoverView): P
   }
 }
 
-/** Damage already on the car, each placed on an area of the outline and photographed. */
-async function markDemoDamage(
+/** Damage on the car, each placed on an area of the outline and photographed. */
+export async function markDemoDamage(
   context: DemoContext,
   view: HandoverView,
-  plan: DemoRentalPlan,
+  damage: { carNumber: number; descriptions: readonly string[] },
 ): Promise<void> {
   if (view.damageMarks.length > 0) {
     return;
   }
-  for (const [index, description] of (plan.damage ?? []).entries()) {
+  const plan = { carNumber: damage.carNumber };
+  for (const [index, description] of damage.descriptions.entries()) {
     const area = CAR_AREAS[(plan.carNumber + index * 3) % CAR_AREAS.length]!;
     const added = await addDamageMark(context.deps.database, context.actor, view.inspectionId, {
       x: area.x,
@@ -86,15 +90,20 @@ async function markDemoDamage(
 const KILOMETRES_DRIVEN_TO_HANDOVER = 120;
 const ACCESSORIES = ["Phone holder and charging cable", null, "Child seat", null];
 
-async function fillDemoDetails(context: DemoContext, view: HandoverView, plan: DemoRentalPlan) {
+export async function fillDemoDetails(
+  context: DemoContext,
+  view: HandoverView,
+  plan: Pick<DemoRentalPlan, "carNumber" | "code">,
+  kilometresDriven = KILOMETRES_DRIVEN_TO_HANDOVER,
+): Promise<void> {
   const saved = await saveHandoverDetails(context.deps.database, context.actor, view.inspectionId, {
     fuelLevel: FUEL_LEVELS[plan.carNumber % FUEL_LEVELS.length]!,
     keysCount: plan.carNumber % 3 === 0 ? 1 : 2,
     accessories: ACCESSORIES[plan.carNumber % ACCESSORIES.length] ?? null,
     notes: plan.carNumber % 4 === 0 ? "Car washed and vacuumed before handover." : null,
-    odometerKm: (view.lastKilometres ?? 0) + KILOMETRES_DRIVEN_TO_HANDOVER,
+    odometerKm: (view.lastKilometres ?? 0) + kilometresDriven,
   });
-  expectSaved(saved.status, ["saved"], `handover details for ${plan.code}`);
+  expectSaved(saved.status, ["saved"], `checklist details for ${plan.code}`);
 }
 
 async function loadDemoHandover(context: DemoContext, inspectionId: string): Promise<HandoverView> {
@@ -144,7 +153,10 @@ export async function handOverDemoRental(
     throw new DemoDataError(`The demo handover for ${code} did not start: ${started.status}`);
   }
   await photographEverything(context, await loadDemoHandover(context, started.inspectionId));
-  await markDemoDamage(context, await loadDemoHandover(context, started.inspectionId), plan);
+  await markDemoDamage(context, await loadDemoHandover(context, started.inspectionId), {
+    carNumber: plan.carNumber,
+    descriptions: plan.damage ?? [],
+  });
   await fillDemoDetails(context, await loadDemoHandover(context, started.inspectionId), plan);
   const handedOverAt = momentOf(
     context,

@@ -7,12 +7,10 @@ import { FormError } from "@fleetapp/ui/form-message";
 import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
 import { SignaturePad } from "@fleetapp/ui/signature-pad";
 import { CheckCircle2 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 
-import { forgetHandover } from "../../../../lib/handover/offline/handover-store";
-import { rentalPath } from "../../../../lib/paths";
 import { completeHandoverAction } from "./actions";
+import { useForgetWhenDone } from "./use-forget-when-done";
 import { INITIAL_COMPLETE_STATE } from "./handover-state";
 
 const SIGNATURE_NEEDED = "Ask the Renter to sign in the box.";
@@ -31,7 +29,6 @@ export function AcceptanceForm(props: {
   summary: string;
   bondShortCents: number | null;
 }) {
-  const router = useRouter();
   const complete = useMemo(
     () => completeHandoverAction.bind(null, props.rentalId, props.inspectionId),
     [props.rentalId, props.inspectionId],
@@ -41,11 +38,7 @@ export function AcceptanceForm(props: {
   const [reason, setReason] = useState("");
   const [problem, setProblem] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (state.status === "completed") {
-      void forgetHandover(props.inspectionId).then(() => router.push(rentalPath(props.rentalId)));
-    }
-  }, [state.status, props.inspectionId, props.rentalId, router]);
+  useForgetWhenDone(state.status === "completed", props);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
     const missing =

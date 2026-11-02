@@ -1,6 +1,7 @@
 import { FUEL_LEVELS, INSPECTION_KINDS, INSPECTION_STATUSES, OUTLINE_SCALE } from "@fleetapp/core";
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   foreignKey,
   index,
@@ -57,6 +58,11 @@ export const inspections = pgTable(
       .references(() => users.id),
     /** The words the Renter accepted, exactly as shown, and when. */
     acceptanceText: text("acceptance_text"),
+    /**
+     * A return the Renter was not there for (an after-hours drop-off): the
+     * acceptance then holds what the business recorded instead.
+     */
+    isRenterAbsent: boolean("is_renter_absent").notNull().default(false),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     ...timestampColumns,
@@ -84,6 +90,10 @@ export const inspections = pgTable(
         and (${table.status} <> 'completed' or (${table.odometerKm} is not null
           and ${table.fuelLevel} is not null and ${table.keysCount} is not null
           and ${table.acceptanceText} is not null))`,
+    ),
+    check(
+      "inspections_renter_absent_on_return",
+      sql`${table.kind} = 'return' or not ${table.isRenterAbsent}`,
     ),
     check(
       "inspections_cancelled",

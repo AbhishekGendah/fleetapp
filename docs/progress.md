@@ -750,10 +750,35 @@
   - Later: a one-row-per-car fleet timeline (DayPilot Lite, Apache-2.0, a
     candidate) once Abhi has used the dashboard.
 
+- Phase 3 slice 6a — the return (plan: docs/plans/phase-3-slice-6.md):
+  - Migration 0034: a return can record that the Renter was not there.
+    New setting: "Must the Renter sign when the car comes back?" (off).
+  - Rental page: Return card (start, continue, cancel; once done, when and
+    Open return report). The handover and return cards share one piece.
+  - Return checklist on the phone (same page pieces as the handover, so
+    it also works with no signal): the handover's photo beside each slot,
+    its fuel beside the fuel box, its damage greyed and lettered on the
+    outline; new damage numbered in red, each with a photo.
+  - Last step: the return time (now, or the real time of an after-hours
+    drop-off; never before the handover or in the future), where the car
+    goes next (Available, In service or Off road with reason and date),
+    and the Renter's signature or "not here". Loaded only once the
+    checklist is complete, so the page stays light.
+  - Finish return, in one go: report fixed and emailed (photos side by
+    side, kilometres driven, fuel then and now, new damage), possession
+    ended at the return time, rental Returned, the car's booking hold
+    released (an early return frees it), car status and kilometres set.
+  - Bond card: "Held until" (return day plus the rental's bond hold days).
+  - Demo data: three returned rentals (R35 early, R36 late with new
+    damage, R37 after hours with the Renter not there, car to service).
+  - Tests: return rules (core), checklist return rules (database), the
+    whole return on the server, and on a phone in the browser. Return page
+    budget 800 KB. Checklist rows O-286 to O-293 and A-66.
+
 ## Next
-Phase 3 slice 6: the return (same checklist, side-by-side with the
-handover photos, new damage highlighted, possession ends, car back to
-Available).
+Phase 3 slice 6b: damage records and insurance claims (each new damage
+from a return, or found later, with photos and a claim: insurer, number,
+status, excess from the car's policy).
 Open idea: trim the phone rules to Australia only with libphonenumber's
 metadata generator (about 40 KB off each form page); running the
 generator needs Abhi's say-so.

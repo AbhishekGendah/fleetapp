@@ -21,6 +21,8 @@ import { recordSignedContract } from "./test-records";
  * file and a signed contract, the photo checklist (one photo taken with no
  * signal, sent once it is back), kilometres, fuel and keys, a damage mark,
  * then the Renter signs to accept, with the bond short and a reason given.
+ * Then the car comes back: the same photos beside the handover's, new
+ * damage, the Renter not there, the car off to the workshop.
  */
 const RENTER = { name: "Hana Handover", email: "hana.handover@example.test" };
 const CAR_REGO = "E2E501";
@@ -32,6 +34,8 @@ const PARTIES: RentalParties = { renterName: RENTER.name, carRego: CAR_REGO };
  * id, so it is checked here rather than in download-size.e2e.ts.
  */
 const HANDOVER_PAGE_BUDGET_KB = 730;
+/** The return page: the handover's pieces plus the date and time picker (2 Nov 2026), plus about 10%. */
+const RETURN_PAGE_BUDGET_KB = 800;
 
 const AUGUST_2: TypedMoment = {
   day: "02",
@@ -174,6 +178,77 @@ test.describe.serial("handing a car over", () => {
       const response = await page.request.get((await report.getAttribute("href")) ?? "");
       expect(response.headers()["content-type"]).toBe("application/pdf");
       await expect(page.getByRole("button", { name: "Start handover" })).toHaveCount(0);
+      await expectAccessible(page);
+    });
+
+    test("takes the car back beside the handover: photos, kilometres, new damage", async ({
+      page,
+    }) => {
+      await openRentalOf(page, PARTIES);
+      await page.getByRole("button", { name: "Start return" }).click();
+      await expect(page.getByRole("heading", { name: `Return: ${CAR_REGO}` })).toBeVisible();
+      await page.waitForLoadState("networkidle");
+      expect(await scriptKilobytes(page)).toBeLessThanOrEqual(RETURN_PAGE_BUDGET_KB);
+      await expectNoSidewaysScroll(page);
+
+      // Each photo slot shows the handover's photo of the same name beside it.
+      await expect(page.getByAltText("Front at handover", { exact: true })).toBeVisible();
+      for (const name of DEFAULT_HANDOVER_PHOTOS) {
+        await takePhoto(page, `Take photo: ${name}`);
+        await expect(
+          page
+            .getByRole("listitem")
+            .filter({ hasText: name })
+            .first()
+            .getByText("Saved", { exact: true }),
+        ).toBeVisible();
+      }
+      await expect(page.getByText("At handover: Full.")).toBeVisible();
+      await page.getByRole("textbox", { name: /^Odometer/ }).pressSequentially("2100");
+      await page.getByLabel(/^Fuel/).selectOption("quarter");
+      await page.getByRole("textbox", { name: /^Keys handed over/ }).fill("2");
+      await page.getByRole("button", { name: "Save details" }).click();
+      await expect(page.getByText("Saved.", { exact: true })).toBeVisible();
+
+      // The handover's damage is greyed and lettered; what is marked now is new.
+      await expect(
+        page.getByRole("button", { name: /^Already there at handover, A: Scratch on rear bumper/ }),
+      ).toBeVisible();
+      await page.getByLabel("Or choose where on the car").selectOption("bonnet");
+      await page.getByRole("textbox", { name: "What is the damage?" }).fill("Dent on bonnet");
+      await page.getByRole("button", { name: "Add damage mark" }).click();
+      await expect(page.getByRole("button", { name: "Damage 1: Dent on bonnet" })).toBeVisible();
+      await takePhoto(page, "Take photo: damage 1");
+      await expect(page.getByAltText("Damage 1 photo")).toBeVisible();
+      await expectAccessible(page);
+    });
+
+    test("finishes the return with the Renter not there and the car to the workshop", async ({
+      page,
+    }) => {
+      const rentalId = await openRentalOf(page, PARTIES);
+      await page.getByRole("link", { name: "Continue return" }).click();
+      const finish = page.getByRole("button", { name: "Finish return" });
+      await expect(finish).toBeVisible();
+
+      await page.getByRole("checkbox", { name: `${RENTER.name} is here to sign` }).uncheck();
+      await expect(page.getByText(/The report will say the Renter was not here/)).toBeVisible();
+      await page.getByLabel(/^Where does the car go now/).selectOption("in_service");
+      await finish.click();
+      await expect(page.getByRole("textbox", { name: /^Reason/ })).toBeFocused();
+      await page.getByRole("textbox", { name: /^Reason/ }).fill("New tyres");
+      await page.getByLabel(/^Expected back/).fill("2027-12-01");
+      await expectAccessible(page);
+      await finish.click();
+
+      await expect(page).toHaveURL(new RegExp(`/rentals/${rentalId}$`));
+      await expect(page.getByText("Returned", { exact: true }).first()).toBeVisible();
+      await expect(page.getByText(/^The car came back on /)).toBeVisible();
+      await expect(page.getByText("Held until")).toBeVisible();
+      const report = page.getByRole("link", { name: "Open return report" });
+      const response = await page.request.get((await report.getAttribute("href")) ?? "");
+      expect(response.headers()["content-type"]).toBe("application/pdf");
+      await expect(page.getByRole("button", { name: "Start return" })).toHaveCount(0);
       await expectAccessible(page);
     });
   });

@@ -1,5 +1,4 @@
 import { DEFAULT_HANDOVER_PHOTOS } from "@fleetapp/core";
-import { SAMPLE_JPEG } from "@fleetapp/core/testing";
 import {
   files,
   issuedDocuments,
@@ -15,14 +14,8 @@ import { and, eq, isNull } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import type { ActingUser } from "../src/lib/acting-user";
-import { recordBondReceived } from "../src/lib/bonds/bond-records";
-import { issueDocument } from "../src/lib/contracts/issued-documents";
-import { confirmUpload, type FileDependencies } from "../src/lib/files/stored-files";
 import { completeHandover } from "../src/lib/handover/complete-handover";
-import {
-  startChecklistPhotoUpload,
-  type ChecklistPhotoTarget,
-} from "../src/lib/handover/handover-photos";
+import type { ChecklistPhotoTarget } from "../src/lib/handover/handover-photos";
 import { loadHandover } from "../src/lib/handover/handover-queries";
 import {
   addDamageMark,
@@ -37,13 +30,8 @@ import {
   type MemoryFileStorage,
 } from "../src/lib/storage/memory-file-storage";
 import { seedOperatorWithUser } from "./car-fixtures";
-import { addRenterReadyToRent, bookTestRental, TEST_TIME_ZONE } from "./rental-fixtures";
-import { recordingEmailSender } from "./renter-link-fixtures";
-
-const PNG_HEADER = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-const SIGNATURE = `data:image/png;base64,${btoa(String.fromCharCode(...PNG_HEADER, 1, 2, 3))}`;
-const PHOTO_SIZES = { contentType: "image/jpeg", sizeBytes: 300_000 };
-const DETAILS = { fuelLevel: "full" as const, keysCount: 2, accessories: null, notes: null };
+import { TEST_TIME_ZONE } from "./rental-fixtures";
+import { checklistKit, TEST_DETAILS, TEST_SIGNATURE } from "./handover-fixtures";
 
 describe("handing a car over", () => {
   let admin: TestConnection;
@@ -53,65 +41,13 @@ describe("handing a car over", () => {
   let actor: ActingUser;
   let otherOperator: ActingUser;
 
-  const deps = (): FileDependencies & { storage: MemoryFileStorage } => ({
-    database: web.db,
-    storage,
-    now: () => new Date(),
-  });
-  const handoverDeps = () => ({ ...deps(), emailSender: recordingEmailSender(sentEmails) });
+  let kit: ReturnType<typeof checklistKit>;
+  const handoverDeps = () => kit.handoverDeps();
   const clock = () => ({ timeZone: TEST_TIME_ZONE, now: new Date() });
-
-  /** A booked rental for a Renter with everything on file, its contract signed and bond held. */
-  async function readyRental(options: { isBondHeld?: boolean } = {}) {
-    const renterId = await addRenterReadyToRent(web, deps(), actor);
-    const booked = await bookTestRental(web, actor, renterId);
-    await issueDocument(deps(), actor, {
-      rentalId: booked.rentalId,
-      kind: "contract",
-      templateVersionId: null,
-      pdf: new TextEncoder().encode("%PDF-1.4 signed"),
-    });
-    if (options.isBondHeld !== false) {
-      await recordBondReceived(web.db, actor, booked.rentalId, {
-        amountCents: 500_00,
-        method: "cash",
-        reference: null,
-        occurredOn: "2026-10-30",
-      });
-    }
-    return booked;
-  }
-
-  async function takePhoto(inspectionId: string, target: ChecklistPhotoTarget): Promise<string> {
-    const start = await startChecklistPhotoUpload(
-      deps(),
-      actor,
-      inspectionId,
-      target,
-      { photo: PHOTO_SIZES, thumbnail: { ...PHOTO_SIZES, sizeBytes: 30_000 } },
-      TEST_TIME_ZONE,
-    );
-    if (start.status !== "allowed") {
-      throw new Error(`The photo was not allowed: ${start.status}`);
-    }
-    const photoPermission = storage.permissions.at(-2)!;
-    storage.receive(photoPermission.area, photoPermission.key, SAMPLE_JPEG);
-    expect(await confirmUpload(deps(), actor, start.photo.fileId, ["vehicle_photo"])).toBe(
-      "confirmed",
-    );
-    return start.photo.fileId;
-  }
-
-  /** A checklist with every photo taken and the details saved. */
-  async function filledHandover(rentalId: string): Promise<string> {
-    const started = await startHandover(web.db, actor, rentalId);
-    const inspectionId = "inspectionId" in started ? started.inspectionId : "";
-    for (const photoName of DEFAULT_HANDOVER_PHOTOS) {
-      await takePhoto(inspectionId, { photoName });
-    }
-    await saveHandoverDetails(web.db, actor, inspectionId, { ...DETAILS, odometerKm: 12_500 });
-    return inspectionId;
-  }
+  const readyRental = (options: { isBondHeld?: boolean } = {}) => kit.readyRental(options);
+  const takePhoto = (inspectionId: string, target: ChecklistPhotoTarget) =>
+    kit.takePhoto(inspectionId, target);
+  const filledHandover = (rentalId: string) => kit.filledHandover(rentalId);
 
   beforeAll(async () => {
     admin = connectAs(inject("adminAppRoleUrl"));
@@ -120,6 +56,7 @@ describe("handing a car over", () => {
     sentEmails = [];
     actor = await seedOperatorWithUser(admin, "Handover Rentals Pty Ltd");
     otherOperator = await seedOperatorWithUser(admin, "Other Handover Rentals Pty Ltd");
+    kit = checklistKit(web, storage, sentEmails, actor);
   });
 
   afterAll(async () => {
@@ -149,7 +86,7 @@ describe("handing a car over", () => {
     const first = await takePhoto(inspectionId, { photoName: "Front" });
     const second = await takePhoto(inspectionId, { photoName: "Front" });
     const lower = await saveHandoverDetails(web.db, actor, inspectionId, {
-      ...DETAILS,
+      ...TEST_DETAILS,
       odometerKm: 10,
     });
     const view = await loadHandover(web.db, actor.operatorId, inspectionId);
@@ -170,7 +107,7 @@ describe("handing a car over", () => {
       y: 300,
       description: "Scratch on bonnet",
     });
-    const input = { drawnSignature: SIGNATURE, bondOverrideReason: null };
+    const input = { drawnSignature: TEST_SIGNATURE, bondOverrideReason: null };
 
     const withGap = await completeHandover(handoverDeps(), actor, inspectionId, input, clock());
     await takePhoto(inspectionId, { damageMarkId: added.status === "added" ? added.markId : "" });
@@ -189,14 +126,14 @@ describe("handing a car over", () => {
       handoverDeps(),
       actor,
       inspectionId,
-      { drawnSignature: SIGNATURE, bondOverrideReason: null },
+      { drawnSignature: TEST_SIGNATURE, bondOverrideReason: null },
       clock(),
     );
     const again = await completeHandover(
       handoverDeps(),
       actor,
       inspectionId,
-      { drawnSignature: SIGNATURE, bondOverrideReason: null },
+      { drawnSignature: TEST_SIGNATURE, bondOverrideReason: null },
       clock(),
     );
 
@@ -265,7 +202,7 @@ describe("handing a car over", () => {
       handoverDeps(),
       actor,
       inspectionId,
-      { drawnSignature: SIGNATURE, bondOverrideReason: "Paying the bond on Friday" },
+      { drawnSignature: TEST_SIGNATURE, bondOverrideReason: "Paying the bond on Friday" },
       clock(),
     );
 

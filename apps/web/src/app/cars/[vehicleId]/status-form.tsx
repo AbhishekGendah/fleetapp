@@ -1,14 +1,7 @@
 "use client";
 
-import {
-  fieldErrorsOf,
-  needsReturnDate,
-  VEHICLE_STATUS_LABELS,
-  OPERATOR_VEHICLE_STATUSES,
-} from "@fleetapp/core";
-import { FormField } from "@fleetapp/ui/form-field";
-import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
-import { Select } from "@fleetapp/ui/select";
+import { fieldErrorsOf, needsReturnDate, OPERATOR_VEHICLE_STATUSES } from "@fleetapp/core";
+import { RequiredFieldsNote } from "@fleetapp/ui/input";
 import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import { useActionState } from "react";
 
@@ -18,8 +11,8 @@ import {
   vehicleStatusInputSchema,
   type VehicleStatusFormValues,
 } from "../../../lib/vehicles/vehicle-input";
-import { VEHICLE_FIELD_LABELS } from "../../../lib/vehicles/vehicle-labels";
 import { INITIAL_CHANGE_STATE, type ChangeFormState } from "@fleetapp/ui/change-form-state";
+import { CarStatusFields } from "./car-status-fields";
 
 const STATUS_FIELDS = ["status", "statusReason", "statusExpectedBack"] as const;
 
@@ -35,7 +28,6 @@ export function StatusForm(props: {
     validate: (values) => fieldErrorsOf(vehicleStatusInputSchema.safeParse(values)),
     isRequired: (field, values) => field === "status" || needsReturnDate(values.status),
   });
-  const isAway = needsReturnDate(form.values.status);
 
   return (
     <form
@@ -45,38 +37,7 @@ export function StatusForm(props: {
       className="flex flex-col gap-4"
     >
       <RequiredFieldsNote />
-      <FormField htmlFor="status" label={VEHICLE_FIELD_LABELS.status} isRequired>
-        <Select
-          {...form.boxProps("status")}
-          onChange={(event) => form.setValue("status", event.target.value)}
-        >
-          {OPERATOR_VEHICLE_STATUSES.map((status) => (
-            <option key={status} value={status}>
-              {VEHICLE_STATUS_LABELS[status]}
-            </option>
-          ))}
-        </Select>
-      </FormField>
-      {isAway ? (
-        <>
-          <FormField
-            htmlFor="statusReason"
-            label={VEHICLE_FIELD_LABELS.statusReason}
-            isRequired
-            error={form.errorFor("statusReason")}
-          >
-            <Input {...form.textBoxProps("statusReason")} placeholder="e.g. Brakes and tyres" />
-          </FormField>
-          <FormField
-            htmlFor="statusExpectedBack"
-            label={VEHICLE_FIELD_LABELS.statusExpectedBack}
-            isRequired
-            error={form.errorFor("statusExpectedBack")}
-          >
-            <Input {...form.textBoxProps("statusExpectedBack")} type="date" />
-          </FormField>
-        </>
-      ) : null}
+      <CarStatusFields form={form} statuses={OPERATOR_VEHICLE_STATUSES} />
       <SaveStatusButton state={state} isPending={isPending} isResultShown={form.isResultShown} />
     </form>
   );

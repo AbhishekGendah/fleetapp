@@ -1,24 +1,16 @@
-import { isRecordId } from "@fleetapp/core";
 import { PageHeader } from "@fleetapp/ui/page-header";
-import { notFound, redirect } from "next/navigation";
 
 import { AppShell } from "../../../app-shell";
 import { appDb } from "../../../../lib/app-db";
 import { loadSigningStatus } from "../../../../lib/contracts/signing-links";
-import {
-  HANDOVER_DETAIL_FIELDS,
-  type HandoverDetailField,
-} from "../../../../lib/handover/handover-input";
-import {
-  loadHandover,
-  loadRentalHandoverStatus,
-  type HandoverView,
-} from "../../../../lib/handover/handover-queries";
-import { carFilePath, rentalPath } from "../../../../lib/paths";
+import type { HandoverView } from "../../../../lib/handover/handover-queries";
+import { rentalPath } from "../../../../lib/paths";
 import { loadRentalProblems } from "../../../../lib/rentals/booking-checks";
 import { bookingProblemMessage } from "../../../../lib/rentals/rental-messages";
-import { requireUser, type SignedInUser } from "../../../../lib/require-user";
-import type { ChecklistData, SavedPhoto } from "./checklist-data";
+import type { SignedInUser } from "../../../../lib/require-user";
+import { checklistData } from "./checklist-page-data";
+import { loadChecklistPage } from "./load-checklist-page";
+import { AcceptanceForm } from "./acceptance-form";
 import { HandoverChecklist } from "./handover-checklist";
 import { OfflineReady } from "./offline-ready";
 
@@ -27,32 +19,6 @@ export const dynamic = "force-dynamic";
 
 const UNSIGNED_MESSAGE =
   "The Renter has not signed the contract yet: send it from the rental's page.";
-
-function savedPhoto(
-  vehicleId: string,
-  photo: { fileId: string; thumbnailFileId: string | null },
-): SavedPhoto {
-  return {
-    fileId: photo.fileId,
-    viewUrl: carFilePath(vehicleId, photo.thumbnailFileId ?? photo.fileId),
-  };
-}
-
-function detailValues(view: HandoverView): Record<HandoverDetailField, string> {
-  const values: Record<HandoverDetailField, string | number | null> = {
-    odometerKm: view.odometerKm,
-    fuelLevel: view.fuelLevel,
-    keysCount: view.keysCount,
-    accessories: view.accessories,
-    notes: view.notes,
-  };
-  return Object.fromEntries(
-    HANDOVER_DETAIL_FIELDS.map((field) => [
-      field,
-      values[field] === null ? "" : String(values[field]),
-    ]),
-  ) as Record<HandoverDetailField, string>;
-}
 
 /** What stops the acceptance beyond the checklist itself, and any bond still to come. */
 async function acceptanceChecks(user: SignedInUser, view: HandoverView) {
@@ -72,46 +38,9 @@ async function acceptanceChecks(user: SignedInUser, view: HandoverView) {
   };
 }
 
-function checklistData(
-  view: HandoverView,
-  checks: Pick<ChecklistData, "blockers" | "bondShortCents">,
-): ChecklistData {
-  return {
-    rentalId: view.rentalId,
-    inspectionId: view.inspectionId,
-    carLabel: `${view.carRego} · ${view.carMakeModel}`,
-    renterName: view.renterFullName,
-    photoNames: view.photoNames,
-    photos: Object.fromEntries(
-      [...view.photos].map(([name, photo]) => [name, savedPhoto(view.vehicleId, photo)]),
-    ),
-    marks: view.damageMarks.map((mark) => ({
-      id: mark.id,
-      x: mark.x,
-      y: mark.y,
-      description: mark.description,
-      photo: mark.photo ? savedPhoto(view.vehicleId, mark.photo) : null,
-    })),
-    details: detailValues(view),
-    gaps: view.gaps,
-    ...checks,
-  };
-}
-
 /** The handover checklist under way for a rental; back to the rental if there is none. */
 export default async function HandoverPage(props: { params: Promise<{ rentalId: string }> }) {
-  const user = await requireUser();
-  const { rentalId } = await props.params;
-  if (!isRecordId(rentalId)) {
-    notFound();
-  }
-  const status = await loadRentalHandoverStatus(appDb, user.operatorId, rentalId);
-  const view = status.inProgressId
-    ? await loadHandover(appDb, user.operatorId, status.inProgressId)
-    : null;
-  if (!view) {
-    redirect(rentalPath(rentalId));
-  }
+  const { user, rentalId, view } = await loadChecklistPage(props.params, "handover");
   const checks = await acceptanceChecks(user, view);
   return (
     <AppShell user={user}>
@@ -128,6 +57,19 @@ export default async function HandoverPage(props: { params: Promise<{ rentalId: 
         <HandoverChecklist
           data={checklistData(view, checks)}
           lastKilometres={view.lastKilometres}
+          damageTitle="Damage already on the car"
+          finalStep={{
+            title: "The Renter accepts the car",
+            form: (
+              <AcceptanceForm
+                rentalId={view.rentalId}
+                inspectionId={view.inspectionId}
+                renterName={view.renterFullName}
+                summary={`${view.carRego} · ${view.carMakeModel}`}
+                bondShortCents={checks.bondShortCents}
+              />
+            ),
+          }}
         />
       </OfflineReady>
     </AppShell>

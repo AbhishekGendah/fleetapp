@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   bondHeldCents,
+  bondHeldUntil,
   bondOwingCents,
   isBondShortForHandover,
   reversibleBondMovementIds,
@@ -67,5 +68,17 @@ describe("bonds", () => {
     expect(
       isBondShortForHandover({ requiredCents: 0, heldCents: 0, isRequiredBeforeHandover: true }),
     ).toBe(false);
+  });
+});
+
+describe("how long the bond is kept after the return", () => {
+  it("counts the hold days from the return day where the business is", () => {
+    // 11:30pm on 2 Nov in Perth is still 2 Nov there, whatever the server says.
+    expect(bondHeldUntil(new Date("2026-11-02T15:30:00Z"), 28, "Australia/Perth")).toBe(
+      "2026-11-30",
+    );
+    expect(bondHeldUntil(new Date("2026-11-02T15:30:00Z"), 0, "Australia/Sydney")).toBe(
+      "2026-11-03",
+    );
   });
 });

@@ -45,10 +45,45 @@ export function PhotoStatus({ state }: { state: PhotoState }) {
   );
 }
 
+/** The photo taken now, beside the handover's when there is one to compare with. */
+function PhotoPair(props: { name: string; before?: SavedPhoto; now?: SavedPhoto }) {
+  if (!props.before && !props.now) {
+    return null;
+  }
+  return (
+    <span className="flex flex-wrap gap-3">
+      {props.before ? (
+        <figure className="flex flex-col gap-1">
+          {/* eslint-disable-next-line @next/next/no-img-element -- a short-lived private address */}
+          <img
+            src={props.before.viewUrl}
+            alt={`${props.name} at handover`}
+            className="h-24 w-auto rounded"
+          />
+          <figcaption className="text-xs">At handover</figcaption>
+        </figure>
+      ) : null}
+      {props.now ? (
+        <figure className="flex flex-col gap-1">
+          {/* eslint-disable-next-line @next/next/no-img-element -- a short-lived private address */}
+          <img
+            src={props.now.viewUrl}
+            alt={`${props.name} photo`}
+            className="h-24 w-auto rounded"
+          />
+          {props.before ? <figcaption className="text-xs">Now</figcaption> : null}
+        </figure>
+      ) : null}
+    </span>
+  );
+}
+
 /** The photos on the list: each one taken (or taken again) with the camera. */
 export function ChecklistPhotos(props: {
   photoNames: readonly string[];
   stateOf: (name: string) => PhotoState;
+  /** At a return: the handover's photo of the same name, shown beside it to compare. */
+  handoverPhotoOf?: (name: string) => SavedPhoto | undefined;
   onTake: (target: QueuedPhotoTarget, file: File) => Promise<void>;
   problem: string | null;
 }) {
@@ -63,14 +98,11 @@ export function ChecklistPhotos(props: {
               title={name}
               aside={<PhotoStatus state={state} />}
               details={
-                state.kind === "saved" ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- a short-lived private address
-                  <img
-                    src={state.photo.viewUrl}
-                    alt={`${name} photo`}
-                    className="h-24 w-auto rounded"
-                  />
-                ) : null
+                <PhotoPair
+                  name={name}
+                  before={props.handoverPhotoOf?.(name)}
+                  now={state.kind === "saved" ? state.photo : undefined}
+                />
               }
               actions={
                 <FilePicker

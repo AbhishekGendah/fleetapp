@@ -154,17 +154,25 @@ export function handoverGaps(progress: HandoverProgress): HandoverGap[] {
   return gaps;
 }
 
+/** What a Renter signs to at a handover or return: when, the kilometres and fuel, the condition. */
+export interface AcceptanceFacts {
+  at: Date;
+  timeZone: string;
+  odometerKm: number;
+  fuelLevel: FuelLevel;
+}
+
+/** The accepted words, the same at both ends of a rental but for "received" or "returned". */
+export function acceptanceWording(verb: "received" | "returned", facts: AcceptanceFacts): string {
+  const kilometres = facts.odometerKm.toLocaleString(AUSTRALIAN_LOCALE);
+  return `I ${verb} this car on ${formatDateTimeInTimeZone(facts.at, facts.timeZone)}, with ${kilometres} km on the odometer and ${FUEL_LEVEL_LABELS[facts.fuelLevel]} fuel, in the condition shown in this report.`;
+}
+
 /**
  * The words the Renter accepts on the Operator's phone (decision 4): when,
  * at what kilometres and fuel, in the condition the report shows. Kept with
  * the report exactly as shown.
  */
-export function handoverAcceptanceText(input: {
-  at: Date;
-  timeZone: string;
-  odometerKm: number;
-  fuelLevel: FuelLevel;
-}): string {
-  const kilometres = input.odometerKm.toLocaleString(AUSTRALIAN_LOCALE);
-  return `I received this car on ${formatDateTimeInTimeZone(input.at, input.timeZone)}, with ${kilometres} km on the odometer and ${FUEL_LEVEL_LABELS[input.fuelLevel]} fuel, in the condition shown in this report.`;
+export function handoverAcceptanceText(facts: AcceptanceFacts): string {
+  return acceptanceWording("received", facts);
 }

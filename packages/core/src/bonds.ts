@@ -1,3 +1,4 @@
+import { addDays, todayInTimeZone } from "./calendar-dates";
 /**
  * A rental's bond account (docs/design/06): a list of movements that is only
  * ever added to. What is held is always worked out from the list, never
@@ -117,4 +118,13 @@ export function isBondShortForHandover(input: {
   heldCents: number;
 }): boolean {
   return input.isRequiredBeforeHandover && input.heldCents < input.requiredCents;
+}
+
+/**
+ * The last day the bond is kept after the car came back, for late fines and
+ * tolls (docs/design/04): the return day, on the business's calendar, plus
+ * the hold days in the rental's own settings (rule 14).
+ */
+export function bondHeldUntil(returnedAt: Date, holdDays: number, timeZone: string): string {
+  return addDays(todayInTimeZone(returnedAt, timeZone), holdDays);
 }

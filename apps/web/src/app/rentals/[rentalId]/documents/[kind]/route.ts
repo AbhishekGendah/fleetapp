@@ -17,6 +17,7 @@ export const dynamic = "force-dynamic";
 const OPENABLE = {
   contract: "Signed contract.pdf",
   handover_report: "Handover report.pdf",
+  return_report: "Return report.pdf",
 } as const;
 const kindSchema = z.enum(Object.keys(OPENABLE) as [keyof typeof OPENABLE]);
 

@@ -156,6 +156,14 @@ export default async function SettingsPage() {
             hint="Time for late fines and tolls to arrive."
             value={settings.bondHoldDaysAfterReturn}
           />
+          <ChoiceSettingForm
+            setting="isRenterSignatureAtReturnRequired"
+            label="Must the Renter sign when the car comes back?"
+            value={choiceSettingValue(
+              "isRenterSignatureAtReturnRequired",
+              settings.isRenterSignatureAtReturnRequired,
+            )}
+          />
           <PhotoListForm photos={settings.handoverPhotos} />
           <NumberSettingForm
             setting="ongoingNoticeDays"

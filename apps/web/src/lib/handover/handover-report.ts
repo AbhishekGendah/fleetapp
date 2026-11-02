@@ -15,16 +15,16 @@ import type { ChecklistPhoto, HandoverView } from "./handover-queries";
 
 export const HANDOVER_REPORT_TITLE = "Handover report";
 
-const heading = (level: 1 | 2, text: string): TemplateBlock => ({
+export const heading = (level: 1 | 2, text: string): TemplateBlock => ({
   type: "heading",
   attrs: { level },
   content: [{ type: "text", text }],
 });
-const paragraph = (text: string): TemplateBlock => ({
+export const paragraph = (text: string): TemplateBlock => ({
   type: "paragraph",
   content: [{ type: "text", text }],
 });
-const line = (label: string, value: string): TemplateBlock => ({
+export const line = (label: string, value: string): TemplateBlock => ({
   type: "paragraph",
   content: [
     { type: "text", text: `${label}: `, marks: [{ type: "bold" }] },
@@ -62,23 +62,37 @@ function reportDocument(
   };
 }
 
-/** The small copies of the checklist's photos, in list order, then each damage mark's. */
-async function reportPhotos(
-  deps: Pick<FileDependencies, "database" | "storage">,
-  operatorId: string,
-  view: HandoverView,
-): Promise<PdfPhoto[]> {
-  const wanted: { caption: string; photo: ChecklistPhoto }[] = [
+/** A photo to print, with the words under it. */
+export interface WantedPhoto {
+  caption: string;
+  photo: ChecklistPhoto;
+}
+
+/** A checklist's photos in list order, then each damage mark's; `suffix` tells two checklists apart. */
+export function checklistPhotos(view: HandoverView, suffix = ""): WantedPhoto[] {
+  return [
     ...view.photoNames.flatMap((name) => {
       const photo = view.photos.get(name);
-      return photo ? [{ caption: name, photo }] : [];
+      return photo ? [{ caption: `${name}${suffix}`, photo }] : [];
     }),
-    ...view.damageMarks.flatMap((mark, index) =>
-      mark.photo
-        ? [{ caption: `Damage ${index + 1}: ${mark.description}`, photo: mark.photo }]
-        : [],
-    ),
+    ...damagePhotos(view, suffix),
   ];
+}
+
+export function damagePhotos(view: HandoverView, suffix = ""): WantedPhoto[] {
+  return view.damageMarks.flatMap((mark, index) =>
+    mark.photo
+      ? [{ caption: `Damage ${index + 1}: ${mark.description}${suffix}`, photo: mark.photo }]
+      : [],
+  );
+}
+
+/** The small copies of the photos, ready for a report (rule 21: each file stored once). */
+export async function printablePhotos(
+  deps: Pick<FileDependencies, "database" | "storage">,
+  operatorId: string,
+  wanted: readonly WantedPhoto[],
+): Promise<PdfPhoto[]> {
   const fileIds = wanted.map(({ photo }) => photo.thumbnailFileId ?? photo.fileId);
   const stored =
     fileIds.length === 0
@@ -99,7 +113,7 @@ async function reportPhotos(
       const file = stored.find((row) => row.id === (photo.thumbnailFileId ?? photo.fileId));
       return {
         caption,
-        image: file ? await loadPdfImage(deps.storage, file, "handover photo") : undefined,
+        image: file ? await loadPdfImage(deps.storage, file, "checklist photo") : undefined,
       };
     }),
   );
@@ -114,7 +128,7 @@ export async function renderHandoverReport(
 ): Promise<Uint8Array> {
   const [branding, photos] = await Promise.all([
     loadPdfBranding(deps, operatorId),
-    reportPhotos(deps, operatorId, view),
+    printablePhotos(deps, operatorId, checklistPhotos(view)),
   ]);
   return renderDocumentPdf({
     ...branding,

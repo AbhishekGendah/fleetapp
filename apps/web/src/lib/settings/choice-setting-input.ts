@@ -45,6 +45,10 @@ const CHOICE_SETTING_OPTIONS = {
     "Yes, the full bond is held before handover",
     "No, the car can go before the bond is in",
   ),
+  isRenterSignatureAtReturnRequired: YES_NO(
+    "Yes, the Renter must be there to sign",
+    "No, a car dropped off after hours can be returned without them",
+  ),
 } as const satisfies {
   [Setting in keyof OperatorSettings]?: readonly ChoiceOption<OperatorSettings[Setting]>[];
 };

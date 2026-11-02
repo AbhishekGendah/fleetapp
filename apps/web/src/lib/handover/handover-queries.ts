@@ -2,6 +2,7 @@ import {
   handoverGaps,
   type FuelLevel,
   type HandoverGap,
+  type InspectionKind,
   type InspectionStatus,
 } from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
@@ -35,6 +36,7 @@ export interface DamageMarkView {
 /** A handover checklist as its screen, its completion and its report need it. */
 export interface HandoverView {
   inspectionId: string;
+  kind: InspectionKind;
   status: InspectionStatus;
   rentalId: string;
   vehicleId: string;
@@ -46,6 +48,8 @@ export interface HandoverView {
   bondCents: number;
   plannedStart: Date;
   plannedEnd: Date | null;
+  /** When the car went out; null until the handover is accepted. */
+  handedOverAt: Date | null;
   settingsSnapshot: Record<string, unknown>;
   photoNames: string[];
   photos: ReadonlyMap<string, ChecklistPhoto>;
@@ -160,10 +164,29 @@ async function damageMarkViews(
 }
 
 /** One of the Operator's handover checklists, with everything on it; null if not theirs. */
-export async function loadHandover(
+/** A handover checklist, if it is this Operator's. */
+export function loadHandover(
   database: AnyDatabase,
   operatorId: string,
   inspectionId: string,
+): Promise<HandoverView | null> {
+  return loadChecklist(database, operatorId, inspectionId, "handover");
+}
+
+/** A return checklist, if it is this Operator's. */
+export function loadReturn(
+  database: AnyDatabase,
+  operatorId: string,
+  inspectionId: string,
+): Promise<HandoverView | null> {
+  return loadChecklist(database, operatorId, inspectionId, "return");
+}
+
+async function loadChecklist(
+  database: AnyDatabase,
+  operatorId: string,
+  inspectionId: string,
+  kind: InspectionKind,
 ): Promise<HandoverView | null> {
   return withTenant(database, operatorId, async (tx) => {
     const [row] = await tx
@@ -173,6 +196,7 @@ export async function loadHandover(
         bondCents: rentals.bondCents,
         plannedStart: rentals.plannedStart,
         plannedEnd: rentals.plannedEnd,
+        handedOverAt: rentals.handedOverAt,
         settingsSnapshot: rentals.settingsSnapshot,
         renterFullName: renters.fullName,
         renterEmail: renters.email,
@@ -188,7 +212,7 @@ export async function loadHandover(
         and(
           eq(inspections.id, inspectionId),
           eq(inspections.operatorId, operatorId),
-          eq(inspections.kind, "handover"),
+          eq(inspections.kind, kind),
         ),
       );
     if (!row) {
@@ -208,6 +232,7 @@ export async function loadHandover(
     };
     return {
       inspectionId,
+      kind: inspection.kind,
       status: inspection.status,
       rentalId: inspection.rentalId,
       vehicleId: inspection.vehicleId,
@@ -219,6 +244,7 @@ export async function loadHandover(
       bondCents: row.bondCents,
       plannedStart: row.plannedStart,
       plannedEnd: row.plannedEnd,
+      handedOverAt: row.handedOverAt,
       settingsSnapshot: row.settingsSnapshot,
       photoNames: inspection.photoNames,
       photos,
@@ -244,6 +270,7 @@ export async function loadRentalHandoverStatus(
   database: AnyDatabase,
   operatorId: string,
   rentalId: string,
+  kind: InspectionKind = "handover",
 ): Promise<RentalHandoverStatus> {
   const rows = await withTenant(database, operatorId, (tx) =>
     tx
@@ -257,7 +284,7 @@ export async function loadRentalHandoverStatus(
         and(
           eq(inspections.operatorId, operatorId),
           eq(inspections.rentalId, rentalId),
-          eq(inspections.kind, "handover"),
+          eq(inspections.kind, kind),
           inArray(inspections.status, ["in_progress", "completed"]),
         ),
       ),
@@ -266,4 +293,26 @@ export async function loadRentalHandoverStatus(
     inProgressId: rows.find((row) => row.status === "in_progress")?.id ?? null,
     completedAt: rows.find((row) => row.status === "completed")?.completedAt ?? null,
   };
+}
+
+/** The rental's finished handover, to compare the return with; null if it has none. */
+export async function loadCompletedHandover(
+  database: AnyDatabase,
+  operatorId: string,
+  rentalId: string,
+): Promise<HandoverView | null> {
+  const [handover] = await withTenant(database, operatorId, (tx) =>
+    tx
+      .select({ id: inspections.id })
+      .from(inspections)
+      .where(
+        and(
+          eq(inspections.operatorId, operatorId),
+          eq(inspections.rentalId, rentalId),
+          eq(inspections.kind, "handover"),
+          eq(inspections.status, "completed"),
+        ),
+      ),
+  );
+  return handover ? loadHandover(database, operatorId, handover.id) : null;
 }

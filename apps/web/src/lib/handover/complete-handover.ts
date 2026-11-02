@@ -19,13 +19,13 @@ import { eq } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
 import { emailDocumentCopies } from "../contracts/document-copies";
-import { issueDocument } from "../contracts/issued-documents";
 import { loadSigningStatus, rentalSummaryText } from "../contracts/signing-links";
 import type { FileDependencies } from "../files/stored-files";
 import { loadRentalProblems } from "../rentals/booking-checks";
 import type { RentalClock } from "../rentals/rental-records";
 import { loadBusinessDetails } from "../settings/business-details";
 import { addReading } from "../vehicles/odometer";
+import { checklistRefusal, FinishedAlreadyError, issueChecklistReport } from "./checklist-report";
 import { lockOpenInspection } from "./handover-records";
 import { loadHandover, type HandoverView } from "./handover-queries";
 import { HANDOVER_REPORT_TITLE, renderHandoverReport } from "./handover-report";
@@ -51,9 +51,6 @@ export interface HandoverDependencies extends FileDependencies {
   emailSender: EmailSender;
 }
 
-/** Thrown inside the issuing transaction when the checklist was finished elsewhere: nothing is kept. */
-class FinishedAlreadyError extends Error {}
-
 /**
  * What stops the Renter accepting now: anything missing from the checklist,
  * an unsigned contract, a handover problem (licence, car not ready), the
@@ -66,11 +63,9 @@ async function acceptanceRefusal(
   input: CompleteHandoverInput,
   clock: RentalClock,
 ): Promise<CompleteHandoverResult | null> {
-  if (view.gaps.length > 0) {
-    return { status: "gaps", gaps: view.gaps };
-  }
-  if (view.lastKilometres !== null && (view.odometerKm ?? 0) < view.lastKilometres) {
-    return { status: "lower", lastKilometres: view.lastKilometres };
+  const unfinished = checklistRefusal(view);
+  if (unfinished) {
+    return unfinished;
   }
   const signing = await loadSigningStatus(deps.database, operatorId, view.rentalId, clock.now);
   if (!signing.signed) {
@@ -207,11 +202,9 @@ export async function completeHandover(
     acceptanceText,
     signaturePng,
   });
-  const issued = await issueDocument(deps, actor, {
-    rentalId: view.rentalId,
+  const issued = await issueChecklistReport(deps, actor, {
+    view,
     kind: "handover_report",
-    templateVersionId: null,
-    inspectionId,
     pdf,
     onIssued: (tx) =>
       recordHandedOver(tx, actor, view, {
@@ -219,17 +212,9 @@ export async function completeHandover(
         acceptanceText,
         bondOverrideReason: input.bondOverrideReason,
       }),
-  }).catch((error: unknown) => {
-    if (error instanceof FinishedAlreadyError) {
-      return null;
-    }
-    throw error;
   });
-  if (!issued) {
-    return { status: "finished_already" };
-  }
   if (issued.status !== "issued") {
-    return { status: "not_found" };
+    return { status: issued.status };
   }
   const business = await loadBusinessDetails(deps.database, actor.operatorId);
   const rentalSummary = rentalSummaryText({

@@ -19,7 +19,7 @@ import {
   type DemoContext,
   DemoDataError,
 } from "./demo-context";
-import { DEMO_RENTERS, demoRego, type DemoRentalPlan } from "./demo-plan";
+import { DEMO_RENTERS, demoRego, wasHandedOver, type DemoRentalPlan } from "./demo-plan";
 import { findRenterId } from "./demo-renters";
 
 const DAYS_PER_WEEK = 7;
@@ -55,7 +55,7 @@ export async function findRental(
 
 /** When an active rental was booked: a little before it started, so it was not booked late. */
 export function bookingClock(context: DemoContext, plan: DemoRentalPlan): RentalClock {
-  if (plan.kind !== "active") {
+  if (!wasHandedOver(plan.kind)) {
     return { timeZone: context.timeZone, now: new Date() };
   }
   const bookedOn = dayFrom(context, plan.startDays - BOOKED_DAYS_AHEAD);

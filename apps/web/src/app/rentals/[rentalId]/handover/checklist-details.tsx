@@ -42,6 +42,8 @@ export function ChecklistDetails(props: {
   inspectionId: string;
   initialValues: Record<HandoverDetailField, string>;
   lastKilometres: number | null;
+  /** At a return: the handover's fuel, shown beside the box to compare. */
+  handoverFuel?: string | null;
 }) {
   const form = useFormFields({
     fields: HANDOVER_DETAIL_FIELDS,
@@ -106,6 +108,7 @@ export function ChecklistDetails(props: {
         htmlFor={form.idFor("fuelLevel")}
         label="Fuel"
         isRequired
+        hint={props.handoverFuel ? `At handover: ${props.handoverFuel}.` : undefined}
         error={form.errorFor("fuelLevel")}
       >
         <Select

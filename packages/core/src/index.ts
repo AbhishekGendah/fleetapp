@@ -41,6 +41,7 @@ export * from "./vehicle-catalogue";
 export * from "./vehicle-costs";
 export * from "./renter-links";
 export * from "./renters";
+export * from "./vehicle-return";
 export * from "./vehicles";
 export * from "./licence-retention";
 export * from "./content-disposition";

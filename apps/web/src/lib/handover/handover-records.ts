@@ -3,6 +3,7 @@ import {
   readSettings,
   type DamageMarkInput,
   type HandoverDetailsInput,
+  type InspectionKind,
 } from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import {
@@ -19,7 +20,10 @@ import { and, eq, isNull } from "drizzle-orm";
 import { recordUserChange, type ActingUser } from "../acting-user";
 import { latestKilometres } from "../vehicles/odometer";
 
-/** A handover begins once the car is booked; it is finished by the Renter's acceptance. */
+/**
+ * A handover begins once the car is booked, a return once it is out; each is
+ * finished by the Renter's acceptance (or, at a return, the business's record).
+ */
 export type StartHandoverResult =
   { status: "started" | "resumed"; inspectionId: string } | { status: "not_found" | "not_booked" };
 
@@ -44,15 +48,65 @@ function logInspection(
   });
 }
 
+/** The rental's checklist of this kind under way, if any. */
+async function checklistUnderWay(
+  tx: AnyTransaction,
+  operatorId: string,
+  rentalId: string,
+  kind: InspectionKind,
+): Promise<string | null> {
+  const [current] = await tx
+    .select({ id: inspections.id })
+    .from(inspections)
+    .where(
+      and(
+        eq(inspections.operatorId, operatorId),
+        eq(inspections.rentalId, rentalId),
+        eq(inspections.kind, kind),
+        eq(inspections.status, "in_progress"),
+      ),
+    );
+  return current?.id ?? null;
+}
+
+/** The photo list the handover finished with: the return asks for the same, to compare. */
+async function handoverPhotoNames(
+  tx: AnyTransaction,
+  operatorId: string,
+  rentalId: string,
+): Promise<string[] | null> {
+  const [handover] = await tx
+    .select({ photoNames: inspections.photoNames })
+    .from(inspections)
+    .where(
+      and(
+        eq(inspections.operatorId, operatorId),
+        eq(inspections.rentalId, rentalId),
+        eq(inspections.kind, "handover"),
+        eq(inspections.status, "completed"),
+      ),
+    );
+  return handover?.photoNames ?? null;
+}
+
+/** What each kind needs of the rental: booked for a handover, out (active) for a return. */
+const STATUS_TO_START: Readonly<Record<InspectionKind, string>> = {
+  handover: "booked",
+  return: "active",
+};
+
 /**
- * Starts the rental's handover checklist, or picks up the one already under
- * way. The photo list comes from the settings the rental was made with
- * (rule 14). The rental is locked, so two phones cannot start two.
+ * Starts the rental's checklist of this kind, or picks up the one already
+ * under way. A handover's photo list comes from the settings the rental
+ * was made with (rule 14); a return asks for the handover's own list, so
+ * each photo can be compared. The rental is locked, so two phones cannot
+ * start two.
  */
-export async function startHandover(
+async function startChecklist(
   database: AnyDatabase,
   actor: ActingUser,
   rentalId: string,
+  kind: InspectionKind,
 ): Promise<StartHandoverResult> {
   return withTenant(database, actor.operatorId, async (tx) => {
     const [rental] = await tx
@@ -67,41 +121,52 @@ export async function startHandover(
     if (!rental) {
       return { status: "not_found" as const };
     }
-    const [current] = await tx
-      .select({ id: inspections.id })
-      .from(inspections)
-      .where(
-        and(
-          eq(inspections.operatorId, actor.operatorId),
-          eq(inspections.rentalId, rentalId),
-          eq(inspections.kind, "handover"),
-          eq(inspections.status, "in_progress"),
-        ),
-      );
-    if (current) {
-      return { status: "resumed" as const, inspectionId: current.id };
+    const currentId = await checklistUnderWay(tx, actor.operatorId, rentalId, kind);
+    if (currentId) {
+      return { status: "resumed" as const, inspectionId: currentId };
     }
-    if (rental.status !== "booked") {
+    if (rental.status !== STATUS_TO_START[kind]) {
       return { status: "not_booked" as const };
     }
-    const settings = readSettings(operatorSettingsSchema, rental.settingsSnapshot);
+    const photoNames =
+      kind === "handover"
+        ? readSettings(operatorSettingsSchema, rental.settingsSnapshot).handoverPhotos
+        : await handoverPhotoNames(tx, actor.operatorId, rentalId);
+    if (!photoNames) {
+      return { status: "not_booked" as const };
+    }
     const [started] = await tx
       .insert(inspections)
       .values({
         operatorId: actor.operatorId,
         rentalId,
         vehicleId: rental.vehicleId,
-        kind: "handover",
-        photoNames: settings.handoverPhotos,
+        kind,
+        photoNames,
         startedByUserId: actor.userId,
       })
       .returning({ id: inspections.id });
-    await logInspection(tx, actor, started!.id, ACTIVITY_ACTIONS.created, {
-      kind: "handover",
-      rentalId,
-    });
+    await logInspection(tx, actor, started!.id, ACTIVITY_ACTIONS.created, { kind, rentalId });
     return { status: "started" as const, inspectionId: started!.id };
   });
+}
+
+/** Starts (or picks up) a booked rental's handover checklist. */
+export function startHandover(
+  database: AnyDatabase,
+  actor: ActingUser,
+  rentalId: string,
+): Promise<StartHandoverResult> {
+  return startChecklist(database, actor, rentalId, "handover");
+}
+
+/** Starts (or picks up) the return checklist of a rental whose car is out. */
+export function startReturn(
+  database: AnyDatabase,
+  actor: ActingUser,
+  rentalId: string,
+): Promise<StartHandoverResult> {
+  return startChecklist(database, actor, rentalId, "return");
 }
 
 export type Inspection = typeof inspections.$inferSelect;
@@ -226,7 +291,7 @@ export async function removeDamageMark(
   });
 }
 
-/** Stops a checklist under way; the rental stays booked and a new one can begin. */
+/** Stops a checklist under way; the rental stays as it was and a new one can begin. */
 export async function cancelHandover(
   database: AnyDatabase,
   actor: ActingUser,

@@ -1,8 +1,15 @@
 import { addDemoCar, allDemoCars } from "./demo-cars";
 import { DemoDataError, type DemoContext } from "./demo-context";
 import { handOverDemoRental } from "./demo-handovers";
+import { returnDemoRental } from "./demo-returns";
 import { addDemoInsurance } from "./demo-insurance";
-import { DEMO_ACTIVE_RENTAL_CODES, DEMO_RENTALS, DEMO_RENTERS } from "./demo-plan";
+import {
+  DEMO_ACTIVE_RENTAL_CODES,
+  DEMO_RENTALS,
+  DEMO_RENTERS,
+  DEMO_RETURNED_RENTAL_CODES,
+  wasHandedOver,
+} from "./demo-plan";
 import { addDemoRental } from "./demo-rentals";
 import { addDemoRenter } from "./demo-renters";
 
@@ -59,8 +66,8 @@ const renterSteps: RunnableStep[] = inGroups(DEMO_RENTERS, RENTERS_PER_STEP).map
   }),
 );
 
-const RENTALS_HANDED_OVER = DEMO_RENTALS.filter((plan) => plan.kind === "active");
-const OTHER_RENTALS = DEMO_RENTALS.filter((plan) => plan.kind !== "active");
+const RENTALS_HANDED_OVER = DEMO_RENTALS.filter((plan) => wasHandedOver(plan.kind));
+const OTHER_RENTALS = DEMO_RENTALS.filter((plan) => !wasHandedOver(plan.kind));
 
 const RUNNABLE_STEPS: readonly RunnableStep[] = [
   ...carSteps,
@@ -80,6 +87,11 @@ const RUNNABLE_STEPS: readonly RunnableStep[] = [
     key: `handover-${code}`,
     label: `Handover for rental ${code}`,
     run: (context: DemoContext) => handOverDemoRental(context, code).then(countAdded),
+  })),
+  ...DEMO_RETURNED_RENTAL_CODES.map((code) => ({
+    key: `return-${code}`,
+    label: `Return for rental ${code}`,
+    run: (context: DemoContext) => returnDemoRental(context, code).then(countAdded),
   })),
 ];
 

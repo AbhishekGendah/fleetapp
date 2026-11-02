@@ -9,7 +9,8 @@ declare const self: ServiceWorkerGlobalScope;
 const KEPT_SECONDS = 7 * 24 * 60 * 60;
 /** How long to wait for the network before showing the copy kept on the phone. */
 const NETWORK_WAIT_SECONDS = 4;
-const HANDOVER_PAGE = /^\/rentals\/[^/]+\/handover$/;
+/** The handover and return checklists: both are filled in at the car, often with poor signal. */
+const HANDOVER_PAGE = /^\/rentals\/[^/]+\/(handover|return)$/;
 
 /**
  * Lets the handover checklist open with poor or no signal once it has been

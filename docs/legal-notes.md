@@ -444,6 +444,28 @@ of service) and the countries.
 - Production refuses to start with the test inbox, which holds working
   Renter links and codes; the test inbox exists in dev only (fake data).
 
+## Return (Phase 3 slice 6a, built)
+
+- **Possession end (fines, tolls):** possession ends at the return time
+  the business records, which can be entered later for an after-hours
+  drop-off. It can never be before the handover or in the future, and the
+  Log shows who entered it and when, so the record of who had the car is
+  defensible if a fine is disputed.
+- **The Renter's signature at return is optional** (design 05): when they
+  are not there, the report says so in plain words and that the business
+  recorded the return. Operators who want the Renter's signature every
+  time can switch on "Must the Renter sign when the car comes back?". Add
+  to the lawyer list with the handover acceptance: whether an unsigned
+  return report is enough evidence of the car's condition for a damage
+  claim against the Renter (consumer law: unfair terms if the contract
+  makes the Renter liable for damage they never saw recorded).
+- **Return report:** fixed with its fingerprint (rule 12) and emailed to
+  the Renter and the business, as the handover report. Photos at handover
+  and return sit side by side; new damage is listed separately.
+- **Bond:** the card shows how long the bond is kept after the return
+  (the rental's own setting). Refunds or deductions are Phase 4; any
+  deduction for damage will need the Renter told why (consumer law).
+
 ## Demo data (test site only, 2 Nov 2026)
 
 - Every demo record is made up: names, emails at example.test (a domain

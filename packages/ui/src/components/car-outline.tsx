@@ -15,6 +15,10 @@ export interface CarOutlineMark {
   y: number;
   /** Read out for the mark, e.g. "Damage 1: scratch on bonnet". */
   label: string;
+  /** What the mark shows, e.g. a letter; otherwise its number among the marks without one. */
+  badge?: string;
+  /** New damage in red; damage already there before (at the handover) greyed. */
+  tone?: "new" | "existing";
 }
 
 export interface CarOutlineProps {
@@ -106,18 +110,24 @@ export function CarOutline({
         </div>
       )}
       {marks.map((mark, index) => (
+        // Lettered marks (badge) do not take a number, so new damage still counts from 1.
         <button
           key={mark.id}
           type="button"
           aria-label={mark.label}
           onClick={() => onSelectMark?.(mark.id)}
-          className="bg-destructive text-destructive-foreground focus-visible:ring-ring absolute flex size-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-sm font-bold shadow focus-visible:ring-2 focus-visible:outline-none"
+          className={cn(
+            "focus-visible:ring-ring absolute flex size-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-sm font-bold shadow focus-visible:ring-2 focus-visible:outline-none",
+            mark.tone === "existing"
+              ? "bg-muted text-foreground border-foreground/40 border-2"
+              : "bg-destructive text-destructive-foreground",
+          )}
           style={{
             left: `${(mark.x / CAR_OUTLINE_SCALE) * 100}%`,
             top: `${(mark.y / CAR_OUTLINE_SCALE) * 100}%`,
           }}
         >
-          {index + 1}
+          {mark.badge ?? marks.slice(0, index + 1).filter((other) => !other.badge).length}
         </button>
       ))}
     </div>

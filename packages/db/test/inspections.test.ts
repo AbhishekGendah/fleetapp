@@ -47,14 +47,17 @@ describe("inspections and possessions", () => {
     return { rentalId: rental!.id, vehicleId: carId };
   }
 
-  async function startInspection(rental: { rentalId: string; vehicleId: string }) {
+  async function startInspection(
+    rental: { rentalId: string; vehicleId: string },
+    kind: "handover" | "return" = "handover",
+  ) {
     const [inspection] = await withTenant(web.db, operatorAId, (tx) =>
       tx
         .insert(schema.inspections)
         .values({
           operatorId: operatorAId,
           ...rental,
-          kind: "handover",
+          kind,
           photoNames: [...DEFAULT_HANDOVER_PHOTOS],
           startedByUserId: userAId,
         })
@@ -239,6 +242,58 @@ describe("inspections and possessions", () => {
     expect(overlap).toBe(EXCLUSION_VIOLATION);
     expect(afterwards).toHaveLength(1);
     expect(endAgain).toBe(POSTGRES_ERROR_CODES.restrictViolation);
+  });
+
+  it("lets only a return say the Renter was not there, once, and ends the possession there", async () => {
+    const rental = await addRental();
+    const handoverId = await startInspection(rental);
+    await complete(handoverId);
+    const [possession] = await addPossession(
+      rental,
+      handoverId,
+      new Date(Date.now() - 3 * HOUR_MS),
+    );
+    const returnId = await startInspection(rental, "return");
+    const markAbsent = (inspectionId: string) =>
+      withTenant(web.db, operatorAId, (tx) =>
+        tx
+          .update(schema.inspections)
+          .set({ isRenterAbsent: true })
+          .where(eq(schema.inspections.id, inspectionId)),
+      );
+
+    const onHandover = await postgresErrorCodeOf(markAbsent(handoverId));
+    await markAbsent(returnId);
+    await complete(returnId);
+    await withTenant(web.db, operatorAId, (tx) =>
+      tx
+        .update(schema.possessions)
+        .set({ endedAt: new Date(), returnInspectionId: returnId })
+        .where(eq(schema.possessions.id, possession!.id)),
+    );
+    const secondReturn = await postgresErrorCodeOf(
+      startInspection(rental, "return").then((id) => complete(id)),
+    );
+    const changedAfter = await postgresErrorCodeOf(markAbsent(returnId));
+
+    // The handover is finished, so it is refused as a finished checklist before any check.
+    expect(onHandover).not.toBeNull();
+    expect(secondReturn).toBe(UNIQUE_VIOLATION);
+    expect(changedAfter).not.toBeNull();
+  });
+
+  it("refuses the Renter not being there on a handover", async () => {
+    const rental = await addRental();
+    const handoverId = await startInspection(rental);
+    const absent = await postgresErrorCodeOf(
+      withTenant(web.db, operatorAId, (tx) =>
+        tx
+          .update(schema.inspections)
+          .set({ isRenterAbsent: true })
+          .where(eq(schema.inspections.id, handoverId)),
+      ),
+    );
+    expect(absent).toBe(CHECK_VIOLATION);
   });
 
   it("keeps checklists and possessions from other Operators and the admin app", async () => {

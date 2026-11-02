@@ -346,6 +346,16 @@ function SignaturePadExample() {
 }
 
 /** The car outline: tap to mark, or choose the area from the list, as the handover does. */
+/** At a return, the handover's damage shows greyed, lettered rather than numbered. */
+const EXAMPLE_HANDOVER_MARK: CarOutlineMark = {
+  id: "handover-a",
+  x: 330,
+  y: 520,
+  label: "Already there at handover, A: scratch on left doors",
+  badge: "A",
+  tone: "existing",
+};
+
 function CarOutlineExample() {
   const [marks, setMarks] = useState<CarOutlineMark[]>([]);
   const [area, setArea] = useState("");
@@ -366,7 +376,7 @@ function CarOutlineExample() {
     <div className="flex flex-col gap-3">
       <CarOutline
         label="Car outline: tap where the damage is"
-        marks={marks}
+        marks={[EXAMPLE_HANDOVER_MARK, ...marks]}
         onPlace={({ x, y }) => addMark(x, y, "tapped")}
         onSelectMark={setChosen}
       />
@@ -726,7 +736,7 @@ export function ComponentCatalogue() {
 
       <CatalogueSection
         title="Car outline"
-        note="Damage at handover and return: tap the drawing, or choose the area from the list. Each mark is a numbered button."
+        note="Damage at handover and return: tap the drawing, or choose the area from the list. Each mark is a numbered button; at a return, damage already there at handover is greyed and lettered."
       >
         <CarOutlineExample />
       </CatalogueSection>

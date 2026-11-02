@@ -41,7 +41,7 @@ import { bookDraftAction, cancelRentalAction } from "./actions";
 import { CancelRentalForm } from "./cancel-form";
 import { BondCard } from "./bond-card";
 import { ContractCard } from "./contract-card";
-import { HandoverCard } from "./handover-card";
+import { HandoverCard, ReturnCard } from "./handover-card";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -273,6 +273,7 @@ export default async function RentalPage(props: {
           <BeforeHandoverCard rental={rental} clock={clock} user={user} />
           <ContractCard rental={rental} user={user} clock={clock} />
           <SummaryCard rental={rental} timeZone={user.operatorTimezone} />
+          <ReturnCard rental={rental} user={user} />
           <HandoverCard rental={rental} user={user} />
           <BondCard rental={rental} user={user} clock={clock} />
           <RatesCard rental={rental} />

@@ -1,4 +1,4 @@
-import { formatDateTimeInTimeZone } from "@fleetapp/core";
+import { formatDateTimeInTimeZone, type InspectionKind, type RentalStatus } from "@fleetapp/core";
 import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
@@ -7,29 +7,78 @@ import Link from "next/link";
 
 import { appDb } from "../../../lib/app-db";
 import { loadRentalHandoverStatus } from "../../../lib/handover/handover-queries";
-import { rentalDocumentPath, rentalHandoverPath } from "../../../lib/paths";
+import { rentalDocumentPath, rentalHandoverPath, rentalReturnPath } from "../../../lib/paths";
 import type { RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { SignedInUser } from "../../../lib/require-user";
 import { cancelHandoverAction, startHandoverAction } from "./handover/actions";
+import { cancelReturnAction, startReturnAction } from "./return/actions";
 
-function HandedOverCard({ rentalId, at }: { rentalId: string; at: string }) {
+/** How each checklist reads on the rental's page, and what it starts from. */
+interface ChecklistCardWording {
+  title: string;
+  /** The rental's status the checklist begins from. */
+  startsFrom: RentalStatus;
+  description: string;
+  doneDescription: (at: string) => string;
+  doneBadge: string;
+  verb: string;
+  report: { kind: "handover_report" | "return_report"; label: string };
+  path: (rentalId: string) => string;
+  start: (rentalId: string) => Promise<void>;
+  cancel: (rentalId: string, inspectionId: string) => Promise<void>;
+}
+
+const WORDING: Readonly<Record<InspectionKind, ChecklistCardWording>> = {
+  handover: {
+    title: "Handover",
+    startsFrom: "booked",
+    description:
+      "On your phone, with the Renter at the car: photos, kilometres, fuel and damage, then the Renter signs to accept it. It keeps working with poor signal.",
+    doneDescription: (at) =>
+      `The Renter accepted the car on ${at}. The report is fixed and was emailed to them and to you.`,
+    doneBadge: "Handed over",
+    verb: "handover",
+    report: { kind: "handover_report", label: "Open handover report" },
+    path: rentalHandoverPath,
+    start: startHandoverAction,
+    cancel: cancelHandoverAction,
+  },
+  return: {
+    title: "Return",
+    startsFrom: "active",
+    description:
+      "When the car comes back: the same photos beside the handover's, kilometres, fuel and any new damage, then the return time and the Renter's signature if they are there. It keeps working with poor signal.",
+    doneDescription: (at) =>
+      `The car came back on ${at}. The report is fixed and was emailed to the Renter and to you.`,
+    doneBadge: "Returned",
+    verb: "return",
+    report: { kind: "return_report", label: "Open return report" },
+    path: rentalReturnPath,
+    start: startReturnAction,
+    cancel: cancelReturnAction,
+  },
+};
+
+function DoneCard(props: { wording: ChecklistCardWording; rentalId: string; at: string }) {
+  const { wording } = props;
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Handover</CardTitle>
-        <CardDescription>
-          The Renter accepted the car on {at}. The report is fixed and was emailed to them and to
-          you.
-        </CardDescription>
+        <CardTitle>{wording.title}</CardTitle>
+        <CardDescription>{wording.doneDescription(props.at)}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <p>
-          <Badge tone="good">Handed over</Badge>
+          <Badge tone="good">{wording.doneBadge}</Badge>
         </p>
         <Button asChild variant="outline" className="w-full sm:w-auto sm:self-start">
-          <a href={rentalDocumentPath(rentalId, "handover_report")} target="_blank" rel="noopener">
+          <a
+            href={rentalDocumentPath(props.rentalId, wording.report.kind)}
+            target="_blank"
+            rel="noopener"
+          >
             <FileCheck2 aria-hidden />
-            Open handover report
+            {wording.report.label}
           </a>
         </Button>
       </CardContent>
@@ -38,56 +87,72 @@ function HandedOverCard({ rentalId, at }: { rentalId: string; at: string }) {
 }
 
 /**
- * The car changing hands: start the checklist on a booked rental (or carry
- * on with the one under way), and once the Renter has accepted, the report.
+ * One of the car's checklists on the rental's page: start it (from booked
+ * for the handover, from out for the return) or carry on with the one under
+ * way; once finished, when, and its report.
  */
-export async function HandoverCard({ rental, user }: { rental: RentalDetail; user: SignedInUser }) {
-  const status = await loadRentalHandoverStatus(appDb, user.operatorId, rental.id);
-  if (status.completedAt) {
+async function ChecklistCard(props: {
+  kind: InspectionKind;
+  rental: RentalDetail;
+  user: SignedInUser;
+  doneAt: Date | null;
+}) {
+  const wording = WORDING[props.kind];
+  const { rental, user } = props;
+  if (props.doneAt) {
     return (
-      <HandedOverCard
+      <DoneCard
+        wording={wording}
         rentalId={rental.id}
-        at={formatDateTimeInTimeZone(status.completedAt, user.operatorTimezone)}
+        at={formatDateTimeInTimeZone(props.doneAt, user.operatorTimezone)}
       />
     );
   }
-  if (rental.status !== "booked") {
+  if (rental.status !== wording.startsFrom) {
     return null;
   }
+  const status = await loadRentalHandoverStatus(appDb, user.operatorId, rental.id, props.kind);
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Handover</CardTitle>
-        <CardDescription>
-          On your phone, with the Renter at the car: photos, kilometres, fuel and damage, then the
-          Renter signs to accept it. It keeps working with poor signal.
-        </CardDescription>
+        <CardTitle>{wording.title}</CardTitle>
+        <CardDescription>{wording.description}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3 sm:flex-row">
         {status.inProgressId ? (
           <>
             <Button asChild className="w-full sm:w-auto">
-              <Link href={rentalHandoverPath(rental.id)}>
+              <Link href={wording.path(rental.id)}>
                 <ClipboardCheck aria-hidden />
-                Continue handover
+                Continue {wording.verb}
               </Link>
             </Button>
-            <form action={cancelHandoverAction.bind(null, rental.id, status.inProgressId)}>
+            <form action={wording.cancel.bind(null, rental.id, status.inProgressId)}>
               <Button type="submit" variant="danger" className="w-full sm:w-auto">
                 <XCircle aria-hidden />
-                Cancel this handover
+                Cancel this {wording.verb}
               </Button>
             </form>
           </>
         ) : (
-          <form action={startHandoverAction.bind(null, rental.id)}>
+          <form action={wording.start.bind(null, rental.id)}>
             <Button type="submit" className="w-full sm:w-auto">
               <ClipboardCheck aria-hidden />
-              Start handover
+              Start {wording.verb}
             </Button>
           </form>
         )}
       </CardContent>
     </Card>
   );
+}
+
+/** The car changing hands at the start: the checklist, then the Renter's acceptance and report. */
+export function HandoverCard({ rental, user }: { rental: RentalDetail; user: SignedInUser }) {
+  return <ChecklistCard kind="handover" rental={rental} user={user} doneAt={rental.handedOverAt} />;
+}
+
+/** The car coming back: the checklist beside the handover's, then the return report. */
+export function ReturnCard({ rental, user }: { rental: RentalDetail; user: SignedInUser }) {
+  return <ChecklistCard kind="return" rental={rental} user={user} doneAt={rental.returnedAt} />;
 }

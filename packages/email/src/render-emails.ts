@@ -151,6 +151,10 @@ const COPY_SUBJECTS: Readonly<
     renter: (operatorName) => `Your car handover report from ${operatorName}`,
     operator: "Car handed over",
   },
+  return_report: {
+    renter: (operatorName) => `Your car return report from ${operatorName}`,
+    operator: "Car returned",
+  },
 };
 
 /**
