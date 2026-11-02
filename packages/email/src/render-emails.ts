@@ -161,6 +161,10 @@ const COPY_SUBJECTS: Readonly<
     renter: (operatorName) => `Your signed change of terms with ${operatorName}`,
     operator: "Change of terms signed",
   },
+  swap_form: {
+    renter: (operatorName) => `Your car swap with ${operatorName}`,
+    operator: "Car swapped",
+  },
 };
 
 /**

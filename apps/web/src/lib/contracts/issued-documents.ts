@@ -86,18 +86,24 @@ async function nextVersion(
   return (latest?.version ?? 0) + 1;
 }
 
+/** A document's PDF stored and its file recorded, waiting to be issued in a transaction. */
+export interface StoredDocument {
+  fileId: string;
+  sha256: string;
+  request: Omit<IssueRequest, "onIssued">;
+}
+
 /**
- * Issues a fixed document for a rental (rule 12): the PDF is stored once,
- * never to be changed, and recorded with its SHA-256 fingerprint as the next
- * version of its kind. The file is recorded first and confirmed only once the
- * PDF is safely stored, so a failed save leaves an abandoned upload that the
- * nightly clean-up removes, never a document without its PDF.
+ * The first half of issuing (rule 12): the PDF is stored once, never to be
+ * changed, under a file recorded first and confirmed only when it is issued,
+ * so a failed save leaves an abandoned upload that the nightly clean-up
+ * removes, never a document without its PDF.
  */
-export async function issueDocument(
+export async function storeDocumentPdf(
   deps: FileDependencies,
   actor: IssuingActor,
-  request: IssueRequest,
-): Promise<IssueResult> {
+  request: Omit<IssueRequest, "onIssued">,
+): Promise<StoredDocument | { status: "not_found" | "too_big" }> {
   if (request.pdf.byteLength > FILE_PURPOSE_RULES[PURPOSE].maxBytes) {
     return { status: "too_big" };
   }
@@ -125,50 +131,77 @@ export async function issueDocument(
   if (!isRental) {
     return { status: "not_found" };
   }
-
   await deps.storage.save(AREA, objectKey, request.pdf, FILE_CONTENT_TYPES.pdf);
-  const sha256 = documentFingerprint(request.pdf);
+  return { fileId, sha256: documentFingerprint(request.pdf), request };
+}
 
-  return withTenant(deps.database, actor.operatorId, async (tx) => {
-    // Locks the rental so two documents of one kind cannot take the same number.
-    await tx
-      .select({ id: rentals.id })
-      .from(rentals)
-      .where(eq(rentals.id, request.rentalId))
-      .for("update");
-    const version = await nextVersion(tx, actor.operatorId, request.rentalId, request.kind);
-    await tx
-      .update(files)
-      .set({ confirmedAt: deps.now() })
-      .where(and(eq(files.id, fileId), eq(files.operatorId, actor.operatorId)));
-    const [document] = await tx
-      .insert(issuedDocuments)
-      .values({
-        operatorId: actor.operatorId,
-        rentalId: request.rentalId,
-        kind: request.kind,
-        version,
-        templateVersionId: request.templateVersionId,
-        inspectionId: request.inspectionId ?? null,
-        fileId,
-        sha256,
-        issuedByUserId: userIdOf(actor),
-        issuedAt: deps.now(),
-      })
-      .returning({ id: issuedDocuments.id });
-    if (!document) {
-      throw new Error("The document was not saved.");
-    }
-    await recordActivity(tx, {
+/**
+ * The second half, inside the caller's transaction: the stored PDF is
+ * recorded with its SHA-256 fingerprint as the next version of its kind.
+ * The rental is locked so two documents of one kind cannot take the same
+ * number.
+ */
+export async function recordIssuedDocument(
+  tx: AnyTransaction,
+  deps: Pick<FileDependencies, "now">,
+  actor: IssuingActor,
+  stored: StoredDocument,
+): Promise<{ documentId: string; version: number; sha256: string }> {
+  const { request } = stored;
+  await tx
+    .select({ id: rentals.id })
+    .from(rentals)
+    .where(eq(rentals.id, request.rentalId))
+    .for("update");
+  const version = await nextVersion(tx, actor.operatorId, request.rentalId, request.kind);
+  await tx
+    .update(files)
+    .set({ confirmedAt: deps.now() })
+    .where(and(eq(files.id, stored.fileId), eq(files.operatorId, actor.operatorId)));
+  const [document] = await tx
+    .insert(issuedDocuments)
+    .values({
       operatorId: actor.operatorId,
-      actor: logActorOf(actor),
-      entityType: ACTIVITY_ENTITY_TYPES.issuedDocument,
-      entityId: document.id,
-      action: ACTIVITY_ACTIONS.created,
-      valuesAfter: { kind: request.kind, version, rentalId: request.rentalId, sha256 },
-    });
-    await request.onIssued?.(tx, document.id);
-    return { status: "issued", documentId: document.id, version, sha256 };
+      rentalId: request.rentalId,
+      kind: request.kind,
+      version,
+      templateVersionId: request.templateVersionId,
+      inspectionId: request.inspectionId ?? null,
+      fileId: stored.fileId,
+      sha256: stored.sha256,
+      issuedByUserId: userIdOf(actor),
+      issuedAt: deps.now(),
+    })
+    .returning({ id: issuedDocuments.id });
+  if (!document) {
+    throw new Error("The document was not saved.");
+  }
+  await recordActivity(tx, {
+    operatorId: actor.operatorId,
+    actor: logActorOf(actor),
+    entityType: ACTIVITY_ENTITY_TYPES.issuedDocument,
+    entityId: document.id,
+    action: ACTIVITY_ACTIONS.created,
+    valuesAfter: { kind: request.kind, version, rentalId: request.rentalId, sha256: stored.sha256 },
+  });
+  return { documentId: document.id, version, sha256: stored.sha256 };
+}
+
+/** Issues a fixed document for a rental (rule 12): stored, then recorded with `onIssued`. */
+export async function issueDocument(
+  deps: FileDependencies,
+  actor: IssuingActor,
+  request: IssueRequest,
+): Promise<IssueResult> {
+  const { onIssued, ...toStore } = request;
+  const stored = await storeDocumentPdf(deps, actor, toStore);
+  if ("status" in stored) {
+    return stored;
+  }
+  return withTenant(deps.database, actor.operatorId, async (tx) => {
+    const issued = await recordIssuedDocument(tx, deps, actor, stored);
+    await onIssued?.(tx, issued.documentId);
+    return { status: "issued", ...issued };
   });
 }
 

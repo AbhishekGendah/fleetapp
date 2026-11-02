@@ -9,13 +9,14 @@ import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import {
   ACTIVITY_ACTIONS,
   ACTIVITY_ENTITY_TYPES,
+  carSwaps,
   inspectionDamageMarks,
   inspections,
   rentals,
   type ActivityAction,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, type SQL } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
 import { latestKilometres } from "../vehicles/odometer";
@@ -64,29 +65,78 @@ async function checklistUnderWay(
         eq(inspections.rentalId, rentalId),
         eq(inspections.kind, kind),
         eq(inspections.status, "in_progress"),
+        eq(inspections.isForSwap, false),
       ),
     );
   return current?.id ?? null;
 }
 
-/** The photo list the handover finished with: the return asks for the same, to compare. */
-async function handoverPhotoNames(
+/**
+ * The photo list the car's handover finished with (the rental's own, or a
+ * swap's for a swapped-in car): the return asks for the same, to compare.
+ */
+export async function handoverPhotoNames(
   tx: AnyTransaction,
   operatorId: string,
-  rentalId: string,
+  rental: { rentalId: string; vehicleId: string },
 ): Promise<string[] | null> {
   const [handover] = await tx
     .select({ photoNames: inspections.photoNames })
+    .from(inspections)
+    .where(latestHandoverOf(operatorId, rental))
+    .orderBy(desc(inspections.completedAt))
+    .limit(1);
+  return handover?.photoNames ?? null;
+}
+
+/** The finished handovers of this car under this rental: the latest is the one to compare with. */
+export function latestHandoverOf(
+  operatorId: string,
+  rental: { rentalId: string; vehicleId: string },
+): SQL | undefined {
+  return and(
+    eq(inspections.operatorId, operatorId),
+    eq(inspections.rentalId, rental.rentalId),
+    eq(inspections.vehicleId, rental.vehicleId),
+    eq(inspections.kind, "handover"),
+    eq(inspections.status, "completed"),
+  );
+}
+
+/** Whether a checklist (of this kind, or any) is under way for the rental, a swap's included. */
+export async function isChecklistUnderWay(
+  tx: AnyTransaction,
+  operatorId: string,
+  rentalId: string,
+  kind?: InspectionKind,
+): Promise<boolean> {
+  const [open] = await tx
+    .select({ id: inspections.id })
     .from(inspections)
     .where(
       and(
         eq(inspections.operatorId, operatorId),
         eq(inspections.rentalId, rentalId),
-        eq(inspections.kind, "handover"),
-        eq(inspections.status, "completed"),
+        kind ? eq(inspections.kind, kind) : undefined,
+        eq(inspections.status, "in_progress"),
+      ),
+    )
+    .limit(1);
+  return open !== undefined;
+}
+
+async function isSwapUnderWay(tx: AnyTransaction, operatorId: string, rentalId: string) {
+  const [swap] = await tx
+    .select({ id: carSwaps.id })
+    .from(carSwaps)
+    .where(
+      and(
+        eq(carSwaps.operatorId, operatorId),
+        eq(carSwaps.rentalId, rentalId),
+        eq(carSwaps.status, "in_progress"),
       ),
     );
-  return handover?.photoNames ?? null;
+  return swap !== undefined;
 }
 
 /** What each kind needs of the rental: booked for a handover, out (active) for a return. */
@@ -128,10 +178,14 @@ async function startChecklist(
     if (rental.status !== STATUS_TO_START[kind]) {
       return { status: "not_booked" as const };
     }
+    // A swap under way has its own return of this car: the rental's waits for it.
+    if (await isSwapUnderWay(tx, actor.operatorId, rentalId)) {
+      return { status: "not_booked" as const };
+    }
     const photoNames =
       kind === "handover"
         ? readSettings(operatorSettingsSchema, rental.settingsSnapshot).handoverPhotos
-        : await handoverPhotoNames(tx, actor.operatorId, rentalId);
+        : await handoverPhotoNames(tx, actor.operatorId, { rentalId, vehicleId: rental.vehicleId });
     if (!photoNames) {
       return { status: "not_booked" as const };
     }
@@ -298,7 +352,9 @@ export async function cancelHandover(
   inspectionId: string,
 ): Promise<"cancelled" | "not_found"> {
   return withTenant(database, actor.operatorId, async (tx) => {
-    if (!(await lockOpenInspection(tx, actor.operatorId, inspectionId))) {
+    const open = await lockOpenInspection(tx, actor.operatorId, inspectionId);
+    // A swap's checklists are cancelled with the swap, never one alone.
+    if (!open || open.isForSwap) {
       return "not_found";
     }
     await tx

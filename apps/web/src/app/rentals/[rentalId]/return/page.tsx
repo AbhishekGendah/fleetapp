@@ -39,7 +39,10 @@ function comparisonWith(handover: HandoverView): HandoverComparison {
 /** The return checklist under way for a rental; back to the rental if there is none. */
 export default async function ReturnPage(props: { params: Promise<{ rentalId: string }> }) {
   const { user, rentalId, view } = await loadChecklistPage(props.params, "return");
-  const handover = await loadCompletedHandover(appDb, user.operatorId, rentalId);
+  const handover = await loadCompletedHandover(appDb, user.operatorId, {
+    rentalId,
+    vehicleId: view.vehicleId,
+  });
   if (!handover) {
     redirect(rentalPath(rentalId));
   }

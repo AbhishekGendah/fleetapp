@@ -10,14 +10,16 @@ import {
   files,
   inspectionDamageMarks,
   inspections,
+  possessions,
   rentals,
   renters,
   vehicles,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, asc, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 
 import { latestKilometres } from "../vehicles/odometer";
+import { latestHandoverOf } from "./handover-records";
 
 /** A photo on the checklist, and its small copy for showing it. */
 export interface ChecklistPhoto {
@@ -35,6 +37,8 @@ export interface DamageMarkView {
 
 /** A handover checklist as its screen, its completion and its report need it. */
 export interface HandoverView {
+  /** One of a car swap's pair: finished only with the swap. */
+  isForSwap: boolean;
   inspectionId: string;
   kind: InspectionKind;
   status: InspectionStatus;
@@ -196,7 +200,11 @@ async function loadChecklist(
         bondCents: rentals.bondCents,
         plannedStart: rentals.plannedStart,
         plannedEnd: rentals.plannedEnd,
-        handedOverAt: rentals.handedOverAt,
+        // When the Renter got the car they have now: the handover, or the latest swap.
+        handedOverAt: sql<Date | null>`coalesce((
+          select max(${possessions.startedAt}) from ${possessions}
+          where ${possessions.rentalId} = ${rentals.id} and ${possessions.operatorId} = ${rentals.operatorId}
+        ), ${rentals.handedOverAt})`.mapWith(rentals.handedOverAt),
         settingsSnapshot: rentals.settingsSnapshot,
         renterFullName: renters.fullName,
         renterEmail: renters.email,
@@ -234,6 +242,7 @@ async function loadChecklist(
       inspectionId,
       kind: inspection.kind,
       status: inspection.status,
+      isForSwap: inspection.isForSwap,
       rentalId: inspection.rentalId,
       vehicleId: inspection.vehicleId,
       renterId: row.renterId,
@@ -286,6 +295,8 @@ export async function loadRentalHandoverStatus(
           eq(inspections.rentalId, rentalId),
           eq(inspections.kind, kind),
           inArray(inspections.status, ["in_progress", "completed"]),
+          // The rental's own handover and return; a swap's pair shows with the swap.
+          eq(inspections.isForSwap, false),
         ),
       ),
   );
@@ -295,24 +306,23 @@ export async function loadRentalHandoverStatus(
   };
 }
 
-/** The rental's finished handover, to compare the return with; null if it has none. */
+/**
+ * The handover a return compares with: the latest finished handover of that
+ * car under the rental (the rental's own, or the swap that brought the car
+ * in); null if it has none.
+ */
 export async function loadCompletedHandover(
   database: AnyDatabase,
   operatorId: string,
-  rentalId: string,
+  rental: { rentalId: string; vehicleId: string },
 ): Promise<HandoverView | null> {
   const [handover] = await withTenant(database, operatorId, (tx) =>
     tx
       .select({ id: inspections.id })
       .from(inspections)
-      .where(
-        and(
-          eq(inspections.operatorId, operatorId),
-          eq(inspections.rentalId, rentalId),
-          eq(inspections.kind, "handover"),
-          eq(inspections.status, "completed"),
-        ),
-      ),
+      .where(latestHandoverOf(operatorId, rental))
+      .orderBy(desc(inspections.completedAt))
+      .limit(1),
   );
   return handover ? loadHandover(database, operatorId, handover.id) : null;
 }

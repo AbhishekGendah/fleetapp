@@ -178,8 +178,12 @@ export async function completeHandover(
   clock: RentalClock,
 ): Promise<CompleteHandoverResult> {
   const view = await loadHandover(deps.database, actor.operatorId, inspectionId);
-  if (!view || view.status !== "in_progress") {
-    return { status: view ? "finished_already" : "not_found" };
+  // A swap's checklists are finished only with the swap.
+  if (!view || view.isForSwap) {
+    return { status: "not_found" };
+  }
+  if (view.status !== "in_progress") {
+    return { status: "finished_already" };
   }
   const refusal = await acceptanceRefusal(deps, actor.operatorId, view, input, clock);
   if (refusal) {

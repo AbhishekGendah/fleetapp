@@ -9,6 +9,7 @@ export const COPIED_DOCUMENT_KINDS = [
   "handover_report",
   "return_report",
   "change_of_terms",
+  "swap_form",
 ] as const;
 export type CopiedDocumentKind = (typeof COPIED_DOCUMENT_KINDS)[number];
 
@@ -71,6 +72,18 @@ const WORDING: Readonly<Record<CopiedDocumentKind, Wording>> = {
       `${props.renterName} signed the change of terms for ${props.rentalSummary} on ${props.at}. The signed copy is attached, and kept with the rental.`,
     smallPrint: (at) =>
       `Signed on ${at}. The last page records how it was signed, and the fingerprint that proves the document has not changed.`,
+  },
+  swap_form: {
+    preview: {
+      renter: "Your car swap form",
+      operator: (renterName) => `${renterName} swapped cars`,
+    },
+    heading: { renter: "Your car swap", operator: "Car swapped" },
+    renterLine: (props) =>
+      `You swapped cars with ${props.operatorName}: you now have ${props.rentalSummary}. The swap form you signed is attached, and the reports for both cars come in their own emails.`,
+    operatorLine: (props) =>
+      `${props.renterName} swapped into ${props.rentalSummary} on ${props.at}. The signed swap form is attached, and kept with the rental.`,
+    smallPrint: (at) => `Signed on ${at}. The form is fixed: it can never be changed.`,
   },
   return_report: {
     preview: {

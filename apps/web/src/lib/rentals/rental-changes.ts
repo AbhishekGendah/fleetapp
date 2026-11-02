@@ -21,7 +21,6 @@ import {
   ACTIVITY_ACTIONS,
   ACTIVITY_ENTITY_TYPES,
   carHolds,
-  inspections,
   rentalChanges,
   rentalRates,
   rentals,
@@ -30,6 +29,7 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, isNull, sql } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
+import { isChecklistUnderWay } from "../handover/handover-records";
 import type { ChangeFields } from "../contracts/contract-data";
 import { findBookingClash, isCarAlreadyHeld, type BookingClash } from "./car-holds";
 import type { RentalClock } from "./rental-records";
@@ -68,21 +68,9 @@ async function lockRental(
   return rental ?? null;
 }
 
-/** A return under way is finishing the rental: its terms wait until it is done or cancelled. */
-async function isReturnUnderWay(tx: AnyTransaction, operatorId: string, rentalId: string) {
-  const [open] = await tx
-    .select({ id: inspections.id })
-    .from(inspections)
-    .where(
-      and(
-        eq(inspections.operatorId, operatorId),
-        eq(inspections.rentalId, rentalId),
-        eq(inspections.kind, "return"),
-        eq(inspections.status, "in_progress"),
-      ),
-    )
-    .limit(1);
-  return open !== undefined;
+/** A return (or a swap's) under way is finishing the car's time: terms wait until it is done or cancelled. */
+function isReturnUnderWay(tx: AnyTransaction, operatorId: string, rentalId: string) {
+  return isChecklistUnderWay(tx, operatorId, rentalId, "return");
 }
 
 export type EndChangeResult =

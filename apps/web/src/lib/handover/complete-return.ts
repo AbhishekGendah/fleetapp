@@ -213,8 +213,12 @@ export async function completeReturn(
   clock: RentalClock,
 ): Promise<CompleteReturnResult> {
   const view = await loadReturn(deps.database, actor.operatorId, inspectionId);
-  if (!view || view.status !== "in_progress") {
-    return { status: view ? "finished_already" : "not_found" };
+  // A swap's checklists are finished only with the swap.
+  if (!view || view.isForSwap) {
+    return { status: "not_found" };
+  }
+  if (view.status !== "in_progress") {
+    return { status: "finished_already" };
   }
   if (!view.handedOverAt) {
     return { status: "not_found" };
@@ -228,7 +232,10 @@ export async function completeReturn(
     return { status: "return_time", problem: recorded.problem };
   }
   const input = { ...requested, returnedAt: recorded.at };
-  const handover = await loadCompletedHandover(deps.database, actor.operatorId, view.rentalId);
+  const handover = await loadCompletedHandover(deps.database, actor.operatorId, {
+    rentalId: view.rentalId,
+    vehicleId: view.vehicleId,
+  });
   const refusal = handover ? returnRefusal(view, input, clock) : { status: "not_found" as const };
   if (refusal || !handover) {
     return refusal ?? { status: "not_found" };
