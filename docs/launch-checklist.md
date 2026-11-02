@@ -104,6 +104,9 @@ Add to this list whenever something is relaxed or put off "until launch".
   policy, Operator terms (including AGS correcting car make and model
   names, and record keeping), the Renter privacy notice, and the data
   breach response plan.
+- [ ] "Download everything we hold" for a Renter includes their damage
+  records and insurance claims (added 2 Nov 2026 with slice 6b; see
+  docs/legal-notes.md).
 - [ ] PintoFleet name checked (ASIC, IP Australia, domain).
 - [ ] The privacy notice on the Renter's details form checked by the lawyer,
   and every Operator has a privacy policy it can point to (a link to it on

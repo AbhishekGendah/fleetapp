@@ -466,6 +466,23 @@ of service) and the countries.
   (the rental's own setting). Refunds or deductions are Phase 4; any
   deduction for damage will need the Renter told why (consumer law).
 
+## Damage records and insurance claims (Phase 3 slice 6b, built)
+
+- **Who had the car is a suggestion, never a charge:** for damage found
+  away from a return, the app suggests the Renter who had the car that day
+  from possession (rule 15) and the Operator confirms or clears it. Nothing
+  is charged or sent to the Renter here; recovering a repair or the excess
+  is Phase 4, where the Renter must be told what they are charged for and
+  why (consumer law: no charge for damage they did not cause, and a fair
+  chance to dispute it).
+- **Personal data:** a damage record links to a Renter, so it is part of
+  "Download everything we hold" for them once that covers damage (see
+  "Coming with later features"). Claim numbers and insurer notes are business records, not
+  identity documents. Admin cannot read them (rule 5).
+- **Record keeping:** records are archived, never deleted; one from a
+  return cannot be removed at all, only marked Not repairing, so the
+  history behind a later claim stays complete.
+
 ## Demo data (test site only, 2 Nov 2026)
 
 - Every demo record is made up: names, emails at example.test (a domain
@@ -527,6 +544,10 @@ of service) and the countries.
   add to photos, which is good for privacy (APP 11).
 
 ## Coming with later features (check when built)
+
+- **Access requests and damage:** "Download everything we hold" does not
+  yet list damage records and claims linked to the Renter. Add them before
+  launch (also in docs/launch-checklist.md), as they are about the Renter.
 
 - **Identity documents (licence scans):** collect only what is needed,
   and say why in the privacy notice shown to Renters when collected

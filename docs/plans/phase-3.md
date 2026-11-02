@@ -1,6 +1,6 @@
 # Phase 3 plan — Rentals
 
-Status: approved (1 Nov 2026). Slices 1 (bookings), 2 (contract templates) and 3 (signing) built 1 Nov 2026, slices 4 (bonds), 5 (handover) and 6a (return, docs/plans/phase-3-slice-6.md) 2 Nov 2026; 6b (damage records and insurance claims) next.
+Status: approved (1 Nov 2026). Slices 1 (bookings), 2 (contract templates) and 3 (signing) built 1 Nov 2026, slices 4 (bonds), 5 (handover) and 6a (return, docs/plans/phase-3-slice-6.md) and 6b (damage records and insurance claims, docs/plans/phase-3-slice-6b.md) 2 Nov 2026; slice 7 next.
 Design: docs/design/04 (rentals), 05 (contracts, signing, handovers), the
 bond part of 06, the Renter-link part of 08, the dashboard part of 09.
 

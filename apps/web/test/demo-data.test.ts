@@ -1,4 +1,12 @@
-import { issuedDocuments, possessions, rentals, renters, vehicles } from "@fleetapp/db/schema";
+import {
+  damageRecords,
+  insuranceClaims,
+  issuedDocuments,
+  possessions,
+  rentals,
+  renters,
+  vehicles,
+} from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, count, eq } from "drizzle-orm";
@@ -96,6 +104,21 @@ describe("demo data", () => {
       );
       expect(handedOver?.total).toBe(17);
       expect(held?.total).toBe(17);
+      const damage = await withTenant(web.db, actor.operatorId, (tx) =>
+        tx
+          .select({ status: damageRecords.status, claimStatus: insuranceClaims.status })
+          .from(damageRecords)
+          .leftJoin(insuranceClaims, eq(insuranceClaims.damageRecordId, damageRecords.id))
+          .where(eq(damageRecords.operatorId, actor.operatorId)),
+      );
+      expect(damage).toHaveLength(5);
+      expect(damage.map((record) => record.claimStatus ?? "none").sort()).toEqual([
+        "declined",
+        "lodged",
+        "none",
+        "none",
+        "paid",
+      ]);
 
       expect(await runEveryDemoStep(context)).toBe(0);
       expect(await countOf(vehicles, otherOperator.operatorId)).toBe(0);

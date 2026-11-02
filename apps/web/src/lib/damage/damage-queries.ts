@@ -31,7 +31,6 @@ import {
   lte,
   or,
   sql,
-  type AnyColumn,
   type SQL,
 } from "drizzle-orm";
 
@@ -235,15 +234,15 @@ export interface ClaimDefaults {
 /**
  * The policy covering the car on the day the damage was found, to start a
  * claim from: its insurer and excess. The latest-starting one if two
- * overlapped; null if the car had none (insurer is then typed in).
+ * overlapped; null if the car had none (insurer is then typed in). The
+ * policy's own dates decide cover, not the day it was entered in the app;
+ * a car taken off the policy before that day is not covered by it.
  */
 export async function loadClaimDefaults(
   database: AnyDatabase,
   operatorId: string,
   request: { vehicleId: string; foundOn: string; timeZone: string },
 ): Promise<ClaimDefaults | null> {
-  const localDate = (moment: SQL | AnyColumn): SQL =>
-    sql`(${moment} at time zone ${request.timeZone})::date`;
   const [policy] = await withTenant(database, operatorId, (tx) =>
     tx
       .select({
@@ -258,10 +257,12 @@ export async function loadClaimDefaults(
           linksOfCar(operatorId, request.vehicleId),
           lte(insurancePolicies.startsOn, request.foundOn),
           gte(insurancePolicies.endsOn, request.foundOn),
-          lte(localDate(insurancePolicyVehicles.addedAt), request.foundOn),
           or(
             isNull(insurancePolicyVehicles.removedAt),
-            gte(localDate(insurancePolicyVehicles.removedAt), request.foundOn),
+            gte(
+              sql`(${insurancePolicyVehicles.removedAt} at time zone ${request.timeZone})::date`,
+              request.foundOn,
+            ),
           ),
         ),
       )

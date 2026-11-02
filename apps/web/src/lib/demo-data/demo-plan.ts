@@ -484,7 +484,12 @@ export const DEMO_RENTALS: readonly DemoRentalPlan[] = [
     { weeks: 4, rate: RATE_HYBRID, bond: BOND_STANDARD },
     {
       note: "Brought back early: the Renter left for Melbourne.",
-      returned: { days: -15, time: "16:00", isRenterAbsent: false },
+      returned: {
+        days: -15,
+        time: "16:00",
+        isRenterAbsent: false,
+        newDamage: ["Kerb rash on front left wheel"],
+      },
     },
   ),
   rental(
@@ -498,7 +503,7 @@ export const DEMO_RENTALS: readonly DemoRentalPlan[] = [
         days: -10,
         time: "11:00",
         isRenterAbsent: false,
-        newDamage: ["Scratch on boot lid"],
+        newDamage: ["Scratch on boot lid", "Chipped windscreen"],
       },
     },
   ),

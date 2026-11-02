@@ -35,6 +35,8 @@ import { TEST_TIME_ZONE } from "./rental-fixtures";
 const HOUR_MS = 60 * 60 * 1000;
 const AVAILABLE = { status: "available" as const, statusReason: null, statusExpectedBack: null };
 const LONG_AGO = "2026-01-05";
+/** Before the test policy starts. */
+const BEFORE_COVER = "2025-12-20";
 const FOUND_FORM = { x: null, y: null, rentalId: null };
 
 const CLAIM_FORM = {
@@ -266,7 +268,7 @@ describe("damage records and insurance claims", () => {
     expect(
       await loadClaimDefaults(web.db, actor.operatorId, {
         vehicleId: carId,
-        foundOn: LONG_AGO,
+        foundOn: BEFORE_COVER,
         timeZone: TEST_TIME_ZONE,
       }),
     ).toBeNull();

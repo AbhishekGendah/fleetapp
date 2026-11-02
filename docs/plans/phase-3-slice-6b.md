@@ -1,6 +1,6 @@
 # Phase 3 slice 6b: damage records and insurance claims
 
-Status: plan for approval (2 Nov 2026). Design: docs/design/05 (damage and
+Status: approved and built 2 Nov 2026. Design: docs/design/05 (damage and
 incident records), 02 (excess pre-fills damage recovery), 06 (damage and
 excess charges: Phase 4). Follows 6a, where new damage is marked at the
 return.

@@ -1,6 +1,6 @@
 # Phase 3 slice 6: the return
 
-Status: approved 2 Nov 2026; 6a built 2 Nov 2026, 6b next. Design: docs/design/05 (return
+Status: approved 2 Nov 2026; 6a and 6b built 2 Nov 2026. Design: docs/design/05 (return
 report), 04 (statuses, possession), 06 (bond hold). Builds on slice 5: the
 database already has the "return" checklist kind, the return report
 document kind, the rental's returned time and the possession's end.

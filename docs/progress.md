@@ -780,10 +780,33 @@
     and reads "Waiting to send". Checklist photos keep their size while
     loading, so the page no longer jumps.
 
+- Phase 3 slice 6b — damage records and insurance claims (plan:
+  docs/plans/phase-3-slice-6b.md):
+  - Migration 0035: damage_records and insurance_claims (RLS forced, each
+    link checked within the business, one record per return damage mark,
+    one claim per record, amounts in whole cents, never negative; archived,
+    never deleted). Photos can belong to a damage record.
+  - Each new damage mark at a return becomes an open damage record inside
+    the return itself, under that rental and Renter.
+  - Car Damage tab (open first) with Record damage for anything found
+    another way. Damage page: where on the car, photos, who had the car
+    (suggested from possession that day, confirmed by the Operator),
+    status (Open, Repaired, Not repairing with a reason), the insurance
+    claim (policy and excess from the car's policy that day, claim
+    number, status, dates, amount paid out), Remove for hand-recorded
+    ones, and the Log.
+  - Rental page Damage card; dashboard "Damage open" and "Claims under way".
+  - Demo data: new damage on R35 and R36's returns, two found later
+    (DEMO03 while out, DEMO38 between rentals), claims lodged, declined
+    and paid. On a business whose demo returns ran before today only the
+    two found later appear.
+  - Tests: claim form rules, damage from a return, the possession
+    suggestion, claim defaults, another Operator refused (server and
+    database), and the whole flow on a phone in the browser. Damage page
+    budget 435 KB. Checklist rows O-294 to O-303; O-278 updated.
+
 ## Next
-Phase 3 slice 6b: damage records and insurance claims (each new damage
-from a return, or found later, with photos and a claim: insurer, number,
-status, excess from the car's policy).
+Phase 3 slice 7 (car swaps). Later: the fleet timeline (DayPilot Lite).
 Open idea: trim the phone rules to Australia only with libphonenumber's
 metadata generator (about 40 KB off each form page); running the
 generator needs Abhi's say-so.
