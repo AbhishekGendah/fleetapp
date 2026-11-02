@@ -37,7 +37,7 @@ import {
   sendChangeAction,
   withdrawChangeAction,
 } from "./change-actions";
-import { EndChangeForm, OngoingChangeForm, RateChangeForm } from "./change-forms";
+import { LazyEndChangeForm, LazyOngoingChangeForm, LazyRateChangeForm } from "./lazy-change-forms";
 
 const STATUS_TONES: Readonly<Record<RentalChangeStatus, BadgeTone>> = {
   applied: "good",
@@ -137,7 +137,7 @@ function ChangeButtons(props: {
         triggerIcon={<CalendarClock aria-hidden />}
         title={isOngoing ? "Set an end date" : "Change the end date"}
       >
-        <EndChangeForm
+        <LazyEndChangeForm
           action={changeEndAction.bind(null, rental.id)}
           timeZone={clock.timeZone}
           initialEnd={utcToLocalDateTime(startingEnd, clock.timeZone)}
@@ -154,7 +154,7 @@ function ChangeButtons(props: {
           triggerIcon={<InfinityIcon aria-hidden />}
           title="Make the rental ongoing"
         >
-          <OngoingChangeForm action={makeOngoingAction.bind(null, rental.id)} />
+          <LazyOngoingChangeForm action={makeOngoingAction.bind(null, rental.id)} />
         </FormDialog>
       )}
       {canChangeRate(rental.status) && props.hasChangeTemplate ? (
@@ -163,7 +163,7 @@ function ChangeButtons(props: {
           triggerIcon={<Wallet aria-hidden />}
           title="Change the weekly rate"
         >
-          <RateChangeForm
+          <LazyRateChangeForm
             action={changeRateAction.bind(null, rental.id)}
             earliestDay={earliestRateDay(clock.now, clock.timeZone)}
           />

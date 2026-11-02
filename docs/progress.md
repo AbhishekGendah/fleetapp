@@ -805,8 +805,32 @@
     database), and the whole flow on a phone in the browser. Damage page
     budget 435 KB. Checklist rows O-294 to O-303; O-278 updated.
 
+- Phase 3 slice 7a — changes of terms (plan: docs/plans/phase-3-slice-7.md):
+  - Migration 0036: rental_changes (each change with before and after,
+    reason and status; only the status moves on and the signed form is
+    added once; never deleted; one rate change waiting at a time). Signing
+    links can be for a change (sign_change).
+  - Rental page Changes card: change or set the end date (the car's hold
+    moves with it; refused if it runs into the next booking), make it
+    ongoing, and change the weekly rate. An ongoing rental given an end
+    with less notice than its terms is allowed and marked Short notice.
+  - A rate change is emailed to the Renter as a change of terms to sign,
+    and becomes the rate only once signed. Send again, withdraw, open the
+    signed form. The Renter's signing page signs a change as it does the
+    contract (one shared signing path).
+  - Settings → Contracts: a Change of terms template starts from its own
+    layout; new "Change of terms" fields.
+  - Found and fixed on the way: the contract card's link status and
+    Cancel link looked at any signing link of the rental, so they would
+    have picked up a change's link.
+  - Demo data: R03 extended two weeks; R05 with a rate rise waiting.
+  - Tests: change rules (core), the table's rules and isolation
+    (database), end and rate changes with holds and signing (server), and
+    the whole flow on a phone in the browser. Rental page budget 480 KB.
+    Checklist rows O-304 to O-310; O-278 updated.
+
 ## Next
-Phase 3 slice 7 (car swaps). Later: the fleet timeline (DayPilot Lite).
+Phase 3 slice 7b (car swaps). Later: the fleet timeline (DayPilot Lite).
 Open idea: trim the phone rules to Australia only with libphonenumber's
 metadata generator (about 40 KB off each form page); running the
 generator needs Abhi's say-so.

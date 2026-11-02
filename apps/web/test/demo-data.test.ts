@@ -3,6 +3,7 @@ import {
   insuranceClaims,
   issuedDocuments,
   possessions,
+  rentalChanges,
   rentals,
   renters,
   vehicles,
@@ -112,6 +113,16 @@ describe("demo data", () => {
           .where(eq(damageRecords.operatorId, actor.operatorId)),
       );
       expect(damage).toHaveLength(5);
+      const changes = await withTenant(web.db, actor.operatorId, (tx) =>
+        tx
+          .select({ kind: rentalChanges.kind, status: rentalChanges.status })
+          .from(rentalChanges)
+          .where(eq(rentalChanges.operatorId, actor.operatorId)),
+      );
+      expect(changes.map((change) => `${change.kind}:${change.status}`).sort()).toEqual([
+        "end_date:applied",
+        "weekly_rate:waiting_for_signature",
+      ]);
       expect(damage.map((record) => record.claimStatus ?? "none").sort()).toEqual([
         "declined",
         "lodged",

@@ -27,11 +27,11 @@ const PARTIES: RentalParties = { renterName: RENTER.name, carRego: CAR_REGO };
 const TEMPLATE_NAME = "Short change form";
 const LINK_PATTERN = /https?:\/\/\S+\/r\/[A-Za-z0-9_-]+/;
 /**
- * The rental page's JavaScript, compressed: its cards and the change forms,
- * with the date and time picker (435 KB on 2 Nov 2026), plus about 10%.
+ * The rental page's JavaScript, compressed (360 KB on 2 Nov 2026), plus
+ * about 10%. The change forms load only when their pop-up opens.
  * Its address holds the rental's id, so it is checked here.
  */
-const RENTAL_PAGE_BUDGET_KB = 480;
+const RENTAL_PAGE_BUDGET_KB = 400;
 
 const SEPTEMBER_6: TypedMoment = {
   day: "06",

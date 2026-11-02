@@ -483,6 +483,26 @@ of service) and the countries.
   return cannot be removed at all, only marked Not repairing, so the
   history behind a later claim stays complete.
 
+## Changes of terms (Phase 3 slice 7a, built)
+
+- **A rate rise needs the Renter's agreement:** a new weekly rate is sent
+  as a change-of-terms form and counts only once the Renter signs it.
+  Consumer law: a term letting the business change the price on its own
+  is likely unfair (Australian Consumer Law, unfair contract terms). Ask
+  the lawyer whether an end-date change also needs the Renter's signature
+  in every case; for now it takes effect at once (agreed with the Renter)
+  and can be sent to sign.
+- **Direct debit:** before Phase 4 charges from a new rate, confirm
+  Stripe's notice rule for a changed direct debit amount (decision 5).
+  The earliest a rate can start today is tomorrow.
+- **Short notice:** ending an ongoing rental with less notice than the
+  rental's terms is allowed (the parties may agree it) and logged.
+- **Signing wording:** the Renter agrees to sign "this contract"
+  electronically on the change-of-terms form too; check with the lawyer
+  that this wording suits a change of terms (add to the lawyer list).
+- **Record keeping:** each change is kept for good with its reason, who
+  made it and the signed form (rule 12 for the PDF).
+
 ## Demo data (test site only, 2 Nov 2026)
 
 - Every demo record is made up: names, emails at example.test (a domain
