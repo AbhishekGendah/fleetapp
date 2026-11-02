@@ -36,6 +36,8 @@ const PARTIES: RentalParties = { renterName: RENTER.name, carRego: CAR_REGO };
 const HANDOVER_PAGE_BUDGET_KB = 730;
 /** The return page: the handover's pieces plus the date and time picker (2 Nov 2026), plus about 10%. */
 const RETURN_PAGE_BUDGET_KB = 800;
+/** A damage record's page: photo sender, outline and claim form (395 KB on 2 Nov 2026), plus about 10%. */
+const DAMAGE_PAGE_BUDGET_KB = 435;
 
 const AUGUST_2: TypedMoment = {
   day: "02",
@@ -250,6 +252,82 @@ test.describe.serial("handing a car over", () => {
       expect(response.headers()["content-type"]).toBe("application/pdf");
       await expect(page.getByRole("button", { name: "Start return" })).toHaveCount(0);
       await expectAccessible(page);
+    });
+
+    test("the return's new damage is a record: its photo, a claim lodged, not repairing", async ({
+      page,
+    }) => {
+      await openRentalOf(page, PARTIES);
+      await page.getByRole("link", { name: "Dent on bonnet" }).click();
+      await expect(page.getByRole("heading", { name: `Damage · ${CAR_REGO}` })).toBeVisible();
+      await page.waitForLoadState("networkidle");
+      expect(await scriptKilobytes(page)).toBeLessThanOrEqual(DAMAGE_PAGE_BUDGET_KB);
+      await expectNoSidewaysScroll(page);
+      await expect(page.getByText("Marked as new damage at the return.")).toBeVisible();
+      await expect(page.getByRole("link", { name: RENTER.name })).toBeVisible();
+      await expect(page.getByRole("button", { name: /^Open photo / })).toHaveCount(1);
+      await expectAccessible(page);
+
+      await page.getByRole("button", { name: "Add a claim" }).click();
+      const claim = page.getByRole("dialog");
+      await claim.getByRole("textbox", { name: /^Insurer/ }).fill("Example Insurance");
+      await claim.getByLabel(/^Claim status/).selectOption("lodged");
+      await claim.getByRole("button", { name: "Save claim" }).click();
+      await expect(claim.getByRole("textbox", { name: /^Claim number/ })).toBeFocused();
+      await claim.getByRole("textbox", { name: /^Claim number/ }).fill("clm-501");
+      await expect(claim.getByRole("textbox", { name: /^Claim number/ })).toHaveValue("CLM-501");
+      await claim.getByLabel(/^Lodged on/).fill("2026-11-01");
+      await claim.getByRole("textbox", { name: /^Excess/ }).pressSequentially("1500");
+      await expect(claim.getByRole("textbox", { name: /^Excess/ })).toHaveValue("$1,500");
+      await expectAccessible(page);
+      await claim.getByRole("button", { name: "Save claim" }).click();
+      await expect(claim).toBeHidden();
+      await expect(page.getByText("CLM-501")).toBeVisible();
+      await expect(page.getByText("$1,500.00")).toBeVisible();
+
+      await page.getByLabel(/^Status/).selectOption("not_repairing");
+      await page.getByRole("button", { name: "Save status" }).click();
+      await expect(page.getByRole("textbox", { name: /^Note/ })).toBeFocused();
+      await page.getByRole("textbox", { name: /^Note/ }).fill("Cosmetic only");
+      await page.getByRole("button", { name: "Save status" }).click();
+      await expect(page.getByText("Status saved.")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Remove this damage" })).toHaveCount(0);
+
+      await page.goto("/", { waitUntil: "networkidle" });
+      await expect(
+        page
+          .getByRole("region", { name: "Claims under way" })
+          .getByRole("link", { name: `${CAR_REGO}: Dent on bonnet` }),
+      ).toBeVisible();
+    });
+
+    test("records damage found later, confirms who had the car, then removes it", async ({
+      page,
+    }) => {
+      await openRentalOf(page, PARTIES);
+      await page.getByRole("link", { name: "Dent on bonnet" }).click();
+      await page.getByRole("link", { name: `${CAR_REGO} damage` }).click();
+      await page.getByRole("button", { name: "Record damage" }).click();
+      const form = page.getByRole("dialog");
+      await form.getByRole("textbox", { name: /^What is damaged/ }).fill("Chip in windscreen");
+      await form.getByLabel(/^Where on the car/).selectOption("windscreen");
+      await expect(form.getByRole("button", { name: "Damage 1: the place marked" })).toBeVisible();
+      await expectAccessible(page);
+      await form.getByRole("button", { name: "Record damage" }).click();
+      await expect(form).toBeHidden();
+
+      await page.getByRole("link", { name: "Chip in windscreen" }).click();
+      // The car came back today, so the Renter who had it is suggested, not assumed.
+      const confirm = page.getByRole("button", { name: `Yes, it was ${RENTER.name}` });
+      await confirm.click();
+      await expect(page.getByRole("link", { name: RENTER.name })).toBeVisible();
+      await expect(confirm).toHaveCount(0);
+      await expectAccessible(page);
+
+      await page.getByRole("button", { name: "Remove this damage" }).click();
+      await expect(page.getByRole("button", { name: "Record damage" })).toBeVisible();
+      await expect(page.getByRole("link", { name: "Chip in windscreen" })).toHaveCount(0);
+      await expect(page.getByRole("link", { name: "Dent on bonnet" })).toBeVisible();
     });
   });
 

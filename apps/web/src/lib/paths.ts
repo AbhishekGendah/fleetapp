@@ -43,6 +43,11 @@ export function carFilePath(vehicleId: string, fileId: string): string {
   return `${carPath(vehicleId)}/files/${fileId}`;
 }
 
+/** One damage record of a car. */
+export function carDamagePath(vehicleId: string, damageId: string): string {
+  return `${carPath(vehicleId)}/damage/${damageId}`;
+}
+
 export function editCarPath(vehicleId: string): string {
   return `${carPath(vehicleId)}/edit`;
 }

@@ -20,6 +20,7 @@ import {
   Plus,
   ReceiptText,
   ShieldCheck,
+  TriangleAlert,
   Undo2,
 } from "lucide-react";
 import Link from "next/link";
@@ -45,6 +46,7 @@ import {
   withdrawReadingAction,
 } from "./actions";
 import { CostsTab } from "./costs-tab";
+import { DamageTab } from "./damage-tab";
 import { DocumentsTab } from "./documents-tab";
 import { loadCarOrNotFound } from "./load-car";
 import { OdometerForm } from "./odometer-form";
@@ -60,6 +62,7 @@ const TABS = [
   { key: "rentals", label: "Rentals", icon: CalendarRange },
   { key: "paperwork", label: "Rego & insurance", icon: ShieldCheck },
   { key: "costs", label: "Costs", icon: ReceiptText },
+  { key: "damage", label: "Damage", icon: TriangleAlert },
   { key: "photos", label: "Photos", icon: Camera },
   { key: "documents", label: "Documents", icon: FileText },
   { key: "odometer", label: "Odometer", icon: Gauge },
@@ -323,6 +326,7 @@ export default async function CarPage(props: {
       ) : null}
       {tab === "paperwork" ? <PaperworkTab vehicle={vehicle} user={user} /> : null}
       {tab === "costs" ? <CostsTab vehicle={vehicle} user={user} /> : null}
+      {tab === "damage" ? <DamageTab vehicle={vehicle} user={user} /> : null}
       {tab === "photos" ? <PhotosTab vehicle={vehicle} user={user} /> : null}
       {tab === "documents" ? <DocumentsTab vehicle={vehicle} user={user} /> : null}
       {tab === "odometer" ? (

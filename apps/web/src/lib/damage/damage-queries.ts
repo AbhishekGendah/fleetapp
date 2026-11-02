@@ -36,7 +36,15 @@ import {
 } from "drizzle-orm";
 
 import { listCarPhotos, type CarPhoto } from "../files/car-files";
+import { DASHBOARD_LIST_LENGTH, type FewOfMany } from "../dashboard/fleet-overview";
 import type { FileDependencies } from "../files/stored-files";
+import { linksOfCar, POLICY_OF_LINK } from "../vehicles/policy-links";
+
+/** A damage record's claim, joined within the same business. */
+const claimOfRecord = and(
+  eq(insuranceClaims.damageRecordId, damageRecords.id),
+  eq(insuranceClaims.operatorId, damageRecords.operatorId),
+);
 
 export interface DamageSummary {
   id: string;
@@ -69,13 +77,7 @@ function listDamage(tx: AnyTransaction, operatorId: string, where: SQL | undefin
       renters,
       and(eq(renters.id, damageRecords.renterId), eq(renters.operatorId, damageRecords.operatorId)),
     )
-    .leftJoin(
-      insuranceClaims,
-      and(
-        eq(insuranceClaims.damageRecordId, damageRecords.id),
-        eq(insuranceClaims.operatorId, damageRecords.operatorId),
-      ),
-    )
+    .leftJoin(insuranceClaims, claimOfRecord)
     .where(and(eq(damageRecords.operatorId, operatorId), isNull(damageRecords.archivedAt), where))
     .orderBy(
       sql`${damageRecords.status} <> 'open'`,
@@ -250,17 +252,10 @@ export async function loadClaimDefaults(
         excessCents: insurancePolicies.excessCents,
       })
       .from(insurancePolicyVehicles)
-      .innerJoin(
-        insurancePolicies,
-        and(
-          eq(insurancePolicies.id, insurancePolicyVehicles.policyId),
-          eq(insurancePolicies.operatorId, insurancePolicyVehicles.operatorId),
-        ),
-      )
+      .innerJoin(insurancePolicies, POLICY_OF_LINK)
       .where(
         and(
-          eq(insurancePolicyVehicles.operatorId, operatorId),
-          eq(insurancePolicyVehicles.vehicleId, request.vehicleId),
+          linksOfCar(operatorId, request.vehicleId),
           lte(insurancePolicies.startsOn, request.foundOn),
           gte(insurancePolicies.endsOn, request.foundOn),
           lte(localDate(insurancePolicyVehicles.addedAt), request.foundOn),
@@ -320,44 +315,104 @@ export async function whoHadCar(
   return holder ?? null;
 }
 
-export interface DamageAttention {
-  openDamage: number;
-  claimsUnderWay: number;
+/** A damage record as a dashboard line: the car, what, and the claim's status if there is one. */
+export interface DamageOnDashboard {
+  id: string;
+  vehicleId: string;
+  rego: string;
+  description: string;
+  foundOn: string;
+  claimStatus: ClaimStatus | null;
 }
 
-/** The dashboard's "Damage open" and "Claims under way" lines. */
-export function countDamageAttention(
+export interface DamageAttention {
+  openDamage: FewOfMany<DamageOnDashboard>;
+  claimsUnderWay: FewOfMany<DamageOnDashboard>;
+}
+
+/** The first few damage records that match, oldest found first, and how many match in all. */
+async function fewDamage(
+  tx: AnyTransaction,
+  operatorId: string,
+  where: SQL | undefined,
+): Promise<FewOfMany<DamageOnDashboard>> {
+  const matching = and(
+    eq(damageRecords.operatorId, operatorId),
+    isNull(damageRecords.archivedAt),
+    where,
+  );
+  const items = await tx
+    .select({
+      id: damageRecords.id,
+      vehicleId: damageRecords.vehicleId,
+      rego: vehicles.rego,
+      description: damageRecords.description,
+      foundOn: damageRecords.foundOn,
+      claimStatus: insuranceClaims.status,
+    })
+    .from(damageRecords)
+    .innerJoin(
+      vehicles,
+      and(
+        eq(vehicles.id, damageRecords.vehicleId),
+        eq(vehicles.operatorId, damageRecords.operatorId),
+      ),
+    )
+    .leftJoin(insuranceClaims, claimOfRecord)
+    .where(matching)
+    .orderBy(asc(damageRecords.foundOn), asc(damageRecords.id))
+    .limit(DASHBOARD_LIST_LENGTH);
+  const [counted] = await tx
+    .select({ total: count() })
+    .from(damageRecords)
+    .leftJoin(insuranceClaims, claimOfRecord)
+    .where(matching);
+  return { total: counted?.total ?? 0, items };
+}
+
+/** The dashboard's "Damage open" and "Claims under way" groups. */
+export function loadDamageAttention(
   database: AnyDatabase,
   operatorId: string,
 ): Promise<DamageAttention> {
-  return withTenant(database, operatorId, async (tx) => {
-    const [open] = await tx
-      .select({ total: count() })
-      .from(damageRecords)
-      .where(
-        and(
-          eq(damageRecords.operatorId, operatorId),
-          eq(damageRecords.status, "open"),
-          isNull(damageRecords.archivedAt),
-        ),
-      );
-    const [claims] = await tx
-      .select({ total: count() })
-      .from(insuranceClaims)
-      .innerJoin(
-        damageRecords,
-        and(
-          eq(damageRecords.id, insuranceClaims.damageRecordId),
-          eq(damageRecords.operatorId, insuranceClaims.operatorId),
-        ),
-      )
-      .where(
-        and(
-          eq(insuranceClaims.operatorId, operatorId),
-          inArray(insuranceClaims.status, [...CLAIM_STATUSES_UNDER_WAY]),
-          isNull(damageRecords.archivedAt),
-        ),
-      );
-    return { openDamage: open?.total ?? 0, claimsUnderWay: claims?.total ?? 0 };
-  });
+  return withTenant(database, operatorId, async (tx) => ({
+    openDamage: await fewDamage(tx, operatorId, eq(damageRecords.status, "open")),
+    claimsUnderWay: await fewDamage(
+      tx,
+      operatorId,
+      inArray(insuranceClaims.status, [...CLAIM_STATUSES_UNDER_WAY]),
+    ),
+  }));
+}
+
+export interface ClaimPolicyChoice {
+  id: string;
+  insurer: string;
+  policyNumber: string;
+  startsOn: string;
+  endsOn: string;
+  excessCents: number | null;
+}
+
+/** Every policy the car has been on, newest first, for the claim's Policy box (archived ones too). */
+export function listClaimPolicyChoices(
+  database: AnyDatabase,
+  operatorId: string,
+  vehicleId: string,
+): Promise<ClaimPolicyChoice[]> {
+  return withTenant(database, operatorId, (tx) =>
+    tx
+      .selectDistinct({
+        id: insurancePolicies.id,
+        insurer: insurancePolicies.insurer,
+        policyNumber: insurancePolicies.policyNumber,
+        startsOn: insurancePolicies.startsOn,
+        endsOn: insurancePolicies.endsOn,
+        excessCents: insurancePolicies.excessCents,
+      })
+      .from(insurancePolicyVehicles)
+      .innerJoin(insurancePolicies, POLICY_OF_LINK)
+      .where(and(linksOfCar(operatorId, vehicleId)))
+      .orderBy(desc(insurancePolicies.startsOn), asc(insurancePolicies.id)),
+  );
 }

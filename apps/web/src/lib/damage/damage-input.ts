@@ -1,4 +1,5 @@
 import {
+  centsForEditing,
   CLAIM_STATUSES,
   DAMAGE_STATUSES,
   emptyForm,
@@ -158,4 +159,44 @@ export function isRequiredClaimField(field: ClaimFormField, values: ClaimFormVal
     default:
       return false;
   }
+}
+
+const optionalCentsForEditing = (cents: number | null): string =>
+  cents === null ? "" : centsForEditing(cents);
+
+/** What the claim boxes start with: the saved claim, or the car's policy that day. */
+export function claimFormValues(
+  saved: {
+    policyId: string | null;
+    insurer: string;
+    claimNumber: string | null;
+    status: string;
+    excessCents: number | null;
+    lodgedOn: string | null;
+    settledOn: string | null;
+    payoutCents: number | null;
+    notes: string | null;
+  } | null,
+  defaults: { policyId: string; insurer: string; excessCents: number | null } | null,
+): ClaimFormValues {
+  if (!saved) {
+    return {
+      ...emptyForm(CLAIM_FORM_FIELDS),
+      status: "not_lodged",
+      policyId: defaults?.policyId ?? "",
+      insurer: defaults?.insurer ?? "",
+      excessCents: optionalCentsForEditing(defaults?.excessCents ?? null),
+    };
+  }
+  return {
+    policyId: saved.policyId ?? "",
+    insurer: saved.insurer,
+    claimNumber: saved.claimNumber ?? "",
+    status: saved.status,
+    excessCents: optionalCentsForEditing(saved.excessCents),
+    lodgedOn: saved.lodgedOn ?? "",
+    settledOn: saved.settledOn ?? "",
+    payoutCents: optionalCentsForEditing(saved.payoutCents),
+    notes: saved.notes ?? "",
+  };
 }

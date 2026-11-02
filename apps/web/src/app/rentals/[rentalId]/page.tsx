@@ -42,6 +42,8 @@ import { CancelRentalForm } from "./cancel-form";
 import { BondCard } from "./bond-card";
 import { ContractCard } from "./contract-card";
 import { HandoverCard, ReturnCard } from "./handover-card";
+import { DamageList } from "../../cars/damage-list";
+import { listRentalDamage } from "../../../lib/damage/damage-queries";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -216,6 +218,27 @@ function ActionsCard({ rental }: { rental: RentalDetail }) {
   );
 }
 
+/** Damage found under this rental: at its return, or later and confirmed as theirs. */
+async function RentalDamageCard({ rental, user }: { rental: RentalDetail; user: SignedInUser }) {
+  const records = await listRentalDamage(appDb, user.operatorId, rental.id);
+  if (records.length === 0) {
+    return null;
+  }
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Damage</CardTitle>
+        <CardDescription>
+          Recorded only. Charging the Renter for damage comes with closing the rental.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <DamageList records={records} emptyText="" />
+      </CardContent>
+    </Card>
+  );
+}
+
 /** The rental's own changes and its bond entries. */
 async function RentalLogTab({ rental, user }: { rental: RentalDetail; user: SignedInUser }) {
   const bond = await loadBondAccount(appDb, user.operatorId, rental);
@@ -274,6 +297,7 @@ export default async function RentalPage(props: {
           <ContractCard rental={rental} user={user} clock={clock} />
           <SummaryCard rental={rental} timeZone={user.operatorTimezone} />
           <ReturnCard rental={rental} user={user} />
+          <RentalDamageCard rental={rental} user={user} />
           <HandoverCard rental={rental} user={user} />
           <BondCard rental={rental} user={user} clock={clock} />
           <RatesCard rental={rental} />

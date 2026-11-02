@@ -1,6 +1,7 @@
 import { dashboardWindow, type DashboardWindow, type VehicleStatus } from "@fleetapp/core";
 
 import { appDb } from "../app-db";
+import { loadDamageAttention, type DamageAttention } from "../damage/damage-queries";
 import type { SignedInUser } from "../require-user";
 import { loadOperatorSettings } from "../settings/operator-settings";
 import {
@@ -34,6 +35,7 @@ export interface DashboardData {
   workshopLate: FewOfMany<CarInWorkshop>;
   licencesDue: FewOfMany<RenterLicenceDue>;
   reviewsWaiting: FewOfMany<RenterOnList>;
+  damage: DamageAttention;
   vehicleWarningDays: number;
 }
 
@@ -60,7 +62,10 @@ export async function loadDashboard(user: SignedInUser): Promise<DashboardData> 
       }),
       loadReviewsWaiting(appDb, operatorId),
     ]);
-  const notReady = await loadBookingReadiness(appDb, operatorId, rentals, clock);
+  const [notReady, damage] = await Promise.all([
+    loadBookingReadiness(appDb, operatorId, rentals, clock),
+    loadDamageAttention(appDb, operatorId),
+  ]);
   return {
     window,
     rentals,
@@ -71,6 +76,7 @@ export async function loadDashboard(user: SignedInUser): Promise<DashboardData> 
     workshopLate,
     licencesDue,
     reviewsWaiting,
+    damage,
     vehicleWarningDays: settings.vehicleExpiryWarningDays,
   };
 }

@@ -15,7 +15,7 @@ import {
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { insurancePolicies, insurancePolicyVehicles } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, desc, eq, gt, isNull, lte } from "drizzle-orm";
+import { and, desc, gt, isNull, lte } from "drizzle-orm";
 
 import { loadRental, type RentalDetail } from "../rentals/rental-queries";
 import type { RentalClock } from "../rentals/rental-records";
@@ -23,6 +23,7 @@ import { loadRenter, type RenterDetail } from "../renters/renter-queries";
 import { licenceIssuedInText } from "../renters/licence-text";
 import { loadBusinessDetails, type BusinessDetails } from "../settings/business-details";
 import { loadVehicle } from "../vehicles/vehicle-queries";
+import { linksOfCar, POLICY_OF_LINK } from "../vehicles/policy-links";
 
 const ONGOING_END_TEXT = "No end date (ongoing)";
 
@@ -45,17 +46,10 @@ async function excessOnStart(
   const [policy] = await tx
     .select({ excessCents: insurancePolicies.excessCents })
     .from(insurancePolicyVehicles)
-    .innerJoin(
-      insurancePolicies,
-      and(
-        eq(insurancePolicies.id, insurancePolicyVehicles.policyId),
-        eq(insurancePolicies.operatorId, insurancePolicyVehicles.operatorId),
-      ),
-    )
+    .innerJoin(insurancePolicies, POLICY_OF_LINK)
     .where(
       and(
-        eq(insurancePolicyVehicles.operatorId, operatorId),
-        eq(insurancePolicyVehicles.vehicleId, vehicleId),
+        linksOfCar(operatorId, vehicleId),
         isNull(insurancePolicyVehicles.removedAt),
         isNull(insurancePolicies.archivedAt),
         lte(insurancePolicies.startsOn, startDate),

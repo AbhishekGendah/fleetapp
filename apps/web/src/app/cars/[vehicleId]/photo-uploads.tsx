@@ -22,16 +22,24 @@ interface PendingPhoto {
 }
 
 /** Shrinks a photo on the phone (rule 21) and sends it and its small copy. Null when saved. */
-async function sendPhoto(vehicleId: string, file: Blob): Promise<string | null> {
+async function sendPhoto(
+  vehicleId: string,
+  file: Blob,
+  damageId: string | undefined,
+): Promise<string | null> {
   const shrunk = await shrinkPhotoForUpload(file);
   if ("problem" in shrunk) {
     return shrunk.problem;
   }
   const { photo, thumbnail } = shrunk;
-  const start = await startCarPhotoUploadAction(vehicleId, {
-    photo: { contentType: photo.type, sizeBytes: photo.size },
-    thumbnail: { contentType: thumbnail.type, sizeBytes: thumbnail.size },
-  });
+  const start = await startCarPhotoUploadAction(
+    vehicleId,
+    {
+      photo: { contentType: photo.type, sizeBytes: photo.size },
+      thumbnail: { contentType: thumbnail.type, sizeBytes: thumbnail.size },
+    },
+    damageId,
+  );
   if (start.status === "refused") {
     return start.message;
   }
@@ -51,7 +59,7 @@ async function sendPhoto(vehicleId: string, file: Blob): Promise<string | null> 
  * own, so one failing does not stop the rest; a failed one stays with Try
  * again. (A queue that survives losing signal comes with Phase 3.)
  */
-export function PhotoUploads({ vehicleId }: { vehicleId: string }) {
+export function PhotoUploads({ vehicleId, damageId }: { vehicleId: string; damageId?: string }) {
   const router = useRouter();
   const [pending, setPending] = useState<PendingPhoto[]>([]);
 
@@ -65,7 +73,7 @@ export function PhotoUploads({ vehicleId }: { vehicleId: string }) {
 
   async function send(item: PendingPhoto): Promise<void> {
     update(item.key, { status: "sending", message: null });
-    const problem = await orSendFailed(() => sendPhoto(vehicleId, item.file));
+    const problem = await orSendFailed(() => sendPhoto(vehicleId, item.file, damageId));
     if (problem) {
       update(item.key, { status: "failed", message: problem });
       return;

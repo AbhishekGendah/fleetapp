@@ -15,9 +15,11 @@ interface ChangeFormOptions<Field extends string> {
   fields: readonly Field[];
   initialValues: Readonly<Record<Field, string>>;
   validate: (values: Readonly<Record<Field, string>>) => FieldErrors<Field>;
-  isRequired: (field: Field) => boolean;
+  isRequired: (field: Field, values: Readonly<Record<Field, string>>) => boolean;
   /** For a form that adds a record: empty it once saved, so it cannot add the same one twice. */
   shouldClearOnSave?: boolean;
+  /** Put before each box's id, for a page with two forms sharing a field name. */
+  idPrefix?: string;
 }
 
 export interface ChangeForm<Field extends string> {
@@ -36,7 +38,8 @@ export function useChangeForm<Field extends string>(
     fields: options.fields,
     initialValues: options.initialValues,
     validate: options.validate,
-    isRequired: (field) => options.isRequired(field),
+    isRequired: (field, values) => options.isRequired(field, values),
+    ...(options.idPrefix ? { idPrefix: options.idPrefix } : {}),
   });
   const [state, formAction, isPending] = useActionState(
     async (previous: ChangeFormState, formData: FormData) => {

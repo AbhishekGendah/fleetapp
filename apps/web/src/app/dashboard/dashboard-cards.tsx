@@ -1,4 +1,5 @@
 import {
+  CLAIM_STATUS_LABELS,
   expiryStatus,
   formatCalendarDate,
   formatDateTimeInTimeZone,
@@ -14,9 +15,11 @@ import Link from "next/link";
 
 import { handoverBlockerLabel, RENTAL_MOMENT_HEADINGS } from "../../lib/dashboard/dashboard-labels";
 import type { CarOnList } from "../../lib/dashboard/fleet-overview";
+import type { DamageOnDashboard } from "../../lib/damage/damage-queries";
 import type { DashboardData } from "../../lib/dashboard/load-dashboard";
 import type { RentalThisWeek } from "../../lib/dashboard/rentals-this-week";
 import {
+  carDamagePath,
   carPath,
   carsWithStatusPath,
   NEW_CAR_PATH,
@@ -141,6 +144,41 @@ function PaperworkGroups({ data }: { data: DashboardData }) {
   );
 }
 
+function damageItem(damage: DamageOnDashboard): AttentionItem {
+  return {
+    key: damage.id,
+    href: carDamagePath(damage.vehicleId, damage.id),
+    title: `${damage.rego}: ${damage.description}`,
+    details: `Found ${formatCalendarDate(damage.foundOn)}`,
+    badges: damage.claimStatus
+      ? [
+          {
+            label: `Claim ${CLAIM_STATUS_LABELS[damage.claimStatus].toLowerCase()}`,
+            tone: "neutral",
+          },
+        ]
+      : [],
+  };
+}
+
+/** Damage still to repair or decide on, and insurance claims waiting on the insurer. */
+function DamageGroups({ data }: { data: DashboardData }) {
+  return (
+    <>
+      <AttentionGroup
+        heading="Damage open"
+        total={data.damage.openDamage.total}
+        items={data.damage.openDamage.items.map(damageItem)}
+      />
+      <AttentionGroup
+        heading="Claims under way"
+        total={data.damage.claimsUnderWay.total}
+        items={data.damage.claimsUnderWay.items.map(damageItem)}
+      />
+    </>
+  );
+}
+
 function hasAttention(data: DashboardData): boolean {
   const urgentRentals = data.rentals.some(
     (rental) => rental.moment === "overdue" || rental.moment === "late_pickup",
@@ -151,7 +189,9 @@ function hasAttention(data: DashboardData): boolean {
     data.reviewsWaiting.total > 0 ||
     data.paperworkDue.total > 0 ||
     data.licencesDue.total > 0 ||
-    data.workshopLate.total > 0
+    data.workshopLate.total > 0 ||
+    data.damage.openDamage.total > 0 ||
+    data.damage.claimsUnderWay.total > 0
   );
 }
 
@@ -179,6 +219,7 @@ export function NeedsAttentionCard({ data, timeZone }: { data: DashboardData; ti
           }))}
         />
         <PaperworkGroups data={data} />
+        <DamageGroups data={data} />
       </CardContent>
     </Card>
   );
