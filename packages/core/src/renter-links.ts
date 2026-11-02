@@ -5,7 +5,7 @@
  */
 
 /** What a link is for. Booking view and payments come later. */
-export const RENTER_LINK_PURPOSES = ["details_form", "sign_contract"] as const;
+export const RENTER_LINK_PURPOSES = ["details_form", "sign_contract", "sign_change"] as const;
 export type RenterLinkPurpose = (typeof RENTER_LINK_PURPOSES)[number];
 
 /** How long a details form link lasts: an Operator setting (rule 27). */

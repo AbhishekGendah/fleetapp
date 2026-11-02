@@ -9,7 +9,7 @@ import { contentFingerprint } from "@fleetapp/core/server";
 import type { AnyDatabase } from "@fleetapp/db/client";
 
 import type { RentalClock } from "../rentals/rental-records";
-import { loadContractData } from "./contract-data";
+import { loadContractData, type ChangeFields } from "./contract-data";
 
 /** A rental's contract text, filled in, with its fingerprint and the fields that have nothing on file. */
 export interface FilledContract {
@@ -21,8 +21,9 @@ export interface FilledContract {
 
 /**
  * The template filled in with the rental's details as of `clock.now` (the
- * moment its link was sent, so "Date of issue" stays put), with the
- * fingerprint of exactly that text. Null if the rental is not the Operator's.
+ * moment its link was sent, so "Date of issue" stays put), and a change of
+ * terms' own fields when it is one, with the fingerprint of exactly that
+ * text. Null if the rental is not the Operator's.
  */
 export async function fillContract(
   database: AnyDatabase,
@@ -30,11 +31,13 @@ export async function fillContract(
   rentalId: string,
   template: TemplateDocument,
   clock: RentalClock,
+  change?: ChangeFields,
 ): Promise<FilledContract | null> {
-  const data = await loadContractData(database, operatorId, rentalId, clock);
-  if (!data) {
+  const loaded = await loadContractData(database, operatorId, rentalId, clock);
+  if (!loaded) {
     return null;
   }
+  const data = change ? { ...loaded, ...change } : loaded;
   const document = fillMergeFields(template, data);
   return {
     document,

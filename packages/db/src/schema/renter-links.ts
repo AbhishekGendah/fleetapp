@@ -20,6 +20,7 @@ import { primaryKeyColumn, timestampColumns } from "./columns";
 import { operatorIdColumn } from "./operators";
 import { licenceClassEnum, licenceIssuerEnum, licenceTypeEnum, renters } from "./renters";
 import { contractTemplateVersions } from "./contracts";
+import { rentalChanges } from "./rental-changes";
 import { rentals } from "./rentals";
 import { users } from "./users";
 
@@ -65,6 +66,8 @@ export const renterLinks = pgTable(
     rentalId: uuid("rental_id"),
     templateVersionId: uuid("template_version_id"),
     contractFingerprint: text("contract_fingerprint"),
+    /** A change-of-terms signing link's change (purpose sign_change). */
+    rentalChangeId: uuid("rental_change_id"),
 
     ...timestampColumns,
   },
@@ -99,11 +102,17 @@ export const renterLinks = pgTable(
     }),
     check(
       "renter_links_signing_details",
-      sql`(${table.purpose}::text = 'sign_contract') = (${table.rentalId} is not null)
+      sql`(${table.purpose}::text in ('sign_contract', 'sign_change')) = (${table.rentalId} is not null)
+        and (${table.purpose}::text = 'sign_change') = (${table.rentalChangeId} is not null)
         and (${table.rentalId} is null) = (${table.templateVersionId} is null)
         and (${table.rentalId} is null) = (${table.contractFingerprint} is null)
         and (${table.contractFingerprint} is null or ${table.contractFingerprint} ~ '^[0-9a-f]{64}$')`,
     ),
+    foreignKey({
+      name: "renter_links_rental_change_fk",
+      columns: [table.rentalChangeId, table.operatorId],
+      foreignColumns: [rentalChanges.id, rentalChanges.operatorId],
+    }),
     index("renter_links_renter_idx").on(table.operatorId, table.renterId),
     check(
       "renter_links_code_whole",

@@ -49,3 +49,4 @@ export * from "./content-disposition";
 export * from "./rentals";
 export * from "./bonds";
 export * from "./handover";
+export * from "./rental-changes";

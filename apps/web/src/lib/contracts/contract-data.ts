@@ -100,7 +100,7 @@ function rentalFields(
   rental: RentalDetail,
   clock: RentalClock,
   excessCents: number | null,
-): Omit<ContractData, keyof FieldsOf<"business" | "renter" | "car">> &
+): Omit<ContractData, keyof FieldsOf<"business" | "renter" | "car" | "change">> &
   Pick<ContractData, "insuranceExcess"> {
   const onClock = (moment: Date) => formatDateTimeInTimeZone(moment, clock.timeZone);
   // The rental's own settings (rule 14), not today's.
@@ -122,6 +122,17 @@ function rentalFields(
  * Every merge field's text for one of the Operator's rentals, or null if
  * the rental is not theirs. Times are on the Operator's clock (rule 10).
  */
+/** The change-of-terms fields, which only a change-of-terms form fills in. */
+export type ChangeFields = FieldsOf<"change">;
+
+export const NO_CHANGE_FIELDS: ChangeFields = {
+  changeSummary: null,
+  changeReason: null,
+  changeNewRate: null,
+  changeRateFrom: null,
+  changeNewEnd: null,
+};
+
 export async function loadContractData(
   database: AnyDatabase,
   operatorId: string,
@@ -152,6 +163,7 @@ export async function loadContractData(
     carYear: String(vehicle.year),
     carVin: vehicle.vin,
     ...rentalFields(rental, clock, excessCents),
+    ...NO_CHANGE_FIELDS,
   };
   return data;
 }

@@ -25,7 +25,7 @@ export const ISSUED_DOCUMENT_KINDS = [
 ] as const;
 export type IssuedDocumentKind = (typeof ISSUED_DOCUMENT_KINDS)[number];
 
-export const MERGE_FIELD_GROUPS = ["business", "renter", "car", "rental"] as const;
+export const MERGE_FIELD_GROUPS = ["business", "renter", "car", "rental", "change"] as const;
 export type MergeFieldGroup = (typeof MERGE_FIELD_GROUPS)[number];
 
 export const MERGE_FIELD_GROUP_LABELS: Readonly<Record<MergeFieldGroup, string>> = {
@@ -33,6 +33,7 @@ export const MERGE_FIELD_GROUP_LABELS: Readonly<Record<MergeFieldGroup, string>>
   renter: "Renter",
   car: "Car",
   rental: "Rental",
+  change: "Change of terms (filled in only on that form)",
 };
 
 /**
@@ -67,6 +68,11 @@ export const MERGE_FIELDS = [
   { key: "chargeDay", label: "Rent charged each", group: "rental" },
   { key: "noticeDays", label: "Notice to end an ongoing rental", group: "rental" },
   { key: "issuedOn", label: "Date of issue", group: "rental" },
+  { key: "changeSummary", label: "What is changing", group: "change" },
+  { key: "changeReason", label: "Why", group: "change" },
+  { key: "changeNewRate", label: "New weekly rate", group: "change" },
+  { key: "changeRateFrom", label: "New rate applies from", group: "change" },
+  { key: "changeNewEnd", label: "New end", group: "change" },
 ] as const satisfies readonly { key: string; label: string; group: MergeFieldGroup }[];
 
 export type MergeFieldKey = (typeof MERGE_FIELDS)[number]["key"];

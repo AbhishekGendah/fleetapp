@@ -78,6 +78,7 @@ export const ACTIVITY_ENTITY_TYPES = {
   damageMark: "damage_mark",
   damageRecord: "damage_record",
   insuranceClaim: "insurance_claim",
+  rentalChange: "rental_change",
 } as const;
 
 /** What happened to it. No free text at call sites. */
