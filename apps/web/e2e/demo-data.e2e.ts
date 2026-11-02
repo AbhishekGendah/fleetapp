@@ -47,4 +47,49 @@ test.describe.serial("demo data", () => {
     await page.goto("/cars?search=DEMO01", { waitUntil: "networkidle" });
     await expect(page.getByText("DEMO01").first()).toBeVisible();
   });
+
+  test("the dashboard puts the overdue returns first, and its counts open the cars", async ({
+    page,
+  }) => {
+    await page.goto("/", { waitUntil: "networkidle" });
+    const overdue = page.getByRole("region", { name: "Overdue returns" });
+    await expect(overdue.getByRole("link", { name: /^DEMO14 · / })).toBeVisible();
+    await expect(overdue.getByRole("link", { name: /^DEMO13 · / })).toBeVisible();
+    const notReady = page.getByRole("region", { name: "Not ready for handover" });
+    await expect(notReady.getByText("Contract not signed").first()).toBeVisible();
+    await expect(
+      page
+        .getByRole("region", { name: /^Idle/ })
+        .getByText(/^Idle \d+ days?$/)
+        .first(),
+    ).toBeVisible();
+    await expectNoSidewaysScroll(page);
+    await expectAccessible(page);
+
+    // Focus the Rented count and open it: the cars list shows only those, with who has each.
+    const rented = page.getByRole("navigation", { name: "Cars by status" }).getByRole("link", {
+      name: /^Rented/,
+    });
+    await rented.focus();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/cars\?status=rented/);
+    await page.getByRole("searchbox").fill("DEMO01");
+    await page.keyboard.press("Enter");
+    // On a phone the card reads "Now: Aisha Rahman, since …".
+    await expect(
+      page
+        .getByText(/Aisha Rahman, since /)
+        .filter({ visible: true })
+        .first(),
+    ).toBeVisible();
+    await expectNoSidewaysScroll(page);
+    await expectAccessible(page);
+  });
+
+  test("with all cars, the calendar shows only pickups and returns", async ({ page }) => {
+    await page.goto("/rentals/calendar", { waitUntil: "networkidle" });
+    await expect(page.getByRole("link", { name: /Pickup: DEMO17 · / }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /(^|m )DEMO02 · / })).toHaveCount(0);
+    await expectAccessible(page);
+  });
 });

@@ -6,12 +6,11 @@ import {
   STATUS_FILTER_KEY,
   type VehicleSummary,
 } from "../../lib/vehicles/vehicle-queries";
-import type { WithExpiryStatuses } from "../../lib/vehicles/expiry-columns";
+import type { CarListRow } from "../../lib/vehicles/car-list-rows";
 import { ExpiryDate, RegoExpiry } from "./expiry-date";
-
-/** What an export shows for a car on a rego direct debit, which has no expiry. */
 import { VehicleStatusBadge } from "./vehicle-status-badge";
 
+/** What an export shows for a car on a rego direct debit, which has no expiry. */
 const REGO_DIRECT_DEBIT_EXPORT = "Direct debit";
 
 function carName(vehicle: VehicleSummary): string {
@@ -23,8 +22,6 @@ function carName(vehicle: VehicleSummary): string {
  * cards) and both exports. Searched, sorted and paged by the database
  * (`VEHICLE_LIST_RULES`), so a fleet of any size loads one page at a time.
  */
-export type CarListRow = WithExpiryStatuses<VehicleSummary>;
-
 export const CAR_LIST: DataListDefinition<CarListRow> = {
   columns: [
     {
@@ -70,6 +67,13 @@ export const CAR_LIST: DataListDefinition<CarListRow> = {
       render: (vehicle) => (
         <ExpiryDate date={vehicle.insuranceEndsOn} status={vehicle.insuranceStatus} />
       ),
+    },
+    {
+      key: "now",
+      label: "Now",
+      isSortable: true,
+      exportValue: (vehicle) => vehicle.whereabouts,
+      render: (vehicle) => vehicle.whereabouts ?? "",
     },
     {
       key: "status",

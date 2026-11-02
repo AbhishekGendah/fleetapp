@@ -45,6 +45,7 @@ import { Logo, LogoMark } from "@fleetapp/ui/logo";
 import { Select } from "@fleetapp/ui/select";
 import { Textarea } from "@fleetapp/ui/textarea";
 import { TabLinks } from "@fleetapp/ui/tab-links";
+import { CountLinks } from "@fleetapp/ui/count-links";
 import { ImageViewer, ImageViewerOpener } from "@fleetapp/ui/image-viewer";
 import { PageHeader } from "@fleetapp/ui/page-header";
 import { ProblemPanel } from "@fleetapp/ui/problem-panel";
@@ -554,6 +555,21 @@ export function ComponentCatalogue() {
             { href: "#photos", label: "Photos", isCurrent: true, icon: <Camera aria-hidden /> },
             { href: "#odometer", label: "Odometer", isCurrent: false, icon: <Gauge aria-hidden /> },
             { href: "#log", label: "Log", isCurrent: false, icon: <History aria-hidden /> },
+          ]}
+        />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Count links"
+        note="Counts that open the list behind them, e.g. cars by status. They wrap on a phone; the one showing is filled in."
+      >
+        <CountLinks
+          label="Example cars by status"
+          links={[
+            { href: "#all", label: "All", count: 107, isCurrent: true },
+            { href: "#rented", label: "Rented", count: 72 },
+            { href: "#available", label: "Available", count: 9 },
+            { href: "#in-service", label: "In service", count: 14 },
           ]}
         />
       </CatalogueSection>

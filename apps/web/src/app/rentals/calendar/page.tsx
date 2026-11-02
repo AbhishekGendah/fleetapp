@@ -27,6 +27,33 @@ const TONES: Readonly<Record<RentalStatus, BookingTone>> = {
   cancelled: "finished",
 };
 
+/**
+ * All cars: only the moments something changes, a pickup and a return, so
+ * a fleet on long rentals is not a wall of bars. An ongoing rental has only
+ * its pickup.
+ */
+function toMoments(booking: CalendarBooking, window: { from: Date; to: Date }): CalendarEntry[] {
+  const label = `${booking.rego} · ${booking.renterFullName}`;
+  const moments = [
+    { kind: "pickup", title: `Pickup: ${label}`, at: booking.heldFrom },
+    { kind: "return", title: `Return: ${label}`, at: booking.heldUntil },
+  ];
+  return moments.flatMap((moment) =>
+    moment.at && moment.at >= window.from && moment.at < window.to
+      ? [
+          {
+            id: `${booking.rentalId}-${moment.kind}`,
+            title: moment.title,
+            start: moment.at.toISOString(),
+            href: rentalPath(booking.rentalId),
+            tone: TONES[booking.status],
+          },
+        ]
+      : [],
+  );
+}
+
+/** One car: its rentals in full, as bars. */
 function toEntry(booking: CalendarBooking, windowEnd: Date): CalendarEntry {
   const isOngoing = booking.heldUntil === null;
   return {
@@ -73,11 +100,18 @@ export default async function RentalsCalendarPage(props: {
       <Card>
         <CardContent className="pt-6">
           <CalendarView
-            entries={bookings.map((booking) => toEntry(booking, window.to))}
+            entries={
+              vehicleId
+                ? bookings.map((booking) => toEntry(booking, window.to))
+                : bookings.flatMap((booking) => toMoments(booking, window))
+            }
             timeZone={timeZone}
             month={month}
           />
           <p className="text-muted-foreground mt-4 text-xs">
+            {vehicleId
+              ? "This car's rentals in full."
+              : "Each pickup and return. Choose a car above to see its rentals in full."}{" "}
             Shows {RENTAL_STATUS_LABELS.booked.toLowerCase()} and{" "}
             {RENTAL_STATUS_LABELS.active.toLowerCase()} rentals. Drafts do not hold a car, so they
             are not shown.

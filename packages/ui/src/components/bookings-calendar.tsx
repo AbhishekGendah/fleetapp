@@ -19,9 +19,12 @@ export interface CalendarEntry {
   id: string;
   /** e.g. "1ABC234 · Sam Example". */
   title: string;
-  /** ISO moments. An ongoing rental is given the end of the window it is shown in. */
+  /**
+   * ISO moments. An ongoing rental is given the end of the window it is
+   * shown in. A single moment, such as a pickup, has no end.
+   */
   start: string;
-  end: string;
+  end?: string;
   /** The rental's page. */
   href: string;
   tone: BookingTone;

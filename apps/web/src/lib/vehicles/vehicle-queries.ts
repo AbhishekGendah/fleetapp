@@ -22,6 +22,7 @@ import {
   currentRegoExpiresOn,
   isRegoOnDirectDebit,
 } from "./expiry-columns";
+import { idleSince, renterWithCar, withRenterSince } from "./car-whereabouts";
 import { countedReading } from "./odometer";
 
 /** The filter value that shows archived cars instead of current ones. */
@@ -50,6 +51,9 @@ const summaryColumns = {
   isRegoOnDirectDebit,
   regoExpiresOn: currentRegoExpiresOn,
   insuranceEndsOn: currentInsuranceEndsOn,
+  renterWithCar,
+  withRenterSince,
+  idleSince,
 };
 
 export interface VehicleSummary {
@@ -67,6 +71,11 @@ export interface VehicleSummary {
   isRegoOnDirectDebit: boolean;
   regoExpiresOn: string | null;
   insuranceEndsOn: string | null;
+  /** Who has the car now, and since when; null when nobody does. */
+  renterWithCar: string | null;
+  withRenterSince: Date | null;
+  /** When it last came back, or was added: for an available car, how long it has sat. */
+  idleSince: Date;
 }
 
 export const VEHICLE_LIST_RULES: DatabaseListRules = {
@@ -86,6 +95,7 @@ export const VEHICLE_LIST_RULES: DatabaseListRules = {
     status: vehicles.status,
     regoExpires: currentRegoExpiresOn,
     insuranceEnds: currentInsuranceEndsOn,
+    now: idleSince,
   },
   filterBy: {
     [STATUS_FILTER_KEY]: (value) =>

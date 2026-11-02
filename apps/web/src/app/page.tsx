@@ -1,12 +1,18 @@
 import { getGreeting, getSetupChecklist, isSetupComplete } from "@fleetapp/core";
-import { Card, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { InstallAppHint } from "@fleetapp/ui/install-app-hint";
 import { redirect } from "next/navigation";
 
+import { loadDashboard } from "../lib/dashboard/load-dashboard";
 import { loadSetupDetails } from "../lib/dashboard/load-setup-details";
 import { SIGN_IN_PATH } from "../lib/paths";
 import { requireUser } from "../lib/require-user";
 import { AppShell } from "./app-shell";
+import {
+  FleetCard,
+  NeedsAttentionCard,
+  QuickActions,
+  ThisWeekCard,
+} from "./dashboard/dashboard-cards";
 import { SetupChecklistCard } from "./setup-checklist-card";
 import { appDb } from "../lib/app-db";
 
@@ -18,13 +24,16 @@ function firstNameOf(fullName: string): string {
 }
 
 /**
- * The Operator's dashboard. For now: the setup checklist and a note of what
- * is to come. The real sections, from "needs attention" to fines, arrive
- * with the records behind them (docs/design/09, Phase 7).
+ * The Operator's dashboard (docs/design/09, docs/plans/this-week.md): what
+ * needs attention, today and this week, then the fleet. Money and fines
+ * join it with the records behind them.
  */
 export default async function DashboardPage() {
   const user = await requireUser();
-  const setupDetails = await loadSetupDetails(appDb, user.operatorId);
+  const [setupDetails, dashboard] = await Promise.all([
+    loadSetupDetails(appDb, user.operatorId),
+    loadDashboard(user),
+  ]);
   if (!setupDetails) {
     redirect(SIGN_IN_PATH);
   }
@@ -38,18 +47,12 @@ export default async function DashboardPage() {
 
       {isSetupComplete(steps) ? null : <SetupChecklistCard steps={steps} />}
 
-      <InstallAppHint />
+      <QuickActions />
+      <NeedsAttentionCard data={dashboard} timeZone={user.operatorTimezone} />
+      <ThisWeekCard data={dashboard} timeZone={user.operatorTimezone} />
+      <FleetCard data={dashboard} timeZone={user.operatorTimezone} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Your dashboard</CardTitle>
-          <CardDescription>
-            Once you add cars, Renters and rentals, this is where you will see what needs your
-            attention, today&rsquo;s pickups and returns, this week&rsquo;s payments, your fleet and
-            your fines.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <InstallAppHint />
     </AppShell>
   );
 }

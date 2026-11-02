@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 
 import { appDb } from "../../../../lib/app-db";
 import { listExportResponse } from "../../../../lib/list-export";
-import { withExpiryStatuses } from "../../../../lib/vehicles/expiry-columns";
+import { carListRows } from "../../../../lib/vehicles/car-list-rows";
 import { loadExpiryContext } from "../../../../lib/vehicles/expiry-context";
 import { listVehiclesForExport } from "../../../../lib/vehicles/vehicle-queries";
 import { CAR_LIST } from "../../car-list";
@@ -23,7 +23,7 @@ export function GET(
         listVehiclesForExport(appDb, user.operatorId, query),
         loadExpiryContext(user),
       ]);
-      return withExpiryStatuses(vehicles, expiry);
+      return carListRows(vehicles, expiry, { timeZone: user.operatorTimezone, now: new Date() });
     },
   });
 }

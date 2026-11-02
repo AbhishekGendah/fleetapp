@@ -29,6 +29,11 @@ export const CARS_PATH = "/cars";
 export const NEW_CAR_PATH = `${CARS_PATH}/new`;
 export const CARS_EXPORT_PATH = `${CARS_PATH}/export`;
 
+/** The cars list filtered to one status, e.g. the available cars. */
+export function carsWithStatusPath(status: string): string {
+  return `${CARS_PATH}?${new URLSearchParams({ status })}`;
+}
+
 export function carPath(vehicleId: string): string {
   return `${CARS_PATH}/${vehicleId}`;
 }
@@ -92,6 +97,11 @@ export function renterEverythingHeldPath(renterId: string): string {
 export const RENTALS_PATH = "/rentals";
 export const NEW_RENTAL_PATH = `${RENTALS_PATH}/new`;
 export const RENTALS_CALENDAR_PATH = `${RENTALS_PATH}/calendar`;
+
+/** The rentals list filtered to one status, e.g. the active ones. */
+export function rentalsWithStatusPath(status: string): string {
+  return `${RENTALS_PATH}?${new URLSearchParams({ status })}`;
+}
 /** What the New rental form takes from its address, to open with the Renter or car chosen. */
 export const NEW_RENTAL_PRESETS = ["renterId", "vehicleId"] as const;
 

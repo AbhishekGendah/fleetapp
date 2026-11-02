@@ -730,6 +730,26 @@
   through the app's own code, so every rule and log applies. Pressing again
   adds only what is missing. Database and browser tests cover a whole run. Checklist rows O-277 to O-279.
 
+- Dashboard, fleet at a glance and a calmer calendar (2 Nov 2026, plan:
+  docs/plans/this-week.md), asked for by Abhi for fleets of ~100 cars on
+  long rentals. No schema change.
+  - Home: New rental / Add a car / Add a Renter; Needs attention (overdue
+    returns, late pickups, this week's bookings not ready and why, Renter
+    details to review, rego or insurance due, licences due of Renters
+    renting, late back from the workshop); Today and this week; Fleet
+    (counts by status that open the cars list, idle cars longest first).
+  - Cars list: status counts above it; a Now column (who has the car and
+    since when, or how many days it has sat idle).
+  - Calendar with all cars: only pickups and returns; one car: its rentals
+    in full.
+  - New shared piece: count links (in the component catalogue).
+  - Tests: date rules in the Operator's timezone (core), every dashboard
+    list against the demo business plus another Operator seeing none of it
+    (database), and the dashboard, cars counts and calendar in the browser.
+    Checklist rows O-280 to O-285, A-65; O-236 updated.
+  - Later: a one-row-per-car fleet timeline (DayPilot Lite, Apache-2.0, a
+    candidate) once Abhi has used the dashboard.
+
 ## Next
 Phase 3 slice 6: the return (same checklist, side-by-side with the
 handover photos, new damage highlighted, possession ends, car back to
