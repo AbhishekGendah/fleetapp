@@ -1,10 +1,17 @@
+import { LICENCE_SIDES } from "@fleetapp/core";
+import { SAMPLE_JPEG } from "@fleetapp/core/testing";
 import type { TestConnection } from "@fleetapp/db/testing";
 
 import type { ActingUser } from "../src/lib/acting-user";
+import { confirmUpload, type FileDependencies } from "../src/lib/files/stored-files";
 import { emptyRentalForm, parseRentalForm } from "../src/lib/rentals/rental-input";
 import { createRental } from "../src/lib/rentals/rental-records";
+import { parseLicenceForm } from "../src/lib/renters/licence-input";
+import { saveLicence } from "../src/lib/renters/licence-records";
+import { startLicenceScanUpload } from "../src/lib/renters/licence-scans";
 import { emptyRenterForm, parseRenterForm } from "../src/lib/renters/renter-input";
 import { createRenter } from "../src/lib/renters/renter-records";
+import type { MemoryFileStorage } from "../src/lib/storage/memory-file-storage";
 import { addTestCar } from "./car-fixtures";
 
 export const TEST_TIME_ZONE = "Australia/Perth";
@@ -50,4 +57,50 @@ export async function bookTestRental(
     throw new Error(`The test rental was not saved: ${result.status}`);
   }
   return { rentalId: result.rentalId, vehicleId };
+}
+
+/**
+ * A Renter with everything renting needs on file: date of birth, home
+ * address, email, a full licence, and both sides of it scanned.
+ */
+export async function addRenterReadyToRent(
+  web: TestConnection,
+  deps: FileDependencies & { storage: MemoryFileStorage },
+  owner: ActingUser,
+  fullName = "Rory Ready",
+): Promise<string> {
+  const parsed = parseRenterForm(
+    {
+      ...emptyRenterForm(),
+      fullName,
+      phone: "0412345678",
+      email: "rory.ready@example.test",
+      dateOfBirth: "1990-04-02",
+      residentialAddress: "1 Test Street, Perth WA 6000",
+    },
+    "2026-10-30",
+  );
+  const renterId = await createRenter(web.db, owner, parsed.data!);
+  const licence = parseLicenceForm({
+    licenceIssuedIn: "WA",
+    licenceCountry: "",
+    licenceNumber: `${Math.floor(Math.random() * 9_000_000) + 1_000_000}`,
+    licenceClass: "C",
+    licenceType: "full",
+    licenceExpiresOn: "2030-05-04",
+  });
+  await saveLicence(web.db, owner, renterId, licence.data!);
+  for (const side of LICENCE_SIDES) {
+    const start = await startLicenceScanUpload(deps, owner, renterId, side, {
+      contentType: "image/jpeg",
+      sizeBytes: 300_000,
+    });
+    if (start.status !== "allowed") {
+      throw new Error(`The scan was not allowed: ${start.status}`);
+    }
+    const permission = deps.storage.permissions.at(-1)!;
+    deps.storage.receive(permission.area, permission.key, SAMPLE_JPEG);
+    await confirmUpload(deps, owner, start.fileId, ["renter_licence_scan"]);
+  }
+  return renterId;
 }

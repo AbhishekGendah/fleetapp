@@ -21,6 +21,9 @@ const BULLET = "•";
 /** A logo is shown no taller than this, so it never crowds the first heading. */
 const LOGO_MAX_HEIGHT = 48;
 
+/** A small copy's height in the PDF: two to a row, about four rows to a page. */
+const PHOTO_HEIGHT = 150;
+
 const styles = StyleSheet.create({
   page: {
     paddingTop: 48,
@@ -61,6 +64,10 @@ const styles = StyleSheet.create({
   recordLabel: { width: 150, color: BRAND.colours.mutedText },
   recordValue: { flex: 1 },
   fingerprint: { fontFamily: "Courier", fontSize: 8 },
+  photoGrid: { flexDirection: "row", flexWrap: "wrap", marginTop: 6 },
+  photoCell: { width: "50%", paddingRight: 8, marginBottom: 10 },
+  photoImage: { height: PHOTO_HEIGHT, objectFit: "contain", marginBottom: 2 },
+  photoCaption: { fontSize: BODY_SIZE - 1, color: BRAND.colours.mutedText },
 });
 
 function fontFor(marks: readonly { type: string }[] | undefined): string {
@@ -167,6 +174,40 @@ export interface PdfSigningRecord {
   contentFingerprint: string;
 }
 
+/** An image as a PDF can print it. */
+export interface PdfImage {
+  data: Buffer;
+  format: "png" | "jpg";
+}
+
+/** A photo printed small in a report (rule 21): its small copy, with its name under it. */
+export interface PdfPhoto {
+  caption: string;
+  /** Missing when it could not be printed; the caption says it is kept with the rental. */
+  image?: PdfImage | undefined;
+}
+
+function PhotoGrid({ heading, photos }: { heading: string; photos: readonly PdfPhoto[] }) {
+  return (
+    <View>
+      <Text style={[styles.heading, { fontSize: HEADING_SIZES[2] }]}>{heading}</Text>
+      <View style={styles.photoGrid}>
+        {photos.map((photo, index) => (
+          <View key={`${photo.caption}-${index}`} style={styles.photoCell} wrap={false}>
+            {photo.image ? (
+              // eslint-disable-next-line jsx-a11y/alt-text -- a PDF image; its caption names it
+              <Image src={photo.image} style={styles.photoImage} />
+            ) : null}
+            <Text style={styles.photoCaption}>
+              {photo.image ? photo.caption : `${photo.caption} (photo kept with the rental)`}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 function SignatureBlock({ signature }: { signature: PdfSignature }): ReactElement {
   return (
     <View style={styles.signatureBlock} wrap={false}>
@@ -214,11 +255,13 @@ export interface DocumentPdfInput {
   /** The filled-in template: every merge field already replaced by text. */
   document: TemplateDocument;
   /** The business's logo, PNG or JPEG. */
-  logo?: { data: Buffer; format: "png" | "jpg" } | undefined;
+  logo?: PdfImage | undefined;
   /** In red in every footer, e.g. "Preview: not issued". */
   notice?: string | undefined;
   signature?: PdfSignature | undefined;
   signingRecord?: PdfSigningRecord | undefined;
+  /** Photos after the text, e.g. a handover's. */
+  photos?: { heading: string; photos: readonly PdfPhoto[] } | undefined;
 }
 
 /** The PDF's bytes. */
@@ -232,6 +275,9 @@ export async function renderDocumentPdf(input: DocumentPdfInput): Promise<Uint8A
           <Image src={input.logo} style={styles.logo} />
         ) : null}
         {input.document.content.map(blockElement)}
+        {input.photos && input.photos.photos.length > 0 ? (
+          <PhotoGrid heading={input.photos.heading} photos={input.photos.photos} />
+        ) : null}
         {input.signature ? <SignatureBlock signature={input.signature} /> : null}
         {input.signingRecord ? <SigningRecordPage record={input.signingRecord} /> : null}
         <View style={styles.footer} fixed>

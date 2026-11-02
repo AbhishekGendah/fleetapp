@@ -21,7 +21,11 @@ import {
   RenterSigningLinkEmail,
   type RenterSigningLinkEmailProps,
 } from "./templates/renter-signing-link";
-import { ContractSignedEmail, type ContractSignedEmailProps } from "./templates/contract-signed";
+import {
+  DocumentCopyEmail,
+  type CopiedDocumentKind,
+  type DocumentCopyEmailProps,
+} from "./templates/document-copy";
 
 /** Turns one template into the HTML and plain-text versions email clients need. */
 async function renderEmail(
@@ -136,24 +140,39 @@ export function renderRenterSigningLinkEmail(
   );
 }
 
+const COPY_SUBJECTS: Readonly<
+  Record<CopiedDocumentKind, { renter: (operatorName: string) => string; operator: string }>
+> = {
+  contract: {
+    renter: (operatorName) => `Your signed rental contract with ${operatorName}`,
+    operator: "Contract signed",
+  },
+  handover_report: {
+    renter: (operatorName) => `Your car handover report from ${operatorName}`,
+    operator: "Car handed over",
+  },
+};
+
 /**
- * The signed contract, attached: to the Renter from the business (replies go
- * to the business), or to the business itself.
+ * A copy of a fixed document, attached (a signed contract, a handover
+ * report): to the Renter from the business (replies go to the business), or
+ * to the business itself.
  */
-export async function renderContractSignedEmail(
-  input: WithRecipient<ContractSignedEmailProps> & {
+export async function renderDocumentCopyEmail(
+  input: WithRecipient<DocumentCopyEmailProps> & {
     replyTo?: string;
     attachment: EmailAttachment;
   },
 ): Promise<EmailMessage> {
   const { to, replyTo, attachment, ...props } = input;
   const isForRenter = props.audience === "renter";
+  const subjects = COPY_SUBJECTS[props.kind];
   const message = await renderEmail(
     to,
     isForRenter
-      ? `Your signed rental contract with ${props.operatorName}`
-      : `Contract signed: ${props.renterName}, ${props.rentalSummary}`,
-    createElement(ContractSignedEmail, props),
+      ? subjects.renter(props.operatorName)
+      : `${subjects.operator}: ${props.renterName}, ${props.rentalSummary}`,
+    createElement(DocumentCopyEmail, props),
   );
   const withFile = { ...message, attachments: [attachment] };
   return isForRenter

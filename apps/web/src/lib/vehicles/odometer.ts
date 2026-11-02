@@ -82,6 +82,20 @@ export async function addReading(
  * refused, as it is almost always a typo, unless the User says the odometer
  * was replaced; then it is saved, flagged, and the log says why.
  */
+/** The car's latest reading that still counts (not withdrawn), or null if it has none. */
+export async function latestKilometres(
+  tx: AnyTransaction,
+  vehicleId: string,
+): Promise<number | null> {
+  const [latest] = await tx
+    .select({ kilometres: odometerReadings.kilometres })
+    .from(odometerReadings)
+    .where(and(eq(odometerReadings.vehicleId, vehicleId), countedReading))
+    .orderBy(desc(odometerReadings.recordedAt))
+    .limit(1);
+  return latest?.kilometres ?? null;
+}
+
 export async function recordOdometerReading(
   database: AnyDatabase,
   actor: ActingUser,
@@ -92,15 +106,9 @@ export async function recordOdometerReading(
     if (!(await findCurrentVehicle(tx, actor.operatorId, vehicleId))) {
       return { status: "not_found" };
     }
-    const [latest] = await tx
-      .select({ kilometres: odometerReadings.kilometres })
-      .from(odometerReadings)
-      .where(and(eq(odometerReadings.vehicleId, vehicleId), countedReading))
-      .orderBy(desc(odometerReadings.recordedAt))
-      .limit(1);
-
-    if (latest && input.kilometres < latest.kilometres && !input.isOdometerReplaced) {
-      return { status: "lower", lastKilometres: latest.kilometres };
+    const lastKilometres = await latestKilometres(tx, vehicleId);
+    if (lastKilometres !== null && input.kilometres < lastKilometres && !input.isOdometerReplaced) {
+      return { status: "lower", lastKilometres };
     }
     await addReading(tx, actor, vehicleId, input.kilometres, {
       recordedAt: new Date(),

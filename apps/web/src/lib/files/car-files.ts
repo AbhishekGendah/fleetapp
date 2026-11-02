@@ -17,6 +17,7 @@ import {
   requestUpload,
   type FileActor,
   type FileDependencies,
+  type FileLinks,
   type UploadRequestResult,
 } from "./stored-files";
 
@@ -72,6 +73,12 @@ async function nextPhotoName(
   return photoName(rego, today, (taken?.count ?? 0) + 1);
 }
 
+/** Which photo of a handover or return checklist this is: one on its list, or a damage mark's. */
+export type ChecklistPhotoLinks = Pick<
+  FileLinks,
+  "inspectionId" | "inspectionPhotoName" | "damageMarkId"
+>;
+
 /**
  * Starts sending a photo and its small copy, both shrunk on the phone. The
  * photo is recorded first, as its small copy points at it, and named
@@ -83,6 +90,7 @@ export async function startCarPhotoUpload(
   vehicleId: string,
   planned: { photo: PlannedFile; thumbnail: PlannedFile },
   timeZone: string,
+  checklist?: ChecklistPhotoLinks,
 ): Promise<CarPhotoUploadStart> {
   if (!(await isCurrentCar(deps, actor, vehicleId))) {
     return { status: "not_found" };
@@ -94,6 +102,7 @@ export async function startCarPhotoUpload(
     links: async (tx) => ({
       vehicleId,
       label: await nextPhotoName(tx, actor.operatorId, vehicleId, today),
+      ...checklist,
     }),
   });
   if (photo.status === "refused") {
@@ -255,6 +264,21 @@ export async function removeCarFile(
   fileId: string,
 ): Promise<"removed" | "not_found"> {
   return withTenant(deps.database, actor.operatorId, async (tx) => {
+    // A handover or return photo stays with its checklist, and its small copy with it.
+    const [target] = await tx
+      .select({ id: files.id })
+      .from(files)
+      .where(
+        and(
+          eq(files.id, fileId),
+          inArray(files.purpose, ["vehicle_photo", "vehicle_document"]),
+          isNull(files.inspectionId),
+          carFileInUse(actor.operatorId, vehicleId, ["vehicle_photo", "vehicle_document"]),
+        ),
+      );
+    if (!target) {
+      return "not_found";
+    }
     const removed = await tx
       .update(files)
       .set({ deletedAt: deps.now() })

@@ -35,6 +35,8 @@ export interface IssueRequest {
   kind: IssuedDocumentKind;
   /** The template version it was made from; none for a report. */
   templateVersionId: string | null;
+  /** The handover or return checklist a report was made from. */
+  inspectionId?: string;
   pdf: Uint8Array;
   /**
    * Runs in the same transaction that records the document, e.g. to keep the
@@ -147,6 +149,7 @@ export async function issueDocument(
         kind: request.kind,
         version,
         templateVersionId: request.templateVersionId,
+        inspectionId: request.inspectionId ?? null,
         fileId,
         sha256,
         issuedByUserId: userIdOf(actor),

@@ -1,7 +1,6 @@
 import {
   decodeDrawnSignature,
   describeDevice,
-  describeErrorForLog,
   formatDateTimeInTimeZone,
   SIGNATURE_METHOD_LABELS,
   SIGNING_CONSENT_TEXT,
@@ -23,14 +22,14 @@ import {
   signingEvidence,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { renderContractSignedEmail, type EmailSender } from "@fleetapp/email";
+import type { EmailSender } from "@fleetapp/email";
 import { and, asc, eq, isNull, ne } from "drizzle-orm";
 
 import type { FileDependencies } from "../files/stored-files";
 import type { LinkVisit } from "../renter-links/link-visits";
 import type { RequestMeta } from "../request-meta";
-import { loadBusinessDetails } from "../settings/business-details";
 import { loadPdfBranding } from "./contract-pdf";
+import { emailDocumentCopies } from "./document-copies";
 import { renderDocumentPdf, type PdfSignature, type PdfSigningRecord } from "./document-pdf";
 import { fillContract } from "./filled-contract";
 import { issueDocument } from "./issued-documents";
@@ -223,45 +222,6 @@ interface SigningDependencies extends FileDependencies {
   emailSender: EmailSender;
 }
 
-async function emailSignedCopies(
-  deps: SigningDependencies,
-  visit: LinkVisit,
-  copies: { renterEmail: string; renterName: string; rentalSummary: string; signedAtText: string },
-  pdf: Uint8Array,
-): Promise<void> {
-  const business = await loadBusinessDetails(deps.database, visit.operatorId);
-  const attachment = {
-    fileName: `${CONTRACT_TITLE} ${copies.rentalSummary}.pdf`,
-    contentType: "application/pdf",
-    content: pdf,
-  };
-  const shared = {
-    renterName: copies.renterName,
-    operatorName: visit.operatorName,
-    rentalSummary: copies.rentalSummary,
-    signedAt: copies.signedAtText,
-    attachment,
-  };
-  const recipients = [
-    { to: copies.renterEmail, audience: "renter" as const },
-    ...(business?.email ? [{ to: business.email, audience: "operator" as const }] : []),
-  ];
-  for (const recipient of recipients) {
-    try {
-      await deps.emailSender.send(
-        await renderContractSignedEmail({
-          ...shared,
-          ...recipient,
-          replyTo: business?.email ?? undefined,
-        }),
-      );
-    } catch (error) {
-      // The contract is signed and kept either way; a failed copy is only logged.
-      console.error("Emailing a signed contract failed", describeErrorForLog(error));
-    }
-  }
-}
-
 /** The signed contract's PDF: the text, the signature under it, and the signing record. */
 async function renderSignedContract(
   deps: SigningDependencies,
@@ -403,17 +363,17 @@ export async function signContract(
   if (result.status !== "issued") {
     return { status: "not_signable" };
   }
-  await emailSignedCopies(
-    deps,
-    visit,
-    {
-      renterEmail: link.sentToEmail,
-      renterName: view.renterFullName,
-      rentalSummary: view.rentalSummary,
-      signedAtText,
-    },
+  await emailDocumentCopies(deps, {
+    kind: "contract",
+    operatorId: visit.operatorId,
+    operatorName: visit.operatorName,
+    renterEmail: link.sentToEmail,
+    renterName: view.renterFullName,
+    rentalSummary: view.rentalSummary,
+    atText: signedAtText,
+    fileName: `${CONTRACT_TITLE} ${view.rentalSummary}.pdf`,
     pdf,
-  );
+  });
   return { status: "signed", signedAtText };
 }
 

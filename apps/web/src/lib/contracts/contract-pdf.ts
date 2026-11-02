@@ -1,10 +1,12 @@
 import {
+  describeErrorForLog,
   fillMergeFields,
   MERGE_FIELDS,
   mergeFieldLabel,
   missingMergeFields,
   type ContractData,
   type MergeFieldKey,
+  type StorageArea,
   type TemplateDocument,
 } from "@fleetapp/core";
 import { files } from "@fleetapp/db/schema";
@@ -15,10 +17,10 @@ import type { FileDependencies } from "../files/stored-files";
 import type { RentalClock } from "../rentals/rental-records";
 import { loadBusinessDetails } from "../settings/business-details";
 import { loadContractData } from "./contract-data";
-import { renderDocumentPdf, type DocumentPdfInput } from "./document-pdf";
+import { renderDocumentPdf, type DocumentPdfInput, type PdfImage } from "./document-pdf";
 
-/** react-pdf prints PNG and JPEG logos; a WebP logo is left off the PDF. */
-const PDF_LOGO_FORMATS: Readonly<Record<string, "png" | "jpg">> = {
+/** react-pdf prints PNG and JPEG images; a WebP one is left off the PDF. */
+const PDF_IMAGE_FORMATS: Readonly<Record<string, PdfImage["format"]>> = {
   "image/png": "png",
   "image/jpeg": "jpg",
 };
@@ -47,17 +49,35 @@ async function loadLogo(
         ),
       ),
   );
-  const format = logo ? PDF_LOGO_FORMATS[logo.contentType] : undefined;
-  if (!logo || !format) {
+  return logo ? loadPdfImage(deps.storage, logo, "logo") : undefined;
+}
+
+/**
+ * A stored image for a PDF: PNG or JPEG only (react-pdf prints no other),
+ * fetched through a short-lived address. Undefined when it cannot be
+ * printed or fetched: a PDF without one image beats no PDF.
+ */
+export async function loadPdfImage(
+  storage: FileDependencies["storage"],
+  image: { storageArea: StorageArea; objectKey: string; contentType: string },
+  describedAs: string,
+): Promise<PdfImage | undefined> {
+  const format = PDF_IMAGE_FORMATS[image.contentType];
+  if (!format) {
     return undefined;
   }
-  const response = await fetch(await deps.storage.createViewUrl(logo.storageArea, logo.objectKey));
-  if (!response.ok) {
-    // A PDF without the logo beats no PDF; the failure is logged without details.
-    console.error("Loading the logo for a PDF failed", { status: response.status });
+  try {
+    const response = await fetch(await storage.createViewUrl(image.storageArea, image.objectKey));
+    if (!response.ok) {
+      // Logged without details: the address holds the file's key.
+      console.error(`Loading the ${describedAs} for a PDF failed`, { status: response.status });
+      return undefined;
+    }
+    return { data: Buffer.from(await response.arrayBuffer()), format };
+  } catch (error) {
+    console.error(`Loading the ${describedAs} for a PDF failed`, describeErrorForLog(error));
     return undefined;
   }
-  return { data: Buffer.from(await response.arrayBuffer()), format };
 }
 
 async function businessNameOf(

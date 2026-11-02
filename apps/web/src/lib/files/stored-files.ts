@@ -19,7 +19,7 @@ import {
   renterSubmissions,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, eq, inArray, isNotNull, isNull, ne, type SQL } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, ne, or, type SQL } from "drizzle-orm";
 
 import type { FileStorage, UploadPermission } from "../storage/file-storage";
 
@@ -60,6 +60,10 @@ export interface FileLinks {
   renterId?: string;
   licenceSide?: LicenceSide;
   renterLinkId?: string;
+  /** A handover or return checklist's photo: one on its list (by name), or a damage mark's. */
+  inspectionId?: string;
+  inspectionPhotoName?: string;
+  damageMarkId?: string;
 }
 
 export type UploadRequestResult =
@@ -192,6 +196,54 @@ async function isLinkAlreadySent(
   return waiting !== undefined;
 }
 
+/**
+ * A checklist photo taken again: the earlier one of that name (or of that
+ * damage mark), and its small copy, are hidden; the new one takes its place.
+ */
+async function markRetakenPhotosDeleted(
+  tx: AnyTransaction,
+  actor: FileActor,
+  now: Date,
+  file: typeof files.$inferSelect,
+): Promise<void> {
+  const samePlace = file.damageMarkId
+    ? eq(files.damageMarkId, file.damageMarkId)
+    : and(
+        eq(files.inspectionId, file.inspectionId ?? ""),
+        eq(files.inspectionPhotoName, file.inspectionPhotoName ?? ""),
+      );
+  const earlier = await tx
+    .select({ id: files.id })
+    .from(files)
+    .where(
+      and(
+        eq(files.operatorId, actor.operatorId),
+        samePlace,
+        ne(files.id, file.id),
+        isNotNull(files.confirmedAt),
+        isNull(files.deletedAt),
+      ),
+    );
+  const earlierIds = earlier.map((photo) => photo.id);
+  if (earlierIds.length === 0) {
+    return;
+  }
+  const removed = await tx
+    .update(files)
+    .set({ deletedAt: now })
+    .where(
+      and(
+        eq(files.operatorId, actor.operatorId),
+        or(inArray(files.id, earlierIds), inArray(files.thumbnailOfFileId, earlierIds)),
+        isNull(files.deletedAt),
+      ),
+    )
+    .returning({ id: files.id, purpose: files.purpose });
+  for (const photo of removed) {
+    await logFile(tx, actor, photo.id, "deleted", photo.purpose);
+  }
+}
+
 /** Hides what this file replaces (the old logo, scan or link photo), never the file itself. */
 async function retirePredecessors(
   tx: AnyTransaction,
@@ -205,6 +257,9 @@ async function retirePredecessors(
   }
   if (file.renterLinkId && file.licenceSide && !file.submissionId) {
     await markLinkPhotosDeleted(tx, actor, now, file.renterLinkId, file.licenceSide, notThisFile);
+  }
+  if (file.inspectionId && (file.inspectionPhotoName || file.damageMarkId)) {
+    await markRetakenPhotosDeleted(tx, actor, now, file);
   }
   if (file.renterId && file.licenceSide) {
     await markScansDeleted(

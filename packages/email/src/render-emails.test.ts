@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  renderContractSignedEmail,
+  renderDocumentCopyEmail,
   renderNewDeviceSignInEmail,
   renderOperatorInviteEmail,
   renderPasswordResetEmail,
@@ -155,15 +155,16 @@ describe("the contract emails", () => {
       renterName: "Sam",
       operatorName: "Sam's Cars Pty Ltd",
       rentalSummary: "1ABC234 Toyota Corolla, from 1 June 2027",
-      signedAt: "3 Nov 2026, 2:15 pm AWST",
+      kind: "contract" as const,
+      at: "3 Nov 2026, 2:15 pm AWST",
       attachment: PDF,
     };
-    const toRenter = await renderContractSignedEmail({
+    const toRenter = await renderDocumentCopyEmail({
       ...shared,
       to: "sam@example.test",
       audience: "renter",
     });
-    const toBusiness = await renderContractSignedEmail({
+    const toBusiness = await renderDocumentCopyEmail({
       ...shared,
       to: "hello@samscars.test",
       audience: "operator",
@@ -175,5 +176,21 @@ describe("the contract emails", () => {
       "Contract signed: Sam, 1ABC234 Toyota Corolla, from 1 June 2027",
     );
     expect(toBusiness.attachments).toEqual([PDF]);
+  });
+
+  it("words a handover report's copy as the car handed over", async () => {
+    const toRenter = await renderDocumentCopyEmail({
+      kind: "handover_report",
+      audience: "renter",
+      to: "sam@example.test",
+      renterName: "Sam",
+      operatorName: "Sam's Cars Pty Ltd",
+      rentalSummary: "1ABC234 Toyota Corolla, from 1 June 2027",
+      at: "1 Jun 2027, 9:05 am AWST",
+      attachment: PDF,
+    });
+
+    expect(toRenter.subject).toBe("Your car handover report from Sam's Cars Pty Ltd");
+    expect(toRenter.text).toContain("The report you accepted");
   });
 });
