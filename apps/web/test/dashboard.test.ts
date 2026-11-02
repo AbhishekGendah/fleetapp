@@ -83,16 +83,16 @@ describe("the dashboard", () => {
 
   it("counts the fleet by status and finds the cars sitting idle", async () => {
     expect(await loadFleetCounts(web.db, actor.operatorId)).toEqual({
-      available: 25,
+      available: 24,
       rented: 14,
-      in_service: 5,
+      in_service: 6,
       off_road: 2,
       sold: 2,
       written_off: 1,
     });
     const idle = await loadIdleCars(web.db, actor.operatorId, new Date());
-    // DEMO34 and DEMO35 are back and idle; DEMO36 went to the workshop after its return.
-    expect(idle.total).toBe(17);
+    // DEMO34 and DEMO35 are back and idle; DEMO36 went to the workshop after its return, and DEMO37 went out in the swap.
+    expect(idle.total).toBe(16);
     expect(idle.items).toHaveLength(5);
     expect(idle.items.map((car) => car.rego)).not.toContain("DEMO15");
   });
