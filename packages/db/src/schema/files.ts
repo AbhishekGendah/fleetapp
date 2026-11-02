@@ -16,6 +16,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { primaryKeyColumn, timestampColumns } from "./columns";
+import { damageRecords } from "./damage";
 import { inspectionDamageMarks, inspectionLink } from "./inspections";
 import { operatorIdColumn } from "./operators";
 import { renterLinks, renterSubmissions } from "./renter-links";
@@ -91,6 +92,8 @@ export const files = pgTable(
     inspectionPhotoName: text("inspection_photo_name"),
     /** A photo of a damage mark on that checklist. */
     damageMarkId: uuid("damage_mark_id"),
+    /** A photo of damage found away from a checklist, on its damage record. */
+    damageRecordId: uuid("damage_record_id"),
 
     /** The upload arrived and really is the type it claimed. */
     confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
@@ -127,6 +130,11 @@ export const files = pgTable(
     recordLink("submission", table.submissionId, table.operatorId, renterSubmissions),
     inspectionLink("files", table),
     recordLink("damage_mark", table.damageMarkId, table.operatorId, inspectionDamageMarks),
+    recordLink("damage_record", table.damageRecordId, table.operatorId, damageRecords),
+    check(
+      "files_damage_record_photos",
+      sql`${table.damageRecordId} is null or (${table.purpose}::text in ('vehicle_photo', 'vehicle_photo_thumbnail') and ${table.inspectionId} is null)`,
+    ),
     // A checklist photo is a car photo of that checklist: one of its list, or a damage mark's.
     check(
       "files_inspection_photos",

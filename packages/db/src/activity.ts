@@ -65,6 +65,8 @@ const ACTIVITY_ENTITY_LABELS = {
   [ACTIVITY_ENTITY_TYPES.bondMovement]: "Bond entry",
   [ACTIVITY_ENTITY_TYPES.inspection]: "Checklist",
   [ACTIVITY_ENTITY_TYPES.damageMark]: "Damage mark",
+  [ACTIVITY_ENTITY_TYPES.damageRecord]: "Damage",
+  [ACTIVITY_ENTITY_TYPES.insuranceClaim]: "Insurance claim",
 } satisfies Record<ActivityEntityType, string>;
 
 /** What each action reads as after the record's name: "Car archived". */

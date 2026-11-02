@@ -64,6 +64,8 @@ export interface FileLinks {
   inspectionId?: string;
   inspectionPhotoName?: string;
   damageMarkId?: string;
+  /** A photo of damage found away from a checklist. */
+  damageRecordId?: string;
 }
 
 export type UploadRequestResult =

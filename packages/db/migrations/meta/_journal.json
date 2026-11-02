@@ -246,6 +246,13 @@
       "when": 1793619122065,
       "tag": "0034_return",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1793626364931,
+      "tag": "0035_damage",
+      "breakpoints": true
     }
   ]
 }

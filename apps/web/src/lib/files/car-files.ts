@@ -8,7 +8,7 @@ import {
 import type { AnyTransaction } from "@fleetapp/db/client";
 import { files, vehicles } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, count, desc, eq, inArray, isNotNull, isNull, like, or } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNotNull, isNull, like, or, type SQL } from "drizzle-orm";
 
 import { findCurrentVehicle } from "../vehicles/current-vehicle";
 import {
@@ -73,10 +73,13 @@ async function nextPhotoName(
   return photoName(rego, today, (taken?.count ?? 0) + 1);
 }
 
-/** Which photo of a handover or return checklist this is: one on its list, or a damage mark's. */
+/**
+ * What a photo is of beyond its car: one on a checklist's list, a
+ * checklist's damage mark, or a damage record found away from a checklist.
+ */
 export type ChecklistPhotoLinks = Pick<
   FileLinks,
-  "inspectionId" | "inspectionPhotoName" | "damageMarkId"
+  "inspectionId" | "inspectionPhotoName" | "damageMarkId" | "damageRecordId"
 >;
 
 /**
@@ -154,12 +157,18 @@ export interface CarPhoto {
   thumbnailUrl: string | null;
 }
 
-/** A car's photos, newest first, each with a link to its small copy for the grid. */
+/**
+ * A car's photos, newest first, each with a link to its small copy for the
+ * grid; only those matching `onlyThese` if given (a damage record's), with
+ * their small copies.
+ */
 export async function listCarPhotos(
   deps: Pick<FileDependencies, "database" | "storage">,
   operatorId: string,
   vehicleId: string,
+  onlyThese?: SQL,
 ): Promise<CarPhoto[]> {
+  const inUse = carFileInUse(operatorId, vehicleId, ["vehicle_photo", "vehicle_photo_thumbnail"]);
   const rows = await withTenant(deps.database, operatorId, (tx) =>
     tx
       .select({
@@ -172,7 +181,20 @@ export async function listCarPhotos(
         createdAt: files.createdAt,
       })
       .from(files)
-      .where(carFileInUse(operatorId, vehicleId, ["vehicle_photo", "vehicle_photo_thumbnail"]))
+      .where(
+        onlyThese
+          ? and(
+              inUse,
+              or(
+                onlyThese,
+                inArray(
+                  files.thumbnailOfFileId,
+                  tx.select({ id: files.id }).from(files).where(and(inUse, onlyThese)),
+                ),
+              ),
+            )
+          : inUse,
+      )
       .orderBy(desc(files.createdAt)),
   );
   const photos = rows.filter((row) => row.purpose === "vehicle_photo");

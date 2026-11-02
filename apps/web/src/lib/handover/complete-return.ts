@@ -8,6 +8,7 @@ import {
   recordedReturnTime,
   type HandoverGap,
   type ReturnTimeProblem,
+  todayInTimeZone,
 } from "@fleetapp/core";
 import type { AnyTransaction } from "@fleetapp/db/client";
 import {
@@ -22,6 +23,7 @@ import { and, eq, isNull } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
 import { emailDocumentCopies } from "../contracts/document-copies";
+import { recordDamageFromReturn } from "../damage/damage-records";
 import { rentalSummaryText } from "../contracts/signing-links";
 import { releaseCarHolds } from "../rentals/car-holds";
 import type { RentalClock } from "../rentals/rental-records";
@@ -82,6 +84,8 @@ interface Returned {
   acceptanceText: string;
   isRenterAbsent: boolean;
   carAfter: VehicleStatusInput;
+  /** The return's day on the business's calendar: when its new damage was found. */
+  foundOn: string;
 }
 
 /**
@@ -132,6 +136,13 @@ async function recordReturned(
   await addReading(tx, actor, view.vehicleId, view.odometerKm ?? 0, {
     recordedAt: returned.at,
     source: "return",
+  });
+  await recordDamageFromReturn(tx, actor, {
+    inspectionId: view.inspectionId,
+    rentalId: view.rentalId,
+    vehicleId: view.vehicleId,
+    renterId: view.renterId,
+    foundOn: returned.foundOn,
   });
   await logReturned(tx, actor, view, returned);
 }
@@ -252,6 +263,7 @@ export async function completeReturn(
         acceptanceText,
         isRenterAbsent: signaturePng === null,
         carAfter: input.carAfter,
+        foundOn: todayInTimeZone(input.returnedAt, clock.timeZone),
       }),
   });
   if (issued.status !== "issued") {
