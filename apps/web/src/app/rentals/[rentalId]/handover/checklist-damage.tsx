@@ -153,7 +153,7 @@ export function ChecklistDamage(props: {
                   <img
                     src={mark.photoState.photo.viewUrl}
                     alt={`Damage ${index + 1} photo`}
-                    className="h-24 w-auto rounded"
+                    className="h-24 w-32 rounded object-cover"
                   />
                 ) : mark.serverId ? null : (
                   <span>Waiting to send</span>

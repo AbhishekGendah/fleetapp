@@ -58,7 +58,7 @@ function PhotoPair(props: { name: string; before?: SavedPhoto; now?: SavedPhoto 
           <img
             src={props.before.viewUrl}
             alt={`${props.name} at handover`}
-            className="h-24 w-auto rounded"
+            className="h-24 w-32 rounded object-cover"
           />
           <figcaption className="text-xs">At handover</figcaption>
         </figure>
@@ -69,7 +69,7 @@ function PhotoPair(props: { name: string; before?: SavedPhoto; now?: SavedPhoto 
           <img
             src={props.now.viewUrl}
             alt={`${props.name} photo`}
-            className="h-24 w-auto rounded"
+            className="h-24 w-32 rounded object-cover"
           />
           {props.before ? <figcaption className="text-xs">Now</figcaption> : null}
         </figure>

@@ -51,6 +51,23 @@ const senders: QueueSenders = {
 };
 
 /**
+ * A photo queued for a mark made on the phone points at the mark's own key;
+ * once that mark is saved, it shows against the saved mark (its id), so the
+ * mark reads "Waiting to send" rather than "Not taken" until the photo goes.
+ */
+async function withSavedMarks(pending: QueuedChange[]): Promise<QueuedChange[]> {
+  return Promise.all(
+    pending.map(async (change) => {
+      if (change.kind !== "photo" || !("markKey" in change.target)) {
+        return change;
+      }
+      const markId = await phoneQueueStore.markIdFor(change.target.markKey);
+      return markId ? { ...change, target: { damageMarkId: markId } } : change;
+    }),
+  );
+}
+
+/**
  * The handover's queue on this phone (rule 25): photos and damage marks are
  * kept here first, then sent one at a time whenever there is signal (on
  * opening, when the phone comes back online, after each new one, and every
@@ -66,25 +83,35 @@ export function useHandoverQueue(inspectionId: string): {
   const [queued, setQueued] = useState<QueuedChange[]>([]);
   const [state, setState] = useState<QueueState>({ status: "idle" });
   const isRunning = useRef(false);
+  /** Something was queued while a run was sending: run again straight after, not at the next retry. */
+  const isRunAgainWanted = useRef(false);
 
   const reload = useCallback(async () => {
-    setQueued(await phoneQueueStore.pending(inspectionId));
+    setQueued(await withSavedMarks(await phoneQueueStore.pending(inspectionId)));
   }, [inspectionId]);
 
   const sendNow = useCallback(() => {
-    if (isRunning.current || !navigator.onLine) {
+    if (!navigator.onLine) {
+      return;
+    }
+    if (isRunning.current) {
+      isRunAgainWanted.current = true;
       return;
     }
     isRunning.current = true;
     setState({ status: "sending" });
     void (async () => {
-      const problem = await orSendFailed(async () => {
-        const result = await runQueue(phoneQueueStore, senders, inspectionId);
-        if (result.count > 0) {
-          router.refresh();
-        }
-        return result.status === "stopped" ? result.problem : null;
-      });
+      let problem: string | null = null;
+      do {
+        isRunAgainWanted.current = false;
+        problem = await orSendFailed(async () => {
+          const result = await runQueue(phoneQueueStore, senders, inspectionId);
+          if (result.count > 0) {
+            router.refresh();
+          }
+          return result.status === "stopped" ? result.problem : null;
+        });
+      } while (isRunAgainWanted.current && !problem);
       isRunning.current = false;
       setState(problem ? { status: "waiting", problem } : { status: "idle" });
       await reload();

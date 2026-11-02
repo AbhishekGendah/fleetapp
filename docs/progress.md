@@ -774,6 +774,11 @@
   - Tests: return rules (core), checklist return rules (database), the
     whole return on the server, and on a phone in the browser. Return page
     budget 800 KB. Checklist rows O-286 to O-293 and A-66.
+  - Found and fixed on the way (handover too): a photo taken of a damage
+    mark while the mark itself was still sending waited up to 15 seconds,
+    and meanwhile the mark read "Not taken". It now goes straight after,
+    and reads "Waiting to send". Checklist photos keep their size while
+    loading, so the page no longer jumps.
 
 ## Next
 Phase 3 slice 6b: damage records and insurance claims (each new damage
