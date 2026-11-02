@@ -1,6 +1,6 @@
 # Phase 3 plan — Rentals
 
-Status: approved (1 Nov 2026). Slices 1 (bookings), 2 (contract templates) and 3 (signing) built 1 Nov 2026; slice 4 next.
+Status: approved (1 Nov 2026). Slices 1 (bookings), 2 (contract templates) and 3 (signing) built 1 Nov 2026, slice 4 (bonds) 2 Nov 2026; slice 5 next.
 Design: docs/design/04 (rentals), 05 (contracts, signing, handovers), the
 bond part of 06, the Renter-link part of 08, the dashboard part of 09.
 
@@ -143,6 +143,9 @@ Goal: the Operator can see how much bond each rental needs and holds.
 - **"Bond required before handover"** (setting, on by default): the
   handover is blocked until the held amount reaches the bond amount, unless
   the Operator overrides with a reason (logged).
+  Built in slice 4: the short bond is listed under Before handover on the
+  rental page. The block itself, and the override with a reason, belong
+  to the handover screen, so they come with slice 5.
 - Card and direct-debit bond payments, instalments and deductions for
   damage arrive with Stripe and the ledger in Phase 4. Bonds carry no GST
   (they are security, not payment, until used); recorded in the legal notes.

@@ -348,7 +348,26 @@ of service) and the countries.
 - **Overseas:** PDFs are made on our own servers (Vercel, Sydney) with an
   open-source library; nothing is sent to another service.
 
-## Signing contracts on the Renter's phone (Phase 3 slice 3, built)
+## Bonds (Phase 3 slice 4, built)
+
+- **No GST on a bond:** it is security, not payment for a supply, so no
+  GST is recorded on it. When part of a bond is kept to cover a charge
+  (damage, unpaid rent; Phase 4), GST follows that charge's own type, not
+  the bond. Confirm with the accountant before Phase 4 (on the list).
+- **Not a residential bond:** the state bond-lodgement schemes (e.g. WA's
+  Bond Administrator) cover tenancies, not vehicle rentals, so the
+  Operator holds the bond themselves. The Operator's contract must say
+  when the bond is paid, what it can be used for and when it is returned
+  (the starter template has a note for this). Australian Consumer Law:
+  keeping a bond without a basis in the contract can be challenged.
+- **Record keeping:** bond entries are never changed or deleted; mistakes
+  are corrected by a cancelling entry with the reason, so the history is
+  complete for disputes and the tax records (5 years).
+- **Personal information:** a bank transfer reference can hold a name, so
+  references and correction reasons stay with the bond and never go into
+  the activity log (rule 7). The admin app cannot read bond entries.
+
+
 
 - **Electronic Transactions Act 1999 (Cth) s 10, and each state's own Act (e.g. WA 2011):** the
   signer is identified (a code emailed to them, typed on their phone), the

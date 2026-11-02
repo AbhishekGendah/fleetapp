@@ -676,8 +676,26 @@
     page budget is 445 KB. Checklist rows O-247 (updated), O-248 to O-259,
     A-62 and A-63.
 
+- Phase 3 slice 4 — bonds (recorded by hand; Stripe collection is Phase 4):
+  - Migration 0032: bond_movements (received, refunded, deducted,
+    correction) with a generic payment method type (cash, bank transfer
+    now; card and direct debit later). Never changed or deleted; a
+    correction cancels one entry exactly, once; the database refuses
+    anything that would leave less than nothing held. Web app only.
+  - Rental page: Bond card (required, held, still to receive, entries),
+    Record bond received (amount, how, day, reference in capitals),
+    Correct on each entry. More than the rest of the bond is refused.
+  - Before handover lists a short bond when the rental was made with
+    "Bond required before handover" on. The block and override come with
+    the handover (slice 5).
+  - Bond entries in the rental's Log (amount, kind and how only).
+  - Checklist rows O-260 to O-265.
+
 ## Next
-Phase 3 slice 4: bonds (recorded, not yet collected through Stripe).
+Phase 3 slice 5: handover on the Operator's phone (photo checklist that
+works with poor signal, the Renter accepts on the phone, possession
+starts). Includes blocking the handover while the bond is short, with an
+override and reason.
 Open idea: trim the phone rules to Australia only with libphonenumber's
 metadata generator (about 40 KB off each form page); running the
 generator needs Abhi's say-so.
