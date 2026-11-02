@@ -503,6 +503,23 @@ of service) and the countries.
 - **Record keeping:** each change is kept for good with its reason, who
   made it and the signed form (rule 12 for the PDF).
 
+## Car swaps (Phase 3 slice 7b, built)
+
+- **The Renter's acceptance:** the Renter signs the swap form on the
+  Operator's phone, after reading that they hand back one car and accept
+  the other in the condition shown in each checklist. The rest of the
+  rental stays the same. The moment they sign is when possession moves
+  (rule 15), so a fine is matched to the right car. Ask the lawyer whether
+  this on-phone signature with that wording is enough (add to the lawyer
+  list), as it is for the handover.
+- **Copies:** the swap form and both reports are emailed to the Renter,
+  as for the handover and return. They are transactional emails, so the
+  Spam Act's unsubscribe rule does not apply.
+- **Record keeping:** finished swaps can never be changed or deleted;
+  each keeps its reason, who started it and the three documents (rule 12).
+- **Privacy:** no new personal information is collected. Admin cannot
+  read swaps (rule 5).
+
 ## Demo data (test site only, 2 Nov 2026)
 
 - Every demo record is made up: names, emails at example.test (a domain

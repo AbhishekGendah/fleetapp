@@ -4,6 +4,7 @@ import { addDemoDamage } from "./demo-damage";
 import { DemoDataError, type DemoContext } from "./demo-context";
 import { handOverDemoRental } from "./demo-handovers";
 import { returnDemoRental } from "./demo-returns";
+import { addDemoSwap } from "./demo-swaps";
 import { addDemoInsurance } from "./demo-insurance";
 import {
   DEMO_ACTIVE_RENTAL_CODES,
@@ -97,6 +98,7 @@ const RUNNABLE_STEPS: readonly RunnableStep[] = [
   })),
   { key: "damage", label: "Damage records and insurance claims", run: addDemoDamage },
   { key: "changes", label: "Changes of terms", run: addDemoChanges },
+  { key: "swap", label: "A car swap", run: addDemoSwap },
 ];
 
 function countAdded(outcome: "added" | "there"): number {

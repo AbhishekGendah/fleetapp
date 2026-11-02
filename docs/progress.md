@@ -829,8 +829,32 @@
     the whole flow on a phone in the browser. Rental page budget 480 KB.
     Checklist rows O-304 to O-310; O-278 updated.
 
+- Phase 3 slice 7b — car swaps (plan: docs/plans/phase-3-slice-7.md):
+  - Migration 0037: car_swaps (old and new car, reason, the two
+    checklists, the signed form; one under way per rental; kept for good
+    once finished). The rental's car can only change through its swap.
+  - Rental page Car swap card: Swap car (only Available cars that are free
+    for the rest of the rental), then Continue swap or Cancel swap while it
+    is under way, and finished swaps with Open swap form. The rental's own
+    return waits while a swap is under way.
+  - Swap step 1: the car handed back, checked as a return beside its
+    handover. Step 2: the new car's photos, kilometres, fuel, keys and
+    damage, then where the old car goes and the Renter signs on the phone.
+    Both checklists keep working with poor signal.
+  - Finishing issues three documents (swap form, return report for the old
+    car, handover report for the new one), emailed to the Renter and you,
+    and moves possession, the car holds, both cars' statuses and the
+    rental in one go.
+  - Settings → Contracts: the Car swap form template has new "Car swap"
+    fields (old car, new car, when, why).
+  - Demo data: R04 swapped from DEMO04 (to the workshop) into DEMO37.
+  - Tests: the table's rules and isolation (database), start, cancel and
+    finish (server), and the whole swap on a phone in the browser. Swap
+    page budget 730 KB. Checklist rows O-311 to O-316; O-278 updated.
+
 ## Next
-Phase 3 slice 7b (car swaps). Later: the fleet timeline (DayPilot Lite).
+Phase 3 is complete apart from the fleet timeline (DayPilot Lite). Then
+Phase 4 (payments).
 Open idea: trim the phone rules to Australia only with libphonenumber's
 metadata generator (about 40 KB off each form page); running the
 generator needs Abhi's say-so.

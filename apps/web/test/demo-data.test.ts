@@ -1,4 +1,5 @@
 import {
+  carSwaps,
   damageRecords,
   insuranceClaims,
   issuedDocuments,
@@ -103,8 +104,16 @@ describe("demo data", () => {
           .from(possessions)
           .where(eq(possessions.operatorId, actor.operatorId)),
       );
-      expect(handedOver?.total).toBe(17);
-      expect(held?.total).toBe(17);
+      // 17 handovers, plus the car swap's handover of the new car.
+      expect(handedOver?.total).toBe(18);
+      expect(held?.total).toBe(18);
+      const swaps = await withTenant(web.db, actor.operatorId, (tx) =>
+        tx
+          .select({ status: carSwaps.status })
+          .from(carSwaps)
+          .where(eq(carSwaps.operatorId, actor.operatorId)),
+      );
+      expect(swaps).toEqual([{ status: "completed" }]);
       const damage = await withTenant(web.db, actor.operatorId, (tx) =>
         tx
           .select({ status: damageRecords.status, claimStatus: insuranceClaims.status })

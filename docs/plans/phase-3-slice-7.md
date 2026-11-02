@@ -1,6 +1,6 @@
 # Phase 3 slice 7: changes during a rental
 
-Status: approved 2 Nov 2026; 7a built 2 Nov 2026, 7b next. Design: docs/design/04 (changes
+Status: approved 2 Nov 2026; 7a and 7b built 2 Nov 2026. Design: docs/design/04 (changes
 during a rental, possession), 05 (swap form and change-of-terms form are
 templates), docs/plans/phase-3.md (slice 7). Rules 14, 15, 18 and 19 apply
 throughout.

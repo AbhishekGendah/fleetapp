@@ -1,4 +1,9 @@
-import { addDays, earliestRateDay, type TemplateDocument } from "@fleetapp/core";
+import {
+  addDays,
+  earliestRateDay,
+  type ContractTemplateKind,
+  type TemplateDocument,
+} from "@fleetapp/core";
 
 import { createTemplate, loadDefaultTemplate, saveTemplate } from "../contracts/templates";
 import { changeWeeklyRate, listRentalChanges } from "../rentals/change-signing";
@@ -37,19 +42,22 @@ const DEMO_CHANGE_FORM: TemplateDocument = {
   ],
 };
 
-/** The business's default change-of-terms template, adding a demo one if it has none. */
-async function ensureChangeTemplate(context: DemoContext): Promise<void> {
+/** The business's default template of a kind, adding a demo one if it has none. */
+export async function ensureDemoTemplate(
+  context: DemoContext,
+  template: { kind: ContractTemplateKind; name: string; content: TemplateDocument },
+): Promise<void> {
   const { database } = context.deps;
-  if (await loadDefaultTemplate(database, context.actor.operatorId, "change_of_terms")) {
+  if (await loadDefaultTemplate(database, context.actor.operatorId, template.kind)) {
     return;
   }
   const templateId = await createTemplate(database, context.actor, {
-    kind: "change_of_terms",
-    name: DEMO_CHANGE_TEMPLATE_NAME,
+    kind: template.kind,
+    name: template.name,
   });
   await saveTemplate(database, context.actor, templateId, {
-    name: DEMO_CHANGE_TEMPLATE_NAME,
-    content: DEMO_CHANGE_FORM,
+    name: template.name,
+    content: template.content,
   });
 }
 
@@ -77,7 +85,11 @@ async function demoRental(context: DemoContext, code: string) {
  * for their signature. Rentals already changed are left alone.
  */
 export async function addDemoChanges(context: DemoContext): Promise<number> {
-  await ensureChangeTemplate(context);
+  await ensureDemoTemplate(context, {
+    kind: "change_of_terms",
+    name: DEMO_CHANGE_TEMPLATE_NAME,
+    content: DEMO_CHANGE_FORM,
+  });
   let added = 0;
   const extended = await demoRental(context, EXTENDED_RENTAL);
   if (!extended.hasChanges) {
