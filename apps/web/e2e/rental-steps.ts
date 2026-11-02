@@ -18,7 +18,7 @@ export interface RentalParties {
 }
 
 /** Types a date and time into a picker part by part, as a keyboard user would. */
-async function typeMoment(page: Page, label: RegExp, moment: TypedMoment): Promise<void> {
+export async function typeMoment(page: Page, label: RegExp, moment: TypedMoment): Promise<void> {
   const picker = page.getByRole("group", { name: label });
   await picker.getByRole("spinbutton", { name: /day/i }).focus();
   for (const part of [moment.day, moment.month, moment.year, moment.hour, moment.minute]) {

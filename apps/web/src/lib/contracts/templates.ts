@@ -1,4 +1,8 @@
-import { STARTER_CONTRACT, type ContractTemplateKind, type TemplateDocument } from "@fleetapp/core";
+import {
+  STARTER_TEMPLATES,
+  type ContractTemplateKind,
+  type TemplateDocument,
+} from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import {
   ACTIVITY_ACTIONS,
@@ -134,7 +138,7 @@ export async function createTemplate(
       operatorId: actor.operatorId,
       templateId: template.id,
       version: 1,
-      content: STARTER_CONTRACT,
+      content: STARTER_TEMPLATES[input.kind],
       createdByUserId: actor.userId,
     });
     await logTemplateActivity(tx, actor, template.id, ACTIVITY_ACTIONS.created, {

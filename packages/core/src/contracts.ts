@@ -340,3 +340,53 @@ export const STARTER_CONTRACT: TemplateDocument = {
     ),
   ],
 };
+
+/**
+ * The starter change-of-terms form: who, which rental, what changes and
+ * why, as merge fields, with a note for the business's own wording. As with
+ * the contract, no legal wording.
+ */
+export const STARTER_CHANGE_OF_TERMS: TemplateDocument = {
+  type: "doc",
+  content: [
+    heading(1, "Change of terms"),
+    paragraph(
+      text(
+        "Before you use this template: add your own wording, and have it checked by a lawyer.",
+        true,
+      ),
+    ),
+    paragraph(
+      text("Between "),
+      field("businessLegalName"),
+      text(" (ABN "),
+      field("businessAbn"),
+      text(") and "),
+      field("renterFullName"),
+      text(", for the rental of "),
+      field("carRego"),
+      text(" "),
+      field("carMakeModel"),
+      text(" that started "),
+      field("rentalStart"),
+      text("."),
+    ),
+    heading(2, "What changes"),
+    paragraph(field("changeSummary")),
+    paragraph(text("Why: "), field("changeReason")),
+    yourTermsNote("how this change fits with the rest of the contract"),
+    paragraph(text("Everything else in the rental contract stays the same.")),
+    heading(2, "Signature"),
+    paragraph(text("Issued on "), field("issuedOn")),
+    paragraph(
+      text("Signed by the Renter electronically. The signing record is attached to this document."),
+    ),
+  ],
+};
+
+/** What a new template of each kind starts as. The swap form gets its own with car swaps. */
+export const STARTER_TEMPLATES: Readonly<Record<ContractTemplateKind, TemplateDocument>> = {
+  contract: STARTER_CONTRACT,
+  swap_form: STARTER_CONTRACT,
+  change_of_terms: STARTER_CHANGE_OF_TERMS,
+};

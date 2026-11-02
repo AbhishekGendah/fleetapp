@@ -119,12 +119,20 @@ export function rentalContractPreviewPath(rentalId: string): string {
   return `${rentalPath(rentalId)}/contract-preview`;
 }
 
-/** The rental's latest signed contract, handover report or return report, as a PDF. */
+/** Which one of a rental's documents of a kind to open, when it has several (changes of terms). */
+export const DOCUMENT_ID_PARAM = "document";
+
+/**
+ * The rental's latest signed contract, handover report, return report or
+ * change of terms, as a PDF; or the one named, when a rental has several.
+ */
 export function rentalDocumentPath(
   rentalId: string,
-  kind: "contract" | "handover_report" | "return_report",
+  kind: "contract" | "handover_report" | "return_report" | "change_of_terms",
+  documentId?: string,
 ): string {
-  return `${rentalPath(rentalId)}/documents/${kind}`;
+  const path = `${rentalPath(rentalId)}/documents/${kind}`;
+  return documentId ? `${path}?${DOCUMENT_ID_PARAM}=${documentId}` : path;
 }
 
 export function rentalHandoverPath(rentalId: string): string {

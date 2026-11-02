@@ -1,0 +1,238 @@
+import {
+  canChangeEnd,
+  canChangeRate,
+  earliestRateDay,
+  formatCalendarDate,
+  formatCents,
+  formatDateTimeInTimeZone,
+  operatorSettingsSchema,
+  readSettings,
+  RENTAL_CHANGE_KIND_LABELS,
+  RENTAL_CHANGE_STATUS_LABELS,
+  utcToLocalDateTime,
+  type RentalChangeStatus,
+} from "@fleetapp/core";
+import { ActionButton } from "@fleetapp/ui/action-button";
+import { Badge, type BadgeTone } from "@fleetapp/ui/badge";
+import { Button } from "@fleetapp/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { FormDialog } from "@fleetapp/ui/form-dialog";
+import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
+import { CalendarClock, FileCheck2, Infinity as InfinityIcon, Undo2, Wallet } from "lucide-react";
+import Link from "next/link";
+
+import { RenterLinkSender } from "../../../components/renter-link-sender";
+import { RenterLinkStatus } from "../../../components/renter-link-status";
+import { appDb } from "../../../lib/app-db";
+import { loadDefaultTemplate } from "../../../lib/contracts/templates";
+import { CONTRACTS_PATH, rentalDocumentPath } from "../../../lib/paths";
+import { listRentalChanges, type RentalChangeRow } from "../../../lib/rentals/change-signing";
+import type { RentalDetail } from "../../../lib/rentals/rental-queries";
+import type { RentalClock } from "../../../lib/rentals/rental-records";
+import type { SignedInUser } from "../../../lib/require-user";
+import {
+  changeEndAction,
+  changeRateAction,
+  makeOngoingAction,
+  sendChangeAction,
+  withdrawChangeAction,
+} from "./change-actions";
+import { EndChangeForm, OngoingChangeForm, RateChangeForm } from "./change-forms";
+
+const STATUS_TONES: Readonly<Record<RentalChangeStatus, BadgeTone>> = {
+  applied: "good",
+  waiting_for_signature: "attention",
+  withdrawn: "neutral",
+};
+
+/** "Ends 6 Jul 2027, 9:00 am (was 29 Jun 2027, 9:00 am)": what the change did, in a line. */
+function changeTitle(change: RentalChangeRow, timeZone: string): string {
+  const moment = (date: Date | null) =>
+    date ? formatDateTimeInTimeZone(date, timeZone) : "no end (ongoing)";
+  if (change.kind === "weekly_rate") {
+    const from = change.appliesFrom ? formatCalendarDate(change.appliesFrom) : "";
+    return `${formatCents(change.rateAfterCents ?? 0)} a week from ${from} (was ${formatCents(change.rateBeforeCents ?? 0)})`;
+  }
+  if (change.kind === "make_ongoing") {
+    return `Ongoing (was ending ${moment(change.endBefore)})`;
+  }
+  return `Ends ${moment(change.endAfter)} (was ${moment(change.endBefore)})`;
+}
+
+/** One change: what, why, its state, and sending, withdrawing or opening its form. */
+function ChangeItem(props: { change: RentalChangeRow; rentalId: string; timeZone: string }) {
+  const { change, rentalId, timeZone } = props;
+  const isWaiting = change.status === "waiting_for_signature";
+  const canSend = change.status !== "withdrawn" && change.documentId === null;
+  return (
+    <RecordItem
+      title={`${RENTAL_CHANGE_KIND_LABELS[change.kind]}: ${changeTitle(change, timeZone)}`}
+      aside={
+        <span className="flex flex-wrap gap-1">
+          <Badge tone={STATUS_TONES[change.status]}>
+            {RENTAL_CHANGE_STATUS_LABELS[change.status]}
+          </Badge>
+          {change.isShortNotice ? <Badge tone="attention">Short notice</Badge> : null}
+          {change.documentId ? <Badge tone="good">Signed</Badge> : null}
+        </span>
+      }
+      details={
+        <>
+          <p>{change.reason}</p>
+          <p>Made {formatDateTimeInTimeZone(change.createdAt, timeZone)}</p>
+          {change.link ? <RenterLinkStatus link={change.link} timeZone={timeZone} /> : null}
+        </>
+      }
+      actions={
+        <>
+          {change.documentId ? (
+            <Button asChild variant="outline">
+              <a
+                href={rentalDocumentPath(rentalId, "change_of_terms", change.documentId)}
+                target="_blank"
+                rel="noopener"
+              >
+                <FileCheck2 aria-hidden />
+                Open signed form
+              </a>
+            </Button>
+          ) : null}
+          {canSend ? (
+            <RenterLinkSender
+              action={sendChangeAction.bind(null, rentalId, change.id)}
+              hasLink={change.link !== null}
+              sendLabel="Send for signing"
+              urlFieldId={`change-link-${change.id}`}
+            />
+          ) : null}
+          {isWaiting ? (
+            <ActionButton
+              action={withdrawChangeAction.bind(null, rentalId, change.id)}
+              label="Withdraw"
+              pendingLabel="Withdrawing…"
+              variant="danger"
+              icon={<Undo2 aria-hidden />}
+            />
+          ) : null}
+        </>
+      }
+    />
+  );
+}
+
+/** The buttons that start a change, as the rental's state allows. */
+function ChangeButtons(props: {
+  rental: RentalDetail;
+  clock: RentalClock;
+  hasChangeTemplate: boolean;
+}) {
+  const { rental, clock } = props;
+  const { ongoingNoticeDays } = readSettings(operatorSettingsSchema, rental.settingsSnapshot);
+  const isOngoing = rental.type === "ongoing";
+  const startingEnd = rental.plannedEnd ?? clock.now;
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+      <FormDialog
+        triggerLabel={isOngoing ? "Set an end date" : "Change end date"}
+        triggerIcon={<CalendarClock aria-hidden />}
+        title={isOngoing ? "Set an end date" : "Change the end date"}
+      >
+        <EndChangeForm
+          action={changeEndAction.bind(null, rental.id)}
+          timeZone={clock.timeZone}
+          initialEnd={utcToLocalDateTime(startingEnd, clock.timeZone)}
+          noticeHint={
+            isOngoing
+              ? `Your terms ask for ${ongoingNoticeDays} days' notice. A sooner end is allowed, and noted.`
+              : undefined
+          }
+        />
+      </FormDialog>
+      {isOngoing ? null : (
+        <FormDialog
+          triggerLabel="Make it ongoing"
+          triggerIcon={<InfinityIcon aria-hidden />}
+          title="Make the rental ongoing"
+        >
+          <OngoingChangeForm action={makeOngoingAction.bind(null, rental.id)} />
+        </FormDialog>
+      )}
+      {canChangeRate(rental.status) && props.hasChangeTemplate ? (
+        <FormDialog
+          triggerLabel="Change weekly rate"
+          triggerIcon={<Wallet aria-hidden />}
+          title="Change the weekly rate"
+        >
+          <RateChangeForm
+            action={changeRateAction.bind(null, rental.id)}
+            earliestDay={earliestRateDay(clock.now, clock.timeZone)}
+          />
+        </FormDialog>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Changes of terms during the rental (rule 14): a new end, made ongoing, or
+ * a new weekly rate, which counts only once the Renter signs it. Each is
+ * listed with its reason and state.
+ */
+export async function ChangesCard(props: {
+  rental: RentalDetail;
+  user: SignedInUser;
+  clock: RentalClock;
+}) {
+  const { rental, user, clock } = props;
+  const [changes, changeTemplate] = await Promise.all([
+    listRentalChanges(appDb, user.operatorId, rental.id, clock.now),
+    loadDefaultTemplate(appDb, user.operatorId, "change_of_terms"),
+  ]);
+  const isChangeable = canChangeEnd(rental.status);
+  if (!isChangeable && changes.length === 0) {
+    return null;
+  }
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Changes</CardTitle>
+        <CardDescription>
+          A new end takes effect at once. A new weekly rate is sent to the Renter to sign, and
+          counts only once they have.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {isChangeable ? (
+          <ChangeButtons
+            rental={rental}
+            clock={clock}
+            hasChangeTemplate={changeTemplate !== null}
+          />
+        ) : null}
+        {isChangeable && canChangeRate(rental.status) && !changeTemplate ? (
+          <p className="text-muted-foreground text-sm">
+            To change the weekly rate, first write your{" "}
+            <Link href={CONTRACTS_PATH} className="text-teal underline">
+              Change of terms form in Settings → Contracts
+            </Link>
+            .
+          </p>
+        ) : null}
+        {changes.length === 0 ? (
+          <p className="text-muted-foreground text-sm">No changes yet.</p>
+        ) : (
+          <RecordList label="Changes">
+            {changes.map((change) => (
+              <ChangeItem
+                key={change.id}
+                change={change}
+                rentalId={rental.id}
+                timeZone={user.operatorTimezone}
+              />
+            ))}
+          </RecordList>
+        )}
+      </CardContent>
+    </Card>
+  );
+}

@@ -5,6 +5,7 @@ import {
   MERGE_FIELDS,
   mergeFieldsUsed,
   missingMergeFields,
+  STARTER_CHANGE_OF_TERMS,
   STARTER_CONTRACT,
   templateDocumentSchema,
   type ContractData,
@@ -34,6 +35,10 @@ const ONE_PARAGRAPH: TemplateDocument = {
 describe("contract templates", () => {
   it("accepts the starter contract and every field in the menu is unique", () => {
     expect(templateDocumentSchema.safeParse(STARTER_CONTRACT).success).toBe(true);
+    expect(templateDocumentSchema.safeParse(STARTER_CHANGE_OF_TERMS).success).toBe(true);
+    expect(mergeFieldsUsed(STARTER_CHANGE_OF_TERMS)).toEqual(
+      expect.arrayContaining(["changeSummary", "changeReason"]),
+    );
     const keys = MERGE_FIELDS.map((field) => field.key);
     expect(new Set(keys).size).toBe(keys.length);
   });

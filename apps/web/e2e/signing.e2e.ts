@@ -2,7 +2,7 @@ import { expectAccessible } from "@fleetapp/e2e/accessibility";
 import { scriptKilobytes } from "@fleetapp/e2e/download-size";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
-import { MINIMUM_TOUCH_TARGET_PX, PHONE_VIEWPORT } from "./e2e-settings";
+import { MINIMUM_TOUCH_TARGET_PX } from "./e2e-settings";
 import {
   addCarToBook,
   fillRental,
@@ -11,6 +11,7 @@ import {
   type TypedMoment,
 } from "./rental-steps";
 import { expectNoSidewaysScroll } from "./phone-checks";
+import { openSigningOnPhone, startTemplate } from "./signing-steps";
 import { latestEmailTo } from "./test-inbox";
 
 /**
@@ -25,7 +26,6 @@ const CAR_REGO = "E2E301";
 const PARTIES: RentalParties = { renterName: RENTER.name, carRego: CAR_REGO };
 const TEMPLATE_NAME = "Short signing contract";
 const LINK_PATTERN = /https?:\/\/\S+\/r\/[A-Za-z0-9_-]+/;
-const CODE_PATTERN = /\b(\d{6})\b/;
 const PDF_START = "%PDF-";
 /**
  * The signing page's JavaScript, compressed: what it downloads today
@@ -45,19 +45,11 @@ const JUNE_7: TypedMoment = {
 };
 const JULY_5 = { ...JUNE_7, day: "05", month: "07" };
 
-/** The Renter's own phone: a fresh browser with no sign-in, past the emailed code. */
-async function openOnRenterPhone(browser: Browser, link: string): Promise<Page> {
-  const context = await browser.newContext({ storageState: undefined, viewport: PHONE_VIEWPORT });
-  const phone = await context.newPage();
-  await phone.goto(link, { waitUntil: "networkidle" });
-  await expect(phone.getByText("Your rental contract")).toBeVisible();
-  await phone.getByRole("button", { name: "Email me a code" }).click();
-  await expect(phone.getByLabel(/Type the code/)).toBeVisible();
-  const code = CODE_PATTERN.exec((await latestEmailTo(RENTER.email)).text)?.[1] ?? "";
-  await phone.getByLabel(/Type the code/).fill(code);
-  await expect(phone.getByRole("group", { name: "1. Check your details" })).toBeVisible();
-  await phone.waitForLoadState("networkidle");
-  return phone;
+function openOnRenterPhone(browser: Browser, link: string): Promise<Page> {
+  return openSigningOnPhone(browser, link, {
+    email: RENTER.email,
+    pageTitle: "Your rental contract",
+  });
 }
 
 async function drawSignature(phone: Page): Promise<void> {
@@ -87,13 +79,7 @@ test.describe.serial("signing a contract", () => {
     await expect(page.getByRole("heading", { name: `${CAR_REGO} · ${RENTER.name}` })).toBeVisible();
 
     // Only the Renter's name and the car's rego: both on file, so nothing blocks sending.
-    await page.goto("/settings/contracts", { waitUntil: "networkidle" });
-    await page.getByRole("textbox", { name: /^Name/ }).fill(TEMPLATE_NAME);
-    await page.getByRole("button", { name: "Add template" }).click();
-    await expect(page.getByRole("heading", { name: TEMPLATE_NAME })).toBeVisible();
-    const editor = page.getByRole("textbox", { name: /^Contract text/ });
-    await editor.click();
-    await page.keyboard.press("Control+a");
+    await startTemplate(page, { name: TEMPLATE_NAME });
     await page.keyboard.type("Rental agreement for ");
     await page.getByRole("button", { name: "Insert field" }).click();
     await page.getByRole("menuitem", { name: "Renter's full name" }).click();

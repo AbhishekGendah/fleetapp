@@ -40,6 +40,7 @@ import { RentalBadges } from "../rental-status-badge";
 import { bookDraftAction, cancelRentalAction } from "./actions";
 import { CancelRentalForm } from "./cancel-form";
 import { BondCard } from "./bond-card";
+import { ChangesCard } from "./changes-card";
 import { ContractCard } from "./contract-card";
 import { HandoverCard, ReturnCard } from "./handover-card";
 import { DamageList } from "../../cars/damage-list";
@@ -296,6 +297,7 @@ export default async function RentalPage(props: {
           <BeforeHandoverCard rental={rental} clock={clock} user={user} />
           <ContractCard rental={rental} user={user} clock={clock} />
           <SummaryCard rental={rental} timeZone={user.operatorTimezone} />
+          <ChangesCard rental={rental} user={user} clock={clock} />
           <ReturnCard rental={rental} user={user} />
           <RentalDamageCard rental={rental} user={user} />
           <HandoverCard rental={rental} user={user} />

@@ -31,3 +31,21 @@ export async function recordSignedContract(rentalId: string): Promise<void> {
     await client.end();
   }
 }
+
+/**
+ * Marks a booked rental as out with the Renter, straight in the test
+ * database: for tests of changes during a rental, as the handover itself is
+ * proven in handover.e2e.ts.
+ */
+export async function markRentalOut(rentalId: string): Promise<void> {
+  const client = new Client({ connectionString: process.env.E2E_SUPERUSER_URL });
+  await client.connect();
+  try {
+    await client.query(
+      "UPDATE rentals SET status = 'active', handed_over_at = now() WHERE id = $1",
+      [rentalId],
+    );
+  } finally {
+    await client.end();
+  }
+}

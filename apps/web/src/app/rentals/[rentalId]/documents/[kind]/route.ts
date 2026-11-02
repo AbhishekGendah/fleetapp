@@ -7,6 +7,7 @@ import {
   listIssuedDocuments,
   openIssuedDocument,
 } from "../../../../../lib/contracts/issued-documents";
+import { DOCUMENT_ID_PARAM } from "../../../../../lib/paths";
 import { requireUser } from "../../../../../lib/require-user";
 import { appFileStorage } from "../../../../../lib/storage/app-file-storage";
 
@@ -18,12 +19,16 @@ const OPENABLE = {
   contract: "Signed contract.pdf",
   handover_report: "Handover report.pdf",
   return_report: "Return report.pdf",
+  change_of_terms: "Change of terms.pdf",
 } as const;
 const kindSchema = z.enum(Object.keys(OPENABLE) as [keyof typeof OPENABLE]);
 
-/** The rental's latest document of a kind, through a short-lived address to the stored PDF. */
+/**
+ * The rental's latest document of a kind (or the one named, of that kind),
+ * through a short-lived address to the stored PDF.
+ */
 export async function GET(
-  _request: Request,
+  request: Request,
   props: { params: Promise<{ rentalId: string; kind: string }> },
 ): Promise<Response> {
   const user = await requireUser();
@@ -33,7 +38,11 @@ export async function GET(
     notFound();
   }
   const documents = await listIssuedDocuments(appDb, user.operatorId, rentalId);
-  const latest = documents.find((document) => document.kind === parsedKind.data);
+  const wantedId = new URL(request.url).searchParams.get(DOCUMENT_ID_PARAM);
+  const latest = documents.find(
+    (document) =>
+      document.kind === parsedKind.data && (wantedId === null || document.id === wantedId),
+  );
   const url = latest
     ? await openIssuedDocument(
         { database: appDb, storage: appFileStorage },
