@@ -1,3 +1,4 @@
+import { withSerwist } from "@serwist/turbopack";
 import type { NextConfig } from "next";
 
 const SECRET_LINK_PAGES = ["/invite/:token*", "/reset-password", "/r/:token*"];
@@ -44,4 +45,5 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Keeps esbuild out of the server bundle: it builds the handover service worker.
+export default withSerwist(nextConfig);

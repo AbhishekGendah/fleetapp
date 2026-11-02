@@ -481,3 +481,26 @@ test.describe("contract reader", () => {
     await expect(contract.getByText("End of contract")).toBeVisible();
   });
 });
+
+test.describe("car outline", () => {
+  test("marks damage by tapping, or by choosing the area with the keyboard", async ({ page }) => {
+    await page.setViewportSize(PHONE_VIEWPORT);
+    await openCatalogue(page);
+    const outline = page.getByRole("img", { name: /^Car outline/ });
+    await outline.scrollIntoViewIfNeeded();
+    const box = (await outline.boundingBox())!;
+
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 4);
+    await page.getByLabel("Or choose where on the car").selectOption("rear");
+
+    const marks = page.getByRole("button", { name: /^Damage \d/ });
+    await expect(marks).toHaveCount(2);
+    await expect(page.getByRole("button", { name: "Damage 2: Rear bumper" })).toBeVisible();
+    expect((await marks.first().boundingBox())!.height).toBeGreaterThanOrEqual(
+      MINIMUM_TOUCH_TARGET_PX,
+    );
+    await marks.first().focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("2 marked, mark-1 chosen.")).toBeVisible();
+  });
+});

@@ -5,6 +5,7 @@ import {
   MERGE_FIELD_GROUP_LABELS,
   MERGE_FIELDS,
   STARTER_CONTRACT,
+  CAR_AREAS,
   fillMergeFields,
   type ContractData,
   templateDocumentSchema,
@@ -28,6 +29,7 @@ import { CameraCapture } from "@fleetapp/ui/camera-capture";
 import { ContractEditor, type EditorMergeField } from "@fleetapp/ui/contract-editor";
 import { ContractReader } from "@fleetapp/ui/contract-reader";
 import { SignaturePad } from "@fleetapp/ui/signature-pad";
+import { CarOutline, type CarOutlineMark } from "@fleetapp/ui/car-outline";
 import { DateTimePicker } from "@fleetapp/ui/date-time-picker";
 import { RecordPicker, type PickableRecord } from "@fleetapp/ui/record-picker";
 import { FilePicker } from "@fleetapp/ui/file-picker";
@@ -339,6 +341,53 @@ function SignaturePadExample() {
     >
       <SignaturePad id="example-signature" name="drawnSignature" onValueChange={setDrawing} />
     </FormField>
+  );
+}
+
+/** The car outline: tap to mark, or choose the area from the list, as the handover does. */
+function CarOutlineExample() {
+  const [marks, setMarks] = useState<CarOutlineMark[]>([]);
+  const [area, setArea] = useState("");
+  const [chosen, setChosen] = useState<string | null>(null);
+  function addMark(x: number, y: number, where: string): void {
+    setMarks((previous) => [
+      ...previous,
+      { id: `mark-${previous.length + 1}`, x, y, label: `Damage ${previous.length + 1}: ${where}` },
+    ]);
+  }
+  function handleAreaChange(key: string): void {
+    setArea("");
+    const picked = CAR_AREAS.find((candidate) => candidate.key === key);
+    if (picked) {
+      addMark(picked.x, picked.y, picked.label);
+    }
+  }
+  return (
+    <div className="flex flex-col gap-3">
+      <CarOutline
+        label="Car outline: tap where the damage is"
+        marks={marks}
+        onPlace={({ x, y }) => addMark(x, y, "tapped")}
+        onSelectMark={setChosen}
+      />
+      <FormField htmlFor="example-car-area" label="Or choose where on the car">
+        <Select
+          id="example-car-area"
+          value={area}
+          onChange={(event) => handleAreaChange(event.target.value)}
+        >
+          <option value="">Choose an area</option>
+          {CAR_AREAS.map((candidate) => (
+            <option key={candidate.key} value={candidate.key}>
+              {candidate.label}
+            </option>
+          ))}
+        </Select>
+      </FormField>
+      <p className="text-muted-foreground text-sm" role="status">
+        {marks.length} marked{chosen ? `, ${chosen} chosen` : ""}.
+      </p>
+    </div>
   );
 }
 
@@ -669,6 +718,13 @@ export function ComponentCatalogue() {
           label="Example contract"
           content={fillMergeFields(STARTER_CONTRACT, EXAMPLE_CONTRACT_DATA)}
         />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Car outline"
+        note="Damage at handover and return: tap the drawing, or choose the area from the list. Each mark is a numbered button."
+      >
+        <CarOutlineExample />
       </CatalogueSection>
 
       <CatalogueSection

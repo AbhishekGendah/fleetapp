@@ -73,6 +73,27 @@ const KEYS_MESSAGE = `Enter how many keys, from 1 to ${MAXIMUM_KEYS}.`;
  */
 export const OUTLINE_SCALE = 1000;
 
+/**
+ * Areas of the car, each with its place on the outline: for marking damage
+ * from a list (keyboard, screen reader) as well as by tapping the drawing.
+ * The outline is seen from above, the front at the top.
+ */
+export const CAR_AREAS = [
+  { key: "front", label: "Front bumper", x: 500, y: 90 },
+  { key: "bonnet", label: "Bonnet", x: 500, y: 240 },
+  { key: "windscreen", label: "Windscreen", x: 500, y: 360 },
+  { key: "roof", label: "Roof", x: 500, y: 520 },
+  { key: "boot", label: "Boot", x: 500, y: 800 },
+  { key: "rear", label: "Rear bumper", x: 500, y: 920 },
+  { key: "front_left", label: "Front left (passenger side)", x: 330, y: 260 },
+  { key: "front_right", label: "Front right (driver's side)", x: 670, y: 260 },
+  { key: "left_side", label: "Left side doors", x: 330, y: 520 },
+  { key: "right_side", label: "Right side doors", x: 670, y: 520 },
+  { key: "rear_left", label: "Rear left", x: 330, y: 780 },
+  { key: "rear_right", label: "Rear right", x: 670, y: 780 },
+] as const;
+export type CarAreaKey = (typeof CAR_AREAS)[number]["key"];
+
 export const damageMarkInputSchema = z.object({
   x: z.number().int().min(0).max(OUTLINE_SCALE),
   y: z.number().int().min(0).max(OUTLINE_SCALE),

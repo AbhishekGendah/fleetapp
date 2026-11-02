@@ -56,7 +56,8 @@
     "./record-picker": "./src/components/record-picker.tsx",
     "./contract-editor": "./src/components/contract-editor.tsx",
     "./contract-reader": "./src/components/contract-reader.tsx",
-    "./signature-pad": "./src/components/signature-pad.tsx"
+    "./signature-pad": "./src/components/signature-pad.tsx",
+    "./car-outline": "./src/components/car-outline.tsx"
   },
   "scripts": {
     "lint": "eslint .",

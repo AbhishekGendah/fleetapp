@@ -23,13 +23,17 @@
     "@fleetapp/email": "workspace:*",
     "@fleetapp/ui": "workspace:*",
     "@react-pdf/renderer": "4.9.0",
+    "@serwist/turbopack": "9.5.13",
     "better-auth": "1.7.5",
+    "dexie": "4.4.7",
     "drizzle-orm": "0.45.2",
+    "esbuild": "0.28.2",
     "lucide-react": "1.55.0",
     "next": "16.3.5",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "server-only": "0.0.1",
+    "serwist": "9.5.13",
     "zod": "4.6.5"
   },
   "devDependencies": {
