@@ -10,7 +10,7 @@ export function FormSection(props: {
   children: React.ReactNode;
 }): React.JSX.Element {
   return (
-    <fieldset className="flex flex-col gap-4">
+    <fieldset className="flex min-w-0 flex-col gap-4">
       <legend className="text-primary mb-1 text-base font-semibold">
         {props.title}
         {props.isRequired ? <RequiredMark /> : null}

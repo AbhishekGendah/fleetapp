@@ -2,7 +2,7 @@ import { MILLISECONDS_PER_DAY } from "@fleetapp/core";
 import Dexie, { type Table } from "dexie";
 
 import { HANDOVER_PAGES_CACHE } from "../../../service-worker/cache-names";
-import type { QueuedChange, QueueStore } from "./queued-changes";
+import type { NewQueuedChange, QueuedChange, QueueStore } from "./queued-changes";
 
 /** The longest the phone keeps a handover's details and photos (rule 25 and privacy). */
 export const KEPT_ON_PHONE_DAYS = 7;
@@ -58,7 +58,7 @@ export async function loadDraft(inspectionId: string): Promise<HandoverDraft | n
   return (await handoverDatabase().drafts.get(inspectionId)) ?? null;
 }
 
-export function queueChange(change: Omit<QueuedChange, "id" | "queuedAt">): Promise<number> {
+export function queueChange(change: NewQueuedChange): Promise<number> {
   return handoverDatabase().queue.add({ ...change, queuedAt: Date.now() } as QueuedChange);
 }
 

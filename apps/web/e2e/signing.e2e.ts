@@ -3,7 +3,13 @@ import { scriptKilobytes } from "@fleetapp/e2e/download-size";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
 import { MINIMUM_TOUCH_TARGET_PX, PHONE_VIEWPORT } from "./e2e-settings";
-import { addCarToBook, fillRental, type RentalParties, type TypedMoment } from "./rental-steps";
+import {
+  addCarToBook,
+  fillRental,
+  openRentalOf,
+  type RentalParties,
+  type TypedMoment,
+} from "./rental-steps";
 import { expectNoSidewaysScroll } from "./phone-checks";
 import { latestEmailTo } from "./test-inbox";
 
@@ -38,15 +44,6 @@ const JUNE_7: TypedMoment = {
   meridiem: "a",
 };
 const JULY_5 = { ...JUNE_7, day: "05", month: "07" };
-
-async function openRental(page: Page): Promise<void> {
-  await page.goto("/rentals", { waitUntil: "networkidle" });
-  await page
-    .getByRole("link", { name: new RegExp(RENTER.name) })
-    .first()
-    .click();
-  await expect(page.getByRole("heading", { name: `${CAR_REGO} · ${RENTER.name}` })).toBeVisible();
-}
 
 /** The Renter's own phone: a fresh browser with no sign-in, past the emailed code. */
 async function openOnRenterPhone(browser: Browser, link: string): Promise<Page> {
@@ -114,7 +111,7 @@ test.describe.serial("signing a contract", () => {
   });
 
   test("the Operator sends the contract, and the rental shows it waiting", async ({ page }) => {
-    await openRental(page);
+    await openRentalOf(page, PARTIES);
     await page.getByRole("button", { name: "Send for signing" }).click();
 
     await expect(page.getByText(/^Emailed\. It works until/)).toBeVisible();
@@ -177,7 +174,7 @@ test.describe.serial("signing a contract", () => {
   });
 
   test("the rental shows the contract signed, and opens the signed PDF", async ({ page }) => {
-    await openRental(page);
+    await openRentalOf(page, PARTIES);
 
     await expect(page.getByText("Contract signed", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Send for signing" })).toHaveCount(0);

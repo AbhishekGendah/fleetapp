@@ -1,8 +1,10 @@
 "use client";
 
+import { CAR_AREAS } from "@fleetapp/core";
 import * as React from "react";
 
 import { cn } from "../lib/utils";
+import { Select } from "./select";
 
 /** Where a mark sits: across and down the outline, each from 0 to this. */
 export const CAR_OUTLINE_SCALE = 1000;
@@ -119,5 +121,33 @@ export function CarOutline({
         </button>
       ))}
     </div>
+  );
+}
+
+/**
+ * The keyboard's way to place a mark: the car's areas as a list
+ * (core's CAR_AREAS), each placing the mark where it sits on the outline.
+ */
+export function CarAreaSelect(props: {
+  id: string;
+  /** The area's key, or "" for none chosen. */
+  value: string;
+  onAreaChosen: (area: (typeof CAR_AREAS)[number] | null) => void;
+}): React.JSX.Element {
+  return (
+    <Select
+      id={props.id}
+      value={props.value}
+      onChange={(event) =>
+        props.onAreaChosen(CAR_AREAS.find((area) => area.key === event.target.value) ?? null)
+      }
+    >
+      <option value="">Choose an area</option>
+      {CAR_AREAS.map((area) => (
+        <option key={area.key} value={area.key}>
+          {area.label}
+        </option>
+      ))}
+    </Select>
   );
 }

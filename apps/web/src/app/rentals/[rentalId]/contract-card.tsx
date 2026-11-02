@@ -12,11 +12,7 @@ import { appDb } from "../../../lib/app-db";
 import { loadContractData } from "../../../lib/contracts/contract-data";
 import { loadSigningStatus, type SigningStatus } from "../../../lib/contracts/signing-links";
 import { loadDefaultTemplate } from "../../../lib/contracts/templates";
-import {
-  CONTRACTS_PATH,
-  rentalContractPreviewPath,
-  rentalSignedContractPath,
-} from "../../../lib/paths";
+import { CONTRACTS_PATH, rentalContractPreviewPath, rentalDocumentPath } from "../../../lib/paths";
 import type { RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { RentalClock } from "../../../lib/rentals/rental-records";
 import type { SignedInUser } from "../../../lib/require-user";
@@ -48,7 +44,7 @@ function SignedContractCard({
           <Badge tone="good">Contract signed</Badge>
         </p>
         <Button asChild className="w-full sm:w-auto sm:self-start">
-          <a href={rentalSignedContractPath(rentalId)} target="_blank" rel="noopener">
+          <a href={rentalDocumentPath(rentalId, "contract")} target="_blank" rel="noopener">
             <FileCheck2 aria-hidden />
             Open signed contract
           </a>

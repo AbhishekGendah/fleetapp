@@ -16,6 +16,7 @@ import { loadOperatorSettings } from "../../lib/settings/operator-settings";
 import { BusinessDetailsForm } from "./business-details-form";
 import { ChoiceSettingForm } from "./choice-setting-form";
 import { NumberSettingForm } from "./number-setting-form";
+import { PhotoListForm } from "./photo-list-form";
 import { LogoUpload } from "./logo-upload";
 
 export const runtime = "nodejs";
@@ -149,6 +150,7 @@ export default async function SettingsPage() {
             hint="Time for late fines and tolls to arrive."
             value={settings.bondHoldDaysAfterReturn}
           />
+          <PhotoListForm photos={settings.handoverPhotos} />
           <NumberSettingForm
             setting="ongoingNoticeDays"
             label="Notice a Renter on an ongoing rental gives before returning the car (days)"

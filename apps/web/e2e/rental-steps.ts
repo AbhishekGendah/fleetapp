@@ -64,3 +64,16 @@ export async function addCarToBook(page: Page, rego: string): Promise<void> {
   await page.getByRole("button", { name: "Add car" }).click();
   await expect(page.getByRole("heading", { name: rego })).toBeVisible();
 }
+
+/** Opens the Renter's rental from the Rentals list, checking it is the one for their car. */
+export async function openRentalOf(page: Page, parties: RentalParties): Promise<string> {
+  await page.goto("/rentals", { waitUntil: "networkidle" });
+  await page
+    .getByRole("link", { name: new RegExp(parties.renterName) })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("heading", { name: `${parties.carRego} · ${parties.renterName}` }),
+  ).toBeVisible();
+  return new URL(page.url()).pathname.split("/").at(-1) ?? "";
+}

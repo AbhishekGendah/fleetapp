@@ -102,8 +102,13 @@ export function rentalContractPreviewPath(rentalId: string): string {
   return `${rentalPath(rentalId)}/contract-preview`;
 }
 
-export function rentalSignedContractPath(rentalId: string): string {
-  return `${rentalPath(rentalId)}/signed-contract`;
+/** The rental's latest signed contract or handover report, as a PDF. */
+export function rentalDocumentPath(rentalId: string, kind: "contract" | "handover_report"): string {
+  return `${rentalPath(rentalId)}/documents/${kind}`;
+}
+
+export function rentalHandoverPath(rentalId: string): string {
+  return `${rentalPath(rentalId)}/handover`;
 }
 
 /** The New rental form, opened from a Renter's or a car's page with them chosen. */

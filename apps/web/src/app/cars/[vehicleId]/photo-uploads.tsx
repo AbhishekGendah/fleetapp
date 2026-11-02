@@ -1,21 +1,17 @@
 "use client";
 
-import { formatFileSize, PICKED_PHOTO_MAX_BYTES } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { CameraCapture } from "@fleetapp/ui/camera-capture";
 import { FilePicker } from "@fleetapp/ui/file-picker";
 import { FormError } from "@fleetapp/ui/form-message";
-import { shrinkImage, THUMBNAIL_EDGE_PX } from "@fleetapp/ui/shrink-image";
 import { Camera, Images } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { orSendFailed } from "../../../lib/files/or-send-failed";
 import { SEND_FAILED_MESSAGE, sendToStorage } from "../../../lib/files/send-to-storage";
+import { shrinkPhotoForUpload } from "../../../lib/files/shrink-photo";
 import { finishCarPhotoUploadAction, startCarPhotoUploadAction } from "./file-actions";
-
-const TOO_LARGE_MESSAGE = `That photo is too large (over ${formatFileSize(PICKED_PHOTO_MAX_BYTES)}).`;
-const UNREADABLE_MESSAGE = "This photo could not be opened here. Save it as a JPEG and try again.";
 
 /** One chosen photo on its way: shown until it is saved, with Try again if it fails. */
 interface PendingPhoto {
@@ -27,16 +23,11 @@ interface PendingPhoto {
 
 /** Shrinks a photo on the phone (rule 21) and sends it and its small copy. Null when saved. */
 async function sendPhoto(vehicleId: string, file: Blob): Promise<string | null> {
-  if (file.size > PICKED_PHOTO_MAX_BYTES) {
-    return TOO_LARGE_MESSAGE;
+  const shrunk = await shrinkPhotoForUpload(file);
+  if ("problem" in shrunk) {
+    return shrunk.problem;
   }
-  const [photo, thumbnail] = await Promise.all([
-    shrinkImage(file),
-    shrinkImage(file, THUMBNAIL_EDGE_PX),
-  ]);
-  if (!photo || !thumbnail) {
-    return UNREADABLE_MESSAGE;
-  }
+  const { photo, thumbnail } = shrunk;
   const start = await startCarPhotoUploadAction(vehicleId, {
     photo: { contentType: photo.type, sizeBytes: photo.size },
     thumbnail: { contentType: thumbnail.type, sizeBytes: thumbnail.size },

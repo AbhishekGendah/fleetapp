@@ -1,0 +1,99 @@
+"use client";
+
+import { formatCents } from "@fleetapp/core";
+import { Button } from "@fleetapp/ui/button";
+import { FormField } from "@fleetapp/ui/form-field";
+import { FormError } from "@fleetapp/ui/form-message";
+import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
+import { SignaturePad } from "@fleetapp/ui/signature-pad";
+import { CheckCircle2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useMemo, useState } from "react";
+
+import { forgetHandover } from "../../../../lib/handover/offline/handover-store";
+import { rentalPath } from "../../../../lib/paths";
+import { completeHandoverAction } from "./actions";
+import { INITIAL_COMPLETE_STATE } from "./handover-state";
+
+const SIGNATURE_NEEDED = "Ask the Renter to sign in the box.";
+const REASON_NEEDED = "Say why the car goes before the bond is paid.";
+
+/**
+ * The Renter reads what they are accepting and signs with their finger on
+ * the Operator's phone (decision 4); possession starts at that moment. When
+ * the bond is short, the Operator says why the car goes anyway. Once done,
+ * this handover is wiped from the phone.
+ */
+export function AcceptanceForm(props: {
+  rentalId: string;
+  inspectionId: string;
+  renterName: string;
+  summary: string;
+  bondShortCents: number | null;
+}) {
+  const router = useRouter();
+  const complete = useMemo(
+    () => completeHandoverAction.bind(null, props.rentalId, props.inspectionId),
+    [props.rentalId, props.inspectionId],
+  );
+  const [state, formAction, isPending] = useActionState(complete, INITIAL_COMPLETE_STATE);
+  const [signature, setSignature] = useState("");
+  const [reason, setReason] = useState("");
+  const [problem, setProblem] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (state.status === "completed") {
+      void forgetHandover(props.inspectionId).then(() => router.push(rentalPath(props.rentalId)));
+    }
+  }, [state.status, props.inspectionId, props.rentalId, router]);
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
+    const missing =
+      signature === ""
+        ? SIGNATURE_NEEDED
+        : props.bondShortCents !== null && reason.trim() === ""
+          ? REASON_NEEDED
+          : null;
+    setProblem(missing);
+    if (missing) {
+      event.preventDefault();
+    }
+  }
+
+  return (
+    <form action={formAction} onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+      <RequiredFieldsNote />
+      <p className="bg-muted rounded-md p-3 text-sm">
+        {props.renterName}: by signing, you accept {props.summary}, in the condition shown in this
+        checklist. The time is recorded when you sign.
+      </p>
+      {props.bondShortCents !== null ? (
+        <FormField
+          htmlFor="bondOverrideReason"
+          label={`The bond is ${formatCents(props.bondShortCents)} short. Why does the car go anyway?`}
+          isRequired
+          hint="Kept with the handover for your records. The Renter does not see it."
+        >
+          <Input
+            id="bondOverrideReason"
+            name="bondOverrideReason"
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            maxLength={200}
+            required
+          />
+        </FormField>
+      ) : null}
+      <FormField htmlFor="renter-signature" label={`${props.renterName}'s signature`} isRequired>
+        <SignaturePad id="renter-signature" name="drawnSignature" onValueChange={setSignature} />
+      </FormField>
+      <FormError
+        message={problem ?? (state.status === "problem" && !isPending ? state.message : null)}
+      />
+      <Button type="submit" disabled={isPending} className="w-full">
+        <CheckCircle2 aria-hidden />
+        {isPending ? "Handing over…" : "The Renter accepts the car"}
+      </Button>
+    </form>
+  );
+}

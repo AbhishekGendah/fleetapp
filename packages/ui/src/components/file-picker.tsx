@@ -13,6 +13,11 @@ interface FilePickerProps {
   isMultiple?: boolean;
   isDisabled?: boolean;
   variant?: ButtonProps["variant"];
+  /**
+   * What a screen reader hears, when the short label needs its context, e.g.
+   * "Take photo: Front" for a "Take photo" button. Must begin with the label.
+   */
+  accessibleName?: string;
   /** Before the label, e.g. a paperclip for Attach. */
   icon?: React.ReactNode;
   onFilesChosen(files: File[]): void;
@@ -32,6 +37,7 @@ export function FilePicker(props: FilePickerProps): React.JSX.Element {
         variant={props.variant ?? "outline"}
         className="sm:self-start"
         disabled={props.isDisabled}
+        aria-label={props.accessibleName}
         onClick={() => inputRef.current?.click()}
       >
         {props.icon}

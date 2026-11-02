@@ -21,7 +21,10 @@ export interface QueuedPhoto {
   thumbnail: Blob;
 }
 
-export type QueuedChange = (QueuedMark | QueuedPhoto) & { id?: number; queuedAt: number };
+/** A change about to be queued: the queue adds its number and time. */
+export type NewQueuedChange = QueuedMark | QueuedPhoto;
+
+export type QueuedChange = NewQueuedChange & { id?: number; queuedAt: number };
 
 /** What sending needs from the server, as the handover page's actions provide it. */
 export interface QueueSenders {

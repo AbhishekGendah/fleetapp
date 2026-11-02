@@ -233,3 +233,37 @@ export async function loadHandover(
     };
   });
 }
+
+/** The rental's handover: the one under way, or the one finished, if either. */
+export interface RentalHandoverStatus {
+  inProgressId: string | null;
+  completedAt: Date | null;
+}
+
+export async function loadRentalHandoverStatus(
+  database: AnyDatabase,
+  operatorId: string,
+  rentalId: string,
+): Promise<RentalHandoverStatus> {
+  const rows = await withTenant(database, operatorId, (tx) =>
+    tx
+      .select({
+        id: inspections.id,
+        status: inspections.status,
+        completedAt: inspections.completedAt,
+      })
+      .from(inspections)
+      .where(
+        and(
+          eq(inspections.operatorId, operatorId),
+          eq(inspections.rentalId, rentalId),
+          eq(inspections.kind, "handover"),
+          inArray(inspections.status, ["in_progress", "completed"]),
+        ),
+      ),
+  );
+  return {
+    inProgressId: rows.find((row) => row.status === "in_progress")?.id ?? null,
+    completedAt: rows.find((row) => row.status === "completed")?.completedAt ?? null,
+  };
+}

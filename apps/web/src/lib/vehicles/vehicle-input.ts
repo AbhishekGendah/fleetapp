@@ -47,6 +47,9 @@ const kilometresField = wholeNumber({
   message: "Enter the kilometres shown, as a whole number.",
 });
 
+/** The odometer box: kilometres as shown, a whole number. */
+export const requiredKilometres = kilometresField;
+
 /** As the odometer box, but blank is allowed and becomes null. */
 export const optionalKilometres = z
   .string()

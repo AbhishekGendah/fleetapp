@@ -29,7 +29,7 @@ import { CameraCapture } from "@fleetapp/ui/camera-capture";
 import { ContractEditor, type EditorMergeField } from "@fleetapp/ui/contract-editor";
 import { ContractReader } from "@fleetapp/ui/contract-reader";
 import { SignaturePad } from "@fleetapp/ui/signature-pad";
-import { CarOutline, type CarOutlineMark } from "@fleetapp/ui/car-outline";
+import { CarAreaSelect, CarOutline, type CarOutlineMark } from "@fleetapp/ui/car-outline";
 import { DateTimePicker } from "@fleetapp/ui/date-time-picker";
 import { RecordPicker, type PickableRecord } from "@fleetapp/ui/record-picker";
 import { FilePicker } from "@fleetapp/ui/file-picker";
@@ -355,9 +355,8 @@ function CarOutlineExample() {
       { id: `mark-${previous.length + 1}`, x, y, label: `Damage ${previous.length + 1}: ${where}` },
     ]);
   }
-  function handleAreaChange(key: string): void {
+  function handleAreaChosen(picked: (typeof CAR_AREAS)[number] | null): void {
     setArea("");
-    const picked = CAR_AREAS.find((candidate) => candidate.key === key);
     if (picked) {
       addMark(picked.x, picked.y, picked.label);
     }
@@ -371,18 +370,7 @@ function CarOutlineExample() {
         onSelectMark={setChosen}
       />
       <FormField htmlFor="example-car-area" label="Or choose where on the car">
-        <Select
-          id="example-car-area"
-          value={area}
-          onChange={(event) => handleAreaChange(event.target.value)}
-        >
-          <option value="">Choose an area</option>
-          {CAR_AREAS.map((candidate) => (
-            <option key={candidate.key} value={candidate.key}>
-              {candidate.label}
-            </option>
-          ))}
-        </Select>
+        <CarAreaSelect id="example-car-area" value={area} onAreaChosen={handleAreaChosen} />
       </FormField>
       <p className="text-muted-foreground text-sm" role="status">
         {marks.length} marked{chosen ? `, ${chosen} chosen` : ""}.
