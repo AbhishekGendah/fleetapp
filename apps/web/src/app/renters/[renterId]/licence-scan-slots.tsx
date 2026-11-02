@@ -21,6 +21,7 @@ import {
   removeLicenceScanAction,
   startLicenceScanUploadAction,
 } from "./licence-actions";
+import { monthsText } from "../../../lib/renters/licence-text";
 
 const SCAN_RULE = FILE_PURPOSE_RULES.renter_licence_scan;
 
@@ -111,11 +112,6 @@ function ScanSlot(props: {
  * The front and back of a Renter's licence. No thumbnails: a scan is only
  * fetched when View is pressed, so every look is deliberate and logged.
  */
-/** "1 month", "12 months". */
-export function monthsText(months: number): string {
-  return `${months} ${months === 1 ? "month" : "months"}`;
-}
-
 export function LicenceScanSlots(props: {
   renterId: string;
   scans: Readonly<Record<LicenceSide, ScanSummary | null>>;

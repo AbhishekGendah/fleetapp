@@ -27,7 +27,8 @@ import type { ExpiryContext } from "../../../lib/vehicles/expiry-columns";
 import { ExpiryDate } from "../../cars/expiry-date";
 import { LicenceForm } from "./licence-form";
 import { saveLicenceAction } from "./licence-actions";
-import { LicenceScanSlots, monthsText, type ScanSummary } from "./licence-scan-slots";
+import { monthsText } from "../../../lib/renters/licence-text";
+import { LicenceScanSlots, type ScanSummary } from "./licence-scan-slots";
 
 function LicenceDetails({ renter, expiry }: { renter: RenterDetail; expiry: ExpiryContext }) {
   if (!renter.licenceNumber || !renter.licenceClass || !renter.licenceType) {

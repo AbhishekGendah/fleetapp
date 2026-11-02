@@ -6,3 +6,8 @@ export function licenceIssuedInText(issuedIn: string | null, country: string | n
     ? `Overseas: ${countryName(country)}`
     : (issuedIn ?? "");
 }
+
+/** "1 month", "12 months". Plain text, so server and phone code can both use it. */
+export function monthsText(months: number): string {
+  return `${months} ${months === 1 ? "month" : "months"}`;
+}
