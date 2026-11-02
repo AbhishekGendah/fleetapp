@@ -22,6 +22,7 @@ import { notFound } from "next/navigation";
 import { DetailLines } from "../../../components/detail-lines";
 import { HistoryCard } from "../../../components/history-card";
 import { appDb } from "../../../lib/app-db";
+import { loadBondAccount } from "../../../lib/bonds/bond-account";
 import { carPath, rentalPath, RENTALS_PATH, renterPath } from "../../../lib/paths";
 import { recordTabs, TAB_PARAM, type RecordTab } from "../../../lib/record-tabs";
 import { loadRentalProblems } from "../../../lib/rentals/booking-checks";
@@ -214,11 +215,19 @@ function ActionsCard({ rental }: { rental: RentalDetail }) {
   );
 }
 
-function RentalLogTab({ rental, user }: { rental: RentalDetail; user: SignedInUser }) {
+/** The rental's own changes and its bond entries. */
+async function RentalLogTab({ rental, user }: { rental: RentalDetail; user: SignedInUser }) {
+  const bond = await loadBondAccount(appDb, user.operatorId, rental);
   return (
     <HistoryCard
       user={user}
-      subjects={[{ entityType: ACTIVITY_ENTITY_TYPES.rental, entityIds: [rental.id] }]}
+      subjects={[
+        { entityType: ACTIVITY_ENTITY_TYPES.rental, entityIds: [rental.id] },
+        {
+          entityType: ACTIVITY_ENTITY_TYPES.bondMovement,
+          entityIds: bond.movements.map((movement) => movement.id),
+        },
+      ]}
       fieldLabel={rentalFieldLabel}
       describeValue={describeRentalValue}
     />

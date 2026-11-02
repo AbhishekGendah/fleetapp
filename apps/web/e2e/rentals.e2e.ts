@@ -116,6 +116,10 @@ test.describe.serial("bookings", () => {
     await expect(page.getByText("Why: Wrong rental")).toBeVisible();
     await expect(page.getByRole("button", { name: "Correct", exact: true })).toHaveCount(0);
     await expectAccessible(page);
+
+    await page.getByRole("link", { name: "Log" }).click();
+    await expect(page.getByText(/Bond entry added/).first()).toBeVisible();
+    await expect(page.getByText("Wrong rental")).toHaveCount(0);
   });
 
   test("refuses the same car for overlapping dates, linking to the booking in the way", async ({
