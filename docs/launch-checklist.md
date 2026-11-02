@@ -13,6 +13,14 @@ Add to this list whenever something is relaxed or put off "until launch".
   back to `ADMIN_SESSION_AT_LAUNCH` (one line), and make sure the
   session-limit tests still say 8 hours.
 
+- [ ] **Demo data tool off on the live site.** Settings → Demo data
+  (added 2 Nov 2026 for testing) fills a business with made-up records. It
+  refuses to run unless APP_STAGE is not production and email goes to the
+  test inbox, and the live site has neither. Before launch, check on the
+  live site that Settings shows no Demo data card and
+  /settings/demo-data says page not found; consider removing the tool
+  (`apps/web/src/lib/demo-data`, `apps/web/src/app/settings/demo-data`).
+
 ## Full security review
 
 - [ ] **A complete security review of both apps before launch**, by

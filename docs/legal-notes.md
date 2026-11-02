@@ -444,6 +444,18 @@ of service) and the countries.
 - Production refuses to start with the test inbox, which holds working
   Renter links and codes; the test inbox exists in dev only (fake data).
 
+## Demo data (test site only, 2 Nov 2026)
+
+- Every demo record is made up: names, emails at example.test (a domain
+  reserved for testing, so nothing can reach a real person), phone numbers
+  from the range the Australian regulator keeps for fiction, regos starting
+  DEMO, licence numbers starting 41, sellers and insurers with made-up
+  names. Licence "scans" and photos are drawings marked DEMO. Nothing is
+  sent outside the test inbox, so the Spam Act and privacy rules are not
+  engaged. Demo contracts carry a notice that nobody really signed them.
+- The tool is refused on the live site (see docs/launch-checklist.md), so
+  demo records can never sit beside real Renters' data.
+
 ## Business details (already built)
 
 - An Operator's ABN, address, phone and email are business information,

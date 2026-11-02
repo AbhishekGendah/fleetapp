@@ -716,6 +716,19 @@
   - Browser tests for the whole handover at phone width, with no signal
     part way; handover page budget 730 KB. Checklist rows O-266 to O-276
     and A-64.
+- Demo data for testing (2 Nov 2026): Settings → Demo data, shown only on
+  the test site (never when APP_STAGE is production, and only while email
+  goes to the test inbox). One button fills the signed-in business, step by
+  step, with 50 cars (DEMO01 to DEMO50: mixed makes, years 2016 to 2025,
+  states, statuses, rego current, due soon, expired, direct debit and none,
+  four insurance policies, purchases, costs, a photo each), 40 Renters
+  (licences from several states and overseas, provisional, expiring and
+  expired, made-up scans, notes, do-not-rent, archived, details forms sent)
+  and 34 rentals (14 out now with their handovers done in the past, 2 of
+  them overdue; 10 booked; 6 drafts; 4 cancelled; bonds full, part and
+  corrected; contracts marked as demo, and some sent for signing). Made
+  through the app's own code, so every rule and log applies. Pressing again
+  adds only what is missing. Database and browser tests cover a whole run. Checklist rows O-277 to O-279.
 
 ## Next
 Phase 3 slice 6: the return (same checklist, side-by-side with the

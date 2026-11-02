@@ -1,13 +1,19 @@
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { RequiredFieldsNote } from "@fleetapp/ui/input";
-import { FileText } from "lucide-react";
+import { DatabaseZap, FileText } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { appDb } from "../../lib/app-db";
 import { loadOperatorLogoUrl } from "../../lib/files/operator-logo";
-import { BUSINESS_DETAILS_ANCHOR, CONTRACTS_PATH, SIGN_IN_PATH } from "../../lib/paths";
+import { isDemoDataAllowed } from "../../lib/demo-data/demo-access";
+import {
+  BUSINESS_DETAILS_ANCHOR,
+  CONTRACTS_PATH,
+  DEMO_DATA_PATH,
+  SIGN_IN_PATH,
+} from "../../lib/paths";
 import { requireUser } from "../../lib/require-user";
 import { loadBusinessDetails } from "../../lib/settings/business-details";
 import { AppShell } from "../app-shell";
@@ -158,6 +164,24 @@ export default async function SettingsPage() {
           />
         </CardContent>
       </Card>
+      {isDemoDataAllowed() ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Demo data</CardTitle>
+            <CardDescription>
+              Test site only: fill this business with made-up cars, Renters and rentals.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild variant="outline" className="w-full sm:w-auto">
+              <Link href={DEMO_DATA_PATH}>
+                <DatabaseZap aria-hidden />
+                Demo data
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
     </AppShell>
   );
 }

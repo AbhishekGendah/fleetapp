@@ -9,6 +9,8 @@ export const SETTINGS_PATH = "/settings";
 /** The business details card on the Settings page, for linking straight to it. */
 export const BUSINESS_DETAILS_ANCHOR = "business-details";
 export const CONTRACTS_PATH = `${SETTINGS_PATH}/contracts`;
+/** Test sites only: fills the business with made-up records. */
+export const DEMO_DATA_PATH = `${SETTINGS_PATH}/demo-data`;
 
 export function contractTemplatePath(templateId: string): string {
   return `${CONTRACTS_PATH}/${templateId}`;
