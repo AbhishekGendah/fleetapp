@@ -8,24 +8,32 @@ import { appDb } from "../../../lib/app-db";
 import {
   loadSigningView,
   recordSigningEvidence,
+  type SignedDocumentKind,
   type SigningView,
 } from "../../../lib/contracts/signing";
 import type { LinkVisit } from "../../../lib/renter-links/link-visits";
 import { requestMetaFrom } from "../../../lib/request-meta";
 import { SigningForm } from "./signing-form";
 
-/** Why the contract cannot be signed from this page. */
+/** How the page names what is being signed. */
+const DOCUMENT_NAMES: Readonly<Record<SignedDocumentKind, string>> = {
+  contract: "contract",
+  change_of_terms: "change of terms",
+};
+
+/** Why it cannot be signed from this page. */
 function closedMessage(
   status: Exclude<SigningView["status"], "ready">,
   operatorName: string,
+  name: string,
 ): string {
   if (status === "signed") {
-    return `Your contract is signed. A copy was emailed to you; ask ${operatorName} if you need it again.`;
+    return `This ${name} is signed. A copy was emailed to you; ask ${operatorName} if you need it again.`;
   }
   if (status === "changed") {
-    return `The contract has changed since this link was sent, so it can no longer be signed here. Ask ${operatorName} to send you the new version.`;
+    return `The ${name} has changed since this link was sent, so it can no longer be signed here. Ask ${operatorName} to send you the new version.`;
   }
-  return `This contract can no longer be signed. Ask ${operatorName} if you think that is wrong.`;
+  return `This ${name} can no longer be signed. Ask ${operatorName} if you think that is wrong.`;
 }
 
 /**
@@ -36,20 +44,23 @@ function closedMessage(
 export async function SigningStep({ token, visit }: { token: string; visit: LinkVisit }) {
   const view = await loadSigningView(appDb, visit);
   if (view.status !== "ready") {
+    const name = visit.signing?.rentalChangeId ? DOCUMENT_NAMES.change_of_terms : "contract";
     return (
       <CardDescription role="status">
-        {closedMessage(view.status, visit.operatorName)}
+        {closedMessage(view.status, visit.operatorName, name)}
       </CardDescription>
     );
   }
+  const name = DOCUMENT_NAMES[view.kind];
   await recordSigningEvidence(appDb, visit, "contract_viewed", requestMetaFrom(await headers()), {
     contractFingerprint: view.fingerprint,
   });
   return (
     <div className="flex flex-col gap-6">
       <CardDescription>
-        {visit.operatorName} has sent your contract for {view.rentalSummary}. Check your details,
-        read the whole contract, then sign at the bottom.
+        {visit.operatorName} has sent{" "}
+        {view.kind === "contract" ? "your contract" : "a change to your rental"} for{" "}
+        {view.rentalSummary}. Check your details, read the whole {name}, then sign at the bottom.
       </CardDescription>
       <FormSection title="1. Check your details">
         <DetailLines lines={view.details} />
@@ -57,13 +68,17 @@ export async function SigningStep({ token, visit }: { token: string; visit: Link
           Something not right? Don’t sign: contact {visit.operatorName} to fix it first.
         </p>
       </FormSection>
-      <FormSection title="2. Read the contract">
-        <ContractReader content={view.document} label="Your rental contract" />
+      <FormSection title={`2. Read the ${name}`}>
+        <ContractReader
+          content={view.document}
+          label={view.kind === "contract" ? "Your rental contract" : "The change of terms"}
+        />
       </FormSection>
       <SigningForm
         token={token}
         renterFullName={view.renterFullName}
         contractFingerprint={view.fingerprint}
+        documentName={name}
         operatorName={visit.operatorName}
       />
     </div>

@@ -74,7 +74,7 @@ function SignatureFields({ form }: { form: FormFields<SignField> }) {
         htmlFor={form.idFor("typedName")}
         label="Your full name"
         isRequired
-        hint="Exactly as it is on the contract."
+        hint="Exactly as it is in the details above."
         error={form.errorFor("typedName")}
       >
         <Input {...form.textBoxProps("typedName")} autoComplete="name" />
@@ -109,6 +109,8 @@ export function SigningForm(props: {
   token: string;
   renterFullName: string;
   contractFingerprint: string;
+  /** What is signed, as the page names it: "contract" or "change of terms". */
+  documentName: string;
   operatorName: string;
 }) {
   const sign = useMemo(() => signContractAction.bind(null, props.token), [props.token]);
@@ -139,8 +141,8 @@ export function SigningForm(props: {
       <div role="status" className="bg-primary-soft flex flex-col gap-2 rounded-lg p-4">
         <p className="text-teal text-lg font-semibold">Signed. Thank you.</p>
         <p className="text-sm">
-          You signed your contract with {props.operatorName} on {state.signedAtText}. A copy has
-          been emailed to you.
+          You signed the {props.documentName} with {props.operatorName} on {state.signedAtText}. A
+          copy has been emailed to you.
         </p>
       </div>
     );
@@ -159,7 +161,7 @@ export function SigningForm(props: {
         <RequiredTick
           form={form}
           field="areDetailsConfirmed"
-          label="My details above are right, and I have read the whole contract."
+          label={`My details above are right, and I have read the whole ${props.documentName}.`}
         />
         <RequiredTick form={form} field="hasConsented" label={SIGNING_CONSENT_TEXT} />
       </FormSection>
@@ -183,7 +185,7 @@ export function SigningForm(props: {
       ) : null}
       <Button type="submit" disabled={isPending} className="w-full">
         <PenLine aria-hidden />
-        {isPending ? "Signing…" : "Sign the contract"}
+        {isPending ? "Signing…" : `Sign the ${props.documentName}`}
       </Button>
     </form>
   );

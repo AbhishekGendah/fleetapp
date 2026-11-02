@@ -30,6 +30,7 @@ export const metadata: Metadata = {
 const PAGE_TITLES: Readonly<Record<RenterLinkPurpose, string>> = {
   details_form: "Your details form",
   sign_contract: "Your rental contract",
+  sign_change: "A change to your rental",
 };
 
 function LinkPage(props: { operatorName?: string; title: string; children: React.ReactNode }) {
@@ -88,9 +89,9 @@ export default async function RenterLinkPage(props: { params: Promise<{ token: s
       </LinkPage>
     );
   }
-  if (visit.purpose === "sign_contract") {
+  if (visit.purpose === "sign_contract" || visit.purpose === "sign_change") {
     return (
-      <LinkPage operatorName={visit.operatorName} title={PAGE_TITLES.sign_contract}>
+      <LinkPage operatorName={visit.operatorName} title={PAGE_TITLES[visit.purpose]}>
         <SigningStep token={token} visit={visit} />
       </LinkPage>
     );

@@ -1,7 +1,7 @@
 import { isExclusionViolation } from "@fleetapp/core";
 import type { AnyTransaction } from "@fleetapp/db/client";
 import { carHolds, rentals } from "@fleetapp/db/schema";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull, ne, sql } from "drizzle-orm";
 
 /** The database rule that keeps two holds on one car apart (migration 0028). */
 const CAR_HOLDS_NO_OVERLAP = "car_holds_no_overlap";
@@ -32,6 +32,8 @@ export async function findBookingClash(
   operatorId: string,
   vehicleId: string,
   span: { start: Date; end: Date | null },
+  /** A rental whose own hold does not count, e.g. the one being made longer. */
+  exceptRentalId?: string,
 ): Promise<BookingClash | null> {
   const [clash] = await tx
     .select({
@@ -49,6 +51,7 @@ export async function findBookingClash(
         eq(carHolds.operatorId, operatorId),
         eq(carHolds.vehicleId, vehicleId),
         isNull(carHolds.releasedAt),
+        exceptRentalId ? ne(carHolds.rentalId, exceptRentalId) : undefined,
         sql`${carHolds.heldDuring} && ${heldRange(span.start, span.end)}::tstzrange`,
       ),
     )

@@ -132,7 +132,9 @@ export function renderRenterSigningLinkEmail(
   return fromOperator(
     renderEmail(
       to,
-      `Your rental contract from ${props.operatorName}`,
+      props.document === "change_of_terms"
+        ? `A change to your rental from ${props.operatorName}`
+        : `Your rental contract from ${props.operatorName}`,
       createElement(RenterSigningLinkEmail, props),
     ),
     props.operatorName,
@@ -154,6 +156,10 @@ const COPY_SUBJECTS: Readonly<
   return_report: {
     renter: (operatorName) => `Your car return report from ${operatorName}`,
     operator: "Car returned",
+  },
+  change_of_terms: {
+    renter: (operatorName) => `Your signed change of terms with ${operatorName}`,
+    operator: "Change of terms signed",
   },
 };
 

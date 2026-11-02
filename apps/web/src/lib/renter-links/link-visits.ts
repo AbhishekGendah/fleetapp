@@ -48,8 +48,16 @@ export interface LinkVisit {
   isLocked: boolean;
   /** When it was sent: a signing link's contract is filled in as of then. */
   sentAt: Date;
-  /** A signing link's rental, template version and the fingerprint of the text it was sent for. */
-  signing: { rentalId: string; templateVersionId: string; contractFingerprint: string } | null;
+  /**
+   * A signing link's rental, template version and the fingerprint of the
+   * text it was sent for; and for a change of terms, the change.
+   */
+  signing: {
+    rentalId: string;
+    templateVersionId: string;
+    contractFingerprint: string;
+    rentalChangeId: string | null;
+  } | null;
 }
 
 const lookupSchema = z.object({
@@ -95,6 +103,7 @@ export async function openLink(database: AnyDatabase, token: string): Promise<Li
               rentalId: link.rentalId,
               templateVersionId: link.templateVersionId,
               contractFingerprint: link.contractFingerprint,
+              rentalChangeId: link.rentalChangeId,
             }
           : null,
     };
@@ -263,7 +272,7 @@ export async function checkLinkCode(
 }
 
 /**
- * The open link behind a secret, only if it is for `purpose` and this phone
+ * The open link behind a secret, only if it is for one of `purposes` and this phone
  * has passed its code. Every step a Renter takes starts here, so a page left
  * open on another phone, a forwarded link, or a link sent for something else
  * (a signing link used on the details form) can do nothing.
@@ -272,12 +281,14 @@ export async function openVerifiedLink(
   database: AnyDatabase,
   token: string,
   deviceToken: string | undefined,
-  purpose: RenterLinkPurpose,
+  purposes: RenterLinkPurpose | readonly RenterLinkPurpose[],
 ): Promise<LinkVisit | null> {
   const visit = await openLink(database, token);
+  const allowed: readonly RenterLinkPurpose[] =
+    typeof purposes === "string" ? [purposes] : purposes;
   if (
     !visit ||
-    visit.purpose !== purpose ||
+    !allowed.includes(visit.purpose) ||
     visit.isLocked ||
     !(await isPhoneRemembered(database, visit, deviceToken))
   ) {

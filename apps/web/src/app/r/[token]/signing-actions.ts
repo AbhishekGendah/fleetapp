@@ -12,6 +12,7 @@ import { requestMetaFrom } from "../../../lib/request-meta";
 import { DEVICE_COOKIE } from "./link-state";
 import type { SignState } from "./signing-state";
 
+const SIGNING_PURPOSES = ["sign_contract", "sign_change"] as const;
 const SHUT_MESSAGE = "This link no longer works. Ask the business that sent it for a new one.";
 const FAILED_MESSAGE = "Something went wrong, so it is not signed yet. Try again in a moment.";
 
@@ -19,9 +20,9 @@ const NOT_SIGNED_MESSAGES: Record<
   Exclude<SignContractResult["status"], "signed" | "invalid">,
   string
 > = {
-  signed_already: "This contract is already signed. A copy was emailed to you.",
+  signed_already: "This is already signed. A copy was emailed to you.",
   changed:
-    "The contract has changed since this page was opened, so it was not signed. Reload the page to read it again.",
+    "This has changed since the page was opened, so it was not signed. Reload the page to read it again.",
   not_signable: SHUT_MESSAGE,
 };
 
@@ -47,7 +48,7 @@ export async function signContractAction(
 ): Promise<SignState> {
   try {
     const deviceToken = (await cookies()).get(DEVICE_COOKIE)?.value;
-    const visit = await openVerifiedLink(appDb, token, deviceToken, "sign_contract");
+    const visit = await openVerifiedLink(appDb, token, deviceToken, SIGNING_PURPOSES);
     if (!visit) {
       return { status: "problem", message: SHUT_MESSAGE };
     }

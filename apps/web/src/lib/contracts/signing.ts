@@ -28,6 +28,13 @@ import { and, asc, eq, isNull, ne } from "drizzle-orm";
 import type { FileDependencies } from "../files/stored-files";
 import type { LinkVisit } from "../renter-links/link-visits";
 import type { RequestMeta } from "../request-meta";
+import {
+  changeFieldsOf,
+  isChangeSignable,
+  lockChange,
+  recordChangeSigned,
+  type RentalChange,
+} from "../rentals/rental-changes";
 import { loadPdfBranding } from "./contract-pdf";
 import { emailDocumentCopies } from "./document-copies";
 import { renderDocumentPdf, type PdfSignature, type PdfSigningRecord } from "./document-pdf";
@@ -38,7 +45,14 @@ import { loadTemplateVersion } from "./templates";
 
 /** Until the car is handed over, the contract can still be signed. */
 const SIGNABLE_STATUSES = new Set(["draft", "booked"]);
-const CONTRACT_TITLE = "Rental contract";
+
+/** What a signing link signs: the rental's contract, or one change of terms. */
+export type SignedDocumentKind = "contract" | "change_of_terms";
+
+const DOCUMENT_TITLES: Readonly<Record<SignedDocumentKind, string>> = {
+  contract: "Rental contract",
+  change_of_terms: "Change of terms",
+};
 
 /** What the Renter checks before reading: label and value, in their own words. */
 export type DetailRow = readonly [label: string, value: string];
@@ -46,6 +60,7 @@ export type DetailRow = readonly [label: string, value: string];
 export type SigningView =
   | {
       status: "ready";
+      kind: SignedDocumentKind;
       document: TemplateDocument;
       fingerprint: string;
       renterFullName: string;
@@ -93,46 +108,80 @@ async function isSigned(
   return signed !== undefined;
 }
 
+/** Where the link's document stands: open to sign, signed, or no longer signable. */
+interface SigningState {
+  kind: SignedDocumentKind;
+  status: "open" | "signed" | "not_signable";
+  change: RentalChange | null;
+}
+
+async function signingStateOf(
+  tx: AnyTransaction,
+  operatorId: string,
+  signing: NonNullable<LinkVisit["signing"]>,
+): Promise<SigningState> {
+  const [rental] = await tx
+    .select({ status: rentals.status })
+    .from(rentals)
+    .where(and(eq(rentals.id, signing.rentalId), eq(rentals.operatorId, operatorId)));
+  if (signing.rentalChangeId) {
+    const change = await lockChange(tx, operatorId, signing.rentalChangeId);
+    if (change?.documentId) {
+      return { kind: "change_of_terms", status: "signed", change };
+    }
+    const isOpen =
+      change !== null && rental !== undefined && isChangeSignable(change, rental.status);
+    return { kind: "change_of_terms", status: isOpen ? "open" : "not_signable", change };
+  }
+  if (await isSigned(tx, operatorId, signing.rentalId)) {
+    return { kind: "contract", status: "signed", change: null };
+  }
+  const isOpen = rental !== undefined && SIGNABLE_STATUSES.has(rental.status);
+  return { kind: "contract", status: isOpen ? "open" : "not_signable", change: null };
+}
+
 /**
- * The contract as the Renter will sign it: the template version the link
- * was sent for, filled in as of when it was sent. If anything in it has
- * changed since (the rental's terms, the business's details), the
- * fingerprint no longer matches and it cannot be signed: the Operator sends a
- * new link.
+ * The document as the Renter will sign it: the template version the link
+ * was sent for, filled in as of when it was sent (with the change's own
+ * fields for a change of terms). If anything in it has changed since (the
+ * rental's terms, the business's details), the fingerprint no longer
+ * matches and it cannot be signed: the Operator sends a new link.
  */
 export async function loadSigningView(
   database: AnyDatabase,
   visit: LinkVisit,
 ): Promise<SigningView> {
-  if (!visit.signing) {
+  const { signing } = visit;
+  if (!signing) {
     return { status: "not_signable" };
   }
-  const { rentalId, templateVersionId, contractFingerprint } = visit.signing;
-  const state = await withTenant(database, visit.operatorId, async (tx) => {
-    const [rental] = await tx
-      .select({ status: rentals.status })
-      .from(rentals)
-      .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, visit.operatorId)));
-    return { status: rental?.status, isSigned: await isSigned(tx, visit.operatorId, rentalId) };
-  });
-  if (state.isSigned) {
-    return { status: "signed" };
+  const state = await withTenant(database, visit.operatorId, (tx) =>
+    signingStateOf(tx, visit.operatorId, signing),
+  );
+  if (state.status !== "open") {
+    return { status: state.status };
   }
-  if (!state.status || !SIGNABLE_STATUSES.has(state.status)) {
-    return { status: "not_signable" };
-  }
-  const version = await loadTemplateVersion(database, visit.operatorId, templateVersionId);
+  const version = await loadTemplateVersion(database, visit.operatorId, signing.templateVersionId);
   const filled = version
-    ? await fillContract(database, visit.operatorId, rentalId, version.content, {
-        timeZone: visit.timeZone,
-        now: visit.sentAt,
-      })
+    ? await fillContract(
+        database,
+        visit.operatorId,
+        signing.rentalId,
+        version.content,
+        { timeZone: visit.timeZone, now: visit.sentAt },
+        state.change ? changeFieldsOf(state.change, visit.timeZone) : undefined,
+      )
     : null;
-  if (!filled || filled.fingerprint !== contractFingerprint || !filled.data.renterFullName) {
+  if (
+    !filled ||
+    filled.fingerprint !== signing.contractFingerprint ||
+    !filled.data.renterFullName
+  ) {
     return { status: "changed" };
   }
   return {
     status: "ready",
+    kind: state.kind,
     document: filled.document,
     fingerprint: filled.fingerprint,
     renterFullName: filled.data.renterFullName,
@@ -244,7 +293,7 @@ async function renderSignedContract(
       : SIGNATURE_METHOD_LABELS.drawn;
   return renderDocumentPdf({
     ...(await loadPdfBranding(deps, visit.operatorId)),
-    title: `${CONTRACT_TITLE} ${view.rentalSummary}`,
+    title: `${DOCUMENT_TITLES[view.kind]} ${view.rentalSummary}`,
     document: view.document,
     signature,
     signingRecord: {
@@ -314,7 +363,7 @@ export async function signContract(
     { operatorId: visit.operatorId, linkId: visit.linkId },
     {
       rentalId,
-      kind: "contract",
+      kind: view.kind,
       templateVersionId,
       pdf,
       onIssued: async (tx, documentId) => {
@@ -323,9 +372,15 @@ export async function signContract(
           .from(renterLinks)
           .where(and(eq(renterLinks.id, visit.linkId), isNull(renterLinks.cancelledAt)))
           .for("update");
-        if (!liveLink || (await isSigned(tx, visit.operatorId, rentalId, documentId))) {
+        if (!liveLink) {
           throw new SignedAlreadyError();
         }
+        await recordSigned(tx, visit, {
+          documentId,
+          at: signedAt,
+          kind: view.kind,
+          method: input.method,
+        });
         await tx.insert(signingEvidence).values({
           ...evidenceRow(visit, rentalId, "signed", meta, {
             method: input.method,
@@ -341,14 +396,6 @@ export async function signContract(
           .update(renterLinks)
           .set({ cancelledAt: signedAt, updatedAt: signedAt })
           .where(eq(renterLinks.id, visit.linkId));
-        await recordActivity(tx, {
-          operatorId: visit.operatorId,
-          actor: { type: "renter_link", id: visit.linkId },
-          entityType: ACTIVITY_ENTITY_TYPES.rental,
-          entityId: rentalId,
-          action: ACTIVITY_ACTIONS.signed,
-          valuesAfter: { method: input.method, documentId },
-        });
       },
     },
   ).catch((error: unknown) => {
@@ -364,17 +411,63 @@ export async function signContract(
     return { status: "not_signable" };
   }
   await emailDocumentCopies(deps, {
-    kind: "contract",
+    kind: view.kind,
     operatorId: visit.operatorId,
     operatorName: visit.operatorName,
     renterEmail: link.sentToEmail,
     renterName: view.renterFullName,
     rentalSummary: view.rentalSummary,
     atText: signedAtText,
-    fileName: `${CONTRACT_TITLE} ${view.rentalSummary}.pdf`,
+    fileName: `${DOCUMENT_TITLES[view.kind]} ${view.rentalSummary}.pdf`,
     pdf,
   });
   return { status: "signed", signedAtText };
+}
+
+/**
+ * Inside the issuing transaction: refuses a second signing (another phone
+ * got there first), then records what signing does. A contract is logged on
+ * the rental; a change of terms keeps its form and, if it was waiting, takes
+ * effect (a rate change becomes a rate).
+ */
+async function recordSigned(
+  tx: AnyTransaction,
+  visit: LinkVisit,
+  signed: { documentId: string; at: Date; kind: SignedDocumentKind; method: string },
+): Promise<void> {
+  const signing = visit.signing!;
+  const actor = { type: "renter_link" as const, id: visit.linkId };
+  if (signed.kind === "contract") {
+    if (await isSigned(tx, visit.operatorId, signing.rentalId, signed.documentId)) {
+      throw new SignedAlreadyError();
+    }
+    await recordActivity(tx, {
+      operatorId: visit.operatorId,
+      actor,
+      entityType: ACTIVITY_ENTITY_TYPES.rental,
+      entityId: signing.rentalId,
+      action: ACTIVITY_ACTIONS.signed,
+      valuesAfter: { method: signed.method, documentId: signed.documentId },
+    });
+    return;
+  }
+  const change = await lockChange(tx, visit.operatorId, signing.rentalChangeId ?? "");
+  if (!change || change.documentId || change.status === "withdrawn") {
+    throw new SignedAlreadyError();
+  }
+  await recordChangeSigned(tx, visit.operatorId, change, signed);
+  await recordActivity(tx, {
+    operatorId: visit.operatorId,
+    actor,
+    entityType: ACTIVITY_ENTITY_TYPES.rentalChange,
+    entityId: change.id,
+    action: ACTIVITY_ACTIONS.signed,
+    valuesAfter: {
+      method: signed.method,
+      documentId: signed.documentId,
+      rentalId: change.rentalId,
+    },
+  });
 }
 
 /** Thrown inside the issuing transaction when another signing got there first: nothing is kept. */

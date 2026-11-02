@@ -3,8 +3,13 @@ import type { ReactElement } from "react";
 
 import { EmailLayout, SmallPrint } from "./email-layout";
 
-/** The fixed documents emailed as a copy once made: a signed contract, a handover or return report. */
-export const COPIED_DOCUMENT_KINDS = ["contract", "handover_report", "return_report"] as const;
+/** The fixed documents emailed as a copy once made: a signed contract or change of terms, a handover or return report. */
+export const COPIED_DOCUMENT_KINDS = [
+  "contract",
+  "handover_report",
+  "return_report",
+  "change_of_terms",
+] as const;
 export type CopiedDocumentKind = (typeof COPIED_DOCUMENT_KINDS)[number];
 
 export interface DocumentCopyEmailProps {
@@ -53,6 +58,19 @@ const WORDING: Readonly<Record<CopiedDocumentKind, Wording>> = {
       `${props.renterName} accepted ${props.rentalSummary} on ${props.at}. The handover report is attached, and kept with the rental.`,
     smallPrint: (at) =>
       `Accepted on ${at}. The report is fixed: it can never be changed, so it shows the car as it was handed over.`,
+  },
+  change_of_terms: {
+    preview: {
+      renter: "Your signed change of terms",
+      operator: (renterName) => `${renterName} signed a change of terms`,
+    },
+    heading: { renter: "Your signed change of terms", operator: "Change of terms signed" },
+    renterLine: (props) =>
+      `Thank you for signing the change to your rental with ${props.operatorName} for ${props.rentalSummary}. Your copy is attached: keep it with your contract.`,
+    operatorLine: (props) =>
+      `${props.renterName} signed the change of terms for ${props.rentalSummary} on ${props.at}. The signed copy is attached, and kept with the rental.`,
+    smallPrint: (at) =>
+      `Signed on ${at}. The last page records how it was signed, and the fingerprint that proves the document has not changed.`,
   },
   return_report: {
     preview: {

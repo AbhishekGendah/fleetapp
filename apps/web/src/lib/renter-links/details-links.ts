@@ -135,6 +135,28 @@ export interface RenterLinkInPlay {
   isLocked: boolean;
 }
 
+/** The columns a link in play is read from. */
+export const LINK_IN_PLAY_COLUMNS = {
+  sentToEmail: renterLinks.sentToEmail,
+  sentAt: renterLinks.createdAt,
+  expiresAt: renterLinks.expiresAt,
+  lockedAt: renterLinks.lockedAt,
+};
+
+/** A link row as its sender sees it: whether it has run out or been locked by now. */
+export function linkInPlay(
+  link: { sentToEmail: string; sentAt: Date; expiresAt: Date; lockedAt: Date | null },
+  now: Date,
+): RenterLinkInPlay {
+  return {
+    sentToEmail: link.sentToEmail,
+    sentAt: link.sentAt,
+    expiresAt: link.expiresAt,
+    isExpired: link.expiresAt <= now,
+    isLocked: link.lockedAt !== null,
+  };
+}
+
 /** The Renter's details link still in play (maybe expired or locked), or null. */
 export async function loadDetailsLink(
   database: AnyDatabase,
@@ -144,12 +166,7 @@ export async function loadDetailsLink(
 ): Promise<RenterLinkInPlay | null> {
   const [link] = await withTenant(database, operatorId, (tx) =>
     tx
-      .select({
-        sentToEmail: renterLinks.sentToEmail,
-        sentAt: renterLinks.createdAt,
-        expiresAt: renterLinks.expiresAt,
-        lockedAt: renterLinks.lockedAt,
-      })
+      .select(LINK_IN_PLAY_COLUMNS)
       .from(renterLinks)
       .where(
         and(
@@ -162,16 +179,7 @@ export async function loadDetailsLink(
       .orderBy(desc(renterLinks.createdAt))
       .limit(1),
   );
-  if (!link) {
-    return null;
-  }
-  return {
-    sentToEmail: link.sentToEmail,
-    sentAt: link.sentAt,
-    expiresAt: link.expiresAt,
-    isExpired: link.expiresAt <= now,
-    isLocked: link.lockedAt !== null,
-  };
+  return link ? linkInPlay(link, now) : null;
 }
 
 /** Every link the Renter has had, for their Log. */
