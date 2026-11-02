@@ -19,4 +19,6 @@ describeDownloadBudgets({
   "/rentals/calendar": 270,
   // Added 1 Nov 2026 with contract templates (the add-template form).
   "/settings/contracts": 375,
+  // Added 2 Nov 2026 with the test site's demo data button.
+  "/settings/demo-data": 190,
 });
