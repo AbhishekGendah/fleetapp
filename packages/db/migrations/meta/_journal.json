@@ -225,6 +225,13 @@
       "when": 1793558477721,
       "tag": "0031_contract_signing",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1793583017098,
+      "tag": "0032_bonds",
+      "breakpoints": true
     }
   ]
 }

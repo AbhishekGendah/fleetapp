@@ -62,6 +62,7 @@ const ACTIVITY_ENTITY_LABELS = {
   [ACTIVITY_ENTITY_TYPES.rental]: "Rental",
   [ACTIVITY_ENTITY_TYPES.contractTemplate]: "Contract template",
   [ACTIVITY_ENTITY_TYPES.issuedDocument]: "Document",
+  [ACTIVITY_ENTITY_TYPES.bondMovement]: "Bond entry",
 } satisfies Record<ActivityEntityType, string>;
 
 /** What each action reads as after the record's name: "Car archived". */
