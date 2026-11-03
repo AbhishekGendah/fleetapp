@@ -561,6 +561,25 @@ of service) and the countries.
   document, as on their contract. No bank or card details of the Renter
   are stored. Admin cannot read any of it (rule 5).
 
+## Stripe accounts (Phase 4 slice 3, built)
+
+- **Each business is the merchant** on its own Stripe account (full
+  dashboard): it accepts Stripe's Services Agreement and Connected Account
+  Agreement on Stripe's own pages, gives its details to Stripe there, pays
+  Stripe's fees and handles its own refunds and disputes. AGS takes no
+  cut. **AGS must accept Stripe Connect's platform terms** when turning
+  Connect on, and the AGS terms with Operators should say payments are
+  between the business, Stripe and the Renter.
+- **What goes to Stripe from us:** only the business's name and email, to
+  start its account. Its other details (ABN, bank account, the owners' ID)
+  are typed into Stripe's pages, never ours. Stripe holds data in
+  Australia and overseas (US): the privacy policy says so (APP 8).
+- **What we keep:** the Stripe account's ID and three status values, and
+  each Stripe event's ID and type (to handle it once). No bank, card or ID
+  details (rule 7). Admin cannot read any of it (rule 5).
+- **BECS limits:** new Stripe accounts start with low direct-debit
+  limits; the page tells the business to ask Stripe for higher ones.
+
 ## Fleet timeline (3 Nov 2026)
 
 - **No new data or third party:** it shows the rentals already on the

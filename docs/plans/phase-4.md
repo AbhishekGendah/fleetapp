@@ -171,6 +171,32 @@ bank transfer), which is also what many Operators will keep doing.
   secret key and webhook secret are env vars (Zod, .env.example, turbo.json),
   never in the browser.
 
+**As built (slice 3, 3 Nov 2026):**
+- Stripe's official library, stripe 23.0.0, on API version
+  2026-09-30.endive, which carries Accounts v2 (not a preview). Each
+  business's account is made with the full dashboard, Stripe collecting
+  its fees and carrying its losses, and card payments and BECS direct
+  debit requested; we send only its name and email.
+- Migration 0040: the business's Stripe account (its ID and the three
+  things the app reads: card payments, BECS, details still due), and a
+  record of Stripe's events by ID. An event's business is found only from
+  its account (a narrow lookup function); the event is recorded inside
+  that business's own transaction, so a failure records nothing and
+  Stripe's retry is handled once.
+- States the business sees: Not connected, Stripe needs more details,
+  Stripe is checking your details, Ready (card and BECS both active), and
+  Stripe has limited this account. The page asks Stripe on each visit;
+  nothing the browser sends is taken as the state.
+- Events arrive at /api/stripe/events (Stripe's v2 "thin" events through
+  an event destination); the signature is checked by Stripe's library.
+- PAYMENTS_TRANSPORT is "off" until the AGS Stripe account is set up, so
+  the dev site runs on as before; "stand_in" is for the browser tests and
+  refused in production.
+- The setup checklist's Connect Stripe step links to Settings → Payments
+  and reads the new table. The four Stripe placeholder columns on the
+  operators table (from Phase 1) are no longer read; they are dropped in a
+  later migration, once the deployed code no longer reads them.
+
 ### Slice 4: the Renter's direct debit and bond payment
 
 - Two new last steps on the Renter's signing link, after they sign:

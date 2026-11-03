@@ -45,6 +45,14 @@ Add to this list whenever something is relaxed or put off "until launch".
 
 ## Settings and services for production
 
+- [ ] Stripe in live mode: the AGS platform account verified, Connect's
+      platform profile filled in, live keys in the production Vercel project
+      only (PAYMENTS_TRANSPORT=stripe), and the live event destination's
+      secret. Never the stand-in (the app refuses it in production).
+- [ ] Drop the four unused Stripe columns on the operators table (from
+      Phase 1; replaced by stripe_accounts in Phase 4 slice 3) in a
+      migration after the code that stopped reading them is deployed.
+
 - [ ] The nightly rent run then issues every business's invoices one at a
       time, inside one 300-second call. Before many businesses are on the
       platform, measure how long it takes and split it (e.g. one call per

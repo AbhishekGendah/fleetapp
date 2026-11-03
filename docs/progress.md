@@ -951,11 +951,29 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
     numbering settings, another Operator refused (server); the screens on
     a phone in the browser. Settings → Invoices budget below.
 
+- Phase 4 slice 3 — the Operator connects Stripe (plan: docs/plans/phase-4.md):
+  - Stripe's official library (stripe 23.0.0) behind a payments interface
+    with a stand-in for every test; three new settings (PAYMENTS_TRANSPORT,
+    STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET), off until the AGS Stripe
+    account is set up.
+  - Migration 0040: each business's Stripe account and Stripe's events,
+    recorded once; an event's business found only from its account.
+  - Settings → Payments: Connect Stripe opens Stripe's own onboarding; the
+    state is always read from Stripe; Open your Stripe dashboard. The
+    setup checklist's Stripe step now links there.
+  - Tests: account states (core); one account each, the lookup, events
+    once, isolation (database); connecting, refreshing, events signed,
+    repeated, about nobody, another business's (server); the real Stripe
+    signature check offline; the page and the events endpoint in the
+    browser. Checklist rows O-343 to O-347.
+  - Waiting on Abhi: the AGS Stripe sandbox, Connect, and the two secrets
+    in Vercel (one step at a time).
+
 ## Next
 
-Phase 4 slice 3 (the Operator connects Stripe). The plan is written
-(docs/plans/phase-4.md), approved 3 Nov 2026 with each Operator on the
-full Stripe dashboard. Slices 1 and 2 are built.
+Abhi sets up the AGS Stripe sandbox (one step at a time), then Phase 4
+slice 4 (the Renter's direct debit and bond payment). Slices 1 to 3 are
+built.
 Open idea: trim the phone rules to Australia only with libphonenumber's
 metadata generator (about 40 KB off each form page); running the
 generator needs Abhi's say-so.
