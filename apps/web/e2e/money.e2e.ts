@@ -116,6 +116,8 @@ test.describe.serial("a rental's money", () => {
 
     test("the Renter's Money tab has every line, with the car", async ({ page }) => {
       await page.goto("/renters", { waitUntil: "networkidle" });
+      // Searched, so other tests' Renters cannot push this one off the first page.
+      await page.getByRole("searchbox").fill(RENTER.name);
       await page
         .getByRole("link", { name: new RegExp(RENTER.name) })
         .first()
