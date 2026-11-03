@@ -16,6 +16,7 @@ details from a link on their phone; an export of everything held about
 a Renter; the scheduled deletion of old licence scans.
 
 **Waits for a later phase, because it needs something not built yet:**
+
 - Car status "rented" and the booking checks (age, licence class,
   provisional, expiry blocking handover): need rentals (Phase 3).
 - Profit per car: needs income from the ledger (Phase 4). Costs are

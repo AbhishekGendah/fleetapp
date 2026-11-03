@@ -5,12 +5,14 @@ formatting, Log, Type) are already built; these need a plan because they
 change the database or how money is recorded.
 
 ## 1. Monthly rego
+
 WA Transport offers a one-month renewal by direct debit (and SA offers 9
 months). Rego terms become 1, 3, 6, 9 or 12 months, shown as "Monthly (direct
 debit)", "3 months" and so on. The cost entered is for that term. Migration:
 widen the allowed terms in the database check.
 
 ## 2. How the insurance premium is paid
+
 "Premium" is what the policy costs. Most are paid yearly, some by monthly or
 fortnightly instalments. Add **Paid** (Yearly, Monthly, Fortnightly) next to
 the premium; the amount entered is one payment, with its GST. The policy list
@@ -18,10 +20,12 @@ shows "$137.50 monthly". Later reports work out a yearly figure from it.
 Migration: a `payment_frequency` column, existing policies set to Yearly.
 
 ## 3. Servicing as a cost type
+
 Cost types become Servicing, Repair, Refurb, Other. Migration: add the value.
 (Phase 5 adds service schedules; servicing costs entered now stay as they are.)
 
 ## 4. Pop-up forms for adding
+
 Every "add" form on a car (rego renewal, insurance, cost, odometer reading)
 becomes an "Add …" button that opens a pop-up. Saving closes it; the new
 record appears in the list. On a phone the pop-up fills the screen. Purchase
@@ -32,6 +36,7 @@ Tradeoff: one more tap to start, but the page is much shorter and nothing
 can be added twice.
 
 ## 5. Lower odometer readings refused
+
 A reading lower than the last one is refused with "Lower than the last
 reading (48,210 km). If that one was wrong, withdraw it first." A tick box,
 "The odometer was replaced", allows it for the rare real case, and that is
@@ -40,6 +45,7 @@ Tradeoff: a typo in an old reading must be withdrawn first, which is the
 right fix anyway.
 
 ## Formatting decisions (rule 31)
+
 - Policy number: capitals only. Insurers each use their own pattern, so no
   fixed shape is enforced.
 - Transfer reference: capitals only, same reason.
@@ -49,6 +55,7 @@ right fix anyway.
 ## Follow-up: monthly direct debit and the expiry date (approved and built)
 
 **Monthly direct debit has no expiry.**
+
 - Choosing Monthly (direct debit) hides the Expires box; the cost is the
   monthly amount ("$75.00 a month").
 - While it is on, the car counts as registered: the Rego column and the
@@ -65,6 +72,7 @@ right fix anyway.
   The "current rego" lookup puts an active direct debit first.
 
 **Expires fills itself in.**
+
 - Choosing a term sets Expires to the current rego's expiry plus that term,
   e.g. current expiry 15 Nov 2026 + 6 months = 15 May 2027. With no
   current rego (or only a direct debit), it starts from today.
@@ -75,6 +83,7 @@ right fix anyway.
   choice with and without a direct debit.
 
 ## Follow-up: duplicates and overlaps (approved and built)
+
 1. The same rego renewal (car and expiry) twice is refused, in the app and
    by a database rule.
 2. A second running direct debit on a car is refused ("Stop it first"),
@@ -86,6 +95,6 @@ right fix anyway.
    Compared in capitals, per Operator.
 5. A car on two policies with overlapping dates is saved with a warning
    naming the other policy (when adding a policy or putting a car on one).
-Migration 0014 first cleaned existing test data: repeated renewals were
-removed (archived) and extra running direct debits stopped, each logged as a
-system change.
+   Migration 0014 first cleaned existing test data: repeated renewals were
+   removed (archived) and extra running direct debits stopped, each logged as a
+   system change.

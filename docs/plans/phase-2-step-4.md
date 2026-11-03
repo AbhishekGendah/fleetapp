@@ -28,8 +28,7 @@ Built and deployed in three parts, each tested on the dev site first.
   link with **Copy link**, when it expires, and **Cancel link** /
   **Send again** (a new link; the old one stops working at once).
 - **One details link per Renter** at a time. It lasts 7 days, a new setting
-  under Settings → Renters ("Details form links last this many days", 1 to
-  30) (rule 27).
+  under Settings → Renters ("Details form links last this many days", 1 to 30) (rule 27).
 - **The link** (rule 26): 32 random characters in the address; only a
   fingerprint (hash) of it is stored. It is for this one form only, expires,
   and can be cancelled.

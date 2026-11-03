@@ -15,6 +15,7 @@ Most urgent first, each line a count that opens what is behind it.
 Nothing to do: the section says so in one line.
 
 Needs attention:
+
 - **Overdue returns:** active rentals whose planned end has passed.
 - **Late pickups:** booked rentals whose start has passed, not handed over.
 - **Not ready for handover** (booked, starting in the next 7 days): contract
@@ -29,10 +30,12 @@ Needs attention:
   expected-back date passed.
 
 Today and this week (Operator's timezone, rule 10):
+
 - Pickups today, returns due today.
 - Starting in the next 7 days, ending in the next 7 days.
 
 Fleet:
+
 - Counts by status (Out, Available, In service, Off road), each opening the
   cars list filtered to it.
 - **Idle cars:** available with nothing booked ahead, longest idle first,

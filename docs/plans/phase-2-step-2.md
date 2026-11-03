@@ -7,6 +7,7 @@ each tested on the dev site before the next.
 ## 2a — Rego and insurance
 
 ### Rego renewals (`vehicle_registrations`)
+
 One row per renewal: state, term (3, 6 or 12 months), expiry date, cost,
 GST, paid date, and the rego paper (optional). The renewal with the
 latest expiry is the car's current rego.
@@ -16,6 +17,7 @@ latest expiry is the car's current rego.
 - A wrong entry is archived (hidden, kept, logged), never deleted.
 
 ### Insurance (`insurance_policies` + `insurance_policy_vehicles`)
+
 A policy: insurer, policy number, type (comprehensive or third party),
 start and end dates, excess, cost, GST, and the certificate (optional).
 One policy can cover many cars, and a car can be taken off a policy
@@ -33,6 +35,7 @@ the car when).
 - The excess is kept for later (damage recovery charges, Phase 3/4).
 
 ### "Due soon" badges and setting
+
 - Car list gets "Rego" and "Insurance" columns showing the expiry date
   with a badge: amber "Due soon" inside the warning window, red
   "Expired", grey "None" when there is no record.
@@ -73,6 +76,7 @@ the car when).
 ### 2b detailed build (for Abhi's approval, 30 Oct 2026)
 
 **Screens.** A new **Costs** tab on the car page with three cards:
+
 - **Purchase** (one per car): date *, price *, GST, bought from *
   (dealer / private seller), seller's name *, phone, address (same
   address search as business details), odometer at purchase. Private
@@ -113,6 +117,7 @@ access, isolation tests. Money as integer cents with GST next to it
 (rule 9), GST never more than a tenth, checked in the database too.
 
 **Privacy.** Buyer and seller details are personal information:
+
 - the History tab says what changed ("Buyer's phone changed") but never
   the old or new value, because the activity log is also visible to AGS
   staff (rule 5 spirit, rule 7 for the licence number);
@@ -129,6 +134,7 @@ policy covers many cars, and how to split it belongs with the profit report
 in Phase 4/7); the fines link (Phase 6).
 
 ## Money rules (all of 2a and 2b)
+
 - Every amount is whole cents, typed as dollars ("$1,234.56"). One
   shared, tested function turns typed dollars into cents and back.
 - Every amount is stored including GST, with its GST stored next to it
@@ -166,6 +172,7 @@ in Phase 4/7); the fines link (Phase 6).
 Built and deployed in two parts, each tested on the dev site first.
 
 **2c-1: Photos and Documents tabs**
+
 - **Photos tab:** "Add photos" picks several at once, from the camera or the
   gallery. Each is shrunk on the phone to about 1600px (location data
   dropped) plus a small copy for the grid (rule 21), then sent with its own
@@ -179,6 +186,7 @@ Built and deployed in two parts, each tested on the dev site first.
   type from its first bytes (rule 22).
 
 **2c-2: Attachments on records**
+
 - Each rego renewal, insurance policy, cost, purchase and sale gets an
   "Attach" button and its list of files (several allowed, e.g. both sides of
   a form), each with Open and Remove.
@@ -207,6 +215,7 @@ the handover checklist); moving old photos to cheaper storage after a year
 (Phase 3, needs rentals); a photo on the car list (later, if wanted).
 
 ## Database (one migration per part)
+
 - New tables, each with `operator_id`, forced row-level security, the
   Operator-only policy, no deletes, no admin access, and isolation
   tests: `vehicle_registrations`, `insurance_policies`,
@@ -221,9 +230,11 @@ the handover checklist); moving old photos to cheaper storage after a year
 - Activity log entries for every create, change, archive and removal.
 
 ## Test checklist
+
 Each part adds its rows to the test checklist sheet as it is built.
 
 ## Legal side (added to docs/legal-notes.md when built)
+
 - **Sellers' and buyers' details are personal information** (they are not
   Renters, but the Privacy Act still applies): name, phone, address,
   licence number and transfer papers. Collected to prove when ownership
@@ -240,6 +251,7 @@ Each part adds its rows to the test checklist sheet as it is built.
   already stripped on the phone.
 
 ## Decisions in this plan (pushed back on easily)
+
 1. Insurance is added from the car's page; Cars → Insurance also lists
    all policies, for fleet policies (Abhi asked how fleets work: answered).
 2. GST is a box you can change, pre-filled at 1/11. Tradeoff: an extra

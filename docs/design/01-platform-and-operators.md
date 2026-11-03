@@ -1,6 +1,7 @@
 # Platform and Operators
 
 ## Operator (the business)
+
 - legalName, tradingName, abn (validate checksum), gstRegistered,
   gstRegisteredFrom, address, phone, email, logo (used on contracts,
   invoices, emails), state, timezone (IANA, e.g. Australia/Perth).
@@ -11,6 +12,7 @@
   a default.
 
 ## User (the Operator's login)
+
 - Exactly one per Operator in v1; separate table, 1-to-many ready.
 - Email + password + TOTP 2FA (mandatory). Recovery codes shown once.
 - Trusted-device session lasts 14 days.
@@ -19,6 +21,7 @@
 - Password reset by email.
 
 ## Onboarding a new Operator (v1: created by AGS)
+
 1. Admin creates the Operator; an expiring invite email is sent.
 2. Operator sets password and TOTP.
 3. Setup checklist on their dashboard: business details; Stripe Connect
@@ -27,6 +30,7 @@
 4. Payments are blocked until Stripe charges are enabled.
 
 ## Subscription (Operator pays AGS)
+
 - Stripe Billing on the AGS platform account; status synced by webhook.
 - Pricing model TBD (per vehicle, flat or tiers). Plans must be data,
   not code.
@@ -38,6 +42,7 @@
 - Track SMS count per Operator (SMS cost handling TBD with pricing).
 
 ## Admin app (AGS only)
+
 - Separate subdomain, separate Vercel project, admin_users table, TOTP
   mandatory, own DB credentials.
 - Actions: create Operator + send invite; list Operators with status,
@@ -47,5 +52,6 @@
 - Every admin action is logged. No access to Renter personal data.
 
 ## Demo Operator
+
 - Seeded with realistic fake cars, renters, rentals, payments and fines.
 - Runs on Stripe test mode. Used for sales demos.

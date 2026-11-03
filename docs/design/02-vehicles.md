@@ -1,6 +1,7 @@
 # Vehicles
 
 ## Vehicle
+
 - rego, regoState, vin, make, model, variant, year, colour, bodyType,
   transmission, fuelType, seats.
 - status: available | rented | in_service | off_road | sold |
@@ -11,10 +12,12 @@
   the car is currently rented.
 
 ## Rego
+
 - One record per renewal: state, termMonths (3, 6 or 12), expiry, cost,
   paidDate, document. Reminders use the latest record.
 
 ## Insurance
+
 - Policy: insurer, policyNumber, type (comprehensive | third_party),
   start, end, excess, cost, certificate.
 - Many-to-many with vehicles (fleet policies). For profit reporting,
@@ -22,6 +25,7 @@
 - Excess is used to pre-fill damage recovery charges.
 
 ## Servicing and maintenance
+
 - Service schedule per vehicle: intervalKm and intervalMonths, whichever
   comes first (default 10,000 km / 6 months). Next due is computed.
 - Maintenance job: date, type (service | repair | tyres | brakes |
@@ -30,6 +34,7 @@
 - Creating a job can set the vehicle to in_service in the same step.
 
 ## Odometer readings
+
 - value, recordedAt, source (purchase | handover | return | service |
   renter | manual), isVerified.
 - Renter-submitted readings are unverified until the Operator confirms.
@@ -37,11 +42,13 @@
 - Current km = latest verified reading.
 
 ## Photos and documents
+
 - General photos and documents (rego papers, insurance, purchase papers,
   inspection reports). Handover/return photos belong to the rental but
   also appear in the vehicle history.
 
 ## Costs and profit
+
 - Purchase: date, price, GST, sourceType (dealer | private; affects GST
   credit eligibility), seller, odometer at purchase.
 - Refurb costs are added to the vehicle's cost base.
@@ -51,10 +58,12 @@
 - Sale: date, price, buyer. The vehicle is archived; history kept.
 
 ## History timeline
+
 - One timeline per vehicle: rentals and possession, services, fines,
   odometer readings, status changes.
 
 ## Operator settings (defaults)
+
 - Rego and insurance reminders: 30 and 7 days before expiry.
 - Service interval: 10,000 km or 6 months (per-vehicle override).
 - Flag lower odometer readings: on.

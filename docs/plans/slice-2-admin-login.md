@@ -60,10 +60,10 @@ docs, not assumed:
 
 ### `admin_users` — columns added
 
-| Column | Why |
-|---|---|
-| `email_verified` | Required by the library |
-| `image` | Required by the library; unused in v1 |
+| Column               | Why                                     |
+| -------------------- | --------------------------------------- |
+| `email_verified`     | Required by the library                 |
+| `image`              | Required by the library; unused in v1   |
 | `two_factor_enabled` | Whether the authenticator app is set up |
 
 The library's `name` is mapped onto the existing `full_name` column

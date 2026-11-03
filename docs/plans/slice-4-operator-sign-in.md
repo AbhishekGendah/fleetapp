@@ -108,13 +108,13 @@ other sessions are signed out.
 
 ### New, all under forced row-level security
 
-| Table | What it holds | Has `operator_id` |
-|---|---|---|
-| `user_accounts` | The password hash, plus the wrong-password count and lockout time | Yes |
-| `user_sessions` | Who is signed in where | Yes |
-| `user_two_factors` | Authenticator secret and recovery codes (encrypted) | Yes |
-| `user_verifications` | Password-reset tokens (fingerprints only) | No: transient |
-| `user_known_devices` | Fingerprints of browsers that have signed in, for the new-device email | Yes |
+| Table                | What it holds                                                          | Has `operator_id` |
+| -------------------- | ---------------------------------------------------------------------- | ----------------- |
+| `user_accounts`      | The password hash, plus the wrong-password count and lockout time      | Yes               |
+| `user_sessions`      | Who is signed in where                                                 | Yes               |
+| `user_two_factors`   | Authenticator secret and recovery codes (encrypted)                    | Yes               |
+| `user_verifications` | Password-reset tokens (fingerprints only)                              | No: transient     |
+| `user_known_devices` | Fingerprints of browsers that have signed in, for the new-device email | Yes               |
 
 Better Auth does not know about Operators, so it cannot fill in
 `operator_id` itself. A database trigger fills it in from the User on
@@ -144,13 +144,13 @@ authenticator set up, password reset. The admin Operator list gains a
 
 ## New settings for the Operator app (Vercel `fleetapp-web` project)
 
-| Setting | What it is |
-|---|---|
-| `AUTH_DATABASE_URL` | Connection string for `web_auth_role` |
+| Setting              | What it is                                |
+| -------------------- | ----------------------------------------- |
+| `AUTH_DATABASE_URL`  | Connection string for `web_auth_role`     |
 | `BETTER_AUTH_SECRET` | New random secret, different from admin's |
-| `AUTH_ISSUER_NAME` | Name shown in the authenticator app |
-| `EMAIL_TRANSPORT` | `dev_outbox`, as for admin |
-| `EMAIL_FROM` | Sender name and address, as for admin |
+| `AUTH_ISSUER_NAME`   | Name shown in the authenticator app       |
+| `EMAIL_TRANSPORT`    | `dev_outbox`, as for admin                |
+| `EMAIL_FROM`         | Sender name and address, as for admin     |
 
 ## Tests
 

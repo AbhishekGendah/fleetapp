@@ -254,20 +254,20 @@ phone.
 
 ## New dependencies
 
-| Package | Why |
-|---|---|
-| `@aws-sdk/client-s3`, `@aws-sdk/s3-presigned-post`, `@aws-sdk/s3-request-presigner` | Amazon's own library for S3, the upload permissions and the short-lived viewing links in slice 3 |
-| `write-excel-file` | Excel export in slice 4. Small, MIT-licensed, actively maintained. Chosen over `exceljs`, which has had no release in nearly two years |
+| Package                                                                             | Why                                                                                                                                    |
+| ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `@aws-sdk/client-s3`, `@aws-sdk/s3-presigned-post`, `@aws-sdk/s3-request-presigner` | Amazon's own library for S3, the upload permissions and the short-lived viewing links in slice 3                                       |
+| `write-excel-file`                                                                  | Excel export in slice 4. Small, MIT-licensed, actively maintained. Chosen over `exceljs`, which has had no release in nearly two years |
 
 Inter comes through Next.js's own font loader, so it adds no
 dependency.
 
 ## New settings
 
-| Setting | App | Slice |
-|---|---|---|
-| `STORAGE_BUCKET`, `IDENTITY_STORAGE_BUCKET`, `FILE_STORAGE_REGION`, `FILE_STORAGE_ACCESS_KEY_ID`, `FILE_STORAGE_SECRET_ACCESS_KEY` (set in Vercel) | Operator app only. Admin's "storage used" comes from the database, so admin needs no AWS keys | 3 |
-| `CRON_SECRET` | Operator app | 3 |
+| Setting                                                                                                                                            | App                                                                                           | Slice |
+| -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ----- |
+| `STORAGE_BUCKET`, `IDENTITY_STORAGE_BUCKET`, `FILE_STORAGE_REGION`, `FILE_STORAGE_ACCESS_KEY_ID`, `FILE_STORAGE_SECRET_ACCESS_KEY` (set in Vercel) | Operator app only. Admin's "storage used" comes from the database, so admin needs no AWS keys | 3     |
+| `CRON_SECRET`                                                                                                                                      | Operator app                                                                                  | 3     |
 
 Each one goes into `.env.example`, the startup checks and `turbo.json`
 in the same commit.

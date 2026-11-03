@@ -1,5 +1,6 @@
 import {
   carSwaps,
+  ledgerLines,
   damageRecords,
   insuranceClaims,
   issuedDocuments,
@@ -139,6 +140,22 @@ describe("demo data", () => {
         "none",
         "paid",
       ]);
+
+      // Every handed-over rental's rent is on its ledger; all but the two overdue ones paid.
+      const lines = await withTenant(web.db, actor.operatorId, (tx) =>
+        tx
+          .select({ kind: ledgerLines.kind, amountCents: ledgerLines.amountCents })
+          .from(ledgerLines)
+          .where(eq(ledgerLines.operatorId, actor.operatorId)),
+      );
+      expect(lines.filter((line) => line.kind === "payment")).toHaveLength(15);
+      const charged = lines
+        .filter((line) => line.kind === "charge")
+        .reduce((sum, line) => sum + line.amountCents, 0);
+      const paid = lines
+        .filter((line) => line.kind === "payment")
+        .reduce((sum, line) => sum + line.amountCents, 0);
+      expect(charged).toBeGreaterThan(paid);
 
       expect(await runEveryDemoStep(context)).toBe(0);
       expect(await countOf(vehicles, otherOperator.operatorId)).toBe(0);

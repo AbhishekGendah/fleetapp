@@ -12,7 +12,7 @@ docs/launch-checklist.md). Last updated 31 Oct 2026.
   responsible for it being true for your business. AGS supplies it as a
   starting point only.
 - Replace everything in **[square brackets]**. Delete any section marked
-  *optional* that you do not use (for example, if your cars have no GPS
+  _optional_ that you do not use (for example, if your cars have no GPS
   trackers, delete that section).
 - If you collect anything not listed here (for example, a copy of a
   passport, or bank statements), add it. If you stop collecting something,
@@ -67,12 +67,12 @@ When you rent from us, or ask to, we collect:
   cookie that remembers your phone for that link, and the basic details
   every website receives (such as your device's internet address), kept
   in our service providers' server logs.
-- *Optional:* **Vehicle location and driving data** from GPS trackers
+- _Optional:_ **Vehicle location and driving data** from GPS trackers
   fitted to our vehicles: [what is recorded, e.g. location, speed, ignition
   on/off], [when, e.g. at all times / only if the vehicle is reported
   stolen or overdue]. [Check the surveillance devices law in your state
   before using trackers.]
-- *Optional:* **[Anything else you collect, e.g. rideshare driver
+- _Optional:_ **[Anything else you collect, e.g. rideshare driver
   accreditation, a reference.]**
 
 Most of this comes from you: when you fill in our details form (sent by
@@ -99,7 +99,7 @@ We use your information to:
 - keep the records the law requires (for example, tax records); and
 - [any other purpose, e.g. checking rideshare eligibility].
 
-We do not sell your information. [We do not send you marketing.] *or*
+We do not sell your information. [We do not send you marketing.] _or_
 [We may send you offers about our own vehicles. Every marketing message
 lets you unsubscribe, and we will stop when you ask.]
 
@@ -129,13 +129,13 @@ We share your information only as needed for the purposes above, with:
 Your information is stored in Australia. Some service providers are
 overseas companies or handle some information outside Australia:
 
-| Provider | What they handle | Where |
-|---|---|---|
-| Postmark (email delivery) | Your name, email address and the emails we send you | United States |
-| Google (address search on our forms) | The address text you type into the address box | Various countries |
-| Stripe (payments) [delete until used] | Your name, payment details and payment history | United States and other countries |
-| Amazon Web Services, Neon, Vercel (storage and hosting) | Everything we hold, stored in Sydney | Australian data centres run by United States companies |
-| [Others, e.g. SMS or GPS tracker providers] | [What] | [Where] |
+| Provider                                                | What they handle                                    | Where                                                  |
+| ------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------ |
+| Postmark (email delivery)                               | Your name, email address and the emails we send you | United States                                          |
+| Google (address search on our forms)                    | The address text you type into the address box      | Various countries                                      |
+| Stripe (payments) [delete until used]                   | Your name, payment details and payment history      | United States and other countries                      |
+| Amazon Web Services, Neon, Vercel (storage and hosting) | Everything we hold, stored in Sydney                | Australian data centres run by United States companies |
+| [Others, e.g. SMS or GPS tracker providers]             | [What]                                              | [Where]                                                |
 
 ## 5. How we keep it safe, and for how long
 

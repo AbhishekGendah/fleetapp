@@ -1,6 +1,7 @@
 # Money
 
 ## Ledger (one per Renter; every line linked to a rental)
+
 - Line kinds: charge | payment | credit | refund | reversal.
 - Charge categories: weekly_rent, part_week_rent, late_fee,
   fine_passthrough, fine_admin_fee, damage, excess, toll, cleaning, plus
@@ -11,6 +12,7 @@
 - GST treatment set per charge type by the Operator.
 
 ## Bonds (one bond account per rental)
+
 - In: bond payments, upfront or by instalments (e.g. an upfront amount
   then a weekly amount until full).
 - Out: deductions (shown on the ledger as "paid from bond") and refunds.
@@ -19,21 +21,25 @@
   debits on new Stripe accounts).
 
 ## Payments
+
 - method type: becs_debit | card | cash | bank_transfer (payto later).
 - status: pending | succeeded | failed | refunded.
 - Stripe IDs, Stripe fee, payout ID for reconciliation.
 - Cash and bank transfers recorded manually with a reference.
 
 ## Weekly cycle (scheduled job, Operator timezone)
+
 1. On the charge day, add the rent charge (in advance).
 2. Create a debit for the scheduled amount (NOT the whole balance) on
    the Operator's connected account using the Renter's mandate.
 3. Pending up to 3 business days; webhooks set succeeded or failed.
+
 - One-off charges (fines, damage): add to next debit (default) |
   separate debit | split over N weeks.
 - Stripe's own pre-debit notification emails stay on.
 
 ## Failed payments
+
 - Reverse the payment line; the Renter is now in arrears.
 - Operator: dashboard alert + immediate email. Renter: SMS + email.
 - Auto-retry once after 3 business days; if it fails again, stop and
@@ -42,6 +48,7 @@
 - Arrears screen with ageing.
 
 ## Documents
+
 - Invoice per weekly charge, emailed automatically. Sequential per
   Operator, no gaps. Tax invoice format when the Operator is
   GST-registered (ABN, GST amount).
@@ -49,6 +56,7 @@
 - Issued invoices never change; corrections use credit notes.
 
 ## Stripe notes
+
 - Connect Express, direct charges. Mandate is set up during signing;
   we never see bank details.
 - New accounts have default BECS limits per transaction and per week.
@@ -56,6 +64,7 @@
   arrangement terms; confirm before building rate changes (TBD).
 
 ## Operator settings (defaults)
+
 - Invoices emailed automatically: yes.
 - Failed payment retry: once, after 3 business days.
 - Late fee: off.

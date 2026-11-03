@@ -30,16 +30,16 @@ Australia, or is run by an overseas company even when the data is
 stored in Sydney. The privacy policy needs to name them (or the kinds
 of service) and the countries.
 
-| Service | What it sees | Where |
-|---|---|---|
-| Google Places (address lookup) | Address text as it is typed; nothing else | Google, worldwide |
+| Service                                   | What it sees                                                                                                                       | Where                          |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| Google Places (address lookup)            | Address text as it is typed; nothing else                                                                                          | Google, worldwide              |
 | Have I Been Pwned (leaked-password check) | 5 characters of a scrambled fingerprint of a new password; not personal information, and the password cannot be worked out from it | Run from Cloudflare, worldwide |
-| Postmark (email, not yet live) | Names, email addresses, email contents | USA |
-| Stripe (payments, not yet built) | Renter names, bank details, payment history | Stripe, incl. USA |
-| Vercel (hosting) | Everything passing through the app; functions run in Sydney | US company |
-| Neon (database) | Everything stored; data in Sydney | US company |
-| AWS S3 (files, not yet built) | Photos and documents; stored in Sydney | US company |
-| SMS provider (TBD) | Renter phone numbers and message text | TBD |
+| Postmark (email, not yet live)            | Names, email addresses, email contents                                                                                             | USA                            |
+| Stripe (payments, not yet built)          | Renter names, bank details, payment history                                                                                        | Stripe, incl. USA              |
+| Vercel (hosting)                          | Everything passing through the app; functions run in Sydney                                                                        | US company                     |
+| Neon (database)                           | Everything stored; data in Sydney                                                                                                  | US company                     |
+| AWS S3 (files, not yet built)             | Photos and documents; stored in Sydney                                                                                             | US company                     |
+| SMS provider (TBD)                        | Renter phone numbers and message text                                                                                              | TBD                            |
 
 ## Address lookup (Google Places)
 
@@ -381,8 +381,6 @@ of service) and the countries.
 - **Emails:** the report goes to the Renter and to the business email, as
   for signed contracts (transactional; Postmark when set up).
 
-
-
 - **No GST on a bond:** it is security, not payment for a supply, so no
   GST is recorded on it. When part of a bond is kept to cover a charge
   (damage, unpaid rent; Phase 4), GST follows that charge's own type, not
@@ -399,8 +397,6 @@ of service) and the countries.
 - **Personal information:** a bank transfer reference can hold a name, so
   references and correction reasons stay with the bond and never go into
   the activity log (rule 7). The admin app cannot read bond entries.
-
-
 
 - **Electronic Transactions Act 1999 (Cth) s 10, and each state's own Act (e.g. WA 2011):** the
   signer is identified (a code emailed to them, typed on their phone), the
@@ -434,8 +430,6 @@ of service) and the countries.
   template change after the link was sent, signing is refused and a new
   link must be sent, so a Renter never signs text other than what they
   were sent.
-
-
 
 - The admin login reads only who did what and when in Operators' history,
   never the values (database column grants, migration 0025), so Renter or
@@ -502,6 +496,30 @@ of service) and the countries.
   that this wording suits a change of terms (add to the lawyer list).
 - **Record keeping:** each change is kept for good with its reason, who
   made it and the signed form (rule 12 for the PDF).
+
+## The ledger and charges (Phase 4 slice 1, built)
+
+- **GST per charge type:** every built-in type starts as including GST;
+  the business sets each in Settings → Charges. **Ask the accountant**
+  which are taxable for a vehicle rental business: damage recovery and the
+  insurance excess passed on (often treated as compensation, not a supply),
+  tolls passed on at cost, and late fees. Until then an Operator can set
+  any of them to GST-free or not subject to GST, and each line keeps the
+  GST it was added with.
+- **Rent from the handover, in advance:** the Renter pays for days they
+  have the car, from the handover, not the planned start. An early return
+  credits the unused days (when part weeks are charged by the day; the
+  rental's own setting, agreed in the contract).
+- **Charging for damage:** the charge says what it is for, and is added
+  only once the rental is confirmed as the one that had the car. The
+  screen reminds the Operator to charge only what the contract allows
+  (Australian Consumer Law: unfair terms; the Renter must be able to see
+  and dispute it).
+- **Record keeping:** the ledger is a tax record: kept for good (at least
+  5 years under the ATO's rules), never changed, corrections as
+  reversals. The retention jobs never touch it.
+- **Privacy:** payment references are the Operator's own; no bank or card
+  details are stored (rule 7). Admin cannot read the ledger (rule 5).
 
 ## Fleet timeline (3 Nov 2026)
 

@@ -12,6 +12,7 @@ The most important slice. Everything later sits on it, and it is the
 only slice that is hard to change afterwards.
 
 Tables:
+
 - `operators` — the business. Identity fields (legal name, trading
   name, ABN, GST registration, address, contact, state, timezone),
   Stripe connected-account fields, `subscription_status`. Settings
@@ -25,6 +26,7 @@ Tables:
   before/after JSON, timestamp.
 
 Tenancy plumbing:
+
 - Every tenant table gets `operator_id NOT NULL` with a foreign key.
 - RLS enabled AND forced on every tenant table, with a policy scoping
   rows to the Operator in the current transaction's tenant context.
@@ -42,6 +44,7 @@ Tenancy plumbing:
   owner-role connection string from GitHub secrets.
 
 Tests (Vitest, against Postgres in Docker in the session):
+
 - Tenant isolation: Operator A cannot read Operator B's rows, on every
   tenant table, via the app's real role.
 - No tenant context set means no rows, never all rows.

@@ -27,6 +27,7 @@ recorded as held; the car status "Rented"; a bookings calendar; the first
 dashboard cards.
 
 **Waits:**
+
 - Direct debit set-up, card payments, bond payments by card or debit,
   weekly charges, invoices and the ledger: Phase 4 (Stripe). In Phase 3
   the Renter's signing steps end at the signature; Phase 4 adds "set up

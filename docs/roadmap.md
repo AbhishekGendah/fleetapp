@@ -10,6 +10,7 @@ Status: ✅ done · 🔨 in progress · ⏳ not started. Last checked 1 Nov 2026
 ## Phase 1 — Foundation ✅
 
 ### 1a ✅ (plans: docs/plans/phase-1a.md, slice-2/3/4)
+
 - Platform tables, tenancy + RLS, migrations running automatically
   from GitHub.
 - Admin login with TOTP, and safe creation of the first admin.
@@ -25,6 +26,7 @@ Status: ✅ done · 🔨 in progress · ⏳ not started. Last checked 1 Nov 2026
 - Not done, moved: admin password reset (launch checklist).
 
 ### 1b ✅ (plan: docs/plans/phase-1b.md)
+
 - Look and feel: PintoFleet brand, logo, app shell.
 - Operator settings.
 - File storage (S3).
@@ -32,6 +34,7 @@ Status: ✅ done · 🔨 in progress · ⏳ not started. Last checked 1 Nov 2026
 - Added: installable phone app (home-screen icon, install guide card).
 
 ## Phase 2 — Core records ✅ (plan: docs/plans/phase-2.md)
+
 - Step 1 — Cars ✅: add, find, edit, archive, status.
   - Added: starting odometer reading on the add form, and odometer
     readings on the car page (taken early from Phase 5).
@@ -53,10 +56,12 @@ Status: ✅ done · 🔨 in progress · ⏳ not started. Last checked 1 Nov 2026
 - Full code review before Phase 3 ✅ (docs/reviews/2026-10-31-full-code-review.md).
 
 ## Library swap ✅ (plan: docs/plans/library-swap.md)
+
 - Hand-built pieces replaced by established libraries, with browser tests
   (Playwright) proving each one. Done 1 Nov 2026.
 
 ## Phase 3 — Rentals ✅ (plan: docs/plans/phase-3.md; bookings, contracts, signing, bonds, handover, return, damage, changes of terms, car swaps and the fleet timeline built by 3 Nov 2026)
+
 - Bookings, calendar, double-booking prevention.
 - Contract templates, signing.
 - Handover/return reports (must work offline-ish, rule 25).
@@ -66,6 +71,7 @@ Status: ✅ done · 🔨 in progress · ⏳ not started. Last checked 1 Nov 2026
   provisional, expiry), held over from Phase 2.
 
 ## Phase 4 — Money ⏳
+
 - Stripe Connect onboarding.
 - Ledger.
 - BECS mandates.
@@ -75,6 +81,7 @@ Status: ✅ done · 🔨 in progress · ⏳ not started. Last checked 1 Nov 2026
 - Profit per car (costs are already recorded from Phase 2).
 
 ## Phase 5 — Fleet operations ⏳
+
 - Servicing.
 - Odometer: readings exist from Phase 2; this phase adds readings from
   handover/return and service-due by km.
@@ -90,6 +97,7 @@ Status: ✅ done · 🔨 in progress · ⏳ not started. Last checked 1 Nov 2026
 ## Phase 7 — Dashboard and reports ⏳
 
 ## Phase 8 — Commercial ⏳
+
 - AGS subscription billing (pricing model still to decide).
 - Read-only mode.
 - Spreadsheet import of cars and Renters.
@@ -109,7 +117,9 @@ Status: ✅ done · 🔨 in progress · ⏳ not started. Last checked 1 Nov 2026
   scaling: a new service, so a decision on which and where it stores data.
 
 ## Phase 9 — Go-live hardening ⏳
+
 Works through docs/launch-checklist.md, including:
+
 - Admin sign-in time limits restored (relaxed while testing).
 - Full security review.
 - Backup restore test.
@@ -133,12 +143,14 @@ Works through docs/launch-checklist.md, including:
   plus DNS, Postmark sending records, Google Places key and Stripe.
 
 ## Runs alongside every phase
+
 - Abhi's test checklist (Google Sheet, link in docs/progress.md): every
   new or changed field, button and screen gets its row. Abhi has chosen
   to test everything in one go near the end, taking his time (1 Nov 2026).
 - Legal check of each task, written to docs/legal-notes.md.
 
 ## Decided along the way
+
 - No "remember this device" for Admins, ever (decided by Abhi, 30 Oct
   2026): an admin login reaches every Operator, so every admin sign-in
   asks for the authenticator code.

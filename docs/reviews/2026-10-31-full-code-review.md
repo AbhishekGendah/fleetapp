@@ -39,7 +39,7 @@ data. All 503 tests pass.
     address);
   - when the business is suspended;
   - when the link is locked (Send back still emails "use your link").
-  Fix: cancel the link in all these cases.
+    Fix: cancel the link in all these cases.
 - **A4. The 5-wrong-passwords sign-in lock can be beaten by sending many
   guesses at once.** Proven: 29 guesses got through. The authenticator code
   still protects the account. Fix: count each attempt before checking the
@@ -67,8 +67,7 @@ data. All 503 tests pass.
 - **A10. A photo finishing after Send makes Send back fail every time.** Fix:
   refuse photos once sent, and clear any leftover before sending back.
 - **A11. One Renter link can use up the whole app's daily Google address
-  allowance:** choosing an address isn't counted, and bad searches use up the
-  50. Fix: count both, and check before counting.
+  allowance:** choosing an address isn't counted, and bad searches use up the 50. Fix: count both, and check before counting.
 - **A12. Pages can be shown inside another website** (a trick to make a
   signed-in person click buttons). Fix: one setting on both apps.
 - **A13. The form saved on the Renter's phone holds their date of birth,

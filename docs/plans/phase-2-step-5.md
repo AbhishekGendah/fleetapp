@@ -13,6 +13,7 @@ docs/plans/phase-2.md (approved in outline: "12 months, a setting").
    Never while the Renter has a rental, fine or dispute still open (those
    come in later phases; the check is written now so they plug in). From the
    bin it is gone for good 30 days later, as for every deleted file (rule 23).
+
 2. **What a Renter sent through a link is removed 30 days after their link
    ended, whatever happened to it** (approved, sent back or never reviewed).
    Today only never-approved ones are removed; approved ones would be kept
@@ -42,8 +43,7 @@ have fines arriving).
 ## Screens
 
 - **Settings → Renters:** "Delete licence scans this many months after the
-  Renter's last rental, or after they were added" *, 12 to start with, 1 to
-  60. Changing it applies at the next nightly clean-up (it is a data rule, not
+  Renter's last rental, or after they were added" *, 12 to start with, 1 to 60. Changing it applies at the next nightly clean-up (it is a data rule, not
   a rental term, so it is not snapshotted onto rentals).
 - **Licence tab:** under the scans, "Kept until about (date), then deleted
   automatically (Settings → Renters)." Once deleted, the slot says "Deleted

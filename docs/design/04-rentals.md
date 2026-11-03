@@ -1,6 +1,7 @@
 # Rentals
 
 ## Rental
+
 - renter, vehicle (current vehicle via possession), type (fixed |
   ongoing), plannedStart, plannedEnd (null when ongoing),
   actualHandoverAt, actualReturnAt, bondAmount, chargeDay, status,
@@ -8,6 +9,7 @@
 - Weekly rate history: each rate has an effectiveFrom date.
 
 ## Statuses
+
 - draft: being set up; car not held.
 - booked: car held; contract sent for signing; bond requested.
 - active: contract signed AND handover acceptance signed; weekly
@@ -17,6 +19,7 @@
 - cancelled: only from draft or booked.
 
 ## Fixed-term and ongoing
+
 - Ongoing rentals hold the car with an open-ended range, blocking future
   bookings for that car until an end date is set (e.g. when the Renter
   gives notice).
@@ -26,6 +29,7 @@
   continue.
 
 ## Changes during a rental
+
 - Rate change: new rate row with effectiveFrom. Renter notice rules for
   changing a direct debit amount are TBD: confirm Stripe DDR
   requirements before building this.
@@ -37,13 +41,16 @@
   signed by the Renter where the contract requires, and logged.
 
 ## Possession records
+
 - vehicleId, rentalId, renterId, startAt (signed handover acceptance),
   endAt (recorded return; null while current).
 - Fine matching uses these. No overlapping possession per vehicle
   (enforced in the database).
 
 ## Operator settings (defaults, snapshotted on each rental, overridable
+
 per rental at creation)
+
 - Rent charged: weekly, in advance.
 - Charge day: same weekday as the start (alternative: one fixed day for
   all).

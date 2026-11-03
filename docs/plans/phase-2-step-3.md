@@ -13,6 +13,7 @@ Built and deployed in three parts, each tested on the dev site first.
 Settings, in the phone's bottom bar and the computer's sidebar.
 
 **Renters list** (the shared list, cards on a phone, whole card tappable):
+
 - Name (preferred name in brackets if given), phone, licence expiry with
   the Due soon / Expired badge, and status (Active, Do not rent in red,
   Archived).
@@ -24,16 +25,16 @@ Settings, in the phone's bottom bar and the computer's sidebar.
 
 **Add a Renter** (its own page, with the back arrow, like Add a car):
 
-| Field | Required | Format (rule 31) |
-| --- | --- | --- |
-| Full name | yes | as typed, extra spaces removed |
-| Preferred name | | as typed |
-| Phone | phone or email | Australian phone formatter |
-| Email | phone or email | lower case, checked as an email |
-| Date of birth | | date; must be in the past and at least 16 years ago |
-| Home address | | Google address search (as for car sellers) |
-| Postal address | | "Same as home" ticked to start with |
-| Emergency contact: name, phone, relationship | | phone formatter |
+| Field                                        | Required       | Format (rule 31)                                    |
+| -------------------------------------------- | -------------- | --------------------------------------------------- |
+| Full name                                    | yes            | as typed, extra spaces removed                      |
+| Preferred name                               |                | as typed                                            |
+| Phone                                        | phone or email | Australian phone formatter                          |
+| Email                                        | phone or email | lower case, checked as an email                     |
+| Date of birth                                |                | date; must be in the past and at least 16 years ago |
+| Home address                                 |                | Google address search (as for car sellers)          |
+| Postal address                               |                | "Same as home" ticked to start with                 |
+| Emergency contact: name, phone, relationship |                | phone formatter                                     |
 
 Only the name and a way to contact them are needed to save. That way an
 Operator can start a Renter from a phone call, and slice 4's link fills
@@ -53,6 +54,7 @@ top, icon tabs like the car page): **Details**, **Licence**, **Notes**,
   deleted (rule 13).
 
 **Duplicates:**
+
 - **Same licence** (same number from the same state or country) is
   refused, including archived Renters, with "This Renter is already on
   file: Open" (and Restore if archived). The database enforces it too.
@@ -68,14 +70,14 @@ car buyer's and seller's details.
 
 On the Licence tab, with Edit in a pop-up:
 
-| Field | Required to save the licence | Format |
-| --- | --- | --- |
-| Issued in | yes | WA, NSW, VIC, QLD, SA, TAS, ACT, NT or Overseas |
-| Country | if Overseas | list of countries |
-| Licence number | yes | capitals and digits only; 10 at most (Australia), 20 (overseas) |
-| Class | yes | C (car) to start with; LR, MR, HR, HC, MC |
-| Type | yes | Full or Provisional (P plates) |
-| Expires | yes | date |
+| Field          | Required to save the licence | Format                                                          |
+| -------------- | ---------------------------- | --------------------------------------------------------------- |
+| Issued in      | yes                          | WA, NSW, VIC, QLD, SA, TAS, ACT, NT or Overseas                 |
+| Country        | if Overseas                  | list of countries                                               |
+| Licence number | yes                          | capitals and digits only; 10 at most (Australia), 20 (overseas) |
+| Class          | yes                          | C (car) to start with; LR, MR, HR, HC, MC                       |
+| Type           | yes                          | Full or Provisional (P plates)                                  |
+| Expires        | yes                          | date                                                            |
 
 - **Expiry badge** (Due soon / Expired) on the tab, the page header and the
   list. New setting under Settings → Renters: "Show Due soon this many

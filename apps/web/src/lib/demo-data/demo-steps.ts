@@ -1,6 +1,7 @@
 import { addDemoCar, allDemoCars } from "./demo-cars";
 import { addDemoChanges } from "./demo-changes";
 import { addDemoDamage } from "./demo-damage";
+import { addDemoMoney } from "./demo-money";
 import { DemoDataError, type DemoContext } from "./demo-context";
 import { handOverDemoRental } from "./demo-handovers";
 import { returnDemoRental } from "./demo-returns";
@@ -99,6 +100,7 @@ const RUNNABLE_STEPS: readonly RunnableStep[] = [
   { key: "damage", label: "Damage records and insurance claims", run: addDemoDamage },
   { key: "changes", label: "Changes of terms", run: addDemoChanges },
   { key: "swap", label: "A car swap", run: addDemoSwap },
+  { key: "money", label: "Payments", run: addDemoMoney },
 ];
 
 function countAdded(outcome: "added" | "there"): number {

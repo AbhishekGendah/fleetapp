@@ -1,6 +1,7 @@
 # Dashboard and Reports
 
 ## Dashboard (most urgent first; mobile-first)
+
 1. Needs attention: failed payments, overdue returns, fines near their
    deadline, expiring rego/insurance/licences, unsigned contracts,
    pending renter approvals.
@@ -19,6 +20,7 @@
 Every number is tappable and opens the list behind it.
 
 ## Reports
+
 - Income by week, month or financial year (July to June), and by car.
 - Profit per car.
 - Arrears by age: 1-7, 8-14, 15-30, 30+ days.
@@ -29,6 +31,7 @@ Every number is tappable and opens the list behind it.
 - Every report exports to Excel.
 
 ## Rules
+
 - All money figures are calculated from the ledger, never stored
   separately.
 - "Today" and "this week" use the Operator's timezone.

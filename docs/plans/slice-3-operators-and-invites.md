@@ -103,11 +103,11 @@ A new package, `packages/email`, so both apps send email the same way:
 All three in the admin app's `.env.example`, its startup checks and
 `apps/admin/turbo.json`, in the same commit:
 
-| Setting | What it is |
-|---|---|
-| `APP_URL` | The Operator app's address, to build the invite link |
-| `EMAIL_TRANSPORT` | `dev_outbox` for now; `postmark` once it exists |
-| `EMAIL_FROM` | Sender name and address, e.g. `Product Name <no-reply@…>` |
+| Setting           | What it is                                                |
+| ----------------- | --------------------------------------------------------- |
+| `APP_URL`         | The Operator app's address, to build the invite link      |
+| `EMAIL_TRANSPORT` | `dev_outbox` for now; `postmark` once it exists           |
+| `EMAIL_FROM`      | Sender name and address, e.g. `Product Name <no-reply@…>` |
 
 The admin app refuses to start if any is missing. The test inbox page
 exists only when `EMAIL_TRANSPORT` is `dev_outbox`.

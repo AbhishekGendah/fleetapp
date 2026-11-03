@@ -25,25 +25,25 @@ needed or not, and do it properly from the start, however long it takes.
 
 ## Checked library choices (versions as of 1 Nov 2026)
 
-| Replaces our hand-built | Library | Version | Licence | Why this one |
-|---|---|---|---|---|
-| Pop-up forms, searchable make/model box, address suggestions, code box, checkbox | **Base UI** (`@base-ui/react`) through shadcn's components | 1.9.0 | MIT | Made by the Radix, Floating UI and MUI people; shadcn's default since July 2026. Has Dialog, Combobox, Autocomplete and an OTP (code) field, so one library covers all of these |
-| `@radix-ui/react-slot` (one small helper) | Base UI's `useRender` | — | MIT | One less library once everything is on Base UI |
-| Date maths, local time to UTC, daylight saving, date formatting | **date-fns** + **@date-fns/tz** | 4.4.0 / 1.5.0 | MIT | The most used date library; `TZDate` handles timezones and daylight saving. Temporal (the coming built-in) is not in every browser yet |
-| Australian phone formatting and checking | **libphonenumber-js** | 1.13.15 | MIT | Google's phone number rules: every number type, plus overseas numbers |
-| Country list for overseas licences | **i18n-iso-countries** | 7.14.0 | MIT | The standard ISO country list with names. Rarely updated because the data rarely changes |
-| "Chrome on iPhone" in new-device emails | **Bowser** | 2.15.0 | MIT | Chosen over ua-parser-js, which is now AGPL |
-| File type from the file's contents | **file-type** | 22.3.0 | MIT | Knows hundreds of formats, not just our few |
-| CSV export | **Papa Parse** | 5.7.0 | MIT | Has formula protection built in (`escapeFormulae`); to be checked against our tests |
-| Typo suggestions for makes and models | **Fuse.js** | 7.5.0 | Apache-2.0 | The standard fuzzy search. Exact matching with aliases stays ours (it is a business rule) |
-| Shrinking photos on the phone | **Compressor.js** | 1.4.0 | MIT | Handles photo rotation and older phones. Chosen over browser-image-compression, which has had no update since 2023 |
-| Full-screen photo viewer | **yet-another-react-lightbox** | 3.33.0 | MIT | Pinch zoom, swipe, keyboard, screen readers |
-| Breached-password check | **Better Auth's haveIBeenPwned plugin** | (in better-auth 1.7.5) | MIT | We already use Better Auth; ours duplicates it |
-| Form handling (checks as you type, errors, focus on the bad box) | **React Hook Form** + **@hookform/resolvers** (Zod) | 7.91.0 / 7.0.1 | MIT | The standard; shadcn's Form uses it |
-| Shared list (sort, columns, paging, phone cards) | **TanStack Table** | 9.3.1 | MIT | The standard headless table; shadcn's data table uses it. Paging and sorting stay in the database |
-| List filters, search and page in the address bar | **nuqs** | 2.10.2 | MIT | Standard for Next.js; typed, and it updates the list without reloading the page |
-| Money and number boxes formatting as you type | **react-number-format** | 5.4.5 | MIT | $ and commas while typing, digit limits (rule 31) |
-| Tests that a real browser can use every piece by keyboard | **Playwright** (`@playwright/test`) | (to pin) | Apache-2.0 | Proves each swap works in a real browser, keyboard and phone size included. It is the browser already installed here |
+| Replaces our hand-built                                                          | Library                                                    | Version                | Licence    | Why this one                                                                                                                                                                    |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------- | ---------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pop-up forms, searchable make/model box, address suggestions, code box, checkbox | **Base UI** (`@base-ui/react`) through shadcn's components | 1.9.0                  | MIT        | Made by the Radix, Floating UI and MUI people; shadcn's default since July 2026. Has Dialog, Combobox, Autocomplete and an OTP (code) field, so one library covers all of these |
+| `@radix-ui/react-slot` (one small helper)                                        | Base UI's `useRender`                                      | —                      | MIT        | One less library once everything is on Base UI                                                                                                                                  |
+| Date maths, local time to UTC, daylight saving, date formatting                  | **date-fns** + **@date-fns/tz**                            | 4.4.0 / 1.5.0          | MIT        | The most used date library; `TZDate` handles timezones and daylight saving. Temporal (the coming built-in) is not in every browser yet                                          |
+| Australian phone formatting and checking                                         | **libphonenumber-js**                                      | 1.13.15                | MIT        | Google's phone number rules: every number type, plus overseas numbers                                                                                                           |
+| Country list for overseas licences                                               | **i18n-iso-countries**                                     | 7.14.0                 | MIT        | The standard ISO country list with names. Rarely updated because the data rarely changes                                                                                        |
+| "Chrome on iPhone" in new-device emails                                          | **Bowser**                                                 | 2.15.0                 | MIT        | Chosen over ua-parser-js, which is now AGPL                                                                                                                                     |
+| File type from the file's contents                                               | **file-type**                                              | 22.3.0                 | MIT        | Knows hundreds of formats, not just our few                                                                                                                                     |
+| CSV export                                                                       | **Papa Parse**                                             | 5.7.0                  | MIT        | Has formula protection built in (`escapeFormulae`); to be checked against our tests                                                                                             |
+| Typo suggestions for makes and models                                            | **Fuse.js**                                                | 7.5.0                  | Apache-2.0 | The standard fuzzy search. Exact matching with aliases stays ours (it is a business rule)                                                                                       |
+| Shrinking photos on the phone                                                    | **Compressor.js**                                          | 1.4.0                  | MIT        | Handles photo rotation and older phones. Chosen over browser-image-compression, which has had no update since 2023                                                              |
+| Full-screen photo viewer                                                         | **yet-another-react-lightbox**                             | 3.33.0                 | MIT        | Pinch zoom, swipe, keyboard, screen readers                                                                                                                                     |
+| Breached-password check                                                          | **Better Auth's haveIBeenPwned plugin**                    | (in better-auth 1.7.5) | MIT        | We already use Better Auth; ours duplicates it                                                                                                                                  |
+| Form handling (checks as you type, errors, focus on the bad box)                 | **React Hook Form** + **@hookform/resolvers** (Zod)        | 7.91.0 / 7.0.1         | MIT        | The standard; shadcn's Form uses it                                                                                                                                             |
+| Shared list (sort, columns, paging, phone cards)                                 | **TanStack Table**                                         | 9.3.1                  | MIT        | The standard headless table; shadcn's data table uses it. Paging and sorting stay in the database                                                                               |
+| List filters, search and page in the address bar                                 | **nuqs**                                                   | 2.10.2                 | MIT        | Standard for Next.js; typed, and it updates the list without reloading the page                                                                                                 |
+| Money and number boxes formatting as you type                                    | **react-number-format**                                    | 5.4.5                  | MIT        | $ and commas while typing, digit limits (rule 31)                                                                                                                               |
+| Tests that a real browser can use every piece by keyboard                        | **Playwright** (`@playwright/test`)                        | (to pin)               | Apache-2.0 | Proves each swap works in a real browser, keyboard and phone size included. It is the browser already installed here                                                            |
 
 ## Kept as they are, and why (properly, not just to save time)
 
@@ -82,7 +82,7 @@ needed or not, and do it properly from the start, however long it takes.
    cover every place a password is set: invite acceptance, reset, change. If
    the plugin cannot reach one of them, that place calls the plugin's own
    check, never a second copy.
-   *As built:* the plugin refuses leaked passwords, and refuses every password
+   _As built:_ the plugin refuses leaked passwords, and refuses every password
    while the breach service is down; both go against Abhi's "warn, don't
    refuse" decision. So Better Auth's exported check (`isPasswordCompromised`)
    is used on its own for the warning, and our hand-made copy is gone.
@@ -90,17 +90,17 @@ needed or not, and do it properly from the start, however long it takes.
    then the lightbox viewer.
 5. **Base UI pieces:** pop-up forms, searchable make/model box, address
    suggestions, code box, checkbox. Then remove the Radix helper. Catalogue updated.
-6. *As built:* `useFormFields` keeps its whole API and runs on React Hook
+6. _As built:_ `useFormFields` keeps its whole API and runs on React Hook
    Form underneath ("onTouched" mode is rule 28's "checked once left, then
    with every key"). Our `validate` (the server's Zod schema) is its
    resolver, so @hookform/resolvers is not needed. `FormField` now links its
    hint and message to whatever box it holds, on every form.
-6. **Forms on React Hook Form:** the shared field wiring first, then every
+7. **Forms on React Hook Form:** the shared field wiring first, then every
    form one at a time. Asterisks, required notes, and screen readers reading
    hints and errors (rule 28, review C1) all carry over.
-7. **Lists on TanStack Table and nuqs:** the shared list first, then each of
+8. **Lists on TanStack Table and nuqs:** the shared list first, then each of
    the 12 lists. CSV and Excel downloads unchanged.
-8. **Money and number boxes on react-number-format**, with the server's
+9. **Money and number boxes on react-number-format**, with the server's
    check unchanged.
 
 Each stage ends with the checks, a push, checklist rows, and progress notes.

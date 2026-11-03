@@ -1,6 +1,7 @@
 # Progress
 
 ## Done
+
 - Design docs and rulebook.
 - Monorepo skeleton.
 - Neon dev database (Sydney) with `web_app_role` and `admin_app_role`
@@ -172,7 +173,7 @@
 - Keeping one standard: the linter refuses raw buttons, boxes, dropdowns,
   labels and tables in the apps (rule 29); a Components page in admin
   shows every shared piece; CI fails on copy-pasted code (`pnpm
-  duplicates`, rule 30). Sign-in browser code, sign-out, the health
+duplicates`, rule 30). Sign-in browser code, sign-out, the health
   check and the shared settings checks now live in one place each.
 - Phase 1b slice 3a, file storage: AWS account (Altus, Paid plan, $10
   budget alert), buckets `altus-fleetapp-dev-files` and
@@ -899,15 +900,45 @@
     computer in the browser with keyboard and accessibility checks. Page
     budget 410 KB. Checklist rows O-317, O-318 updated; O-319 to O-323.
 
+- Phase 4 slice 1 — the ledger and weekly charges (plan: docs/plans/phase-4.md):
+  - Migration 0038: charge types (built-in and the business's own, each
+    with its GST treatment; archived, never removed) and ledger lines
+    (charge, payment, credit, refund, reversal; only ever added, a
+    reversal undoes exactly one line once; one rent charge and one credit
+    per period). The admin app has no access.
+  - Rent is charged in advance from the handover (not the planned start):
+    a part week up to the charge day, then weekly, each day at the rate in
+    force on it, and an unused-days credit after an early return. The
+    daily run (16:00 UTC, after midnight everywhere in Australia) works
+    one business at a time and never charges twice; a handover or return
+    charges its rental at once.
+  - GST is worked out per line from its type and whether the business was
+    registered on the day, and stored on the line for good.
+  - Screens: the rental's Money card (balance, newest lines, Add charge,
+    Record payment, Reverse), the Renter's Money tab (every line, with the
+    car), Settings → Charges (GST per type, add and archive own types),
+    and Charge the Renter on a damage record (excess filled in).
+  - Demo data: rent on every handed-over rental, payments by bank transfer
+    for all but the two overdue rentals, one half paid, a cleaning charge.
+  - Found on the way: the bond and payment forms now share one component.
+  - Tests: every rounding case, rent periods and credits (core); the
+    ledger's rules and isolation (database); rent from the handover, a
+    mid-week rate change, the credit, GST per type, reversals, the daily
+    run twice, another Operator refused (server); the money screens on a
+    phone in the browser. Settings → Charges budget 445 KB. Checklist rows
+    O-324 to O-331; O-278 updated.
+
 ## Next
-Phase 3 is complete. Next: Phase 4 (money). The plan is written
+
+Phase 4 slice 2 (invoices, receipts and statements). The plan is written
 (docs/plans/phase-4.md), approved 3 Nov 2026 with each Operator on the
-full Stripe dashboard. Slice 1 (the ledger and weekly charges) is next.
+full Stripe dashboard. Slice 1 is built.
 Open idea: trim the phone rules to Australia only with libphonenumber's
 metadata generator (about 40 KB off each form page); running the
 generator needs Abhi's say-so.
 
 ## Open items
+
 - **Before launch: docs/launch-checklist.md** (relaxed admin sign-in, full
   security review, production settings, legal).
 - Production buckets (before go-live): set the bucket clean-up rule for

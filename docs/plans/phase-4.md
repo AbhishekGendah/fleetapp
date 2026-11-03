@@ -1,7 +1,7 @@
 # Phase 4: Money
 
 Status: approved by Abhi on 3 Nov 2026, with decision 1 (full Stripe
-dashboard). Slice 1 next. Touches money, schema and
+dashboard). Slice 1 built 3 Nov 2026. Touches money, schema and
 Stripe, so nothing is built until it is approved. Design: docs/design/06
 (money), 01 (Stripe on the Operator), 04 and 05 (where rentals and signing
 hand over to money). Rules 9, 11, 12, 16, 17, 19 and 20 apply throughout.
@@ -95,6 +95,11 @@ bank transfer), which is also what many Operators will keep doing.
   rate into seven days with the cents spread so the seven add back to the
   weekly rate exactly. GST on a taxable line is the amount ÷ 11, rounded to
   the nearest cent (half up), stored once and never recalculated.
+
+- **As built (3 Nov 2026):** the dashboard's "Owing" count moved to slice 6,
+  with the arrears list it belongs to. The built-in charge types are added
+  in each business's own tenant context the first time they are needed
+  (a database trigger could not do it under forced row-level security).
 
 ### Slice 2: invoices, receipts and statements
 
