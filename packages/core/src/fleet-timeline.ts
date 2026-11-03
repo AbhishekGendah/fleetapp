@@ -1,18 +1,14 @@
-import { addDays, daysBetween, isCalendarDate, todayInTimeZone } from "./calendar-dates";
+import { addDays, isCalendarDate, todayInTimeZone, weekdayOfDate } from "./calendar-dates";
 import type { VehicleStatus } from "./vehicles";
 
 const DAYS_PER_WEEK = 7;
-/** 1 Jan 2024 was a Monday: any date's weekday is counted from it. */
-const KNOWN_MONDAY = "2024-01-01";
 /** The stretch loaded at once: a quarter back, half a year ahead, scrolled through smoothly. */
 export const TIMELINE_WEEKS_BEFORE = 13;
 export const TIMELINE_WEEKS_AFTER = 26;
 
 /** The Monday on or before a date. */
 export function mondayOf(isoDate: string): string {
-  const weekday =
-    ((daysBetween(KNOWN_MONDAY, isoDate) % DAYS_PER_WEEK) + DAYS_PER_WEEK) % DAYS_PER_WEEK;
-  return addDays(isoDate, -weekday);
+  return addDays(isoDate, 1 - weekdayOfDate(isoDate));
 }
 
 export interface TimelineWindow {

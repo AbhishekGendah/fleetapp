@@ -54,3 +54,14 @@ export function isCalendarDate(value: string): boolean {
     ISO_DATE_PATTERN.test(value) && isValid(parse(value, ISO_DATE_FORMAT, plainDate("2000-01-01")))
   );
 }
+
+const DAYS_PER_WEEK = 7;
+/** 1 Jan 2024 was a Monday: any date's weekday is counted from it. */
+const KNOWN_MONDAY = "2024-01-01";
+
+/** A date's weekday, Monday 1 to Sunday 7 (ISO), with no timezone involved. */
+export function weekdayOfDate(isoDate: string): number {
+  const fromMonday =
+    ((daysBetween(KNOWN_MONDAY, isoDate) % DAYS_PER_WEEK) + DAYS_PER_WEEK) % DAYS_PER_WEEK;
+  return fromMonday + 1;
+}
