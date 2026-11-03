@@ -184,6 +184,8 @@ describe("swapping the Renter's car", () => {
         "contract",
         "handover_report",
         "handover_report",
+        // The first week's invoice, issued with the handover.
+        "invoice",
         "return_report",
         "swap_form",
       ]);
