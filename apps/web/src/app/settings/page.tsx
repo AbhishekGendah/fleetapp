@@ -1,7 +1,7 @@
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { RequiredFieldsNote } from "@fleetapp/ui/input";
-import { DatabaseZap, FileText, ReceiptText } from "lucide-react";
+import { DatabaseZap, FileText, Landmark, ReceiptText } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -12,6 +12,7 @@ import {
   BUSINESS_DETAILS_ANCHOR,
   CHARGE_TYPES_PATH,
   INVOICE_SETTINGS_PATH,
+  PAYMENT_SETTINGS_PATH,
   CONTRACTS_PATH,
   DEMO_DATA_PATH,
   SIGN_IN_PATH,
@@ -115,7 +116,7 @@ export default async function SettingsPage() {
           <CardTitle>Charges</CardTitle>
           <CardDescription>
             What you charge Renters for (rent, cleaning, tolls, your own), whether each includes
-            GST, and how invoices are numbered and sent.
+            GST, how invoices are numbered and sent, and your Stripe account.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-2 sm:flex-row">
@@ -129,6 +130,12 @@ export default async function SettingsPage() {
             <Link href={INVOICE_SETTINGS_PATH}>
               <FileText aria-hidden />
               Invoices
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="w-full sm:w-auto">
+            <Link href={PAYMENT_SETTINGS_PATH}>
+              <Landmark aria-hidden />
+              Payments
             </Link>
           </Button>
         </CardContent>

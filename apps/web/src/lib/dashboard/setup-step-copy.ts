@@ -1,6 +1,6 @@
 import type { SetupStepKey } from "@fleetapp/core";
 
-import { BUSINESS_DETAILS_ANCHOR, CARS_PATH, SETTINGS_PATH } from "../paths";
+import { BUSINESS_DETAILS_ANCHOR, CARS_PATH, PAYMENT_SETTINGS_PATH, SETTINGS_PATH } from "../paths";
 
 export type SetupStepCopy = {
   title: string;
@@ -21,7 +21,8 @@ export const SETUP_STEP_COPY: Record<SetupStepKey, SetupStepCopy> = {
     title: "Connect Stripe",
     description:
       "So Renters can pay you by direct debit. Once connected, ask Stripe to raise your direct debit limits.",
-    comingSoon: "Coming later",
+    href: PAYMENT_SETTINGS_PATH,
+    actionLabel: "Connect Stripe",
   },
   contract_template: {
     title: "Set up your rental contract",

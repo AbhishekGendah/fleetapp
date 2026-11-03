@@ -22,7 +22,14 @@ import { startFakePlaces } from "@fleetapp/e2e/fake-places";
 import { startLocalS3 } from "@fleetapp/e2e/local-s3";
 import { runToEnd, startNextApp } from "@fleetapp/e2e/processes";
 
-import { E2E_BASE_URL, E2E_BUCKETS, E2E_CRON_SECRET, E2E_PORT, E2E_USER } from "./e2e-settings";
+import {
+  E2E_BASE_URL,
+  E2E_BUCKETS,
+  E2E_CRON_SECRET,
+  E2E_PORT,
+  E2E_STRIPE_WEBHOOK_SECRET,
+  E2E_USER,
+} from "./e2e-settings";
 
 const EXIT_FAILURE = 1;
 const TEST_SECRET = "an-e2e-only-signing-secret-of-32-chars-or-more";
@@ -85,6 +92,9 @@ async function main(): Promise<void> {
       FILE_STORAGE_SECRET_ACCESS_KEY: s3.secretAccessKey,
       FILE_STORAGE_ENDPOINT: s3.endpoint,
       CRON_SECRET: E2E_CRON_SECRET,
+      // Stripe's stand-in (decision 6): the browser tests never talk to Stripe.
+      PAYMENTS_TRANSPORT: "stand_in",
+      STRIPE_WEBHOOK_SECRET: E2E_STRIPE_WEBHOOK_SECRET,
       NEXT_TELEMETRY_DISABLED: "1",
     };
     const app = await startNextApp({ port: E2E_PORT, env });

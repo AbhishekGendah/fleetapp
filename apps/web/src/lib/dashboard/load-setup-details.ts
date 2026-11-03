@@ -1,6 +1,10 @@
-import type { SetupChecklistInput } from "@fleetapp/core";
+import {
+  canTakeStripePayments,
+  paymentAccountState,
+  type SetupChecklistInput,
+} from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
-import { operators } from "@fleetapp/db/schema";
+import { operators, stripeAccounts } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { eq } from "drizzle-orm";
 
@@ -28,11 +32,24 @@ export async function loadSetupDetails(
         postcode: operators.postcode,
         phone: operators.phone,
         email: operators.email,
-        stripeChargesEnabled: operators.stripeChargesEnabled,
         timezone: operators.timezone,
+        cardPayments: stripeAccounts.cardPayments,
+        becsDebitPayments: stripeAccounts.becsDebitPayments,
+        requirementsDue: stripeAccounts.requirementsDue,
       })
       .from(operators)
+      .leftJoin(stripeAccounts, eq(stripeAccounts.operatorId, operators.id))
       .where(eq(operators.id, operatorId)),
   );
-  return row ?? null;
+  if (!row) {
+    return null;
+  }
+  const { cardPayments, becsDebitPayments, requirementsDue, ...details } = row;
+  // The business's Stripe account (slice 3), ready once Stripe says so.
+  const state = paymentAccountState(
+    cardPayments && becsDebitPayments && requirementsDue !== null
+      ? { cardPayments, becsDebitPayments, requirementsDue }
+      : null,
+  );
+  return { ...details, stripeChargesEnabled: canTakeStripePayments(state) };
 }

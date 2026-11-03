@@ -23,6 +23,8 @@ describeDownloadBudgets({
   "/settings/charges": 445,
   // Added 3 Nov 2026 with invoices: the same form pieces as /settings/charges.
   "/settings/invoices": 445,
+  // Added 3 Nov 2026 with Stripe: one button and a link, like /settings/demo-data.
+  "/settings/payments": 200,
   // Added 2 Nov 2026 with the test site's demo data button.
   "/settings/demo-data": 190,
 });

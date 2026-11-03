@@ -10,6 +10,8 @@ export const E2E_USER = {
 
 /** The scheduled jobs' secret in browser test runs only: tests call the jobs with it. */
 export const E2E_CRON_SECRET = "an-e2e-only-cron-secret-of-32-characters-or-more";
+/** What the Stripe stand-in signs and checks events with, in the browser tests only. */
+export const E2E_STRIPE_WEBHOOK_SECRET = "whsec_e2e_only_stand_in_secret";
 export const E2E_BUCKETS = { general: "e2e-general", identity: "e2e-identity" } as const;
 
 /** Where the signed-in browser state and authenticator key are kept between tests. */

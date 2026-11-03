@@ -11,6 +11,9 @@ export const BUSINESS_DETAILS_ANCHOR = "business-details";
 export const CONTRACTS_PATH = `${SETTINGS_PATH}/contracts`;
 export const CHARGE_TYPES_PATH = `${SETTINGS_PATH}/charges`;
 export const INVOICE_SETTINGS_PATH = `${SETTINGS_PATH}/invoices`;
+export const PAYMENT_SETTINGS_PATH = `${SETTINGS_PATH}/payments`;
+/** Where Stripe's onboarding sends the business when its link has expired: a fresh link is made there. */
+export const STRIPE_ONBOARDING_PATH = `${PAYMENT_SETTINGS_PATH}/continue`;
 /** Test sites only: fills the business with made-up records. */
 export const DEMO_DATA_PATH = `${SETTINGS_PATH}/demo-data`;
 
