@@ -23,6 +23,7 @@ import {
   NotebookPen,
   Pencil,
   UserRound,
+  Wallet,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -59,6 +60,7 @@ import { RenterStatusBadge } from "../renter-status-badge";
 import { changeRenterStatusAction, setRenterArchivedAction } from "./actions";
 import { DetailsLinkCard } from "./details-link-card";
 import { LicenceTab } from "./licence-tab";
+import { MoneyTab } from "./money-tab";
 import { NotesTab } from "./notes-tab";
 import { loadRenterOrNotFound } from "./load-renter";
 import { RenterStatusForm } from "./status-form";
@@ -70,6 +72,7 @@ const TABS = [
   { key: "details", label: "Details", icon: UserRound },
   { key: "rentals", label: "Rentals", icon: CalendarRange },
   { key: "licence", label: "Licence", icon: IdCard },
+  { key: "money", label: "Money", icon: Wallet },
   { key: "notes", label: "Notes", icon: NotebookPen },
   { key: "log", label: "Log", icon: History },
 ] as const satisfies readonly [RecordTab, ...RecordTab[]];
@@ -378,6 +381,7 @@ export default async function RenterPage(props: {
         />
       ) : null}
       {tab === "licence" ? <LicenceTab renter={renter} user={user} expiry={licenceExpiry} /> : null}
+      {tab === "money" ? <MoneyTab renterId={renter.id} user={user} /> : null}
       {tab === "notes" ? <NotesTab renter={renter} user={user} /> : null}
       {tab === "log" ? <RenterLogTab renter={renter} user={user} /> : null}
     </AppShell>

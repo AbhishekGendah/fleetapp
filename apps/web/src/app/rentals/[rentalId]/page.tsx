@@ -42,6 +42,7 @@ import { CancelRentalForm } from "./cancel-form";
 import { BondCard } from "./bond-card";
 import { ChangesCard } from "./changes-card";
 import { ContractCard } from "./contract-card";
+import { MoneyCard } from "./money-card";
 import { HandoverCard, ReturnCard } from "./handover-card";
 import { SwapCard } from "./swap-card";
 import { DamageList } from "../../cars/damage-list";
@@ -303,6 +304,7 @@ export default async function RentalPage(props: {
           <ReturnCard rental={rental} user={user} />
           <RentalDamageCard rental={rental} user={user} />
           <HandoverCard rental={rental} user={user} />
+          <MoneyCard rental={rental} user={user} clock={clock} />
           <BondCard rental={rental} user={user} clock={clock} />
           <RatesCard rental={rental} />
           <ActionsCard rental={rental} />

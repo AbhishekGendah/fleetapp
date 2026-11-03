@@ -1,40 +1,45 @@
 "use client";
 
-import { fieldErrorsOf, MANUAL_PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from "@fleetapp/core";
+import {
+  fieldErrorsOf,
+  MANUAL_PAYMENT_METHODS,
+  PAYMENT_METHOD_LABELS,
+  requiredLine,
+} from "@fleetapp/core";
 import type { ChangeFormState } from "@fleetapp/ui/change-form-state";
 import { FormField } from "@fleetapp/ui/form-field";
 import { Input } from "@fleetapp/ui/input";
 import { MoneyInput } from "@fleetapp/ui/money-input";
 import { Select } from "@fleetapp/ui/select";
+import { z } from "zod";
 
-import { ChangeFormShell, useChangeForm } from "../../../components/change-form-shell";
 import {
-  BOND_RECEIVED_FIELDS,
-  BOND_REVERSAL_FIELDS,
-  bondReceivedInputSchema,
-  bondReversalInputSchema,
-  REQUIRED_BOND_RECEIVED_FIELDS,
-  type BondReceivedField,
-} from "../../../lib/bonds/bond-input";
+  MANUAL_PAYMENT_FIELDS,
+  manualPaymentInputSchema,
+  REQUIRED_MANUAL_PAYMENT_FIELDS,
+  type ManualPaymentField,
+} from "../lib/money/manual-payment-input";
+import { ChangeFormShell, useChangeForm } from "./change-form-shell";
 
 type ChangeAction = (state: ChangeFormState, formData: FormData) => Promise<ChangeFormState>;
 
-/** Bond received by bank transfer or cash; starts with the rest of the bond, today. */
-export function BondReceivedForm(props: {
+/** Money received by bank transfer or cash (a bond, a rent payment). */
+export function ManualPaymentForm(props: {
   action: ChangeAction;
   today: string;
-  initialValues: Record<BondReceivedField, string>;
+  initialValues: Record<ManualPaymentField, string>;
+  submitLabel: string;
 }) {
   const form = useChangeForm({
     action: props.action,
-    fields: BOND_RECEIVED_FIELDS,
+    fields: MANUAL_PAYMENT_FIELDS,
     initialValues: props.initialValues,
-    validate: (values) => fieldErrorsOf(bondReceivedInputSchema(props.today).safeParse(values)),
-    isRequired: (field) => REQUIRED_BOND_RECEIVED_FIELDS.has(field),
+    validate: (values) => fieldErrorsOf(manualPaymentInputSchema(props.today).safeParse(values)),
+    isRequired: (field) => REQUIRED_MANUAL_PAYMENT_FIELDS.has(field),
   });
   const { fields } = form;
   return (
-    <ChangeFormShell form={form} submitLabel="Record bond">
+    <ChangeFormShell form={form} submitLabel={props.submitLabel}>
       <FormField
         htmlFor={fields.idFor("amountCents")}
         label="Amount"
@@ -87,23 +92,31 @@ export function BondReceivedForm(props: {
   );
 }
 
-/** Why an entry is corrected: it is undone exactly, and the reason kept with the bond. */
-export function BondReversalForm(props: { action: ChangeAction }) {
+const CORRECTION_FIELDS = ["note"] as const;
+const correctionSchema = z.object({ note: requiredLine });
+
+/** Why an entry is corrected: it is undone exactly, and the reason kept with it. */
+export function CorrectionForm(props: {
+  action: ChangeAction;
+  label: string;
+  hint: string;
+  submitLabel: string;
+}) {
   const form = useChangeForm({
     action: props.action,
-    fields: BOND_REVERSAL_FIELDS,
+    fields: CORRECTION_FIELDS,
     initialValues: { note: "" },
-    validate: (values) => fieldErrorsOf(bondReversalInputSchema.safeParse(values)),
+    validate: (values) => fieldErrorsOf(correctionSchema.safeParse(values)),
     isRequired: () => true,
   });
   const { fields } = form;
   return (
-    <ChangeFormShell form={form} submitLabel="Correct this entry">
+    <ChangeFormShell form={form} submitLabel={props.submitLabel}>
       <FormField
         htmlFor={fields.idFor("note")}
-        label="Why is it being corrected?"
+        label={props.label}
         isRequired
-        hint="E.g. entered twice, or the wrong amount. The entry stays in the list, cancelled out."
+        hint={props.hint}
         error={fields.errorFor("note")}
       >
         <Input {...fields.textBoxProps("note")} />

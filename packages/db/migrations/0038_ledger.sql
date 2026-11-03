@@ -118,6 +118,19 @@ CREATE POLICY "ledger_lines_web_tenant" ON "ledger_lines" FOR ALL TO "web_app_ro
 -- The daily rent job has no session (rule 3): it asks which businesses have a
 -- rental to charge or credit, then works one business at a time in its own
 -- tenant context. Only ids cross between businesses here.
+--
+-- It runs as the migration owner (SECURITY DEFINER), so the owner gets a read
+-- policy on rentals, as for files in 0007: the owner owns the table and could
+-- disable row-level security anyway, so this exposes nothing new. The
+-- Operator app's role may only call the function.
+DO $$
+BEGIN
+  EXECUTE format(
+    'CREATE POLICY "rentals_owner_rent_lookup" ON "rentals" FOR SELECT TO %I USING (true)',
+    current_user
+  );
+END
+$$;--> statement-breakpoint
 CREATE FUNCTION "app"."operators_with_rent_due"(
   "returned_since" timestamp with time zone
 ) RETURNS SETOF uuid

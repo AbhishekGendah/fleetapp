@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import * as schema from "../src/schema";
@@ -174,6 +174,27 @@ describe("the ledger", () => {
       UNIQUE_VIOLATION,
       CHECK_VIOLATION,
     ]);
+  });
+
+  it("tells the daily rent run which businesses have a rental out, and nothing more", async () => {
+    const rentalId = await addRental();
+    await withTenant(web.db, operatorAId, (tx) =>
+      tx
+        .update(schema.rentals)
+        .set({ status: "active", handedOverAt: new Date("2027-03-01T01:00:00Z") })
+        .where(eq(schema.rentals.id, rentalId)),
+    );
+    const result = await web.db.execute(
+      sql`SELECT * FROM app.operators_with_rent_due(${new Date().toISOString()}::timestamptz) AS operator_id`,
+    );
+    const operatorIds = (result.rows as { operator_id: string }[]).map((row) => row.operator_id);
+    const seenByB = await withTenant(web.db, operatorBId, (tx) =>
+      tx.select().from(schema.rentals).where(eq(schema.rentals.id, rentalId)),
+    );
+
+    expect(operatorIds).toContain(operatorAId);
+    expect(operatorIds).not.toContain(operatorBId);
+    expect(seenByB).toEqual([]);
   });
 
   it("never changes or removes a line, and keeps it from other Operators and the admin app", async () => {

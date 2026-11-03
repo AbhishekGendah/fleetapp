@@ -1,7 +1,7 @@
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { RequiredFieldsNote } from "@fleetapp/ui/input";
-import { DatabaseZap, FileText } from "lucide-react";
+import { DatabaseZap, FileText, ReceiptText } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -10,6 +10,7 @@ import { loadOperatorLogoUrl } from "../../lib/files/operator-logo";
 import { isDemoDataAllowed } from "../../lib/demo-data/demo-access";
 import {
   BUSINESS_DETAILS_ANCHOR,
+  CHARGE_TYPES_PATH,
   CONTRACTS_PATH,
   DEMO_DATA_PATH,
   SIGN_IN_PATH,
@@ -104,6 +105,23 @@ export default async function SettingsPage() {
             <Link href={CONTRACTS_PATH}>
               <FileText aria-hidden />
               Contract templates
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Charges</CardTitle>
+          <CardDescription>
+            What you charge Renters for (rent, cleaning, tolls, your own), and whether each includes
+            GST.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline" className="w-full sm:w-auto">
+            <Link href={CHARGE_TYPES_PATH}>
+              <ReceiptText aria-hidden />
+              Charge types
             </Link>
           </Button>
         </CardContent>

@@ -22,11 +22,10 @@ import { startFakePlaces } from "@fleetapp/e2e/fake-places";
 import { startLocalS3 } from "@fleetapp/e2e/local-s3";
 import { runToEnd, startNextApp } from "@fleetapp/e2e/processes";
 
-import { E2E_BASE_URL, E2E_BUCKETS, E2E_PORT, E2E_USER } from "./e2e-settings";
+import { E2E_BASE_URL, E2E_BUCKETS, E2E_CRON_SECRET, E2E_PORT, E2E_USER } from "./e2e-settings";
 
 const EXIT_FAILURE = 1;
 const TEST_SECRET = "an-e2e-only-signing-secret-of-32-chars-or-more";
-const TEST_CRON_SECRET = "an-e2e-only-cron-secret-of-32-characters-or-more";
 
 /** One made-up business with one invited User; returns the invite's secret for the address. */
 async function seedInvitedUser(adminDatabaseUrl: string): Promise<string> {
@@ -85,7 +84,7 @@ async function main(): Promise<void> {
       FILE_STORAGE_ACCESS_KEY_ID: s3.accessKeyId,
       FILE_STORAGE_SECRET_ACCESS_KEY: s3.secretAccessKey,
       FILE_STORAGE_ENDPOINT: s3.endpoint,
-      CRON_SECRET: TEST_CRON_SECRET,
+      CRON_SECRET: E2E_CRON_SECRET,
       NEXT_TELEMETRY_DISABLED: "1",
     };
     const app = await startNextApp({ port: E2E_PORT, env });

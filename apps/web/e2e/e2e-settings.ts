@@ -8,6 +8,8 @@ export const E2E_USER = {
   password: "e2e-only-operator-password-never-used-elsewhere",
 } as const;
 
+/** The scheduled jobs' secret in browser test runs only: tests call the jobs with it. */
+export const E2E_CRON_SECRET = "an-e2e-only-cron-secret-of-32-characters-or-more";
 export const E2E_BUCKETS = { general: "e2e-general", identity: "e2e-identity" } as const;
 
 /** Where the signed-in browser state and authenticator key are kept between tests. */

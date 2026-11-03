@@ -123,3 +123,16 @@ export async function loadRenterLedger(
     ledgerViewOf(await selectLedgerLines(tx, operatorId, eq(rentals.renterId, renterId))),
   );
 }
+
+/** The lines that charge for one piece of damage (and their reversals' targets), to show beside it. */
+export async function loadDamageCharges(
+  database: AnyDatabase,
+  operatorId: string,
+  damageRecordId: string,
+): Promise<LedgerView> {
+  return withTenant(database, operatorId, async (tx) =>
+    ledgerViewOf(
+      await selectLedgerLines(tx, operatorId, eq(ledgerLines.damageRecordId, damageRecordId)),
+    ),
+  );
+}

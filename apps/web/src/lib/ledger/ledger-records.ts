@@ -185,7 +185,7 @@ export async function reverseLine(
       kind: "reversal",
       amountCents: reversed.amountCents,
       gstCents: reversed.gstCents,
-      description: input.reason,
+      description: input.note,
       effectiveOn: today,
       reversesId: reversed.id,
       createdByUserId: actor.userId,

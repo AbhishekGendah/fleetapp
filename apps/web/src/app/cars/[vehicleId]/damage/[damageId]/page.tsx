@@ -2,8 +2,10 @@ import {
   CLAIM_STATUS_LABELS,
   DAMAGE_STATUS_LABELS,
   formatCalendarDate,
+  centsForEditing,
   formatCents,
   isRecordId,
+  todayInTimeZone,
 } from "@fleetapp/core";
 import { ACTIVITY_ENTITY_TYPES } from "@fleetapp/db/schema";
 import { ActionButton } from "@fleetapp/ui/action-button";
@@ -26,6 +28,9 @@ import {
   loadDamageDetail,
   type DamageDetail,
 } from "../../../../../lib/damage/damage-queries";
+import { listChargeTypes } from "../../../../../lib/ledger/charge-types";
+import { chargeStart } from "../../../../../lib/ledger/ledger-input";
+import { loadDamageCharges } from "../../../../../lib/ledger/ledger-queries";
 import { carPath, rentalPath } from "../../../../../lib/paths";
 import { TAB_PARAM } from "../../../../../lib/record-tabs";
 import { requireUser, type SignedInUser } from "../../../../../lib/require-user";
@@ -39,6 +44,9 @@ import {
   saveClaimAction,
 } from "../../damage-actions";
 import { PhotoUploads } from "../../photo-uploads";
+import { ChargeForm } from "../../../../rentals/[rentalId]/charge-form";
+import { addChargeAction } from "../../../../rentals/[rentalId]/money-actions";
+import { LedgerLineList } from "../../../../rentals/ledger-line-list";
 import { ClaimForm } from "./claim-form";
 import { DamageStatusForm } from "./damage-status-form";
 
@@ -231,6 +239,71 @@ async function ClaimCard({
   );
 }
 
+/**
+ * Recovering the cost from the Renter who had the car: a charge on their
+ * rental's ledger, linked to this damage, its description telling them what
+ * it is for (consumer law). Only once the rental is confirmed.
+ */
+async function ChargeRenterCard({
+  detail,
+  ids,
+  user,
+}: {
+  detail: DamageDetail;
+  ids: Ids;
+  user: SignedInUser;
+}) {
+  const rentalId = detail.record.rentalId;
+  if (!rentalId) {
+    return null;
+  }
+  const [charges, chargeTypes] = await Promise.all([
+    loadDamageCharges(appDb, user.operatorId, ids.damageId),
+    listChargeTypes(appDb, user.operatorId),
+  ]);
+  const usable = chargeTypes.filter((type) => !type.isArchived);
+  const excessCents = detail.claim?.excessCents ?? null;
+  const presetType = usable.find((type) => type.builtIn === (excessCents ? "excess" : "damage"));
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Charge the Renter</CardTitle>
+        <CardDescription>
+          Adds a charge to {detail.renterFullName ?? "the Renter"}&apos;s rental, saying what it is
+          for. Only charge what the rental contract allows.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {charges.lines.length > 0 ? (
+          <LedgerLineList ledger={charges} label="Charges for this damage" />
+        ) : null}
+        <FormDialog
+          triggerLabel="Charge the Renter"
+          title="Charge the Renter for this damage"
+          triggerIcon={<Plus aria-hidden />}
+          isMainAction={charges.lines.length === 0}
+        >
+          <ChargeForm
+            action={addChargeAction.bind(null, rentalId, {
+              recordId: ids.damageId,
+              vehicleId: ids.vehicleId,
+            })}
+            chargeTypes={usable}
+            initialValues={chargeStart(
+              {
+                chargeTypeId: presetType?.id ?? "",
+                amountCents: excessCents ? centsForEditing(excessCents) : "",
+                description: `Damage to ${detail.car.rego}: ${detail.record.description}`,
+              },
+              todayInTimeZone(new Date(), user.operatorTimezone),
+            )}
+          />
+        </FormDialog>
+      </CardContent>
+    </Card>
+  );
+}
+
 function StatusCard({ detail, ids }: { detail: DamageDetail; ids: Ids }) {
   return (
     <Card>
@@ -297,6 +370,7 @@ export default async function DamagePage(props: { params: Promise<Ids> }) {
       <PhotosCard detail={detail} ids={ids} />
       <StatusCard detail={detail} ids={ids} />
       <ClaimCard detail={detail} ids={ids} user={user} />
+      <ChargeRenterCard detail={detail} ids={ids} user={user} />
       {detail.record.damageMarkId ? null : <RemoveCard ids={ids} />}
       <HistoryCard
         user={user}

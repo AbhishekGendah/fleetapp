@@ -32,9 +32,9 @@ export function chargeStart(
 }
 
 /** Why a line is undone: the reversal's own description, read by the Renter. */
-export const reversalInputSchema = z.object({ reason: requiredLine });
+export const reversalInputSchema = z.object({ note: requiredLine });
 export type ReversalInput = z.infer<typeof reversalInputSchema>;
-export const REVERSAL_FIELDS = ["reason"] as const;
+export const REVERSAL_FIELDS = ["note"] as const;
 
 /** One of the business's own charge types, or a built-in one's GST treatment. */
 export const chargeTypeInputSchema = z.object({

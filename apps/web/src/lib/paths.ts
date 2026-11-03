@@ -9,6 +9,7 @@ export const SETTINGS_PATH = "/settings";
 /** The business details card on the Settings page, for linking straight to it. */
 export const BUSINESS_DETAILS_ANCHOR = "business-details";
 export const CONTRACTS_PATH = `${SETTINGS_PATH}/contracts`;
+export const CHARGE_TYPES_PATH = `${SETTINGS_PATH}/charges`;
 /** Test sites only: fills the business with made-up records. */
 export const DEMO_DATA_PATH = `${SETTINGS_PATH}/demo-data`;
 
@@ -72,6 +73,11 @@ export const RENTERS_EXPORT_PATH = `${RENTERS_PATH}/export`;
 
 export function renterPath(renterId: string): string {
   return `${RENTERS_PATH}/${renterId}`;
+}
+
+/** The Renter's Money tab: every ledger line of every rental of theirs. */
+export function renterMoneyPath(renterId: string): string {
+  return `${renterPath(renterId)}?tab=money`;
 }
 
 export function editRenterPath(renterId: string): string {

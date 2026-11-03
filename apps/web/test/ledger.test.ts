@@ -182,14 +182,14 @@ describe("the ledger", () => {
       web.db,
       actor,
       { rentalId, lineId: tollLine.id },
-      { reason: "Toll was not this Renter's" },
+      { note: "Toll was not this Renter's" },
       "2030-03-10",
     );
     const twice = await reverseLine(
       web.db,
       actor,
       { rentalId, lineId: tollLine.id },
-      { reason: "Again" },
+      { note: "Again" },
       "2030-03-10",
     );
     expect(fixed.status).toBe("saved");

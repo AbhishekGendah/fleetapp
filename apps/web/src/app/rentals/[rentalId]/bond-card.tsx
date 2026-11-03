@@ -27,7 +27,7 @@ import type { RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { RentalClock } from "../../../lib/rentals/rental-records";
 import type { SignedInUser } from "../../../lib/require-user";
 import { recordBondReceivedAction, reverseBondMovementAction } from "./bond-actions";
-import { BondReceivedForm, BondReversalForm } from "./bond-forms";
+import { CorrectionForm, ManualPaymentForm } from "../../../components/money-forms";
 
 function entryTitle(movement: BondMovementRow): string {
   const kind = BOND_MOVEMENT_KIND_LABELS[movement.kind];
@@ -69,8 +69,11 @@ function BondEntries({ rentalId, account }: { rentalId: string; account: BondAcc
                 title="Correct this bond entry"
                 triggerIcon={<Undo2 aria-hidden />}
               >
-                <BondReversalForm
+                <CorrectionForm
                   action={reverseBondMovementAction.bind(null, rentalId, movement.id)}
+                  label="Why is it being corrected?"
+                  hint="E.g. entered twice, or the wrong amount. The entry stays in the list, cancelled out."
+                  submitLabel="Correct this entry"
                 />
               </FormDialog>
             ) : null
@@ -142,10 +145,11 @@ export async function BondCard({
             triggerIcon={<Plus aria-hidden />}
             isMainAction
           >
-            <BondReceivedForm
+            <ManualPaymentForm
               action={recordBondReceivedAction.bind(null, rental.id)}
               today={today}
               initialValues={bondReceivedStart(account.owingCents, today)}
+              submitLabel="Record bond"
             />
           </FormDialog>
         ) : null}
