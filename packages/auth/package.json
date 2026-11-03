@@ -18,7 +18,7 @@
   },
   "devDependencies": {
     "@fleetapp/config": "workspace:*",
-    "@types/node": "26.6.2",
+    "@types/node": "26.6.5",
     "better-auth": "1.7.5",
     "drizzle-orm": "0.45.2",
     "eslint": "9.39.5",
