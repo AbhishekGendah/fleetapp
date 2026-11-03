@@ -71,6 +71,8 @@ const ACTIVITY_ENTITY_LABELS = {
   [ACTIVITY_ENTITY_TYPES.carSwap]: "Car swap",
   [ACTIVITY_ENTITY_TYPES.chargeType]: "Charge type",
   [ACTIVITY_ENTITY_TYPES.ledgerLine]: "Ledger line",
+  [ACTIVITY_ENTITY_TYPES.billingDocument]: "Invoice or receipt",
+  [ACTIVITY_ENTITY_TYPES.documentNumbering]: "Invoice numbering",
 } satisfies Record<ActivityEntityType, string>;
 
 /** What each action reads as after the record's name: "Car archived". */

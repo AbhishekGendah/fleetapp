@@ -82,6 +82,8 @@ export const ACTIVITY_ENTITY_TYPES = {
   carSwap: "car_swap",
   chargeType: "charge_type",
   ledgerLine: "ledger_line",
+  billingDocument: "billing_document",
+  documentNumbering: "document_numbering",
 } as const;
 
 /** What happened to it. No free text at call sites. */

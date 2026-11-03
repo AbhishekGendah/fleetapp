@@ -22,6 +22,10 @@ export const ISSUED_DOCUMENT_KINDS = [
   "return_report",
   "swap_form",
   "change_of_terms",
+  "invoice",
+  "credit_note",
+  "receipt",
+  "statement",
 ] as const;
 export type IssuedDocumentKind = (typeof ISSUED_DOCUMENT_KINDS)[number];
 
