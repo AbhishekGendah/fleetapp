@@ -56,7 +56,7 @@ Status: ✅ done · 🔨 in progress · ⏳ not started. Last checked 1 Nov 2026
 - Hand-built pieces replaced by established libraries, with browser tests
   (Playwright) proving each one. Done 1 Nov 2026.
 
-## Phase 3 — Rentals ✅ apart from the fleet timeline (plan: docs/plans/phase-3.md; bookings, contracts, signing, bonds, handover, return, damage, changes of terms and car swaps built by 2 Nov 2026)
+## Phase 3 — Rentals ✅ (plan: docs/plans/phase-3.md; bookings, contracts, signing, bonds, handover, return, damage, changes of terms, car swaps and the fleet timeline built by 3 Nov 2026)
 - Bookings, calendar, double-booking prevention.
 - Contract templates, signing.
 - Handover/return reports (must work offline-ish, rule 25).

@@ -503,6 +503,13 @@ of service) and the countries.
 - **Record keeping:** each change is kept for good with its reason, who
   made it and the signed form (rule 12 for the PDF).
 
+## Fleet timeline (3 Nov 2026)
+
+- **No new data or third party:** it shows the rentals already on the
+  Rentals and Calendar pages (Renter's name, car, dates). DayPilot Lite
+  runs wholly in the browser and sends nothing anywhere. Its licence
+  (Apache-2.0) is listed in the third-party licences file with each build.
+
 ## Car swaps (Phase 3 slice 7b, built)
 
 - **The Renter's acceptance:** the Renter signs the swap form on the

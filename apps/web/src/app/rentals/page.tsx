@@ -2,11 +2,17 @@ import { parseListQuery } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { DataList } from "@fleetapp/ui/data-list";
-import { CalendarDays, Plus } from "lucide-react";
+import { CalendarDays, GanttChart, Plus } from "lucide-react";
 import Link from "next/link";
 
 import { appDb } from "../../lib/app-db";
-import { NEW_RENTAL_PATH, RENTALS_CALENDAR_PATH, RENTALS_PATH, rentalPath } from "../../lib/paths";
+import {
+  NEW_RENTAL_PATH,
+  RENTALS_CALENDAR_PATH,
+  RENTALS_PATH,
+  RENTALS_TIMELINE_PATH,
+  rentalPath,
+} from "../../lib/paths";
 import { hasAnyRental, listRentalPage } from "../../lib/rentals/rental-queries";
 import { requireUser } from "../../lib/require-user";
 import { AppShell } from "../app-shell";
@@ -36,6 +42,12 @@ export default async function RentalsPage(props: {
             <Link href={RENTALS_CALENDAR_PATH}>
               <CalendarDays aria-hidden />
               Calendar
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href={RENTALS_TIMELINE_PATH}>
+              <GanttChart aria-hidden />
+              Timeline
             </Link>
           </Button>
           <Button asChild>

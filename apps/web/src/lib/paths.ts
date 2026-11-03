@@ -102,6 +102,7 @@ export function renterEverythingHeldPath(renterId: string): string {
 export const RENTALS_PATH = "/rentals";
 export const NEW_RENTAL_PATH = `${RENTALS_PATH}/new`;
 export const RENTALS_CALENDAR_PATH = `${RENTALS_PATH}/calendar`;
+export const RENTALS_TIMELINE_PATH = `${RENTALS_PATH}/timeline`;
 
 /** The rentals list filtered to one status, e.g. the active ones. */
 export function rentalsWithStatusPath(status: string): string {

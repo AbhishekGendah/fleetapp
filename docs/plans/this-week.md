@@ -60,9 +60,10 @@ Later sections (money, fines, utilisation) come with their records.
 ## 4. Later: fleet timeline
 
 One row per car, bars across the weeks. FullCalendar's version is paid
-and not on rule 32's licences. DayPilot Lite (Apache-2.0) is a candidate
-to check against rule 32 when this is picked up; decide after Abhi has
-used the dashboard.
+and not on rule 32's licences. Built 3 Nov 2026 (Abhi asked for it then)
+on DayPilot Lite 6.1.0 (Apache-2.0, released 9 Oct 2026): Rentals →
+Timeline, four weeks from this week, read only, each bar a plain link so
+it is reached from the keyboard.
 
 ## Tests
 

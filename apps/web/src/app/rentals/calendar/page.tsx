@@ -1,12 +1,13 @@
-import { isRecordId, RENTAL_STATUS_LABELS, type RentalStatus } from "@fleetapp/core";
+import { isRecordId, RENTAL_STATUS_LABELS } from "@fleetapp/core";
 import { AutoSubmitSelect } from "@fleetapp/ui/auto-submit-select";
-import type { BookingTone, CalendarEntry } from "@fleetapp/ui/bookings-calendar";
+import type { CalendarEntry } from "@fleetapp/ui/bookings-calendar";
 import { Card, CardContent } from "@fleetapp/ui/card";
 import { Label } from "@fleetapp/ui/input";
 import { PageHeader } from "@fleetapp/ui/page-header";
 
 import { appDb } from "../../../lib/app-db";
 import { rentalPath, RENTALS_CALENDAR_PATH, RENTALS_PATH } from "../../../lib/paths";
+import { BOOKING_TONES } from "../../../lib/rentals/booking-tones";
 import { listPickableCars } from "../../../lib/rentals/pickable-records";
 import { listCalendarBookings, type CalendarBooking } from "../../../lib/rentals/rental-queries";
 import { requireUser } from "../../../lib/require-user";
@@ -18,14 +19,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ALL_CARS = "";
-const TONES: Readonly<Record<RentalStatus, BookingTone>> = {
-  draft: "draft",
-  booked: "booked",
-  active: "active",
-  returned: "finished",
-  closed: "finished",
-  cancelled: "finished",
-};
 
 /**
  * All cars: only the moments something changes, a pickup and a return, so
@@ -46,7 +39,7 @@ function toMoments(booking: CalendarBooking, window: { from: Date; to: Date }): 
             title: moment.title,
             start: moment.at.toISOString(),
             href: rentalPath(booking.rentalId),
-            tone: TONES[booking.status],
+            tone: BOOKING_TONES[booking.status],
           },
         ]
       : [],
@@ -63,7 +56,7 @@ function toEntry(booking: CalendarBooking, windowEnd: Date): CalendarEntry {
     // An ongoing rental runs on past whatever month is shown.
     end: (booking.heldUntil ?? windowEnd).toISOString(),
     href: rentalPath(booking.rentalId),
-    tone: TONES[booking.status],
+    tone: BOOKING_TONES[booking.status],
   };
 }
 

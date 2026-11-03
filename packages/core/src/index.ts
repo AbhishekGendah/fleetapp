@@ -6,6 +6,7 @@ export * from "./changed-values";
 export * from "./contracts";
 export * from "./damage";
 export * from "./dashboard";
+export * from "./fleet-timeline";
 export * from "./describe-device";
 export * from "./countries";
 export * from "./driver-licence";

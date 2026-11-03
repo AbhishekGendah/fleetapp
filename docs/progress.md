@@ -852,9 +852,24 @@
     finish (server), and the whole swap on a phone in the browser. Swap
     page budget 730 KB. Checklist rows O-311 to O-316; O-278 updated.
 
+- Fleet timeline (plan: docs/plans/this-week.md, section 4):
+  - Rentals → Timeline: one row per car (sold and written-off cars left
+    out), four weeks across from this week, each booked or out rental a
+    bar that opens it. Earlier, This week and Later move a week at a time,
+    never before this week (rentals already back are no longer held, so
+    past weeks would look empty). On a phone it swipes sideways.
+  - Built on DayPilot Lite's Scheduler (Apache-2.0), pinned at 6.1.0
+    (6.2.0 is under 14 days old). Read only: no dragging. Its bars are not
+    reachable with Tab on their own, so each bar is a plain link, read out
+    with its dates; the accessibility check passes with no exceptions.
+  - Booking colours now live in one shared file for the calendar and the
+    timeline. Added to the component catalogue.
+  - Tests: the week rules on the Operator's clock (core), the page on a
+    phone with the keyboard, accessibility and a 310 KB budget (browser).
+    Checklist rows O-317 and O-318.
+
 ## Next
-Phase 3 is complete apart from the fleet timeline (DayPilot Lite). Then
-Phase 4 (payments).
+Phase 3 is complete. Next: Phase 4 (payments).
 Open idea: trim the phone rules to Australia only with libphonenumber's
 metadata generator (about 40 KB off each form page); running the
 generator needs Abhi's say-so.

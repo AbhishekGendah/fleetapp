@@ -77,3 +77,20 @@ export async function openRentalOf(page: Page, parties: RentalParties): Promise<
   ).toBeVisible();
   return new URL(page.url()).pathname.split("/").at(-1) ?? "";
 }
+
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+const TWO_DIGITS = 2;
+
+/** 9:00 am so many days from today: for tests that need a booking in the weeks ahead. */
+export function morningInDays(days: number): TypedMoment {
+  const day = new Date(Date.now() + days * MILLISECONDS_PER_DAY);
+  const pad = (value: number) => String(value).padStart(TWO_DIGITS, "0");
+  return {
+    day: pad(day.getUTCDate()),
+    month: pad(day.getUTCMonth() + 1),
+    year: String(day.getUTCFullYear()),
+    hour: "09",
+    minute: "00",
+    meridiem: "a",
+  };
+}
