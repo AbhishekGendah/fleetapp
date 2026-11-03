@@ -36,14 +36,16 @@ const STATE_TONES: Readonly<Record<DirectDebitState, "good" | "attention" | "dan
     not_set_up: undefined,
   };
 
-function NotOfferedCard() {
+function NotOfferedCard(props: { isSiteReady: boolean }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle>Direct debit and bond by Stripe</CardTitle>
         <CardDescription>
-          Connect your Stripe account to have Renters set up their direct debit and pay the bond on
-          Stripe&apos;s secure page. Until then, record cash and transfers by hand.
+          {props.isSiteReady
+            ? "Once your Stripe account is Ready, Renters set up their direct debit and pay the bond on Stripe's secure page."
+            : "Renters cannot pay through Stripe on this site yet: it is still being switched on."}{" "}
+          Until then, record cash and transfers by hand.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -74,7 +76,7 @@ export async function PaymentsCard(props: {
   }
   const deps = appPaymentsLinkDependencies(user.operatorTimezone);
   if (!(await isStripeOfferedToRenters(deps, user.operatorId))) {
-    return <NotOfferedCard />;
+    return <NotOfferedCard isSiteReady={deps.canHearRenterPayments && deps.payments !== null} />;
   }
   const [payments, link] = await Promise.all([
     loadRentalPayments(appDb, user.operatorId, rental),
