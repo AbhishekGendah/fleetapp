@@ -45,9 +45,12 @@ test.describe.serial("invoices and receipts", () => {
       await openRental(page);
       const card = billingCard(page);
       await expect(page.getByRole("heading", { name: "Invoices and receipts" })).toBeVisible();
-      const invoice = page.getByRole("listitem").filter({ hasText: INVOICE_TITLE }).first();
+      const invoice = page
+        .getByRole("listitem")
+        .filter({ has: page.getByText(INVOICE_TITLE) })
+        .first();
       await expect(invoice).toBeVisible();
-      const title = (await invoice.locator("p").first().textContent()) ?? "";
+      const title = (await invoice.getByText(INVOICE_TITLE).first().textContent()) ?? "";
       const numberText = title.split(" ").at(-1) ?? "";
       await expect(page.getByText(`On ${numberText}`).first()).toBeVisible();
       await expectNoSidewaysScroll(page);
@@ -93,11 +96,16 @@ test.describe.serial("invoices and receipts", () => {
       // From the keyboard.
       await page.getByRole("button", { name: "Invoice now" }).focus();
       await page.keyboard.press("Enter");
-      await expect(page.getByText(/^(Tax invoice|Invoice) .+ issued\.$/)).toBeVisible();
-      await page.reload({ waitUntil: "networkidle" });
+      // The button goes once nothing is waiting; the new invoice is listed instead.
       await expect(page.getByText("1 charge is waiting for the next weekly invoice.")).toHaveCount(
         0,
       );
+      await expect(
+        page
+          .getByRole("listitem")
+          .filter({ has: page.getByText(INVOICE_TITLE) })
+          .filter({ hasText: "$60.00" }),
+      ).toBeVisible();
     });
 
     test("makes a statement for the days asked, and emails a document again", async ({ page }) => {
@@ -147,7 +155,7 @@ test.describe.serial("invoices and receipts", () => {
 
       const howToPay = page.getByRole("textbox", { name: /^How to pay/ });
       await howToPay.fill("Bank transfer: BSB 000-000, account 12345678. Use your rego.");
-      await page.getByRole("button", { name: "Save", exact: true }).click();
+      await page.getByRole("button", { name: "Save how to pay" }).click();
       await expect(page.getByText("Saved. Invoices issued from now print it.")).toBeVisible();
       await page.reload({ waitUntil: "networkidle" });
       await expect(page.getByRole("textbox", { name: /^How to pay/ })).toHaveValue(/BSB 000-000/);

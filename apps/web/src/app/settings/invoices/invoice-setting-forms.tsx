@@ -91,7 +91,7 @@ export function HowToPayForm(props: { action: ChangeAction; howToPay: string }) 
   });
   const { fields } = form;
   return (
-    <ChangeFormShell form={form} submitLabel="Save">
+    <ChangeFormShell form={form} submitLabel="Save how to pay">
       <FormField
         htmlFor={fields.idFor("howToPay")}
         label="How to pay"
