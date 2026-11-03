@@ -277,7 +277,7 @@ export async function completeReturn(
   if (issued.status !== "issued") {
     return { status: issued.status };
   }
-  await chargeRentNow(deps.database, actor.operatorId, view.rentalId);
+  await chargeRentNow(deps, actor.operatorId, view.rentalId);
   await emailReturnReport(deps, actor, view, { atText, pdf });
   return { status: "completed", documentId: issued.documentId };
 }

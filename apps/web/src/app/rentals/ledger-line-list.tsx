@@ -8,6 +8,7 @@ import { Badge } from "@fleetapp/ui/badge";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
 
 import { DetailLines } from "../../components/detail-lines";
+import { balanceText } from "../../lib/ledger/balance-text";
 import type { LedgerLineView, LedgerView } from "../../lib/ledger/ledger-queries";
 
 /** Lines that lower what is owed show with a minus. */
@@ -72,14 +73,6 @@ export function LedgerLineList(props: LedgerLineListProps) {
       ))}
     </RecordList>
   );
-}
-
-/** "Owing $950.00", "In credit $20.00" or "Nothing owing". */
-export function balanceText(balanceCents: number): string {
-  if (balanceCents > 0) {
-    return `Owing ${formatCents(balanceCents)}`;
-  }
-  return balanceCents < 0 ? `In credit ${formatCents(-balanceCents)}` : "Nothing owing";
 }
 
 /** The balance, how long it has been owed, and the lines (or a note that there are none yet). */

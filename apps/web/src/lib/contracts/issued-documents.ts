@@ -53,7 +53,7 @@ function userIdOf(actor: IssuingActor): string | null {
   return "userId" in actor ? actor.userId : null;
 }
 
-function logActorOf(actor: IssuingActor): {
+export function logActorOf(actor: IssuingActor): {
   type: "user" | "renter_link" | "system";
   id: string | null;
 } {
@@ -93,6 +93,60 @@ export interface StoredDocument {
   request: Omit<IssueRequest, "onIssued">;
 }
 
+/** A document's file, recorded before its PDF is stored, so a failed save is cleaned up. */
+export interface ReservedDocumentFile {
+  fileId: string;
+  objectKey: string;
+}
+
+/**
+ * Records the file a rental's document will be stored under, unconfirmed:
+ * if the PDF is never stored or the document never issued, the nightly
+ * clean-up removes it as an abandoned upload. Null if not the business's rental.
+ */
+export async function reserveDocumentFile(
+  deps: FileDependencies,
+  actor: IssuingActor,
+  rentalId: string,
+  sizeBytes: number,
+): Promise<ReservedDocumentFile | null> {
+  const fileId = randomUUID();
+  const objectKey = buildFileKey(actor.operatorId, PURPOSE, fileId);
+  const isRental = await withTenant(deps.database, actor.operatorId, async (tx) => {
+    const [rental] = await tx
+      .select({ id: rentals.id })
+      .from(rentals)
+      .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, actor.operatorId)));
+    if (!rental) {
+      return false;
+    }
+    await tx.insert(files).values({
+      id: fileId,
+      operatorId: actor.operatorId,
+      purpose: PURPOSE,
+      storageArea: AREA,
+      objectKey,
+      contentType: FILE_CONTENT_TYPES.pdf,
+      sizeBytes,
+    });
+    return true;
+  });
+  return isRental ? { fileId, objectKey } : null;
+}
+
+/** Stores the PDF, never to be changed, under its reserved file. */
+export async function saveReservedPdf(
+  deps: Pick<FileDependencies, "storage">,
+  reserved: ReservedDocumentFile,
+  request: Omit<IssueRequest, "onIssued">,
+): Promise<StoredDocument | { status: "too_big" }> {
+  if (request.pdf.byteLength > FILE_PURPOSE_RULES[PURPOSE].maxBytes) {
+    return { status: "too_big" };
+  }
+  await deps.storage.save(AREA, reserved.objectKey, request.pdf, FILE_CONTENT_TYPES.pdf);
+  return { fileId: reserved.fileId, sha256: documentFingerprint(request.pdf), request };
+}
+
 /**
  * The first half of issuing (rule 12): the PDF is stored once, never to be
  * changed, under a file recorded first and confirmed only when it is issued,
@@ -107,32 +161,8 @@ export async function storeDocumentPdf(
   if (request.pdf.byteLength > FILE_PURPOSE_RULES[PURPOSE].maxBytes) {
     return { status: "too_big" };
   }
-  const fileId = randomUUID();
-  const objectKey = buildFileKey(actor.operatorId, PURPOSE, fileId);
-  const isRental = await withTenant(deps.database, actor.operatorId, async (tx) => {
-    const [rental] = await tx
-      .select({ id: rentals.id })
-      .from(rentals)
-      .where(and(eq(rentals.id, request.rentalId), eq(rentals.operatorId, actor.operatorId)));
-    if (!rental) {
-      return false;
-    }
-    await tx.insert(files).values({
-      id: fileId,
-      operatorId: actor.operatorId,
-      purpose: PURPOSE,
-      storageArea: AREA,
-      objectKey,
-      contentType: FILE_CONTENT_TYPES.pdf,
-      sizeBytes: request.pdf.byteLength,
-    });
-    return true;
-  });
-  if (!isRental) {
-    return { status: "not_found" };
-  }
-  await deps.storage.save(AREA, objectKey, request.pdf, FILE_CONTENT_TYPES.pdf);
-  return { fileId, sha256: documentFingerprint(request.pdf), request };
+  const reserved = await reserveDocumentFile(deps, actor, request.rentalId, request.pdf.byteLength);
+  return reserved ? saveReservedPdf(deps, reserved, request) : { status: "not_found" };
 }
 
 /**
@@ -156,7 +186,7 @@ export async function recordIssuedDocument(
   const version = await nextVersion(tx, actor.operatorId, request.rentalId, request.kind);
   await tx
     .update(files)
-    .set({ confirmedAt: deps.now() })
+    .set({ confirmedAt: deps.now(), sizeBytes: request.pdf.byteLength })
     .where(and(eq(files.id, stored.fileId), eq(files.operatorId, actor.operatorId)));
   const [document] = await tx
     .insert(issuedDocuments)

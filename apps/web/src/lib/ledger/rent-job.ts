@@ -27,6 +27,8 @@ import {
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, gte, inArray, isNotNull, or, sql } from "drizzle-orm";
 
+import type { BillingDependencies } from "../billing/billing-context";
+import { issuePendingDocumentsQuietly } from "../billing/billing-run";
 import { findDueOperators, forEachOperator, type OperatorRun } from "../jobs/due-operators";
 import { builtInChargeType, type ChargeType } from "./charge-types";
 import { loadOperatorGst, type OperatorGst } from "./operator-gst";
@@ -226,21 +228,24 @@ export async function runRentJob(database: AnyDatabase, now: Date): Promise<Oper
 }
 
 /**
- * Charges one rental's rent at once, after its handover or return, so the
- * Operator sees it straight away. Never throws: if it fails, the nightly
- * run adds the same lines (rule 20), so it is logged and left.
+ * Charges one rental's rent at once, after its handover or return, and
+ * issues the invoice or credit note it needs, so the Operator and Renter
+ * see it straight away. Never throws: if either fails, the nightly runs add
+ * the same lines and documents (rule 20), so it is logged and left.
  */
 export async function chargeRentNow(
-  database: AnyDatabase,
+  deps: BillingDependencies,
   operatorId: string,
   rentalId: string,
 ): Promise<void> {
   try {
-    await chargeRentFor(database, operatorId, new Date(), [rentalId]);
+    await chargeRentFor(deps.database, operatorId, deps.now(), [rentalId]);
   } catch (error) {
     console.error(
       "Charging rent straight after a handover or return failed",
       describeErrorForLog(error),
     );
+    return;
   }
+  await issuePendingDocumentsQuietly(deps, { operatorId }, rentalId);
 }

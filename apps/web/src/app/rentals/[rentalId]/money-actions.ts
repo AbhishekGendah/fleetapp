@@ -4,6 +4,12 @@ import { formTextValues, isRecordId, todayInTimeZone } from "@fleetapp/core";
 import { failedState, savedState, type ChangeFormState } from "@fleetapp/ui/change-form-state";
 
 import { appDb } from "../../../lib/app-db";
+import { billingDependencies } from "../../../lib/billing/billing-dependencies";
+import {
+  issuedDocumentsText,
+  issuePendingDocumentsQuietly,
+} from "../../../lib/billing/billing-run";
+import type { IssuingActor } from "../../../lib/contracts/issued-documents";
 import {
   CHARGE_FIELDS,
   chargeInputSchema,
@@ -22,7 +28,7 @@ import {
 } from "../../../lib/money/manual-payment-input";
 import { carDamagePath, rentalPath } from "../../../lib/paths";
 import { runUserChange } from "../../../lib/run-change";
-import { balanceText } from "../ledger-line-list";
+import { balanceText } from "../../../lib/ledger/balance-text";
 
 const NOT_FOUND_MESSAGE = "That rental could not be found.";
 const CHECK_MESSAGE = "Check the boxes marked in red, then try again.";
@@ -33,10 +39,24 @@ const REFUSED_MESSAGES: Readonly<Record<Exclude<LedgerChangeResult["status"], "s
   not_reversible: "That line has already been reversed, or is itself a reversal.",
 };
 
-function answerFor(result: LedgerChangeResult, saved: string): ChangeFormState {
-  return result.status === "saved"
-    ? savedState(`${saved} ${balanceText(result.ledger.balanceCents)}.`)
-    : failedState(REFUSED_MESSAGES[result.status]);
+/**
+ * The answer to a ledger change: refused with why, or saved, after issuing
+ * the invoice, credit note or receipt it needs (named in the answer).
+ */
+async function answerFor(
+  actor: IssuingActor,
+  rentalId: string,
+  result: LedgerChangeResult,
+  saved: string,
+): Promise<ChangeFormState> {
+  if (result.status !== "saved") {
+    return failedState(REFUSED_MESSAGES[result.status]);
+  }
+  const issued = await issuePendingDocumentsQuietly(billingDependencies(), actor, rentalId);
+  const documents = issuedDocumentsText(issued);
+  return savedState(
+    `${saved}${documents ? ` ${documents}` : ""} ${balanceText(result.ledger.balanceCents)}.`,
+  );
 }
 
 /** Bound to one rental (and a damage record of a car, from its page): a one-off charge. */
@@ -63,6 +83,8 @@ export async function addChargeAction(
     ],
     change: async (actor) =>
       answerFor(
+        actor,
+        rentalId,
         await addCharge(appDb, actor, rentalId, {
           ...parsed.data,
           ...(damage ? { damageRecordId: damage.recordId } : {}),
@@ -93,6 +115,8 @@ export async function recordPaymentAction(
         return failedState(CHECK_MESSAGE);
       }
       return answerFor(
+        actor,
+        rentalId,
         await recordPayment(appDb, actor, rentalId, parsed.data),
         "Payment recorded.",
       );
@@ -116,6 +140,8 @@ export async function reverseLineAction(
     pagesToRefresh: [rentalPath(rentalId)],
     change: async (actor, user) =>
       answerFor(
+        actor,
+        rentalId,
         await reverseLine(
           appDb,
           actor,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  renderBillingDocumentEmail,
   renderDocumentCopyEmail,
   renderNewDeviceSignInEmail,
   renderOperatorInviteEmail,
@@ -208,5 +209,31 @@ describe("the contract emails", () => {
 
     expect(toBusiness.subject).toMatch(/^Car returned: Sam/);
     expect(toBusiness.text).toContain("was returned on 29 Jun 2027, 6:40 pm AWST");
+  });
+
+  it("sends an invoice from the business with its number, amount and PDF", async () => {
+    const PDF_FILE = {
+      fileName: "INV-1001.pdf",
+      contentType: "application/pdf",
+      content: new Uint8Array([1]),
+    };
+    const message = await renderBillingDocumentEmail({
+      to: "sam@example.test",
+      replyTo: "hello@samscars.test",
+      title: "Tax invoice",
+      numberText: "INV-1001",
+      renterName: "Sam",
+      operatorName: "Sam's Cars Pty Ltd",
+      rentalSummary: "1ABC234 Toyota Corolla",
+      amountLine: "Total $350.00, including GST of $31.82",
+      attachment: PDF_FILE,
+    });
+
+    expect(message).toMatchObject({
+      subject: "Tax invoice INV-1001 from Sam's Cars Pty Ltd",
+      fromName: "Sam's Cars Pty Ltd",
+      attachments: [PDF_FILE],
+    });
+    expect(message.text).toContain("Total $350.00, including GST of $31.82");
   });
 });

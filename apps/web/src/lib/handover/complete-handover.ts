@@ -227,7 +227,7 @@ export async function completeHandover(
     carMakeModel: view.carMakeModel,
     rentalStart: null,
   });
-  await chargeRentNow(deps.database, actor.operatorId, view.rentalId);
+  await chargeRentNow(deps, actor.operatorId, view.rentalId);
   await emailDocumentCopies(deps, {
     kind: "handover_report",
     operatorId: actor.operatorId,

@@ -68,6 +68,20 @@ const styles = StyleSheet.create({
   photoCell: { width: "50%", paddingRight: 8, marginBottom: 10 },
   photoImage: { height: PHOTO_HEIGHT, objectFit: "contain", marginBottom: 2 },
   photoCaption: { fontSize: BODY_SIZE - 1, color: BRAND.colours.mutedText },
+  table: { marginTop: 10, marginBottom: 6 },
+  tableRow: {
+    flexDirection: "row",
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: BRAND.colours.border,
+  },
+  tableHeader: { fontFamily: FONTS.bold, color: BRAND.colours.primary },
+  tableCell: { paddingRight: 6 },
+  amountCell: { textAlign: "right", paddingRight: 0 },
+  totalRow: { flexDirection: "row", justifyContent: "flex-end", paddingVertical: 2 },
+  totalLabel: { width: 140, textAlign: "right", paddingRight: 10 },
+  totalValue: { width: 90, textAlign: "right" },
+  grandTotal: { fontFamily: FONTS.bold },
 });
 
 function fontFor(marks: readonly { type: string }[] | undefined): string {
@@ -247,6 +261,55 @@ function SigningRecordPage({ record }: { record: PdfSigningRecord }): ReactEleme
   );
 }
 
+/** A table of items, e.g. an invoice's lines, with its totals under it. */
+export interface PdfTable {
+  /** Each column's heading and its share of the width; amounts are set right. */
+  columns: readonly { label: string; widthPercent: number; isAmount?: boolean }[];
+  rows: readonly (readonly string[])[];
+  /** Under the table, right-aligned; the last is the total, in bold. */
+  totals: readonly (readonly [label: string, value: string])[];
+}
+
+function TableCells({ table, cells }: { table: PdfTable; cells: readonly string[] }) {
+  return table.columns.map((column, index) => (
+    <Text
+      key={column.label}
+      style={[
+        styles.tableCell,
+        { width: `${column.widthPercent}%` },
+        column.isAmount ? styles.amountCell : {},
+      ]}
+    >
+      {cells[index] ?? ""}
+    </Text>
+  ));
+}
+
+function ItemTable({ table }: { table: PdfTable }): ReactElement {
+  return (
+    <View style={styles.table}>
+      <View style={[styles.tableRow, styles.tableHeader]} fixed>
+        <TableCells table={table} cells={table.columns.map((column) => column.label)} />
+      </View>
+      {table.rows.map((row, index) => (
+        <View key={index} style={styles.tableRow} wrap={false}>
+          <TableCells table={table} cells={row} />
+        </View>
+      ))}
+      {table.totals.map(([label, value], index) => (
+        <View
+          key={label}
+          style={[styles.totalRow, index === table.totals.length - 1 ? styles.grandTotal : {}]}
+          wrap={false}
+        >
+          <Text style={styles.totalLabel}>{label}</Text>
+          <Text style={styles.totalValue}>{value}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export interface DocumentPdfInput {
   /** The PDF's title, e.g. "Rental contract 1ABC234". */
   title: string;
@@ -260,6 +323,10 @@ export interface DocumentPdfInput {
   notice?: string | undefined;
   signature?: PdfSignature | undefined;
   signingRecord?: PdfSigningRecord | undefined;
+  /** Items after the text, e.g. an invoice's lines and totals. */
+  table?: PdfTable | undefined;
+  /** Text after the table, e.g. how to pay. */
+  closing?: TemplateDocument | undefined;
   /** Photos after the text, e.g. a handover's. */
   photos?: { heading: string; photos: readonly PdfPhoto[] } | undefined;
 }
@@ -275,6 +342,8 @@ export async function renderDocumentPdf(input: DocumentPdfInput): Promise<Uint8A
           <Image src={input.logo} style={styles.logo} />
         ) : null}
         {input.document.content.map(blockElement)}
+        {input.table ? <ItemTable table={input.table} /> : null}
+        {input.closing ? input.closing.content.map(blockElement) : null}
         {input.photos && input.photos.photos.length > 0 ? (
           <PhotoGrid heading={input.photos.heading} photos={input.photos.photos} />
         ) : null}

@@ -22,6 +22,11 @@ import {
   type RenterSigningLinkEmailProps,
 } from "./templates/renter-signing-link";
 import {
+  BillingDocumentEmail,
+  billingDocumentName,
+  type BillingDocumentEmailProps,
+} from "./templates/billing-document";
+import {
   DocumentCopyEmail,
   type CopiedDocumentKind,
   type DocumentCopyEmailProps,
@@ -192,4 +197,27 @@ export async function renderDocumentCopyEmail(
   return isForRenter
     ? fromOperator(Promise.resolve(withFile), props.operatorName, replyTo)
     : withFile;
+}
+
+/**
+ * An invoice, credit note, receipt or statement, attached: to the Renter from
+ * the business (replies go to the business).
+ */
+export async function renderBillingDocumentEmail(
+  input: WithRecipient<BillingDocumentEmailProps> & {
+    replyTo?: string;
+    attachment: EmailAttachment;
+  },
+): Promise<EmailMessage> {
+  const { to, replyTo, attachment, ...props } = input;
+  const message = await renderEmail(
+    to,
+    `${billingDocumentName(props)} from ${props.operatorName}`,
+    createElement(BillingDocumentEmail, props),
+  );
+  return fromOperator(
+    Promise.resolve({ ...message, attachments: [attachment] }),
+    props.operatorName,
+    replyTo,
+  );
 }

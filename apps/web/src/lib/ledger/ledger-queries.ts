@@ -3,11 +3,19 @@ import {
   ledgerBalanceCents,
   owingCharges,
   reversibleLineIds,
+  type GstTreatment,
   type LedgerLineKind,
   type PaymentMethod,
 } from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
-import { chargeTypes, ledgerLines, rentals, vehicles } from "@fleetapp/db/schema";
+import {
+  billingDocumentLines,
+  billingDocuments,
+  chargeTypes,
+  ledgerLines,
+  rentals,
+  vehicles,
+} from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, asc, eq, type SQL } from "drizzle-orm";
 
@@ -25,6 +33,14 @@ export interface LedgerLineView {
   method: PaymentMethod | null;
   reference: string | null;
   reversesId: string | null;
+  /** Rent and its unused-days credit: the first day they cover. */
+  periodStart: string | null;
+  /** The charge type's GST treatment now, for marking a line with no GST on a tax invoice. */
+  gstTreatment: GstTreatment | null;
+  /** The invoice, credit note or receipt the line is on, if any. */
+  documentId: string | null;
+  /** That document's number as printed, e.g. "INV-1001". */
+  documentNumberText: string | null;
   createdAt: Date;
 }
 
@@ -48,6 +64,9 @@ async function selectLedgerLines(
       rego: vehicles.rego,
       builtIn: chargeTypes.builtIn,
       typeName: chargeTypes.name,
+      gstTreatment: chargeTypes.gstTreatment,
+      documentId: billingDocuments.id,
+      documentNumberText: billingDocuments.numberText,
     })
     .from(ledgerLines)
     .innerJoin(
@@ -65,9 +84,23 @@ async function selectLedgerLines(
         eq(chargeTypes.operatorId, ledgerLines.operatorId),
       ),
     )
+    .leftJoin(
+      billingDocumentLines,
+      and(
+        eq(billingDocumentLines.ledgerLineId, ledgerLines.id),
+        eq(billingDocumentLines.operatorId, ledgerLines.operatorId),
+      ),
+    )
+    .leftJoin(
+      billingDocuments,
+      and(
+        eq(billingDocuments.id, billingDocumentLines.billingDocumentId),
+        eq(billingDocuments.operatorId, billingDocumentLines.operatorId),
+      ),
+    )
     .where(and(eq(ledgerLines.operatorId, operatorId), where))
     .orderBy(asc(ledgerLines.effectiveOn), asc(ledgerLines.createdAt));
-  return rows.map(({ line, rego, builtIn, typeName }) => ({
+  return rows.map(({ line, rego, builtIn, typeName, ...billing }) => ({
     id: line.id,
     rentalId: line.rentalId,
     rego,
@@ -80,6 +113,10 @@ async function selectLedgerLines(
     method: line.method,
     reference: line.reference,
     reversesId: line.reversesId,
+    periodStart: line.periodStart,
+    gstTreatment: billing.gstTreatment,
+    documentId: billing.documentId,
+    documentNumberText: billing.documentNumberText,
     createdAt: line.createdAt,
   }));
 }
