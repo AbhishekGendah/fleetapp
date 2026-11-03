@@ -51,6 +51,9 @@ Add to this list whenever something is relaxed or put off "until launch".
       secret. Never the stand-in (the app refuses it in production).
       Consider a restricted live key with only what the app uses (accounts,
       account links, and later payments) instead of the full secret key.
+- [ ] Roll the Stripe sandbox secret key (Developers → API keys → Roll key) and
+      update Vercel and Bitwarden: it was shown in a chat screenshot on
+      3 Nov 2026. Sandbox only, so left for now by Abhi's choice.
 - [ ] Drop the four unused Stripe columns on the operators table (from
       Phase 1; replaced by stripe_accounts in Phase 4 slice 3) in a
       migration after the code that stopped reading them is deployed.
