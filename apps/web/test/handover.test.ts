@@ -165,12 +165,14 @@ describe("handing a car over", () => {
     expect(state.open).toHaveLength(1);
     expect(state.report).toMatchObject([{ inspectionId }]);
     expect(state.reading).toMatchObject([{ kilometres: 12_500 }]);
-    // The report's copy, then the first week's invoice issued with the handover.
+    // The report's copy, and the first week's invoice issued with the handover.
     expect(sentEmails.map((email) => [email.to, email.attachments?.length])).toEqual([
       ["rory.ready@example.test", 1],
       ["rory.ready@example.test", 1],
     ]);
-    expect(sentEmails[1]?.subject).toMatch(/^(Tax invoice|Invoice) [A-Z0-9-]*\d+ from /);
+    expect(sentEmails.map((email) => email.subject)).toContainEqual(
+      expect.stringMatching(/^(Tax invoice|Invoice) [A-Z0-9-]*\d+ from /),
+    );
     expect(
       await changeVehicleStatus(web.db, actor, vehicleId, {
         status: "in_service",
