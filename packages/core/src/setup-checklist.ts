@@ -4,9 +4,7 @@ import { hasRequiredBusinessDetails, type RequiredBusinessDetails } from "./busi
  * The setup checklist on a new Operator's dashboard (docs/design/01).
  *
  * Each step is either done or still to do, worked out from the Operator's
- * own records, never stored as a tick: it cannot go out of date. Steps
- * whose screens are not built yet say when they arrive instead of linking
- * anywhere.
+ * own records, never stored as a tick: it cannot go out of date.
  */
 export const SETUP_STEP_KEYS = [
   "business_details",
@@ -25,6 +23,11 @@ export interface SetupStep {
 
 export interface SetupChecklistInput extends RequiredBusinessDetails {
   stripeChargesEnabled: boolean;
+  /** The business has its own rental contract (a template of that kind, in use). */
+  hasContractTemplate: boolean;
+  /** At least one car and at least one Renter, not archived. */
+  hasCars: boolean;
+  hasRenters: boolean;
 }
 
 const doneIf = (isDone: boolean): SetupStepStatus => (isDone ? "done" : "to_do");
@@ -34,10 +37,8 @@ export function getSetupChecklist(input: SetupChecklistInput): SetupStep[] {
     { key: "business_details", status: doneIf(hasRequiredBusinessDetails(input)) },
     // Payments stay blocked until Stripe says charges are enabled.
     { key: "stripe", status: doneIf(input.stripeChargesEnabled) },
-    // TODO: decide from real records once contract templates (Phase 3) and
-    // cars and renters (Phase 2) exist. Until then nobody can have done them.
-    { key: "contract_template", status: "to_do" },
-    { key: "cars_and_renters", status: "to_do" },
+    { key: "contract_template", status: doneIf(input.hasContractTemplate) },
+    { key: "cars_and_renters", status: doneIf(input.hasCars && input.hasRenters) },
   ];
 }
 

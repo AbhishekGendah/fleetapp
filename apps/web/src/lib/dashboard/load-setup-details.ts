@@ -4,12 +4,23 @@ import {
   type SetupChecklistInput,
 } from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
-import { operators, stripeAccounts } from "@fleetapp/db/schema";
+import {
+  contractTemplates,
+  operators,
+  renters,
+  stripeAccounts,
+  vehicles,
+} from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, sql, type SQL } from "drizzle-orm";
 
 export interface SetupDetails extends SetupChecklistInput {
   timezone: string;
+}
+
+/** Whether the subquery finds any row: one cheap check per setup step. */
+function exists(subquery: SQL) {
+  return sql<boolean>`exists (${subquery})`.mapWith(Boolean);
 }
 
 /**
@@ -36,6 +47,16 @@ export async function loadSetupDetails(
         cardPayments: stripeAccounts.cardPayments,
         becsDebitPayments: stripeAccounts.becsDebitPayments,
         requirementsDue: stripeAccounts.requirementsDue,
+        hasContractTemplate: exists(sql`select 1 from ${contractTemplates}
+          where ${and(
+            eq(contractTemplates.operatorId, operators.id),
+            eq(contractTemplates.kind, "contract"),
+            isNull(contractTemplates.archivedAt),
+          )}`),
+        hasCars: exists(sql`select 1 from ${vehicles}
+          where ${and(eq(vehicles.operatorId, operators.id), isNull(vehicles.archivedAt))}`),
+        hasRenters: exists(sql`select 1 from ${renters}
+          where ${and(eq(renters.operatorId, operators.id), isNull(renters.archivedAt))}`),
       })
       .from(operators)
       .leftJoin(stripeAccounts, eq(stripeAccounts.operatorId, operators.id))

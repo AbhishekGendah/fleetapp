@@ -12,6 +12,9 @@ const NEW_OPERATOR: SetupChecklistInput = {
   phone: null,
   email: null,
   stripeChargesEnabled: false,
+  hasContractTemplate: false,
+  hasCars: false,
+  hasRenters: false,
 };
 
 const FULL_DETAILS: SetupChecklistInput = {
@@ -44,6 +47,17 @@ describe("the setup checklist", () => {
 
   it("counts Stripe done once charges are enabled", () => {
     expect(statusOf({ ...NEW_OPERATOR, stripeChargesEnabled: true }, "stripe")).toBe("done");
+  });
+
+  it("counts the contract done once the business has its own, and cars and Renters once both exist", () => {
+    expect(statusOf({ ...NEW_OPERATOR, hasContractTemplate: true }, "contract_template")).toBe(
+      "done",
+    );
+    expect(statusOf({ ...NEW_OPERATOR, hasCars: true }, "cars_and_renters")).toBe("to_do");
+    expect(statusOf({ ...NEW_OPERATOR, hasRenters: true }, "cars_and_renters")).toBe("to_do");
+    expect(statusOf({ ...NEW_OPERATOR, hasCars: true, hasRenters: true }, "cars_and_renters")).toBe(
+      "done",
+    );
   });
 
   it("is complete only when every step is done", () => {

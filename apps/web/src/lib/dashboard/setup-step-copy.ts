@@ -1,14 +1,20 @@
 import type { SetupStepKey } from "@fleetapp/core";
 
-import { BUSINESS_DETAILS_ANCHOR, CARS_PATH, PAYMENT_SETTINGS_PATH, SETTINGS_PATH } from "../paths";
+import {
+  BUSINESS_DETAILS_ANCHOR,
+  CARS_PATH,
+  CONTRACTS_PATH,
+  PAYMENT_SETTINGS_PATH,
+  SETTINGS_PATH,
+} from "../paths";
 
-export type SetupStepCopy = {
+export interface SetupStepCopy {
   title: string;
   description: string;
-} & (
-  | { /** Where the step is done. */ href: string; actionLabel: string }
-  | { /** Until the screen for this step exists, when it is coming. */ comingSoon: string }
-);
+  /** Where the step is done. */
+  href: string;
+  actionLabel: string;
+}
 
 export const SETUP_STEP_COPY: Record<SetupStepKey, SetupStepCopy> = {
   business_details: {
@@ -27,12 +33,13 @@ export const SETUP_STEP_COPY: Record<SetupStepKey, SetupStepCopy> = {
   contract_template: {
     title: "Set up your rental contract",
     description: "The terms your Renters sign before they drive away.",
-    comingSoon: "Coming later",
+    href: CONTRACTS_PATH,
+    actionLabel: "Set up contract",
   },
-  // Ticked once Renters exist too (Phase 2, step 3); cars can be added now.
+  // Ticked once there is at least one car and one Renter.
   cars_and_renters: {
     title: "Add your cars and Renters",
-    description: "Your cars first: Renters are coming soon.",
+    description: "Your cars first, then the Renters who hire them.",
     href: CARS_PATH,
     actionLabel: "Add cars",
   },

@@ -23,17 +23,14 @@ function StepStatus({ isDone, copy }: { isDone: boolean; copy: SetupStepCopy }) 
   if (isDone) {
     return <span className="sr-only">Done</span>;
   }
-  if ("href" in copy) {
-    return (
-      <Link
-        href={copy.href}
-        className="text-teal inline-flex min-h-11 items-center text-sm font-semibold hover:underline sm:min-h-0"
-      >
-        {copy.actionLabel} →
-      </Link>
-    );
-  }
-  return <span className="text-muted-foreground text-xs">{copy.comingSoon}</span>;
+  return (
+    <Link
+      href={copy.href}
+      className="text-teal inline-flex min-h-11 items-center text-sm font-semibold hover:underline sm:min-h-0"
+    >
+      {copy.actionLabel} →
+    </Link>
+  );
 }
 
 export function SetupChecklistCard({ steps }: { steps: SetupStep[] }) {
