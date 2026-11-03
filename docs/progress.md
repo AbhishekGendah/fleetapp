@@ -966,14 +966,19 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
     repeated, about nobody, another business's (server); the real Stripe
     signature check offline; the page and the events endpoint in the
     browser. Checklist rows O-343 to O-347.
-  - Waiting on Abhi: the AGS Stripe sandbox, Connect, and the two secrets
-    in Vercel (one step at a time).
+  - Set up by Abhi on 3 Nov 2026: the AGS Stripe sandbox "Fleet dev",
+    Connect (sellers collect directly, Stripe-hosted onboarding, full
+    dashboard, Stripe liable for losses), the event destination "Fleet dev
+    events" (4 v2 account events, thin) at the dev site, and the three
+    settings in Vercel. A test business connected end to end and showed
+    Ready; every event delivered with 200.
+  - Fixed on the way: Stripe marks capabilities restricted while it checks
+    new details; that now reads "Stripe is checking your details".
 
 ## Next
 
-Abhi sets up the AGS Stripe sandbox (one step at a time), then Phase 4
-slice 4 (the Renter's direct debit and bond payment). Slices 1 to 3 are
-built.
+Phase 4 slice 4 (the Renter's direct debit and bond payment). Slices 1 to
+3 are built and the Stripe sandbox is connected on the dev site.
 Open idea: trim the phone rules to Australia only with libphonenumber's
 metadata generator (about 40 KB off each form page); running the
 generator needs Abhi's say-so.

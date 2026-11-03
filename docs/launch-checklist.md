@@ -51,6 +51,9 @@ Add to this list whenever something is relaxed or put off "until launch".
       secret. Never the stand-in (the app refuses it in production).
       Consider a restricted live key with only what the app uses (accounts,
       account links, and later payments) instead of the full secret key.
+- [ ] Stripe Connect branding for live mode: the product's name, icon and colour
+      (Settings → Connect → Branding), so businesses see it on Stripe's
+      onboarding pages instead of the sandbox's name.
 - [ ] Roll the Stripe sandbox secret key (Developers → API keys → Roll key) and
       update Vercel and Bitwarden: it was shown in a chat screenshot on
       3 Nov 2026. Sandbox only, so left for now by Abhi's choice.
