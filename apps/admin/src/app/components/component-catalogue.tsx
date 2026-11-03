@@ -383,6 +383,8 @@ const EXAMPLE_TIMELINE_BARS: readonly TimelineBar[] = [
   },
 ];
 
+const EXAMPLE_TIMELINE_SCROLL = { date: "2026-11-30", request: 0 };
+
 const EDITOR_FIELDS: readonly EditorMergeField[] = MERGE_FIELDS.map((field) => ({
   key: field.key,
   label: field.label,
@@ -876,6 +878,9 @@ export function ComponentCatalogue() {
           bars={EXAMPLE_TIMELINE_BARS}
           startDate="2026-11-30"
           days={28}
+          today="2026-12-02"
+          zoom="days"
+          scrollTarget={EXAMPLE_TIMELINE_SCROLL}
         />
       </CatalogueSection>
 

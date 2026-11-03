@@ -4,13 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { PHONE_VIEWPORT } from "./e2e-settings";
 import { expectNoSidewaysScroll } from "./phone-checks";
-import {
-  addCarToBook,
-  fillRental,
-  morningInDays,
-  openRentalOf,
-  type RentalParties,
-} from "./rental-steps";
+import { addCarToBook, fillRental, morningInDays, type RentalParties } from "./rental-steps";
 import {
   recordHandover,
   recordInWorkshop,
@@ -65,7 +59,8 @@ async function book(page: Page, parties: RentalParties): Promise<string> {
   await expect(
     page.getByRole("heading", { name: `${parties.carRego} · ${parties.renterName}` }),
   ).toBeVisible();
-  return openRentalOf(page, parties);
+  // Booking opens the rental's page; other tests' rentals may push it off the list's first page.
+  return new URL(page.url()).pathname.split("/").at(-1) ?? "";
 }
 
 async function openTimeline(page: Page, query = ""): Promise<void> {
@@ -163,7 +158,10 @@ test.describe.serial("the fleet timeline", () => {
       await expect(carRow(page, IDLE_REGO)).toBeVisible();
       await expect(carRow(page, BOOKED_REGO)).toHaveCount(0);
       await show.getByRole("button", { name: "Out" }).click();
-      await expect(page.getByText("No car matches these choices.")).toBeVisible();
+      // None of these cars is out (other tests' cars may be).
+      for (const rego of [BOOKED_REGO, IDLE_REGO, RETURNED_REGO]) {
+        await expect(carRow(page, rego)).toHaveCount(0);
+      }
       await show.getByRole("button", { name: "All" }).click();
 
       await page.getByRole("combobox", { name: "Only these cars" }).fill(RETURNED_REGO);
