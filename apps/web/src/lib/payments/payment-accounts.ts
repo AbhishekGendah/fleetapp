@@ -13,7 +13,13 @@ import { z } from "zod";
 
 import type { ActingUser } from "../acting-user";
 import { loadBusinessDetails } from "../settings/business-details";
-import type { OnboardingUrls, PaymentsProvider } from "./payments-provider";
+import type {
+  CheckoutOutcome,
+  OnboardingUrls,
+  PaymentEventNotice,
+  PaymentsProvider,
+} from "./payments-provider";
+import { applyCheckoutOutcome, applyMandateStatus } from "./renter-payment-records";
 
 /** What the payments code needs: the database, Stripe (or its stand-in) and the clock. */
 export interface PaymentDependencies {
@@ -169,12 +175,63 @@ async function operatorForAccount(
 }
 
 const ACCOUNT_EVENT = /^v2\.core\.account[.[]/;
+/** A visit to Stripe's page finished, or its bank debit cleared or bounced later. */
+const CHECKOUT_EVENTS: ReadonlySet<string> = new Set([
+  "v1.checkout.session.completed",
+  "v1.checkout.session.async_payment_succeeded",
+  "v1.checkout.session.async_payment_failed",
+]);
+const MANDATE_EVENT = "v1.mandate.updated";
 const recordedSchema = z.object({ rows: z.array(z.object({ is_new: z.boolean() })) });
+
+/** What Stripe says now about the thing an event is about, read from Stripe, never from the event. */
+type EventDetails =
+  | { kind: "account"; status: PaymentAccountStatus }
+  | { kind: "checkout"; outcome: CheckoutOutcome }
+  | { kind: "mandate"; mandateId: string; stripeStatus: string }
+  | { kind: "other" };
+
+async function readEventDetails(
+  payments: PaymentsProvider,
+  notice: PaymentEventNotice,
+  accountId: string,
+): Promise<EventDetails> {
+  if (ACCOUNT_EVENT.test(notice.type)) {
+    return { kind: "account", status: await payments.accountStatus(accountId) };
+  }
+  if (CHECKOUT_EVENTS.has(notice.type) && notice.objectId) {
+    return { kind: "checkout", outcome: await payments.readCheckout(accountId, notice.objectId) };
+  }
+  if (notice.type === MANDATE_EVENT && notice.objectId) {
+    return {
+      kind: "mandate",
+      mandateId: notice.objectId,
+      stripeStatus: await payments.readMandateStatus(accountId, notice.objectId),
+    };
+  }
+  return { kind: "other" };
+}
+
+async function applyEventDetails(
+  tx: AnyTransaction,
+  operatorId: string,
+  details: EventDetails,
+  now: Date,
+): Promise<void> {
+  if (details.kind === "account") {
+    await saveStatus(tx, operatorId, details.status, now);
+  } else if (details.kind === "checkout") {
+    await applyCheckoutOutcome(tx, operatorId, details.outcome, now);
+  } else if (details.kind === "mandate") {
+    await applyMandateStatus(tx, operatorId, details, now);
+  }
+}
 
 /**
  * An event from Stripe: its signature proved, its business found from its
  * account, then handled once in that business's own tenant context (rules
- * 3 and 20). An account event refreshes what the account can do.
+ * 3 and 20). What it is about is read from Stripe itself: an account's
+ * status, a visit to Stripe's page, or a direct debit.
  */
 export async function handlePaymentEvent(
   deps: PaymentDependencies,
@@ -192,9 +249,8 @@ export async function handlePaymentEvent(
   if (!operatorId || !notice.accountId) {
     return "ignored";
   }
-  const isAccountEvent = ACCOUNT_EVENT.test(notice.type);
   // Asked before the transaction: Stripe is never waited on while rows are locked.
-  const status = isAccountEvent ? await deps.payments.accountStatus(notice.accountId) : null;
+  const details = await readEventDetails(deps.payments, notice, notice.accountId);
   return withTenant(deps.database, operatorId, async (tx) => {
     const recorded = await tx.execute(
       sql`SELECT app.record_stripe_event(${notice.id}, ${notice.type}, ${operatorId}::uuid) AS is_new`,
@@ -203,9 +259,7 @@ export async function handlePaymentEvent(
     if (!isNew) {
       return "repeat";
     }
-    if (status) {
-      await saveStatus(tx, operatorId, status, deps.now());
-    }
+    await applyEventDetails(tx, operatorId, details, deps.now());
     return "handled";
   });
 }

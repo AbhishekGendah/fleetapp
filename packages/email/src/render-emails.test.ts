@@ -9,6 +9,7 @@ import {
   renderRenterDetailsLinkEmail,
   renderRenterDetailsSentBackEmail,
   renderRenterLinkCodeEmail,
+  renderRenterPaymentsLinkEmail,
   renderRenterSigningLinkEmail,
 } from "./render-emails";
 import { senderFor } from "./email-sender";
@@ -149,6 +150,25 @@ describe("the contract emails", () => {
       replyTo: "hello@samscars.test",
     });
     expect(message.text).toContain("https://app.example.test/r/a-secret");
+  });
+
+  it("sends the payments link from the business, saying details go on Stripe's page", async () => {
+    const message = await renderRenterPaymentsLinkEmail({
+      to: "sam@example.test",
+      renterName: "Sam",
+      operatorName: "Sam's Cars Pty Ltd",
+      rentalSummary: "1ABC234 Toyota Corolla, from 1 June 2027",
+      linkUrl: "https://app.example.test/r/a-secret",
+      validUntil: "Friday 6 November",
+      replyTo: "hello@samscars.test",
+    });
+
+    expect(message).toMatchObject({
+      fromName: "Sam's Cars Pty Ltd",
+      subject: expect.stringMatching(/payments/),
+    });
+    expect(message.text).toContain("https://app.example.test/r/a-secret");
+    expect(message.text).toContain("Stripe");
   });
 
   it("attaches the signed contract: from the business to the Renter, and to the business", async () => {

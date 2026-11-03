@@ -22,7 +22,7 @@ import { recordUserChange, type ActingUser } from "../acting-user";
 import { emailDocumentCopies } from "../contracts/document-copies";
 import { loadSigningStatus, rentalSummaryText } from "../contracts/signing-links";
 import type { FileDependencies } from "../files/stored-files";
-import { loadRentalProblems } from "../rentals/booking-checks";
+import { loadRentalProblems, type PaymentsReach } from "../rentals/booking-checks";
 import type { RentalClock } from "../rentals/rental-records";
 import { loadBusinessDetails } from "../settings/business-details";
 import { addReading } from "../vehicles/odometer";
@@ -36,6 +36,8 @@ export interface CompleteHandoverInput {
   drawnSignature: string;
   /** Why the car goes before the full bond is held, when the rental's rules want it first. */
   bondOverrideReason: string | null;
+  /** Why the car goes without a working direct debit, when the rental's rules want one first. */
+  directDebitOverrideReason: string | null;
 }
 
 export type CompleteHandoverResult =
@@ -43,14 +45,21 @@ export type CompleteHandoverResult =
   | { status: "gaps"; gaps: HandoverGap[] }
   | { status: "blocked"; problems: BookingProblem[] }
   | { status: "bond_short"; owingCents: number }
+  | { status: "direct_debit_missing" }
   | { status: "lower"; lastKilometres: number }
   | {
       status: "not_found" | "contract_unsigned" | "no_signature" | "finished_already";
     };
 
-export interface HandoverDependencies extends FileDependencies {
+export interface HandoverDependencies extends FileDependencies, Partial<PaymentsReach> {
   emailSender: EmailSender;
 }
+
+/** The handover problems a reason can override: the bond and the direct debit. */
+const OVERRIDABLE: ReadonlySet<BookingProblem["code"]> = new Set([
+  "bond_short",
+  "direct_debit_missing",
+]);
 
 /**
  * What stops the Renter accepting now: anything missing from the checklist,
@@ -73,12 +82,14 @@ async function acceptanceRefusal(
     return { status: "contract_unsigned" };
   }
   const rental = { ...view, id: view.rentalId };
-  const problems = await loadRentalProblems(deps.database, operatorId, rental, clock);
+  const problems = await loadRentalProblems(deps.database, operatorId, rental, clock, {
+    canHearRenterPayments: deps.canHearRenterPayments ?? false,
+  });
   if (typeof problems === "string") {
     return { status: "not_found" };
   }
   const blocking = problems.filter(
-    (problem) => problem.level === "handover" && problem.code !== "bond_short",
+    (problem) => problem.level === "handover" && !OVERRIDABLE.has(problem.code),
   );
   if (blocking.length > 0) {
     return { status: "blocked", problems: blocking };
@@ -86,6 +97,10 @@ async function acceptanceRefusal(
   const bondShort = problems.find((problem) => problem.code === "bond_short");
   if (bondShort?.code === "bond_short" && !input.bondOverrideReason) {
     return { status: "bond_short", owingCents: bondShort.owingCents };
+  }
+  const isDirectDebitMissing = problems.some((problem) => problem.code === "direct_debit_missing");
+  if (isDirectDebitMissing && !input.directDebitOverrideReason) {
+    return { status: "direct_debit_missing" };
   }
   return null;
 }
@@ -99,7 +114,7 @@ async function recordHandedOver(
   tx: AnyTransaction,
   actor: ActingUser,
   view: HandoverView,
-  accepted: { at: Date; acceptanceText: string; bondOverrideReason: string | null },
+  accepted: { at: Date; acceptanceText: string } & Omit<CompleteHandoverInput, "drawnSignature">,
 ): Promise<void> {
   if (!(await lockOpenInspection(tx, actor.operatorId, view.inspectionId))) {
     throw new FinishedAlreadyError();
@@ -111,6 +126,7 @@ async function recordHandedOver(
       completedAt: accepted.at,
       acceptanceText: accepted.acceptanceText,
       bondOverrideReason: accepted.bondOverrideReason,
+      directDebitOverrideReason: accepted.directDebitOverrideReason,
       updatedAt: accepted.at,
     })
     .where(eq(inspections.id, view.inspectionId));
@@ -134,21 +150,28 @@ async function recordHandedOver(
     recordedAt: accepted.at,
     source: "handover",
   });
-  await logHandedOver(tx, actor, view, accepted.bondOverrideReason !== null);
+  await logHandedOver(tx, actor, view, {
+    isBondOverridden: accepted.bondOverrideReason !== null,
+    isDirectDebitOverridden: accepted.directDebitOverrideReason !== null,
+  });
 }
 
 async function logHandedOver(
   tx: AnyTransaction,
   actor: ActingUser,
   view: HandoverView,
-  isBondOverridden: boolean,
+  overrides: { isBondOverridden: boolean; isDirectDebitOverridden: boolean },
 ): Promise<void> {
   await recordUserChange(tx, actor, {
     entityType: ACTIVITY_ENTITY_TYPES.inspection,
     entityId: view.inspectionId,
     action: ACTIVITY_ACTIONS.accepted,
     // The override's reason stays with the checklist; the Log says only that there was one.
-    valuesAfter: { status: "completed", ...(isBondOverridden ? { bondOverridden: true } : {}) },
+    valuesAfter: {
+      status: "completed",
+      ...(overrides.isBondOverridden ? { bondOverridden: true } : {}),
+      ...(overrides.isDirectDebitOverridden ? { directDebitOverridden: true } : {}),
+    },
   });
   await recordUserChange(tx, actor, {
     entityType: ACTIVITY_ENTITY_TYPES.rental,
@@ -216,6 +239,7 @@ export async function completeHandover(
         at,
         acceptanceText,
         bondOverrideReason: input.bondOverrideReason,
+        directDebitOverrideReason: input.directDebitOverrideReason,
       }),
   });
   if (issued.status !== "issued") {

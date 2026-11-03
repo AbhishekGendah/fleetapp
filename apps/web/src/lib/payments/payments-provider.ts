@@ -1,4 +1,4 @@
-import type { PaymentAccountStatus } from "@fleetapp/core";
+import type { CheckoutPurpose, PaymentAccountStatus, StripePaymentMethod } from "@fleetapp/core";
 
 /** What a business's new Stripe account starts with: its name and email, nothing more. */
 export interface NewPaymentAccount {
@@ -21,6 +21,57 @@ export interface PaymentEventNotice {
   type: string;
   /** The connected account it is about, if any. */
   accountId: string | null;
+  /** The ID of the thing it is about (a Checkout session, a mandate), if any. */
+  objectId: string | null;
+}
+
+/** A Renter as a customer on the business's account: a name and email, nothing more. */
+export interface NewCustomer {
+  renterId: string;
+  name: string;
+  email: string | null;
+}
+
+/** What a visit to Stripe's page is for and where it comes back to (APP_URL, never typed in). */
+export interface CheckoutRequest {
+  customerId: string;
+  /** Who and what it is for, carried by Stripe and given back with the result. */
+  reference: CheckoutReference;
+  successUrl: string;
+  cancelUrl: string;
+  /** For a bond: the amount, in cents, and the line Stripe shows. */
+  payment: { amountCents: number; description: string } | null;
+}
+
+/** What a Checkout session is about, as we told Stripe. */
+export interface CheckoutReference {
+  purpose: CheckoutPurpose;
+  rentalId: string;
+  renterId: string;
+  linkId: string;
+}
+
+/** What Stripe says came of a visit to its page, read from Stripe itself. */
+export interface CheckoutOutcome {
+  sessionId: string;
+  /** Null when the metadata is not ours: the session is then ignored. */
+  reference: CheckoutReference | null;
+  isComplete: boolean;
+  /** A direct debit set up: Stripe's IDs and the mandate's status, as Stripe words it. */
+  setup: {
+    setupIntentId: string;
+    paymentMethodId: string;
+    mandateId: string;
+    mandateStatus: string;
+  } | null;
+  /** A payment: how, how much, and whether the money is in yet. */
+  payment: {
+    paymentIntentId: string;
+    method: StripePaymentMethod;
+    amountCents: number;
+    status: "paid" | "processing" | "failed";
+    failureCode: string | null;
+  } | null;
 }
 
 /**
@@ -36,4 +87,12 @@ export interface PaymentsProvider {
   accountStatus(accountId: string): Promise<PaymentAccountStatus>;
   /** The event, if its signature is Stripe's for this endpoint; null if not. */
   readEvent(payload: string, signature: string): Promise<PaymentEventNotice | null>;
+  /** The Renter as a customer on the business's account; the same one each time for a Renter. */
+  createCustomer(accountId: string, customer: NewCustomer): Promise<string>;
+  /** A visit to Stripe's own page, on the business's account; its address. */
+  startCheckout(accountId: string, request: CheckoutRequest): Promise<{ url: string }>;
+  /** What came of a visit, from Stripe. */
+  readCheckout(accountId: string, sessionId: string): Promise<CheckoutOutcome>;
+  /** A direct debit's status now, as Stripe words it. */
+  readMandateStatus(accountId: string, mandateId: string): Promise<string>;
 }

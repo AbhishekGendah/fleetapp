@@ -42,6 +42,7 @@ const BOOKING_PROBLEM_LABELS: Readonly<Record<BookingProblem["code"], string>> =
   under_minimum_age: "Renter under the minimum age",
   provisional_licence: "provisional licence",
   bond_short: "bond not yet received in full",
+  direct_debit_missing: "direct debit not set up",
   licence_expires_during: "licence expires during the rental",
 };
 

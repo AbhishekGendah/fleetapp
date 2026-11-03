@@ -85,6 +85,8 @@ export const ACTIVITY_ENTITY_TYPES = {
   billingDocument: "billing_document",
   documentNumbering: "document_numbering",
   stripeAccount: "stripe_account",
+  paymentMandate: "payment_mandate",
+  payment: "payment",
 } as const;
 
 /** What happened to it. No free text at call sites. */
@@ -117,6 +119,8 @@ export const ACTIVITY_ACTIONS = {
   exported: "exported",
   /** Everything held about one person downloaded, e.g. for a Renter who asked (APP 12). */
   exportedAll: "exported_all",
+  /** A Renter sent to Stripe's own page, to set up a direct debit or pay. */
+  checkoutStarted: "checkout_started",
   /** A one-time code emailed for a Renter link. */
   codeSent: "code_sent",
   /** A right code typed on a phone the link had not seen, which is now remembered. */

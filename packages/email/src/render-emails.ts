@@ -18,6 +18,10 @@ import {
 } from "./templates/renter-details-sent-back";
 import { RenterLinkCodeEmail, type RenterLinkCodeEmailProps } from "./templates/renter-link-code";
 import {
+  RenterPaymentsLinkEmail,
+  type RenterPaymentsLinkEmailProps,
+} from "./templates/renter-payments-link";
+import {
   RenterSigningLinkEmail,
   type RenterSigningLinkEmailProps,
 } from "./templates/renter-signing-link";
@@ -141,6 +145,21 @@ export function renderRenterSigningLinkEmail(
         ? `A change to your rental from ${props.operatorName}`
         : `Your rental contract from ${props.operatorName}`,
       createElement(RenterSigningLinkEmail, props),
+    ),
+    props.operatorName,
+    replyTo,
+  );
+}
+
+export function renderRenterPaymentsLinkEmail(
+  input: FromOperator<RenterPaymentsLinkEmailProps>,
+): Promise<EmailMessage> {
+  const { to, replyTo, ...props } = input;
+  return fromOperator(
+    renderEmail(
+      to,
+      `Set up your payments for ${props.operatorName}`,
+      createElement(RenterPaymentsLinkEmail, props),
     ),
     props.operatorName,
     replyTo,

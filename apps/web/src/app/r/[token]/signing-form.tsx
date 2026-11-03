@@ -15,7 +15,8 @@ import { Input, RequiredFieldsNote, RequiredMark } from "@fleetapp/ui/input";
 import { Select } from "@fleetapp/ui/select";
 import { SignaturePad } from "@fleetapp/ui/signature-pad";
 import { useFormFields, type FormFields } from "@fleetapp/ui/use-form-fields";
-import { PenLine } from "lucide-react";
+import { ArrowRight, PenLine } from "lucide-react";
+import Link from "next/link";
 import { useActionState, useMemo } from "react";
 import { z } from "zod";
 
@@ -144,6 +145,19 @@ export function SigningForm(props: {
           You signed the {props.documentName} with {props.operatorName} on {state.signedAtText}. A
           copy has been emailed to you.
         </p>
+        {state.paymentsPath ? (
+          <>
+            <p className="text-sm">
+              Next, set up your direct debit and pay the bond, on Stripe&apos;s secure page.
+            </p>
+            <Button asChild className="w-full">
+              <Link href={state.paymentsPath}>
+                <ArrowRight aria-hidden />
+                Set up your payments
+              </Link>
+            </Button>
+          </>
+        ) : null}
       </div>
     );
   }

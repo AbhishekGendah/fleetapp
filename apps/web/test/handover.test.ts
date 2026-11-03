@@ -107,7 +107,11 @@ describe("handing a car over", () => {
       y: 300,
       description: "Scratch on bonnet",
     });
-    const input = { drawnSignature: TEST_SIGNATURE, bondOverrideReason: null };
+    const input = {
+      drawnSignature: TEST_SIGNATURE,
+      bondOverrideReason: null,
+      directDebitOverrideReason: null,
+    };
 
     const withGap = await completeHandover(handoverDeps(), actor, inspectionId, input, clock());
     await takePhoto(inspectionId, { damageMarkId: added.status === "added" ? added.markId : "" });
@@ -126,14 +130,14 @@ describe("handing a car over", () => {
       handoverDeps(),
       actor,
       inspectionId,
-      { drawnSignature: TEST_SIGNATURE, bondOverrideReason: null },
+      { drawnSignature: TEST_SIGNATURE, bondOverrideReason: null, directDebitOverrideReason: null },
       clock(),
     );
     const again = await completeHandover(
       handoverDeps(),
       actor,
       inspectionId,
-      { drawnSignature: TEST_SIGNATURE, bondOverrideReason: null },
+      { drawnSignature: TEST_SIGNATURE, bondOverrideReason: null, directDebitOverrideReason: null },
       clock(),
     );
 
@@ -207,7 +211,11 @@ describe("handing a car over", () => {
       handoverDeps(),
       actor,
       inspectionId,
-      { drawnSignature: TEST_SIGNATURE, bondOverrideReason: "Paying the bond on Friday" },
+      {
+        drawnSignature: TEST_SIGNATURE,
+        bondOverrideReason: "Paying the bond on Friday",
+        directDebitOverrideReason: null,
+      },
       clock(),
     );
 

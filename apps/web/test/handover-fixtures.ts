@@ -112,7 +112,7 @@ export function checklistKit(
       handoverDeps(),
       actor,
       inspectionId,
-      { drawnSignature: TEST_SIGNATURE, bondOverrideReason: null },
+      { drawnSignature: TEST_SIGNATURE, bondOverrideReason: null, directDebitOverrideReason: null },
       { timeZone: TEST_TIME_ZONE, now: handedOverAt },
     );
     expect(result.status).toBe("completed");

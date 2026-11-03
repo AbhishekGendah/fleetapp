@@ -31,6 +31,7 @@ const PAGE_TITLES: Readonly<Record<RenterLinkPurpose, string>> = {
   details_form: "Your details form",
   sign_contract: "Your rental contract",
   sign_change: "A change to your rental",
+  set_up_payments: "Your payments",
 };
 
 function LinkPage(props: { operatorName?: string; title: string; children: React.ReactNode }) {

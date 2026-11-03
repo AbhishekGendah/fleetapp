@@ -1,9 +1,15 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
-import type { PaymentAccountStatus } from "@fleetapp/core";
+import type { PaymentAccountStatus, StripePaymentMethod } from "@fleetapp/core";
 import { z } from "zod";
 
-import type { PaymentsProvider } from "./payments-provider";
+import { STAND_IN_CHECKOUT_PATH } from "../paths";
+import type {
+  CheckoutOutcome,
+  CheckoutRequest,
+  PaymentEventNotice,
+  PaymentsProvider,
+} from "./payments-provider";
 
 /**
  * Stripe's stand-in for tests and the browser tests (decision 6): accounts
@@ -15,10 +21,33 @@ export interface StandInPayments extends PaymentsProvider {
   /** Sets what "Stripe" says about an account, as a test needs. */
   setStatus(accountId: string, status: PaymentAccountStatus): void;
   /** A test's event, signed as the endpoint expects. */
-  signedEvent(event: { id: string; type: string; accountId: string | null }): {
-    payload: string;
-    signature: string;
-  };
+  signedEvent(
+    event: Omit<PaymentEventNotice, "objectId"> & { objectId?: string | null },
+  ): SignedEvent;
+  /** A visit to "Stripe's page" as it was started, for its page and the tests. */
+  checkout(sessionId: string): StandInCheckout | null;
+  /**
+   * The Renter finishes on "Stripe's page": a direct debit set up, or a
+   * payment by card (paid at once) or bank debit (processing until settled).
+   * Gives the event Stripe would send.
+   */
+  finishCheckout(sessionId: string, method?: StripePaymentMethod): SignedEvent;
+  /** A bank debit clears or bounces, days later. */
+  settlePayment(sessionId: string, isPaid: boolean): SignedEvent;
+  /** The Renter's bank cancels a direct debit. */
+  cancelMandate(sessionId: string): SignedEvent;
+}
+
+export interface SignedEvent {
+  payload: string;
+  signature: string;
+}
+
+export interface StandInCheckout {
+  accountId: string;
+  request: CheckoutRequest;
+  outcome: CheckoutOutcome;
+  mandateStatus: string | null;
 }
 
 const READY: PaymentAccountStatus = {
@@ -36,7 +65,13 @@ const standInEventSchema = z.object({
   id: z.string(),
   type: z.string(),
   accountId: z.string().nullable(),
+  objectId: z.string().nullable().default(null),
 });
+
+/** A made-up ID in Stripe's shape. */
+function standInId(prefix: string): string {
+  return `${prefix}_standin${randomUUID().replaceAll("-", "")}`;
+}
 
 function signatureOf(secret: string, payload: string): string {
   return createHmac("sha256", secret).update(payload).digest("hex");
@@ -45,6 +80,28 @@ function signatureOf(secret: string, payload: string): string {
 export function createStandInPayments(webhookSecret: string): StandInPayments {
   const accounts = new Map<string, PaymentAccountStatus>();
   const madeFor = new Map<string, string>();
+  const customers = new Map<string, string>();
+  const checkouts = new Map<string, StandInCheckout>();
+
+  function signed(event: Omit<PaymentEventNotice, "objectId"> & { objectId?: string | null }) {
+    const payload = JSON.stringify({ ...event, objectId: event.objectId ?? null });
+    return { payload, signature: signatureOf(webhookSecret, payload) };
+  }
+
+  function update(sessionId: string, change: (checkout: StandInCheckout) => StandInCheckout) {
+    const checkout = checkouts.get(sessionId);
+    if (!checkout) {
+      throw new Error("No such stand-in checkout.");
+    }
+    const changed = change(checkout);
+    checkouts.set(sessionId, changed);
+    return changed;
+  }
+
+  function eventFor(checkout: StandInCheckout, type: string, objectId: string): SignedEvent {
+    return signed({ id: standInId("evt"), type, accountId: checkout.accountId, objectId });
+  }
+
   return {
     async createAccount(account) {
       const existing = madeFor.get(account.operatorId);
@@ -71,12 +128,114 @@ export function createStandInPayments(webhookSecret: string): StandInPayments {
       }
       return standInEventSchema.parse(JSON.parse(payload));
     },
+    async createCustomer(accountId, customer) {
+      const key = `${accountId}:${customer.renterId}`;
+      const existing = customers.get(key) ?? standInId("cus");
+      customers.set(key, existing);
+      return existing;
+    },
+    async startCheckout(accountId, request) {
+      const sessionId = standInId("cs_test");
+      checkouts.set(sessionId, {
+        accountId,
+        request,
+        outcome: {
+          sessionId,
+          reference: request.reference,
+          isComplete: false,
+          setup: null,
+          payment: null,
+        },
+        mandateStatus: null,
+      });
+      return {
+        url: new URL(`${STAND_IN_CHECKOUT_PATH}/${sessionId}`, request.successUrl).toString(),
+      };
+    },
+    async readCheckout(_accountId, sessionId) {
+      const checkout = checkouts.get(sessionId);
+      if (!checkout) {
+        throw new Error("No such stand-in checkout.");
+      }
+      return checkout.outcome;
+    },
+    async readMandateStatus(_accountId, mandateId) {
+      const checkout = [...checkouts.values()].find(
+        (each) => each.outcome.setup?.mandateId === mandateId,
+      );
+      return checkout?.mandateStatus ?? "inactive";
+    },
     setStatus(accountId, status) {
       accounts.set(accountId, status);
     },
-    signedEvent(event) {
-      const payload = JSON.stringify(event);
-      return { payload, signature: signatureOf(webhookSecret, payload) };
+    signedEvent: signed,
+    checkout(sessionId) {
+      return checkouts.get(sessionId) ?? null;
+    },
+    finishCheckout(sessionId, method = "card") {
+      const finished = update(sessionId, (checkout) => {
+        const { payment } = checkout.request;
+        return {
+          ...checkout,
+          mandateStatus: payment ? null : "active",
+          outcome: {
+            ...checkout.outcome,
+            isComplete: true,
+            setup: payment
+              ? null
+              : {
+                  setupIntentId: standInId("seti"),
+                  paymentMethodId: standInId("pm"),
+                  mandateId: standInId("mandate"),
+                  mandateStatus: "active",
+                },
+            payment: payment
+              ? {
+                  paymentIntentId: standInId("pi"),
+                  method,
+                  amountCents: payment.amountCents,
+                  status: method === "card" ? "paid" : "processing",
+                  failureCode: null,
+                }
+              : null,
+          },
+        };
+      });
+      return eventFor(finished, "v1.checkout.session.completed", sessionId);
+    },
+    settlePayment(sessionId, isPaid) {
+      const settled = update(sessionId, (checkout) => {
+        const { payment } = checkout.outcome;
+        if (!payment) {
+          throw new Error("That stand-in checkout took no payment.");
+        }
+        return {
+          ...checkout,
+          outcome: {
+            ...checkout.outcome,
+            payment: {
+              ...payment,
+              status: isPaid ? "paid" : "failed",
+              failureCode: isPaid ? null : "insufficient_funds",
+            },
+          },
+        };
+      });
+      const type = isPaid
+        ? "v1.checkout.session.async_payment_succeeded"
+        : "v1.checkout.session.async_payment_failed";
+      return eventFor(settled, type, sessionId);
+    },
+    cancelMandate(sessionId) {
+      const cancelled = update(sessionId, (checkout) => ({
+        ...checkout,
+        mandateStatus: "inactive",
+      }));
+      const mandateId = cancelled.outcome.setup?.mandateId;
+      if (!mandateId) {
+        throw new Error("That stand-in checkout set up no direct debit.");
+      }
+      return eventFor(cancelled, "v1.mandate.updated", mandateId);
     },
   };
 }

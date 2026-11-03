@@ -186,3 +186,12 @@ export const RENTER_LINK_PATH = "/r";
 export function renterLinkPagePath(token: string): string {
   return `${RENTER_LINK_PATH}/${token}`;
 }
+
+/**
+ * Where Stripe's page sends the Renter back to. It holds no secret: the
+ * page takes the Renter back to the link they came from, remembered on
+ * their own phone, so the link's secret is never given to Stripe.
+ */
+export const STRIPE_RETURN_PATH = `${RENTER_LINK_PATH}/back`;
+/** Test sites only: the stand-in for Stripe's page in the browser tests. */
+export const STAND_IN_CHECKOUT_PATH = `${RENTER_LINK_PATH}/stand-in-checkout`;

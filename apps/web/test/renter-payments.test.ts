@@ -1,0 +1,320 @@
+import { bondMovements, paymentMandates, payments, stripeAccounts } from "@fleetapp/db/schema";
+import { connectAs, type TestConnection } from "@fleetapp/db/testing";
+import { withTenant } from "@fleetapp/db/tenant-context";
+import type { EmailMessage } from "@fleetapp/email";
+import { eq } from "drizzle-orm";
+import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+
+import type { ActingUser } from "../src/lib/acting-user";
+import {
+  handlePaymentEvent,
+  refreshPaymentAccount,
+  startStripeOnboarding,
+} from "../src/lib/payments/payment-accounts";
+import {
+  continueToPayments,
+  sendPaymentsLink,
+  type PaymentsLinkDependencies,
+} from "../src/lib/payments/payments-links";
+import { startRenterCheckout } from "../src/lib/payments/renter-checkout";
+import { loadRentalPayments } from "../src/lib/payments/renter-payment-records";
+import {
+  createStandInPayments,
+  type StandInPayments,
+  type SignedEvent,
+} from "../src/lib/payments/stand-in-provider";
+import { loadRentalProblems } from "../src/lib/rentals/booking-checks";
+import { emptyRenterForm, parseRenterForm } from "../src/lib/renters/renter-input";
+import { createRenter } from "../src/lib/renters/renter-records";
+import { openLink, type LinkVisit } from "../src/lib/renter-links/link-visits";
+import { seedOperatorWithUser } from "./car-fixtures";
+import { bookTestRental, TEST_TIME_ZONE } from "./rental-fixtures";
+import { recordingEmailSender } from "./renter-link-fixtures";
+
+const WEBHOOK_SECRET = "whsec_test_only";
+const APP_URL = "https://app.example.test";
+const URLS = {
+  returnUrl: `${APP_URL}/settings/payments`,
+  refreshUrl: `${APP_URL}/settings/payments/continue`,
+};
+/** The test rental's bond: $500 (bookTestRental). */
+const BOND_CENTS = 500_00;
+
+/**
+ * A Renter's direct debit and bond through Stripe's page (slice 4): the
+ * link to it, the visit, and what Stripe says came of it, recorded once,
+ * only for the business whose account it is (rule 3), and a payment
+ * counted only once it succeeded (decision 2).
+ */
+describe("a Renter's direct debit and bond", () => {
+  let admin: TestConnection;
+  let web: TestConnection;
+  let stripe: StandInPayments;
+  let actor: ActingUser;
+  let otherBusiness: ActingUser;
+  const sentEmails: EmailMessage[] = [];
+
+  function deps(changes: Partial<PaymentsLinkDependencies> = {}): PaymentsLinkDependencies {
+    return {
+      database: web.db,
+      emailSender: recordingEmailSender(sentEmails),
+      now: () => new Date(),
+      appUrl: APP_URL,
+      describeDay: (moment) => moment.toISOString().slice(0, 10),
+      payments: stripe,
+      canHearRenterPayments: true,
+      ...changes,
+    };
+  }
+
+  function deliver(event: SignedEvent) {
+    return handlePaymentEvent(
+      { database: web.db, payments: stripe, now: () => new Date() },
+      event.payload,
+      event.signature,
+    );
+  }
+
+  async function connectStripe(owner: ActingUser): Promise<void> {
+    await startStripeOnboarding(
+      { database: web.db, payments: stripe, now: () => new Date() },
+      owner,
+      URLS,
+    );
+    await refreshPaymentAccount(
+      { database: web.db, payments: stripe, now: () => new Date() },
+      owner.operatorId,
+    );
+  }
+
+  async function bookedRental(owner: ActingUser) {
+    const parsed = parseRenterForm(
+      {
+        ...emptyRenterForm(),
+        fullName: "Pat Payer",
+        email: "pat.payer@example.test",
+        phone: "0412345678",
+      },
+      "2026-10-30",
+    );
+    const renterId = await createRenter(web.db, owner, parsed.data!);
+    const { rentalId, vehicleId } = await bookTestRental(web, owner, renterId);
+    return { rentalId, renterId, vehicleId };
+  }
+
+  /** The Operator sends the payments link; the Renter opens it. */
+  async function openedPaymentsLink(owner: ActingUser, rentalId: string): Promise<LinkVisit> {
+    const sent = await sendPaymentsLink(deps(), owner, rentalId, "email");
+    if (sent.status !== "sent") {
+      throw new Error(sent.status);
+    }
+    return (await openLink(web.db, sent.url.split("/r/")[1]!))!;
+  }
+
+  async function visitStripe(visit: LinkVisit, purpose: "direct_debit" | "bond"): Promise<string> {
+    const started = await startRenterCheckout(deps(), visit, purpose);
+    if (started.status !== "started") {
+      throw new Error(started.status);
+    }
+    return started.url.split("/").at(-1)!;
+  }
+
+  function paymentsOf(owner: ActingUser, rental: { rentalId: string; renterId: string }) {
+    return loadRentalPayments(web.db, owner.operatorId, {
+      id: rental.rentalId,
+      renterId: rental.renterId,
+      bondCents: BOND_CENTS,
+    });
+  }
+
+  beforeAll(async () => {
+    admin = connectAs(inject("adminAppRoleUrl"));
+    web = connectAs(inject("webAppRoleUrl"));
+    stripe = createStandInPayments(WEBHOOK_SECRET);
+    actor = await seedOperatorWithUser(admin, "Direct Debit Rentals Pty Ltd");
+    otherBusiness = await seedOperatorWithUser(admin, "Other Direct Debit Rentals Pty Ltd");
+    await connectStripe(actor);
+    await connectStripe(otherBusiness);
+  });
+
+  afterAll(async () => {
+    await Promise.all([admin.close(), web.close()]);
+  });
+
+  it("offers Stripe's page only once the business is ready and the site hears back", async () => {
+    const notReady = await seedOperatorWithUser(admin, "Not Ready Rentals Pty Ltd");
+    const rental = await bookedRental(notReady);
+    expect((await sendPaymentsLink(deps(), notReady, rental.rentalId, "email")).status).toBe(
+      "not_offered",
+    );
+    const ready = await bookedRental(actor);
+    expect(
+      (
+        await sendPaymentsLink(
+          deps({ canHearRenterPayments: false }),
+          actor,
+          ready.rentalId,
+          "email",
+        )
+      ).status,
+    ).toBe("not_offered");
+  });
+
+  it("sends the link by email, or hands it over on the spot replacing the last one", async () => {
+    const rental = await bookedRental(actor);
+    const emailed = await sendPaymentsLink(deps(), actor, rental.rentalId, "email");
+    const onTheSpot = await sendPaymentsLink(deps(), actor, rental.rentalId, "on_the_spot");
+    expect(emailed).toMatchObject({ status: "sent", isEmailed: true });
+    expect(onTheSpot).toMatchObject({ status: "sent", isEmailed: false });
+    expect(sentEmails.at(-1)?.subject).toMatch(/Set up your payments/);
+
+    const visit = await openLink(web.db, (onTheSpot as { url: string }).url.split("/r/")[1]!);
+    expect(visit).toMatchObject({ purpose: "set_up_payments", rentalId: rental.rentalId });
+    // The emailed one stopped working when the new one was made (rule 26).
+    expect(await openLink(web.db, (emailed as { url: string }).url.split("/r/")[1]!)).toBeNull();
+  });
+
+  it("records a direct debit set up on Stripe's page once, and a newer one replaces it", async () => {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    expect((await paymentsOf(actor, rental)).directDebit).toBe("not_set_up");
+
+    const first = await visitStripe(visit, "direct_debit");
+    const finished = stripe.finishCheckout(first);
+    expect(await deliver(finished)).toBe("handled");
+    expect(await deliver(finished)).toBe("repeat");
+    expect((await paymentsOf(actor, rental)).directDebit).toBe("active");
+
+    const second = await visitStripe(visit, "direct_debit");
+    await deliver(stripe.finishCheckout(second));
+    const mandates = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx
+        .select({ status: paymentMandates.status, endReason: paymentMandates.endReason })
+        .from(paymentMandates)
+        .where(eq(paymentMandates.renterId, rental.renterId)),
+    );
+    expect(mandates).toEqual(
+      expect.arrayContaining([
+        { status: "inactive", endReason: "replaced" },
+        { status: "active", endReason: null },
+      ]),
+    );
+
+    // The Renter's bank cancels it: the rental shows it, and handover asks again.
+    await deliver(stripe.cancelMandate(second));
+    expect((await paymentsOf(actor, rental)).directDebit).toBe("cancelled");
+  });
+
+  it("asks for the direct debit before handover, only when Stripe is offered", async () => {
+    const rental = await bookedRental(actor);
+    const row = {
+      id: rental.rentalId,
+      renterId: rental.renterId,
+      vehicleId: rental.vehicleId,
+      plannedStart: new Date("2027-06-01T01:00:00Z"),
+      plannedEnd: new Date("2027-06-29T01:00:00Z"),
+      bondCents: BOND_CENTS,
+      settingsSnapshot: {},
+    };
+    const clock = { timeZone: TEST_TIME_ZONE, now: new Date() };
+    const codes = async (canHearRenterPayments: boolean) => {
+      const problems = await loadRentalProblems(web.db, actor.operatorId, row, clock, {
+        canHearRenterPayments,
+      });
+      return Array.isArray(problems) ? problems.map((problem) => problem.code) : problems;
+    };
+    expect(await codes(true)).toContain("direct_debit_missing");
+    expect(await codes(false)).not.toContain("direct_debit_missing");
+
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    await deliver(stripe.finishCheckout(await visitStripe(visit, "direct_debit")));
+    expect(await codes(true)).not.toContain("direct_debit_missing");
+  });
+
+  it("puts a card bond on the bond account once paid, and then asks for nothing more", async () => {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    const sessionId = await visitStripe(visit, "bond");
+    expect(stripe.checkout(sessionId)?.request.payment?.amountCents).toBe(BOND_CENTS);
+
+    const paid = stripe.finishCheckout(sessionId, "card");
+    await deliver(paid);
+    await deliver(paid);
+    const after = await paymentsOf(actor, rental);
+    expect(after.bond).toMatchObject({ heldCents: BOND_CENTS, toCollectCents: 0 });
+    expect(after.payments).toMatchObject([{ method: "card", status: "succeeded" }]);
+    expect((await startRenterCheckout(deps(), visit, "bond")).status).toBe("nothing_owing");
+
+    const entries = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx.select().from(bondMovements).where(eq(bondMovements.rentalId, rental.rentalId)),
+    );
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.paymentId).toBe(after.payments[0]?.id);
+  });
+
+  it("counts a bank debit bond only once it clears; a bounced one is asked for again", async () => {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    const bounced = await visitStripe(visit, "bond");
+    await deliver(stripe.finishCheckout(bounced, "becs_debit"));
+    expect((await paymentsOf(actor, rental)).bond).toMatchObject({
+      heldCents: 0,
+      pendingCents: BOND_CENTS,
+      toCollectCents: 0,
+    });
+
+    await deliver(stripe.settlePayment(bounced, false));
+    const afterBounce = await paymentsOf(actor, rental);
+    expect(afterBounce.bond).toMatchObject({ heldCents: 0, toCollectCents: BOND_CENTS });
+    expect(afterBounce.payments[0]).toMatchObject({
+      status: "failed",
+      failureCode: "insufficient_funds",
+    });
+
+    const cleared = await visitStripe(visit, "bond");
+    await deliver(stripe.finishCheckout(cleared, "becs_debit"));
+    await deliver(stripe.settlePayment(cleared, true));
+    expect((await paymentsOf(actor, rental)).bond).toMatchObject({
+      heldCents: BOND_CENTS,
+      toCollectCents: 0,
+    });
+  });
+
+  it("never records one business's payment through another business's account", async () => {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    const sessionId = await visitStripe(visit, "bond");
+    stripe.finishCheckout(sessionId, "card");
+    const [otherAccount] = await withTenant(web.db, otherBusiness.operatorId, (tx) =>
+      tx.select().from(stripeAccounts),
+    );
+    const forged = stripe.signedEvent({
+      id: `evt_forged_${Date.now()}`,
+      type: "v1.checkout.session.completed",
+      accountId: otherAccount!.stripeAccountId,
+      objectId: sessionId,
+    });
+    expect(await deliver(forged)).toBe("handled");
+    const recorded = [
+      ...(await withTenant(web.db, actor.operatorId, (tx) =>
+        tx.select().from(payments).where(eq(payments.rentalId, rental.rentalId)),
+      )),
+      ...(await withTenant(web.db, otherBusiness.operatorId, (tx) => tx.select().from(payments))),
+    ];
+    expect(recorded).toEqual([]);
+  });
+
+  it("carries the Renter on from signing to a payments link this phone already passed", async () => {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    const carried = await continueToPayments(deps(), { ...visit, purpose: "sign_contract" });
+    expect(carried).not.toBeNull();
+    const next = await openLink(web.db, carried!.token);
+    expect(next).toMatchObject({ purpose: "set_up_payments", rentalId: rental.rentalId });
+
+    // Nothing left to do: no link.
+    await deliver(stripe.finishCheckout(await visitStripe(next!, "direct_debit")));
+    await deliver(stripe.finishCheckout(await visitStripe(next!, "bond"), "card"));
+    expect(await continueToPayments(deps(), { ...next!, purpose: "sign_contract" })).toBeNull();
+  });
+});

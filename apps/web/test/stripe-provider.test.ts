@@ -3,10 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { accountStatusOf, createStripeProvider } =
+const { accountStatusOf, checkoutOutcomeOf, createStripeProvider } =
   await import("../src/lib/payments/stripe-provider");
 
 const SECRET = "whsec_test_signing_secret";
+const CONNECT_SECRET = "whsec_test_connected_accounts";
 const ACCOUNT_ID = "acct_1TestConnected";
 
 function thinEvent(changes: Record<string, unknown>): string {
@@ -25,16 +26,13 @@ function thinEvent(changes: Record<string, unknown>): string {
   });
 }
 
-function signed(payload: string): string {
-  return new Stripe("sk_test_unused").webhooks.generateTestHeaderString({
-    payload,
-    secret: SECRET,
-  });
+function signed(payload: string, secret = SECRET): string {
+  return new Stripe("sk_test_unused").webhooks.generateTestHeaderString({ payload, secret });
 }
 
 /** The real Stripe connection's one offline part: proving an event is Stripe's, and reading its account. */
 describe("Stripe's events", () => {
-  const stripe = createStripeProvider("sk_test_unused", SECRET);
+  const stripe = createStripeProvider("sk_test_unused", [SECRET, CONNECT_SECRET]);
 
   it("reads a signed account event: its ID, type and the account it is about", async () => {
     const payload = thinEvent({});
@@ -42,7 +40,26 @@ describe("Stripe's events", () => {
       id: "evt_test_thin",
       type: "v2.core.account[requirements].updated",
       accountId: ACCOUNT_ID,
+      objectId: ACCOUNT_ID,
     });
+  });
+
+  it("reads a business's own event, signed by the second destination: its account and session", async () => {
+    const payload = thinEvent({
+      type: "v1.checkout.session.completed",
+      context: ACCOUNT_ID,
+      related_object: {
+        id: "cs_test_a1",
+        type: "checkout.session",
+        url: "/v1/checkout/sessions/cs_test_a1",
+      },
+    });
+    expect(await stripe.readEvent(payload, signed(payload, CONNECT_SECRET))).toMatchObject({
+      type: "v1.checkout.session.completed",
+      accountId: ACCOUNT_ID,
+      objectId: "cs_test_a1",
+    });
+    expect(await stripe.readEvent(payload, signed(payload, "whsec_someone_else"))).toBeNull();
   });
 
   it("takes the account from the event's context when it is from a connected account", async () => {
@@ -126,5 +143,79 @@ describe("a Stripe account's status", () => {
       becsDebitPayments: "pending",
       requirementsDue: 0,
     });
+  });
+});
+
+const REFERENCE = {
+  purpose: "bond",
+  rental_id: "6f1d1a52-4f5e-4c39-9a3e-2d2e9b1b7c01",
+  renter_id: "6f1d1a52-4f5e-4c39-9a3e-2d2e9b1b7c02",
+  link_id: "6f1d1a52-4f5e-4c39-9a3e-2d2e9b1b7c03",
+};
+
+/** A Checkout session as Stripe returns it, cut down to what the app reads. */
+function session(changes: Record<string, unknown>) {
+  return {
+    id: "cs_test_a1",
+    status: "complete",
+    metadata: REFERENCE,
+    setup_intent: null,
+    payment_intent: null,
+    ...changes,
+  };
+}
+
+describe("what came of a visit to Stripe's page", () => {
+  it("reads a card payment as paid, and a bank debit as on its way", () => {
+    const intent = (type: string, status: string) => ({
+      id: "pi_1",
+      status,
+      amount: 500_00,
+      payment_method: { type },
+      last_payment_error: null,
+    });
+    expect(
+      checkoutOutcomeOf(session({ payment_intent: intent("card", "succeeded") }), null),
+    ).toMatchObject({
+      isComplete: true,
+      reference: { purpose: "bond", rentalId: REFERENCE.rental_id },
+      payment: { method: "card", amountCents: 500_00, status: "paid" },
+    });
+    expect(
+      checkoutOutcomeOf(session({ payment_intent: intent("au_becs_debit", "processing") }), null)
+        .payment,
+    ).toMatchObject({ method: "becs_debit", status: "processing" });
+  });
+
+  it("reads a failed debit with Stripe's reason code, and a method we do not take as nothing", () => {
+    const failed = {
+      id: "pi_1",
+      status: "requires_payment_method",
+      amount: 500_00,
+      payment_method: { type: "au_becs_debit" },
+      last_payment_error: { code: "insufficient_funds" },
+    };
+    expect(checkoutOutcomeOf(session({ payment_intent: failed }), null).payment).toMatchObject({
+      status: "failed",
+      failureCode: "insufficient_funds",
+    });
+    const other = { ...failed, status: "succeeded", payment_method: { type: "klarna" } };
+    expect(checkoutOutcomeOf(session({ payment_intent: other }), null).payment).toBeNull();
+  });
+
+  it("reads a direct debit set up, and ignores a session whose metadata is not ours", () => {
+    const setUp = checkoutOutcomeOf(
+      session({ setup_intent: { id: "seti_1", payment_method: "pm_1", mandate: "mandate_1" } }),
+      "active",
+    );
+    expect(setUp.setup).toEqual({
+      setupIntentId: "seti_1",
+      paymentMethodId: "pm_1",
+      mandateId: "mandate_1",
+      mandateStatus: "active",
+    });
+    expect(
+      checkoutOutcomeOf(session({ metadata: { purpose: "bond" } }), null).reference,
+    ).toBeNull();
   });
 });

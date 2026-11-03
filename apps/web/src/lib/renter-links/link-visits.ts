@@ -48,6 +48,8 @@ export interface LinkVisit {
   isLocked: boolean;
   /** When it was sent: a signing link's contract is filled in as of then. */
   sentAt: Date;
+  /** A signing or payments link's rental. */
+  rentalId: string | null;
   /**
    * A signing link's rental, template version and the fingerprint of the
    * text it was sent for; and for a change of terms, the change.
@@ -97,6 +99,7 @@ export async function openLink(database: AnyDatabase, token: string): Promise<Li
       expiresAt: link.expiresAt,
       isLocked: link.lockedAt !== null,
       sentAt: link.createdAt,
+      rentalId: link.rentalId,
       signing:
         link.rentalId && link.templateVersionId && link.contractFingerprint
           ? {

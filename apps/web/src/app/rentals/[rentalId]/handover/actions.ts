@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { appDb } from "../../../../lib/app-db";
 import { appEmailSender } from "../../../../lib/email-sender";
+import { canHearRenterPayments } from "../../../../lib/payments/app-payments";
 import {
   fileDependencies,
   finishMessage,
@@ -187,6 +188,7 @@ export async function finishChecklistPhotoAction(
 const completeSchema = z.object({
   drawnSignature: z.string(),
   bondOverrideReason: optionalLine,
+  directDebitOverrideReason: optionalLine,
 });
 
 /** The Renter accepts the car on this phone: the handover is finished and the report issued. */
@@ -200,13 +202,14 @@ export async function completeHandoverAction(
   const parsed = completeSchema.safeParse({
     drawnSignature: formData.get("drawnSignature") ?? "",
     bondOverrideReason: formData.get("bondOverrideReason") ?? "",
+    directDebitOverrideReason: formData.get("directDebitOverrideReason") ?? "",
   });
   if (!isRecordId(rentalId) || !isRecordId(inspectionId) || !parsed.success) {
     return { status: "problem", message: NOT_FOUND_MESSAGE };
   }
   try {
     const result = await completeHandover(
-      { ...fileDependencies(), emailSender: appEmailSender },
+      { ...fileDependencies(), emailSender: appEmailSender, canHearRenterPayments },
       actor,
       inspectionId,
       parsed.data,

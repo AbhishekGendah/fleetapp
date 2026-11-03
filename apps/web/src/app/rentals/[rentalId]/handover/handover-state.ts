@@ -38,6 +38,8 @@ export function completionMessage(
       return result.problems.map(bookingProblemMessage).join(" ");
     case "bond_short":
       return `The bond is ${formatCents(result.owingCents)} short. Record it on the rental, or say why the car goes before it is paid.`;
+    case "direct_debit_missing":
+      return "The Renter's direct debit is not set up yet. Set it up on the spot from the rental's page, or say why the car goes without it.";
     case "lower":
       return `The car last read ${formatKilometres(result.lastKilometres)}. Check the kilometres: they cannot go down.`;
     case "contract_unsigned":

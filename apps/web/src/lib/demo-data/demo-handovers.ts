@@ -167,7 +167,11 @@ export async function handOverDemoRental(
     context.deps,
     context.actor,
     started.inspectionId,
-    { drawnSignature: DEMO_SIGNATURE, bondOverrideReason: plan.bondOverrideReason ?? null },
+    {
+      drawnSignature: DEMO_SIGNATURE,
+      bondOverrideReason: plan.bondOverrideReason ?? null,
+      directDebitOverrideReason: null,
+    },
     { timeZone: context.timeZone, now: handedOverAt },
   );
   expectSaved(result.status, ["completed"], `handover for ${code}`);

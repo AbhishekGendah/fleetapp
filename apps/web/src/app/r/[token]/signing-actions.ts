@@ -3,13 +3,17 @@
 import { describeErrorForLog, formTextValues, SIGN_CONTRACT_FIELDS } from "@fleetapp/core";
 import { cookies, headers } from "next/headers";
 
+import { env } from "../../../env";
+
 import { appDb } from "../../../lib/app-db";
 import { signContract, type SignContractResult } from "../../../lib/contracts/signing";
 import { appEmailSender } from "../../../lib/email-sender";
 import { fileDependencies } from "../../../lib/files/file-action-support";
-import { openVerifiedLink } from "../../../lib/renter-links/link-visits";
+import { appPaymentsLinkDependencies } from "../../../lib/payments/app-payments-links";
+import { continueToPayments } from "../../../lib/payments/payments-links";
+import { openVerifiedLink, type LinkVisit } from "../../../lib/renter-links/link-visits";
 import { requestMetaFrom } from "../../../lib/request-meta";
-import { DEVICE_COOKIE } from "./link-state";
+import { DEVICE_COOKIE, linkPagePath } from "./link-state";
 import type { SignState } from "./signing-state";
 
 const SIGNING_PURPOSES = ["sign_contract", "sign_change"] as const;
@@ -28,7 +32,7 @@ const NOT_SIGNED_MESSAGES: Record<
 
 function signState(result: SignContractResult): SignState {
   if (result.status === "signed") {
-    return { status: "signed", signedAtText: result.signedAtText };
+    return { status: "signed", signedAtText: result.signedAtText, paymentsPath: null };
   }
   if (result.status === "invalid") {
     const firstMessage = Object.values(result.fieldErrors).find((messages) => messages?.length);
@@ -58,10 +62,37 @@ export async function signContractAction(
       formTextValues(formData, SIGN_CONTRACT_FIELDS),
       requestMetaFrom(await headers()),
     );
-    return signState(result);
+    const state = signState(result);
+    return state.status === "signed" ? { ...state, paymentsPath: await carryOn(visit) } : state;
   } catch (error) {
     // Never the error's details: they could hold the Renter's name or the link.
     console.error("Signing a contract failed", describeErrorForLog(error));
     return { status: "problem", message: FAILED_MESSAGE };
+  }
+}
+
+/**
+ * Once signed, the Renter carries on to their direct debit and bond, if
+ * the business takes payments by Stripe and either is still to do. Their
+ * phone is remembered for the new link, so no second code. A failure here
+ * leaves the signing done: the payments link can be sent from the rental.
+ */
+async function carryOn(visit: LinkVisit): Promise<string | null> {
+  try {
+    const next = await continueToPayments(appPaymentsLinkDependencies(visit.timeZone), visit);
+    if (!next) {
+      return null;
+    }
+    (await cookies()).set(DEVICE_COOKIE, next.deviceToken, {
+      httpOnly: true,
+      secure: new URL(env.APP_URL).protocol === "https:",
+      sameSite: "lax",
+      path: linkPagePath(next.token),
+      expires: next.expiresAt,
+    });
+    return linkPagePath(next.token);
+  } catch (error) {
+    console.error("Carrying on to payments after signing failed", describeErrorForLog(error));
+    return null;
   }
 }

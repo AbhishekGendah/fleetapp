@@ -1,5 +1,6 @@
 import {
   DETAIL_NEEDED_LABELS,
+  DIRECT_DEBIT_STATE_LABELS,
   formatCalendarDate,
   formatCents,
   formatDateTimeInTimeZone,
@@ -30,6 +31,10 @@ export function bookingProblemMessage(problem: BookingProblem): string {
       return "The Renter has a provisional licence, which your settings do not allow.";
     case "bond_short":
       return `Bond still to receive before handover: ${formatCents(problem.owingCents)}.`;
+    case "direct_debit_missing":
+      return problem.state === "waiting"
+        ? "The Renter's direct debit is still being checked by Stripe. Hand over once it is set up, or give a reason."
+        : `The Renter's direct debit is ${DIRECT_DEBIT_STATE_LABELS[problem.state].toLowerCase()}. Send them the link to set it up before handover.`;
     case "licence_expires_during":
       return `The Renter's licence expires on ${formatCalendarDate(problem.expiresOn)}, during the rental.`;
   }

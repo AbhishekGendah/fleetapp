@@ -20,7 +20,11 @@
         "CRON_SECRET",
         "GOOGLE_PLACES_API_URL",
         "FILE_STORAGE_ENDPOINT",
-        "APP_STAGE"
+        "APP_STAGE",
+        "PAYMENTS_TRANSPORT",
+        "STRIPE_SECRET_KEY",
+        "STRIPE_WEBHOOK_SECRET",
+        "STRIPE_CONNECT_WEBHOOK_SECRET"
       ]
     },
     "dev": {
@@ -41,7 +45,11 @@
         "CRON_SECRET",
         "GOOGLE_PLACES_API_URL",
         "FILE_STORAGE_ENDPOINT",
-        "APP_STAGE"
+        "APP_STAGE",
+        "PAYMENTS_TRANSPORT",
+        "STRIPE_SECRET_KEY",
+        "STRIPE_WEBHOOK_SECRET",
+        "STRIPE_CONNECT_WEBHOOK_SECRET"
       ]
     },
     "test": {

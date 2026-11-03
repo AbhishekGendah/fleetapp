@@ -1,6 +1,9 @@
 import {
   bookingProblems,
+  canTakeStripePayments,
   isBondShortForHandover,
+  isDirectDebitMissingForHandover,
+  paymentAccountState,
   operatorSettingsSchema,
   readSettings,
   todayInTimeZone,
@@ -10,11 +13,35 @@ import {
 } from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { files, renters, vehicles } from "@fleetapp/db/schema";
+import { files, renters, stripeAccounts, vehicles } from "@fleetapp/db/schema";
 import { and, countDistinct, eq, isNull } from "drizzle-orm";
 
 import { bondAccountOf, selectBondMovements } from "../bonds/bond-account";
 import { licenceScanInUse } from "../files/stored-files";
+import { rentalPaymentsIn } from "../payments/renter-payment-records";
+
+/** Whether this site can send Renters to Stripe's page and hear back (app-payments). */
+export interface PaymentsReach {
+  canHearRenterPayments: boolean;
+}
+
+const NO_RENTER_PAYMENTS: PaymentsReach = { canHearRenterPayments: false };
+
+/** Whether the business's Renters are offered Stripe's page: this site hears back, and its account is ready. */
+async function isStripeOffered(
+  tx: AnyTransaction,
+  operatorId: string,
+  reach: PaymentsReach,
+): Promise<boolean> {
+  if (!reach.canHearRenterPayments) {
+    return false;
+  }
+  const [account] = await tx
+    .select()
+    .from(stripeAccounts)
+    .where(eq(stripeAccounts.operatorId, operatorId));
+  return account !== undefined && canTakeStripePayments(paymentAccountState(account));
+}
 
 /** Both sides of a licence: front and back. */
 const LICENCE_SIDE_COUNT = 2;
@@ -131,6 +158,7 @@ export async function loadRentalProblems(
     settingsSnapshot: Record<string, unknown>;
   },
   clock: { timeZone: string; now: Date },
+  reach: PaymentsReach = NO_RENTER_PAYMENTS,
 ): Promise<BookingProblem[] | "renter_not_found" | "car_not_found"> {
   return withTenant(database, operatorId, async (tx) => {
     const parties = await findBookingParties(tx, operatorId, rental, false);
@@ -149,8 +177,20 @@ export async function loadRentalProblems(
       requiredCents: rental.bondCents,
       heldCents: bond.heldCents,
     });
-    return isBondShort
-      ? [...problems, { code: "bond_short", level: "handover", owingCents: bond.owingCents }]
-      : problems;
+    const { directDebit } = await rentalPaymentsIn(tx, operatorId, rental);
+    const isDirectDebitMissing = isDirectDebitMissingForHandover({
+      isRequiredBeforeHandover: settings.isDirectDebitRequiredBeforeHandover,
+      canTakeStripePayments: await isStripeOffered(tx, operatorId, reach),
+      state: directDebit,
+    });
+    return [
+      ...problems,
+      ...(isBondShort
+        ? [{ code: "bond_short", level: "handover", owingCents: bond.owingCents } as const]
+        : []),
+      ...(isDirectDebitMissing
+        ? [{ code: "direct_debit_missing", level: "handover", state: directDebit } as const]
+        : []),
+    ];
   });
 }

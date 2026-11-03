@@ -1,3 +1,4 @@
+import type { DirectDebitState } from "./direct-debits";
 import { TZDate } from "@date-fns/tz";
 import { getISODay } from "date-fns";
 
@@ -115,6 +116,7 @@ export type BookingProblem =
   | { code: "under_minimum_age"; level: "handover"; minimumAge: number }
   | { code: "provisional_licence"; level: "handover" }
   | { code: "bond_short"; level: "handover"; owingCents: number }
+  | { code: "direct_debit_missing"; level: "handover"; state: DirectDebitState }
   | { code: "licence_expires_during"; level: "notice"; expiresOn: string };
 
 /** A car that has left the fleet can never be booked. */

@@ -102,6 +102,13 @@ const envSchema = z
     STRIPE_SECRET_KEY: z.string().min(1).optional(),
     /** Proves an event came from Stripe, for the one events endpoint. */
     STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
+    /**
+     * Proves an event about a business's own account (a Renter's direct
+     * debit or payment) came from Stripe: the second event destination's
+     * secret, same endpoint. Until it is set, Renters are not offered
+     * Stripe's page, since we would never hear how it went.
+     */
+    STRIPE_CONNECT_WEBHOOK_SECRET: z.string().min(1).optional(),
   })
   .superRefine(refuseTestInboxInProduction)
   .superRefine(requireStripeSettings);
@@ -127,4 +134,5 @@ export const env = envSchema.parse({
   PAYMENTS_TRANSPORT: process.env.PAYMENTS_TRANSPORT,
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
   STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+  STRIPE_CONNECT_WEBHOOK_SECRET: process.env.STRIPE_CONNECT_WEBHOOK_SECRET,
 });
