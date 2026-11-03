@@ -1,4 +1,4 @@
-import { BOND_MOVEMENT_KINDS, PAYMENT_METHODS } from "@fleetapp/core";
+import { BOND_MOVEMENT_KINDS } from "@fleetapp/core";
 import { sql } from "drizzle-orm";
 import {
   check,
@@ -15,13 +15,13 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { primaryKeyColumn } from "./columns";
+import { paymentMethodEnum } from "./enums";
+import { payments } from "./payments";
 import { operatorIdColumn } from "./operators";
 import { rentals } from "./rentals";
 import { users } from "./users";
 
 export const bondMovementKindEnum = pgEnum("bond_movement_kind", BOND_MOVEMENT_KINDS);
-/** A generic payment type (rule 16): BECS now, PayTo added later as a value, never a column. */
-export const paymentMethodEnum = pgEnum("payment_method", PAYMENT_METHODS);
 
 /**
  * One movement on a rental's bond account (docs/design/06): money received,
@@ -47,6 +47,8 @@ export const bondMovements = pgTable(
     note: text("note"),
     /** The entry a reversal undoes. */
     reversesId: uuid("reverses_id"),
+    /** The payment through Stripe this money came in by, recorded once Stripe says it succeeded. */
+    paymentId: uuid("payment_id").unique(),
     createdByUserId: uuid("created_by_user_id").references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -66,6 +68,16 @@ export const bondMovements = pgTable(
       foreignColumns: [table.id, table.operatorId, table.rentalId],
     }),
     unique("bond_movements_reversed_once").on(table.reversesId),
+    // A payment's money lands on its own rental's bond, once.
+    foreignKey({
+      name: "bond_movements_payment_fk",
+      columns: [table.paymentId, table.operatorId, table.rentalId],
+      foreignColumns: [payments.id, payments.operatorId, payments.rentalId],
+    }),
+    check(
+      "bond_movements_payment_received",
+      sql`${table.paymentId} is null or ${table.kind} = 'received'`,
+    ),
     index("bond_movements_rental_idx").on(table.operatorId, table.rentalId),
     check("bond_movements_amount", sql`${table.amountCents} > 0`),
     check(

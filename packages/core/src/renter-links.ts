@@ -4,8 +4,16 @@
  * on a phone it has not seen before.
  */
 
-/** What a link is for. Booking view and payments come later. */
-export const RENTER_LINK_PURPOSES = ["details_form", "sign_contract", "sign_change"] as const;
+/**
+ * What a link is for. "set_up_payments" is a rental's direct debit and bond
+ * (Phase 4, slice 4). Booking view comes later.
+ */
+export const RENTER_LINK_PURPOSES = [
+  "details_form",
+  "sign_contract",
+  "sign_change",
+  "set_up_payments",
+] as const;
 export type RenterLinkPurpose = (typeof RENTER_LINK_PURPOSES)[number];
 
 /** How long a details form link lasts: an Operator setting (rule 27). */

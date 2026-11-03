@@ -62,7 +62,10 @@ export const renterLinks = pgTable(
     /** Address searches made from the link's form, capped so a link cannot run up the bill. */
     addressSearches: integer("address_searches").notNull().default(0),
 
-    /** A signing link's rental, the template version and the fingerprint of the text it was sent for. */
+    /**
+     * A signing or payments link's rental; for signing, the template version
+     * and the fingerprint of the text it was sent for.
+     */
     rentalId: uuid("rental_id"),
     templateVersionId: uuid("template_version_id"),
     contractFingerprint: text("contract_fingerprint"),
@@ -102,10 +105,10 @@ export const renterLinks = pgTable(
     }),
     check(
       "renter_links_signing_details",
-      sql`(${table.purpose}::text in ('sign_contract', 'sign_change')) = (${table.rentalId} is not null)
+      sql`(${table.purpose}::text in ('sign_contract', 'sign_change', 'set_up_payments')) = (${table.rentalId} is not null)
         and (${table.purpose}::text = 'sign_change') = (${table.rentalChangeId} is not null)
-        and (${table.rentalId} is null) = (${table.templateVersionId} is null)
-        and (${table.rentalId} is null) = (${table.contractFingerprint} is null)
+        and (${table.purpose}::text in ('sign_contract', 'sign_change')) = (${table.templateVersionId} is not null)
+        and (${table.templateVersionId} is null) = (${table.contractFingerprint} is null)
         and (${table.contractFingerprint} is null or ${table.contractFingerprint} ~ '^[0-9a-f]{64}$')`,
     ),
     foreignKey({

@@ -53,6 +53,8 @@ export const inspections = pgTable(
     notes: text("notes"),
     /** Why the car went before the full bond was held, when the rental's rules wanted it first. */
     bondOverrideReason: text("bond_override_reason"),
+    /** Why the car went without a working direct debit, when the rental's rules wanted one first. */
+    directDebitOverrideReason: text("direct_debit_override_reason"),
     startedByUserId: uuid("started_by_user_id")
       .notNull()
       .references(() => users.id),

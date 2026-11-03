@@ -20,7 +20,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-import { paymentMethodEnum } from "./bonds";
+import { paymentMethodEnum } from "./enums";
 import { primaryKeyColumn, timestampColumns } from "./columns";
 import { damageRecords } from "./damage";
 import { operatorIdColumn } from "./operators";

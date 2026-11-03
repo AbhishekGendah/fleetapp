@@ -1,4 +1,4 @@
-import { AUSTRALIAN_STATE_CODES } from "@fleetapp/core";
+import { AUSTRALIAN_STATE_CODES, PAYMENT_METHODS } from "@fleetapp/core";
 import { pgEnum } from "drizzle-orm/pg-core";
 
 /**
@@ -27,3 +27,6 @@ export const actorTypeEnum = pgEnum("actor_type", ACTOR_TYPES);
 
 export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
 export type ActorType = (typeof ACTOR_TYPES)[number];
+
+/** A generic payment type (rule 16): BECS now, PayTo added later as a value, never a column. */
+export const paymentMethodEnum = pgEnum("payment_method", PAYMENT_METHODS);

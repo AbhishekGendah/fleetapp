@@ -29,3 +29,4 @@ export * from "./rental-changes";
 export * from "./car-swaps";
 export * from "./billing";
 export * from "./ledger";
+export * from "./payments";

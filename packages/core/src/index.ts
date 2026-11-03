@@ -55,3 +55,4 @@ export * from "./bonds";
 export * from "./handover";
 export * from "./rental-changes";
 export * from "./car-swaps";
+export * from "./direct-debits";

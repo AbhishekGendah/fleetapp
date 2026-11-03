@@ -87,6 +87,12 @@ export const operatorSettingsSchema = z.object({
   partWeekCharging: z.enum(PART_WEEK_CHARGING).default("daily_pro_rata"),
   /** Whether the full bond must be held before the car is handed over. */
   isBondRequiredBeforeHandover: z.boolean().default(true),
+  /**
+   * Whether the Renter's direct debit must be set up before the car is
+   * handed over (docs/design/05). Applies only once the business can take
+   * payments by Stripe.
+   */
+  isDirectDebitRequiredBeforeHandover: z.boolean().default(true),
   /** How long the bond is kept after the car comes back, for late fines and tolls. */
   bondHoldDaysAfterReturn: z
     .number()
