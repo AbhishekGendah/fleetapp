@@ -49,6 +49,8 @@ Add to this list whenever something is relaxed or put off "until launch".
       platform profile filled in, live keys in the production Vercel project
       only (PAYMENTS_TRANSPORT=stripe), and the live event destination's
       secret. Never the stand-in (the app refuses it in production).
+      Consider a restricted live key with only what the app uses (accounts,
+      account links, and later payments) instead of the full secret key.
 - [ ] Drop the four unused Stripe columns on the operators table (from
       Phase 1; replaced by stripe_accounts in Phase 4 slice 3) in a
       migration after the code that stopped reading them is deployed.
