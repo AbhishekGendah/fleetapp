@@ -236,6 +236,10 @@ Never use "client", "customer" or "tenant" for these in code.
 - Ask at most one question at a time.
 - For decisions: give a recommendation plus a one-line tradeoff, so he
   can push back. Research online when unsure; don't guess.
+- Never weigh how long something will take when recommending or
+  building. There is no deadline: build what is right, and fix what
+  needs fixing when it needs it. Tradeoffs are about quality, risk and
+  the user, never effort or time.
 - Before presenting any plan, critically review it yourself as a
   senior engineer would (security, tenancy, money correctness, edge
   cases, anything contradicting the docs) and fix what you find.
