@@ -1,0 +1,17 @@
+/* Each rental bar is a link filling its bar: white on the step's colour (WCAG AA contrast). */
+.fleet-timeline .fleet-timeline-bar {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 0.5rem;
+  color: #ffffff;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-decoration: none;
+}
+.fleet-timeline .fleet-timeline-bar:focus-visible {
+  outline: 3px solid var(--color-ring);
+  outline-offset: 1px;
+}

@@ -53,6 +53,8 @@
     "./query-adapter": "./src/components/query-adapter.tsx",
     "./app-document": "./src/components/app-document.tsx",
     "./bookings-calendar": "./src/components/bookings-calendar.tsx",
+    "./booking-tones": "./src/components/booking-tones.ts",
+    "./fleet-timeline": "./src/components/fleet-timeline.tsx",
     "./date-time-picker": "./src/components/date-time-picker.tsx",
     "./record-picker": "./src/components/record-picker.tsx",
     "./contract-editor": "./src/components/contract-editor.tsx",
@@ -71,6 +73,7 @@
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",
+    "@daypilot/daypilot-lite-react": "6.1.0",
     "@fleetapp/auth": "workspace:*",
     "@fleetapp/core": "workspace:*",
     "@fullcalendar/react": "7.1.3",

@@ -12,8 +12,9 @@ import * as React from "react";
 
 import "./bookings-calendar.css";
 
-/** How a booking is coloured: the rental's step. */
-export type BookingTone = "draft" | "booked" | "active" | "finished";
+import { BOOKING_TONE_COLOURS, type BookingTone } from "./booking-tones";
+
+export type { BookingTone } from "./booking-tones";
 
 export interface CalendarEntry {
   id: string;
@@ -39,14 +40,6 @@ export interface BookingsCalendarProps {
   /** Told when the person moves to another month or view, to load its bookings. */
   onWindowChange?: (window: { from: Date; to: Date }) => void;
 }
-
-/** Each step's colour, from the brand's theme; white text on each meets WCAG AA contrast. */
-const TONE_COLOURS: Readonly<Record<BookingTone, string>> = {
-  draft: "var(--color-muted-foreground)",
-  booked: "var(--color-teal)",
-  active: "var(--color-primary)",
-  finished: "var(--color-muted-foreground)",
-};
 
 /** A phone shows the list; the month grid is too narrow to read there (rule 24). */
 const PHONE_QUERY = "(max-width: 639px)";
@@ -76,7 +69,7 @@ export function BookingsCalendar({
         start: entry.start,
         end: entry.end,
         url: entry.href,
-        color: TONE_COLOURS[entry.tone],
+        color: BOOKING_TONE_COLOURS[entry.tone],
       })),
     [entries],
   );

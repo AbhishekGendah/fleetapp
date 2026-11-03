@@ -21,6 +21,7 @@ import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { Checkbox } from "@fleetapp/ui/checkbox";
 import { BookingsCalendar, type CalendarEntry } from "@fleetapp/ui/bookings-calendar";
+import { FleetTimeline, type TimelineBar } from "@fleetapp/ui/fleet-timeline";
 import { ComboBox } from "@fleetapp/ui/combo-box";
 import { CodeInput, TOTP_CODE_LENGTH } from "@fleetapp/ui/code-input";
 import { fieldErrorId, FormField } from "@fleetapp/ui/form-field";
@@ -292,6 +293,35 @@ const EXAMPLE_BOOKINGS: readonly CalendarEntry[] = [
     start: "2026-12-08T02:00:00Z",
     end: "2026-12-22T02:00:00Z",
     href: "#booking-2",
+    tone: "booked",
+  },
+];
+
+const EXAMPLE_TIMELINE_ROWS = [
+  { id: "car-1", label: "1ABC234" },
+  { id: "car-2", label: "1XYZ789" },
+  { id: "car-3", label: "1DEF456" },
+];
+
+const EXAMPLE_TIMELINE_BARS: readonly TimelineBar[] = [
+  {
+    id: "bar-1",
+    rowId: "car-1",
+    title: "Sam Example",
+    when: "30 Nov 2026, 9:00 am ongoing",
+    start: "2026-11-30T09:00:00",
+    end: "2026-12-28T00:00:00",
+    href: "#bar-1",
+    tone: "active",
+  },
+  {
+    id: "bar-2",
+    rowId: "car-2",
+    title: "Alex Sample",
+    when: "8 Dec 2026, 10:00 am to 15 Dec 2026, 10:00 am",
+    start: "2026-12-08T10:00:00",
+    end: "2026-12-15T10:00:00",
+    href: "#bar-2",
     tone: "booked",
   },
 ];
@@ -756,6 +786,18 @@ export function ComponentCatalogue() {
           entries={EXAMPLE_BOOKINGS}
           timeZone="Australia/Perth"
           initialDate="2026-12-01"
+        />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Fleet timeline"
+        note="One row per car, days across, each booking a bar that opens its rental. Swipe sideways on a phone."
+      >
+        <FleetTimeline
+          rows={EXAMPLE_TIMELINE_ROWS}
+          bars={EXAMPLE_TIMELINE_BARS}
+          startDate="2026-11-30"
+          days={28}
         />
       </CatalogueSection>
 

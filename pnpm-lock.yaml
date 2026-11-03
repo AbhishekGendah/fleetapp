@@ -448,6 +448,9 @@ importers:
       '@base-ui/react':
         specifier: 1.9.0
         version: 1.9.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@daypilot/daypilot-lite-react':
+        specifier: 6.1.0
+        version: 6.1.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@fleetapp/auth':
         specifier: workspace:*
         version: link:../auth
@@ -829,6 +832,15 @@ packages:
 
   '@date-fns/tz@1.5.0':
     resolution: {integrity: sha512-lwYN/vDPeNRULcepoE/LO2Pgx+7/RV+S9ARfbc9lr2DtGkOD7pAiruHvbR1RX3Qyf6ja47EWJDMsNK5vK08DJg==}
+
+  '@daypilot/daypilot-lite-javascript@6.1.0':
+    resolution: {integrity: sha512-gh2JihELPYeBhZX8JQ/maHIiLoirRGGRXDw0bL5tr6exf2+wxMgpXZD6xH5yuujFAIChuSIjWgGFVkmtAjtyfA==}
+
+  '@daypilot/daypilot-lite-react@6.1.0':
+    resolution: {integrity: sha512-v6ps3np3y7Bq4yD0LCiPl1j5kGaHU5NskxWRI7Aj+KOieggai30Mqgd5+3CZN3pp8w2I+kGHNkbeJFz5IEfojA==}
+    peerDependencies:
+      react: '>=18.0.0'
+      react-dom: '>=18.0.0'
 
   '@drizzle-team/brocli@0.10.2':
     resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
@@ -3027,6 +3039,9 @@ packages:
 
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
+
+  create-react-class@15.7.0:
+    resolution: {integrity: sha512-QZv4sFWG9S5RUvkTYWbflxeZX+JG7Cz0Tn33rQBJ+WFQTqTfUTjMjiv9tnfXazjsO5r0KhPs+AqCjyrQX6h2ng==}
 
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
@@ -5570,6 +5585,15 @@ snapshots:
 
   '@date-fns/tz@1.5.0': {}
 
+  '@daypilot/daypilot-lite-javascript@6.1.0': {}
+
+  '@daypilot/daypilot-lite-react@6.1.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+    dependencies:
+      '@daypilot/daypilot-lite-javascript': 6.1.0
+      create-react-class: 15.7.0
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+
   '@drizzle-team/brocli@0.10.2': {}
 
   '@emnapi/core@1.10.0':
@@ -7345,6 +7369,11 @@ snapshots:
   concat-map@0.0.1: {}
 
   convert-source-map@2.0.0: {}
+
+  create-react-class@15.7.0:
+    dependencies:
+      loose-envify: 1.4.0
+      object-assign: 4.1.1
 
   cross-spawn@7.0.6:
     dependencies:
