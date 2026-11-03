@@ -81,6 +81,9 @@ export const NON_TENANT_TABLES = [
   "user_verifications",
   "vehicle_makes",
   "vehicle_models",
+  // Stripe's events, recorded before their business is known (rule 20); reached
+  // only through app.record_stripe_event, never by an application role.
+  "stripe_events",
 ] as const;
 
 /**
