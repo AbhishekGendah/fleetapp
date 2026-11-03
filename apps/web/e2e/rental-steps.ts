@@ -65,6 +65,14 @@ export async function addCarToBook(page: Page, rego: string): Promise<void> {
   await expect(page.getByRole("heading", { name: rego })).toBeVisible();
 }
 
+/** Checks the page is the rental for these parties, and gives its id from the address. */
+export async function rentalIdOnPage(page: Page, parties: RentalParties): Promise<string> {
+  await expect(
+    page.getByRole("heading", { name: `${parties.carRego} · ${parties.renterName}` }),
+  ).toBeVisible();
+  return new URL(page.url()).pathname.split("/").at(-1) ?? "";
+}
+
 /** Opens the Renter's rental from the Rentals list, checking it is the one for their car. */
 export async function openRentalOf(page: Page, parties: RentalParties): Promise<string> {
   await page.goto("/rentals", { waitUntil: "networkidle" });
@@ -72,10 +80,7 @@ export async function openRentalOf(page: Page, parties: RentalParties): Promise<
     .getByRole("link", { name: new RegExp(parties.renterName) })
     .first()
     .click();
-  await expect(
-    page.getByRole("heading", { name: `${parties.carRego} · ${parties.renterName}` }),
-  ).toBeVisible();
-  return new URL(page.url()).pathname.split("/").at(-1) ?? "";
+  return rentalIdOnPage(page, parties);
 }
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;

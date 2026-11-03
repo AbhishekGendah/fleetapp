@@ -4,7 +4,13 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { PHONE_VIEWPORT } from "./e2e-settings";
 import { expectNoSidewaysScroll } from "./phone-checks";
-import { addCarToBook, fillRental, morningInDays, type RentalParties } from "./rental-steps";
+import {
+  addCarToBook,
+  fillRental,
+  morningInDays,
+  rentalIdOnPage,
+  type RentalParties,
+} from "./rental-steps";
 import {
   recordHandover,
   recordInWorkshop,
@@ -56,11 +62,8 @@ async function book(page: Page, parties: RentalParties): Promise<string> {
     morningInDays(BOOKING_STARTS_IN_DAYS + BOOKING_DAYS),
   );
   await page.getByRole("button", { name: "Book", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: `${parties.carRego} · ${parties.renterName}` }),
-  ).toBeVisible();
   // Booking opens the rental's page; other tests' rentals may push it off the list's first page.
-  return new URL(page.url()).pathname.split("/").at(-1) ?? "";
+  return rentalIdOnPage(page, parties);
 }
 
 async function openTimeline(page: Page, query = ""): Promise<void> {
@@ -201,7 +204,9 @@ test.describe.serial("the fleet timeline", () => {
     test.use({ viewport: PHONE_VIEWPORT, hasTouch: true, isMobile: true });
 
     test("a tap on an empty day starts a rental for that car", async ({ page }) => {
-      await openTimeline(page);
+      // Only this car: its row is first, whatever other tests' cars are there.
+      await page.goto(`${TIMELINE_PATH}?q=${IDLE_REGO}`, { waitUntil: "networkidle" });
+      await carRow(page, IDLE_REGO).scrollIntoViewIfNeeded();
       const name = (await carRow(page, IDLE_REGO).boundingBox())!;
       const firstDay = (await page.locator(".fleet-timeline").boundingBox())!;
       // Days are 44px wide on a phone; today is first. A day after the workshop block, on screen.
@@ -227,7 +232,9 @@ test.describe.serial("the fleet timeline", () => {
     test.use({ viewport: DESKTOP_VIEWPORT });
 
     test("fills the screen, and an empty day starts a rental for that car", async ({ page }) => {
-      await openTimeline(page);
+      // Only this car: its row is first, whatever other tests' cars are there.
+      await page.goto(`${TIMELINE_PATH}?q=${IDLE_REGO}`, { waitUntil: "networkidle" });
+      await carRow(page, IDLE_REGO).scrollIntoViewIfNeeded();
       const box = page.locator(".fleet-timeline");
       const name = carRow(page, IDLE_REGO);
       const nameBox = (await name.boundingBox())!;
