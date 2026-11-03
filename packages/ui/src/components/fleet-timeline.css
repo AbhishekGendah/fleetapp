@@ -4,14 +4,43 @@
   align-items: center;
   height: 100%;
   padding: 0 0.5rem;
-  color: #ffffff;
+  color: inherit;
   font-size: 0.8125rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   text-decoration: none;
 }
-.fleet-timeline .fleet-timeline-bar:focus-visible {
+.fleet-timeline .fleet-timeline-bar:focus-visible,
+.fleet-timeline .fleet-timeline-row-button:focus-visible {
   outline: 3px solid var(--color-ring);
-  outline-offset: 1px;
+  outline-offset: -3px;
+}
+
+/* Workshop or off-road time: grey stripes, dark text (WCAG AA contrast). */
+.fleet-timeline-workshop,
+.fleet-timeline .fleet-timeline-workshop .scheduler_default_event_inner {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--color-muted),
+    var(--color-muted) 6px,
+    var(--color-card) 6px,
+    var(--color-card) 12px
+  );
+  color: var(--color-foreground);
+}
+
+/* A car's name: a full-height button to tap (44px, rule 24), left-aligned like a label. */
+.fleet-timeline .fleet-timeline-row-button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 2.75rem;
+  padding: 0 0.5rem;
+  color: var(--color-teal);
+  font-weight: 600;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }

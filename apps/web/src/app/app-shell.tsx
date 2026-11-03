@@ -1,3 +1,4 @@
+import { cn } from "@fleetapp/ui/cn";
 import { ExpiringImage } from "@fleetapp/ui/expiring-image";
 import { Logo, LogoMark } from "@fleetapp/ui/logo";
 
@@ -15,9 +16,12 @@ import { SIGN_IN_PATH } from "../lib/paths";
 export async function AppShell({
   user,
   children,
+  isWide = false,
 }: {
   user: SignedInUser;
   children: React.ReactNode;
+  /** Uses the whole screen's width, for a page that shows more the wider it is (the timeline). */
+  isWide?: boolean;
 }) {
   const logoUrl = await loadOperatorLogoUrl(user.operatorId);
   return (
@@ -45,7 +49,12 @@ export async function AppShell({
         </header>
 
         {/* Bottom padding keeps the last thing on the page clear of the tab bar. */}
-        <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-4 pb-24 md:p-8 md:pb-8">
+        <main
+          className={cn(
+            "mx-auto flex w-full flex-col gap-4 p-4 pb-24 md:p-8 md:pb-8",
+            !isWide && "max-w-5xl",
+          )}
+        >
           {children}
         </main>
       </div>

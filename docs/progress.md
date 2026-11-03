@@ -868,6 +868,37 @@
     phone with the keyboard, accessibility and a 310 KB budget (browser).
     Checklist rows O-317 and O-318.
 
+- Fleet timeline v2 (plan: docs/plans/timeline-v2.md), from Abhi's
+  feedback on v1:
+  - Loads a quarter back and half a year ahead and opens at today:
+    scroll or swipe through it smoothly. The past comes from who really
+    had each car (finished possessions, rule 15), so returned rentals and
+    swapped-out cars show; today on comes from the bookings. Today button,
+    and Go to a date for anything further out.
+  - Zoom: Days, Weeks, Months. Fills a big screen (the page uses the full
+    width), never narrower than stays readable on a phone.
+  - Choose cars: search, status (All, Available, Out, Workshop) and "Only
+    these cars"; kept in the page address. On a phone the less used
+    choices fold under More choices so the timeline shows first.
+  - A car's name opens a quick-view panel (from the bottom on a phone, the
+    right on a computer): status, kilometres, rego and insurance expiry,
+    who has it, next booking; Open car page, New rental for this car.
+  - Tap an empty day: New rental opens with that car and day filled in
+    (the form now takes a start day).
+  - Workshop and off-road time striped to the expected back date; today
+    shaded; a legend.
+  - New shared pieces (on Base UI, no new library): slide-in panel, choice
+    buttons, several-records picker; all in the component catalogue.
+    Found on the way: Escape in a several-records picker emptied every
+    choice (Base UI's default); it now only closes the list. The
+    one-record picker and the new one share their parts.
+  - Not included on purpose: dragging bookings (changes stay on the rental
+    page, where every check runs).
+  - Tests: window, zoom and filter rules (core); the past possessions,
+    another Operator seeing none (server); phone, touch screen and
+    computer in the browser with keyboard and accessibility checks. Page
+    budget 410 KB. Checklist rows O-317, O-318 updated; O-319 to O-323.
+
 ## Next
 Phase 3 is complete. Next: Phase 4 (payments).
 Open idea: trim the phone rules to Australia only with libphonenumber's

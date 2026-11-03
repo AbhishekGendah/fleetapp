@@ -103,3 +103,50 @@ export async function recordHandover(rentalId: string): Promise<void> {
     await client.end();
   }
 }
+
+/**
+ * Records a handed-over rental as back an hour ago, straight in the test
+ * database: the Renter's time with the car ends and the car's hold is let
+ * go, as the return does. For tests of what shows a rental's past (the
+ * timeline), as the return itself is proven in handover.e2e.ts.
+ */
+export async function recordReturn(rentalId: string): Promise<void> {
+  const client = new Client({ connectionString: process.env.E2E_SUPERUSER_URL });
+  await client.connect();
+  try {
+    const returnedAt = new Date(Date.now() - 60 * 60 * 1000);
+    await client.query(
+      "UPDATE possessions SET ended_at = $2 WHERE rental_id = $1 AND ended_at IS NULL",
+      [rentalId, returnedAt],
+    );
+    await client.query(
+      "UPDATE car_holds SET released_at = $2 WHERE rental_id = $1 AND released_at IS NULL",
+      [rentalId, returnedAt],
+    );
+    await client.query("UPDATE rentals SET status = 'returned', returned_at = $2 WHERE id = $1", [
+      rentalId,
+      returnedAt,
+    ]);
+    await client.query(
+      "UPDATE vehicles SET status = 'available' FROM rentals WHERE rentals.id = $1 AND vehicles.id = rentals.vehicle_id",
+      [rentalId],
+    );
+  } finally {
+    await client.end();
+  }
+}
+
+/** Puts a car in the workshop until a day, straight in the test database. */
+export async function recordInWorkshop(rego: string, expectedBack: string): Promise<void> {
+  const client = new Client({ connectionString: process.env.E2E_SUPERUSER_URL });
+  await client.connect();
+  try {
+    await client.query(
+      `UPDATE vehicles SET status = 'in_service', status_reason = 'New clutch',
+         status_expected_back = $2 WHERE rego = $1`,
+      [rego, expectedBack],
+    );
+  } finally {
+    await client.end();
+  }
+}
