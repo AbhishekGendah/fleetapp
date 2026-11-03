@@ -43,8 +43,10 @@ Never use "client", "customer" or "tenant" for these in code.
 - Drizzle ORM, pinned to the stable release.
 - Better Auth: separate instances for web and admin. TOTP 2FA mandatory.
 - Zod at every boundary (routes, actions, forms, webhooks, env, imports).
-- Stripe: Connect Express, direct charges on the Operator's connected
-  account. BECS direct debit now, PayTo later. AGS subscriptions via
+- Stripe: Connect (Accounts v2) with each Operator on the full Stripe
+  dashboard, direct charges on the Operator's connected account (the
+  Operator is the merchant; approved 3 Nov 2026, docs/plans/phase-4.md
+  decision 1). BECS direct debit now, PayTo later. AGS subscriptions via
   Stripe Billing on the AGS platform account.
 - Files: storage interface over AWS S3 ap-southeast-2. Separate dev and
   production buckets.

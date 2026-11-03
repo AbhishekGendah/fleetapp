@@ -901,9 +901,8 @@
 
 ## Next
 Phase 3 is complete. Next: Phase 4 (money). The plan is written
-(docs/plans/phase-4.md, 3 Nov 2026) and waits for Abhi's approval,
-including decision 1 (Stripe accounts on the full dashboard, which changes
-CLAUDE.md's "Connect Express").
+(docs/plans/phase-4.md), approved 3 Nov 2026 with each Operator on the
+full Stripe dashboard. Slice 1 (the ledger and weekly charges) is next.
 Open idea: trim the phone rules to Australia only with libphonenumber's
 metadata generator (about 40 KB off each form page); running the
 generator needs Abhi's say-so.

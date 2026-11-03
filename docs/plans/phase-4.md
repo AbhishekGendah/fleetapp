@@ -1,6 +1,7 @@
 # Phase 4: Money
 
-Status: draft for Abhi's approval (3 Nov 2026). Touches money, schema and
+Status: approved by Abhi on 3 Nov 2026, with decision 1 (full Stripe
+dashboard). Slice 1 next. Touches money, schema and
 Stripe, so nothing is built until it is approved. Design: docs/design/06
 (money), 01 (Stripe on the Operator), 04 and 05 (where rentals and signing
 hand over to money). Rules 9, 11, 12, 16, 17, 19 and 20 apply throughout.
@@ -237,7 +238,7 @@ bank transfer), which is also what many Operators will keep doing.
    appeal. With the full dashboard, the Operator's business carries its own
    refunds, disputes and negative balance, as the merchant it is.
    Tradeoff: Operators see Stripe's full dashboard (more to learn) and AGS
-   has less say over their account settings. Needs Abhi's yes, and
+   has less say over their account settings. Approved 3 Nov 2026;
    CLAUDE.md updated to match.
 2. **A payment counts when Stripe says it succeeded**, not when it is
    asked for. Tradeoff: for a few days the balance shows the week owing
