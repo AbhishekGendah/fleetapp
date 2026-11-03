@@ -281,6 +281,13 @@
       "when": 1793688677696,
       "tag": "0039_billing",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793700433822,
+      "tag": "0040_stripe_accounts",
+      "breakpoints": true
     }
   ]
 }

@@ -84,6 +84,7 @@ export const ACTIVITY_ENTITY_TYPES = {
   ledgerLine: "ledger_line",
   billingDocument: "billing_document",
   documentNumbering: "document_numbering",
+  stripeAccount: "stripe_account",
 } as const;
 
 /** What happened to it. No free text at call sites. */

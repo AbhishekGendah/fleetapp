@@ -25,6 +25,7 @@ export * from "./list-query";
 export * from "./local-date-time";
 export * from "./locale";
 export * from "./money";
+export * from "./payment-accounts";
 export * from "./name-matching";
 export * from "./operator-name";
 export * from "./operator-status";
