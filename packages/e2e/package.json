@@ -25,7 +25,7 @@
   "devDependencies": {
     "@fleetapp/config": "workspace:*",
     "@playwright/test": "1.56.1",
-    "@types/node": "26.6.2",
+    "@types/node": "26.6.5",
     "eslint": "9.39.5",
     "typescript": "6.0.3"
   },
