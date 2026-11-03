@@ -74,7 +74,9 @@ describe("a weekly rate by the day", () => {
     expect(rentForDays(rising, "2026-11-03", 7)).toBe(3 * 50_00 + 4 * 60_00);
     expect(rentForDays(RATE_350, "2026-11-03", 7)).toBe(350_00);
     expect(rentForDays(RATE_350, "2026-11-03", 3)).toBe(150_00);
-    expect(() => rentForDays(RATE_350, "2025-12-31", 1)).toThrow(RangeError);
+    // Handed over a day before the first rate: that day is at the first rate.
+    expect(rentForDays(RATE_350, "2025-12-31", 1)).toBe(50_00);
+    expect(() => rentForDays([], "2026-11-03", 1)).toThrow(RangeError);
   });
 });
 

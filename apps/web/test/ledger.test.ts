@@ -222,11 +222,16 @@ describe("the ledger", () => {
     expect(othersTypes.map((type) => type.label)).not.toContain("Bridge toll");
   });
 
-  it("the daily run charges every business with rent due, and adds nothing on a second run", async () => {
-    const first = await runRentJob(web.db, EARLY_WEDNESDAY_27TH);
-    const second = await runRentJob(web.db, EARLY_WEDNESDAY_27TH);
+  // The run sweeps every business in the shared test database, so it runs at
+  // the real time: a 2030 run would charge years of rent to other files'
+  // rentals, slowly, while their own tests read them.
+  it("the daily run visits every business with rent due, and adds nothing on a second run", async () => {
+    const now = new Date();
+    const first = await runRentJob(web.db, now);
+    const second = await runRentJob(web.db, now);
 
-    expect(first.failedOperators).toBe(0);
+    expect(first).toMatchObject({ failedOperators: 0 });
+    expect(first.operators).toBeGreaterThan(0);
     expect(second).toMatchObject({ failedOperators: 0, done: 0 });
   });
 });

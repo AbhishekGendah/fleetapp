@@ -183,12 +183,17 @@ export interface RateFromDate {
   weeklyRateCents: number;
 }
 
+/**
+ * The rate in force on a day. A day before the first rate (a car handed
+ * over ahead of the planned start) is at the first rate.
+ */
 function rateOn(rates: readonly RateFromDate[], isoDate: string): number {
-  const inForce = rates
-    .filter((rate) => rate.appliesFrom <= isoDate)
-    .sort((first, second) => second.appliesFrom.localeCompare(first.appliesFrom))[0];
+  const byDate = [...rates].sort((first, second) =>
+    first.appliesFrom.localeCompare(second.appliesFrom),
+  );
+  const inForce = byDate.filter((rate) => rate.appliesFrom <= isoDate).at(-1) ?? byDate[0];
   if (!inForce) {
-    throw new RangeError(`No weekly rate applies on ${isoDate}.`);
+    throw new RangeError("A rental always has a weekly rate.");
   }
   return inForce.weeklyRateCents;
 }
