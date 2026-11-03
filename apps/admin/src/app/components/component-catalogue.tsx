@@ -21,7 +21,10 @@ import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { Checkbox } from "@fleetapp/ui/checkbox";
 import { BookingsCalendar, type CalendarEntry } from "@fleetapp/ui/bookings-calendar";
+import { Drawer } from "@fleetapp/ui/drawer";
 import { FleetTimeline, type TimelineBar } from "@fleetapp/ui/fleet-timeline";
+import { MultiRecordPicker } from "@fleetapp/ui/multi-record-picker";
+import { ToggleGroup } from "@fleetapp/ui/toggle-group";
 import { ComboBox } from "@fleetapp/ui/combo-box";
 import { CodeInput, TOTP_CODE_LENGTH } from "@fleetapp/ui/code-input";
 import { fieldErrorId, FormField } from "@fleetapp/ui/form-field";
@@ -253,6 +256,60 @@ const EXAMPLE_RENTERS: readonly PickableRecord[] = [
   { value: "renter-2", label: "Alex Sample", description: "alex@example.test" },
   { value: "renter-3", label: "Jo Citizen", description: "0498 765 432" },
 ];
+
+const EXAMPLE_PICKABLE_CARS: readonly PickableRecord[] = [
+  { value: "car-1", label: "1ABC234", description: "Toyota Corolla · Rented" },
+  { value: "car-2", label: "1XYZ789", description: "Hyundai Ioniq · Available" },
+  { value: "car-3", label: "1DEF456", description: "Kia Niro · In service" },
+];
+
+const EXAMPLE_SHOW_OPTIONS = [
+  { value: "all", label: "All" },
+  { value: "available", label: "Available" },
+  { value: "out", label: "Out" },
+] as const;
+
+function MultiRecordPickerExample() {
+  const [carIds, setCarIds] = useState<string[]>([]);
+  return (
+    <FormField htmlFor="example-cars" label="Cars" hint="Choose one or several.">
+      <MultiRecordPicker
+        id="example-cars"
+        records={EXAMPLE_PICKABLE_CARS}
+        values={carIds}
+        onValuesChange={setCarIds}
+        placeholder="Type a rego"
+        emptyMessage="No car matches that."
+      />
+    </FormField>
+  );
+}
+
+function ToggleGroupExample() {
+  const [shown, setShown] = useState<(typeof EXAMPLE_SHOW_OPTIONS)[number]["value"]>("all");
+  return (
+    <ToggleGroup
+      label="Show cars"
+      options={EXAMPLE_SHOW_OPTIONS}
+      value={shown}
+      onValueChange={setShown}
+    />
+  );
+}
+
+function DrawerExample() {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <>
+      <Button type="button" variant="outline" onClick={() => setIsOpen(true)}>
+        Open a panel
+      </Button>
+      <Drawer isOpen={isOpen} onOpenChange={setIsOpen} title="1ABC234">
+        <p>Toyota Corolla 2024 · Rented to Sam Example since 3 Nov.</p>
+      </Drawer>
+    </>
+  );
+}
 
 /** Only a listed record can be picked; the form sends its id. */
 function RecordPickerExample() {
@@ -787,6 +844,27 @@ export function ComponentCatalogue() {
           timeZone="Australia/Perth"
           initialDate="2026-12-01"
         />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Several records"
+        note="Picks several, e.g. the cars to show. Each chosen one is a chip with a remove button."
+      >
+        <MultiRecordPickerExample />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Choice buttons"
+        note="One of a few values; the chosen one stays pressed. Arrow keys move between them."
+      >
+        <ToggleGroupExample />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Slide-in panel"
+        note="Up from the bottom on a phone, in from the right on a computer. Swipe, Escape or Close shuts it."
+      >
+        <DrawerExample />
       </CatalogueSection>
 
       <CatalogueSection

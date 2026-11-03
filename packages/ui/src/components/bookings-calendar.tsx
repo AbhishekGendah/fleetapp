@@ -12,6 +12,7 @@ import * as React from "react";
 
 import "./bookings-calendar.css";
 
+import { isPhoneWidth } from "../lib/phone-width";
 import { BOOKING_TONE_COLOURS, type BookingTone } from "./booking-tones";
 
 export type { BookingTone } from "./booking-tones";
@@ -42,13 +43,8 @@ export interface BookingsCalendarProps {
 }
 
 /** A phone shows the list; the month grid is too narrow to read there (rule 24). */
-const PHONE_QUERY = "(max-width: 639px)";
 const MONTH_VIEW = "dayGridMonth";
 const LIST_VIEW = "listMonth";
-
-function isPhoneWidth(): boolean {
-  return typeof window !== "undefined" && window.matchMedia(PHONE_QUERY).matches;
-}
 
 /**
  * Bookings on FullCalendar's free (MIT) month and list views: a month
