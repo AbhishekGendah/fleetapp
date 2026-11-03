@@ -1,11 +1,9 @@
-import { formatCalendarDate } from "@fleetapp/core";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 
-import { DetailLines } from "../../../components/detail-lines";
 import { appDb } from "../../../lib/app-db";
 import { loadRenterLedger } from "../../../lib/ledger/ledger-queries";
 import type { SignedInUser } from "../../../lib/require-user";
-import { balanceText, LedgerLineList } from "../../rentals/ledger-line-list";
+import { LedgerSummary } from "../../rentals/ledger-line-list";
 
 /**
  * The Renter's whole ledger (docs/design/06): every line of every rental of
@@ -24,19 +22,7 @@ export async function MoneyTab({ renterId, user }: { renterId: string; user: Sig
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <DetailLines
-          lines={[
-            ["Balance", balanceText(ledger.balanceCents)],
-            ...(ledger.oldestOwingOn
-              ? ([["Owing since", formatCalendarDate(ledger.oldestOwingOn)]] as const)
-              : []),
-          ]}
-        />
-        {ledger.lines.length > 0 ? (
-          <LedgerLineList ledger={ledger} label="Money lines" showRego />
-        ) : (
-          <p className="text-muted-foreground text-sm">Nothing charged or paid yet.</p>
-        )}
+        <LedgerSummary ledger={ledger} label="Money lines" showRego />
       </CardContent>
     </Card>
   );

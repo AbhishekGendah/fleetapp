@@ -7,6 +7,7 @@ import {
 import { Badge } from "@fleetapp/ui/badge";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
 
+import { DetailLines } from "../../components/detail-lines";
 import type { LedgerLineView, LedgerView } from "../../lib/ledger/ledger-queries";
 
 /** Lines that lower what is owed show with a minus. */
@@ -35,13 +36,15 @@ function signedAmount(line: LedgerLineView, ledger: LedgerView): string {
  * line's buttons (the rental page's Reverse); `showRego` names the car for
  * a Renter's whole ledger.
  */
-export function LedgerLineList(props: {
+type LedgerLineListProps = {
   ledger: LedgerView;
   label: string;
   limit?: number;
   showRego?: boolean;
   actionsFor?: (line: LedgerLineView) => React.ReactNode;
-}) {
+};
+
+export function LedgerLineList(props: LedgerLineListProps) {
   const { ledger } = props;
   const reversedIds = new Set(ledger.lines.map((line) => line.reversesId));
   const newestFirst = [...ledger.lines].reverse().slice(0, props.limit);
@@ -77,4 +80,26 @@ export function balanceText(balanceCents: number): string {
     return `Owing ${formatCents(balanceCents)}`;
   }
   return balanceCents < 0 ? `In credit ${formatCents(-balanceCents)}` : "Nothing owing";
+}
+
+/** The balance, how long it has been owed, and the lines (or a note that there are none yet). */
+export function LedgerSummary(props: LedgerLineListProps) {
+  const { ledger } = props;
+  return (
+    <>
+      <DetailLines
+        lines={[
+          ["Balance", balanceText(ledger.balanceCents)],
+          ...(ledger.oldestOwingOn
+            ? ([["Owing since", formatCalendarDate(ledger.oldestOwingOn)]] as const)
+            : []),
+        ]}
+      />
+      {ledger.lines.length > 0 ? (
+        <LedgerLineList {...props} />
+      ) : (
+        <p className="text-muted-foreground text-sm">Nothing charged or paid yet.</p>
+      )}
+    </>
+  );
 }

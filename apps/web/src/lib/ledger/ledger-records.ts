@@ -18,7 +18,7 @@ import { ledgerViewOf, selectRentalLedger, type LedgerView } from "./ledger-quer
 import { loadOperatorGst } from "./operator-gst";
 
 /** A rental can take charges and payments once booked, until it is closed. */
-const OPEN_FOR_MONEY: ReadonlySet<RentalStatus> = new Set(["booked", "active", "returned"]);
+export const OPEN_FOR_MONEY: ReadonlySet<RentalStatus> = new Set(["booked", "active", "returned"]);
 
 export type LedgerChangeResult =
   | { status: "saved"; ledger: LedgerView }
@@ -32,6 +32,25 @@ async function lockOpenRental(tx: AnyTransaction, operatorId: string, rentalId: 
     .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, operatorId)))
     .for("update");
   return rental ?? null;
+}
+
+/**
+ * Runs `work` with the rental locked, when it is this business's and still
+ * open for money; otherwise says why not.
+ */
+function withOpenRental(
+  database: AnyDatabase,
+  operatorId: string,
+  rentalId: string,
+  work: (tx: AnyTransaction) => Promise<LedgerChangeResult>,
+): Promise<LedgerChangeResult> {
+  return withTenant(database, operatorId, async (tx): Promise<LedgerChangeResult> => {
+    const rental = await lockOpenRental(tx, operatorId, rentalId);
+    if (!rental) {
+      return { status: "not_found" };
+    }
+    return OPEN_FOR_MONEY.has(rental.status) ? work(tx) : { status: "not_open" };
+  });
 }
 
 /** Amount and kind only: descriptions and references stay with the ledger (rule 7). */
@@ -94,14 +113,7 @@ export async function addCharge(
   rentalId: string,
   input: ChargeInput & { damageRecordId?: string },
 ): Promise<LedgerChangeResult> {
-  return withTenant(database, actor.operatorId, async (tx): Promise<LedgerChangeResult> => {
-    const rental = await lockOpenRental(tx, actor.operatorId, rentalId);
-    if (!rental) {
-      return { status: "not_found" };
-    }
-    if (!OPEN_FOR_MONEY.has(rental.status)) {
-      return { status: "not_open" };
-    }
+  return withOpenRental(database, actor.operatorId, rentalId, async (tx) => {
     const chargeType = await usableChargeType(tx, actor.operatorId, input.chargeTypeId);
     const damageRecordId = await damageOfBusiness(tx, actor.operatorId, input.damageRecordId);
     if (!chargeType || damageRecordId === "missing") {
@@ -134,14 +146,7 @@ export async function recordPayment(
   rentalId: string,
   input: ManualPaymentInput,
 ): Promise<LedgerChangeResult> {
-  return withTenant(database, actor.operatorId, async (tx): Promise<LedgerChangeResult> => {
-    const rental = await lockOpenRental(tx, actor.operatorId, rentalId);
-    if (!rental) {
-      return { status: "not_found" };
-    }
-    if (!OPEN_FOR_MONEY.has(rental.status)) {
-      return { status: "not_open" };
-    }
+  return withOpenRental(database, actor.operatorId, rentalId, async (tx) => {
     return insertLine(tx, actor, {
       operatorId: actor.operatorId,
       rentalId,

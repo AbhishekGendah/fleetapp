@@ -1,28 +1,27 @@
-import { formatCalendarDate, todayInTimeZone, type RentalStatus } from "@fleetapp/core";
+import { todayInTimeZone, type RentalStatus } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { Plus, ReceiptText, Undo2 } from "lucide-react";
 import Link from "next/link";
 
-import { DetailLines } from "../../../components/detail-lines";
 import { CorrectionForm, ManualPaymentForm } from "../../../components/money-forms";
 import { appDb } from "../../../lib/app-db";
 import { listChargeTypes } from "../../../lib/ledger/charge-types";
 import { chargeStart } from "../../../lib/ledger/ledger-input";
 import { loadRentalLedger, type LedgerLineView } from "../../../lib/ledger/ledger-queries";
+import { OPEN_FOR_MONEY } from "../../../lib/ledger/ledger-records";
 import { manualPaymentStart } from "../../../lib/money/manual-payment-input";
 import { renterMoneyPath } from "../../../lib/paths";
 import type { RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { RentalClock } from "../../../lib/rentals/rental-records";
 import type { SignedInUser } from "../../../lib/require-user";
-import { balanceText, LedgerLineList } from "../ledger-line-list";
+import { LedgerSummary } from "../ledger-line-list";
 import { ChargeForm } from "./charge-form";
 import { addChargeAction, recordPaymentAction, reverseLineAction } from "./money-actions";
 
 /** A draft or a cancelled rental has no money; a closed one is shown but not added to. */
 const HAS_MONEY: ReadonlySet<RentalStatus> = new Set(["booked", "active", "returned", "closed"]);
-const OPEN_FOR_MONEY: ReadonlySet<RentalStatus> = new Set(["booked", "active", "returned"]);
 /** The newest lines shown here; the Renter's Money tab has them all. */
 const LINES_SHOWN = 8;
 
@@ -75,28 +74,16 @@ export async function MoneyCard(props: {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <DetailLines
-          lines={[
-            ["Balance", balanceText(ledger.balanceCents)],
-            ...(ledger.oldestOwingOn
-              ? ([["Owing since", formatCalendarDate(ledger.oldestOwingOn)]] as const)
-              : []),
-          ]}
+        <LedgerSummary
+          ledger={ledger}
+          label="Money lines"
+          limit={LINES_SHOWN}
+          actionsFor={(line) =>
+            isOpen && ledger.reversibleIds.has(line.id) ? (
+              <ReverseButton rentalId={rental.id} line={line} />
+            ) : null
+          }
         />
-        {ledger.lines.length > 0 ? (
-          <LedgerLineList
-            ledger={ledger}
-            label="Money lines"
-            limit={LINES_SHOWN}
-            actionsFor={(line) =>
-              isOpen && ledger.reversibleIds.has(line.id) ? (
-                <ReverseButton rentalId={rental.id} line={line} />
-              ) : null
-            }
-          />
-        ) : (
-          <p className="text-muted-foreground text-sm">Nothing charged or paid yet.</p>
-        )}
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           {isOpen ? (
             <>
