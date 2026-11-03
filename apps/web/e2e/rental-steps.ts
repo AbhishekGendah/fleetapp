@@ -99,3 +99,21 @@ export function morningInDays(days: number): TypedMoment {
     meridiem: "a",
   };
 }
+
+/** A Renter to add from the Renters form: a name and email no other test uses, and a phone. */
+export interface NewRenter {
+  name: string;
+  email: string;
+  /** Typed as digits, e.g. "0412001001". */
+  phone: string;
+}
+
+/** Adds a Renter from the Renters form and waits for their page. */
+export async function addRenter(page: Page, renter: NewRenter): Promise<void> {
+  await page.goto("/renters/new", { waitUntil: "networkidle" });
+  await page.getByRole("textbox", { name: /^Full name/ }).fill(renter.name);
+  await page.getByRole("textbox", { name: /^Phone/ }).pressSequentially(renter.phone);
+  await page.getByRole("textbox", { name: /^Email/ }).fill(renter.email);
+  await page.getByRole("button", { name: "Add Renter" }).click();
+  await expect(page.getByRole("heading", { name: renter.name })).toBeVisible();
+}

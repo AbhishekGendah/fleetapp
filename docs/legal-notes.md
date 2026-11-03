@@ -521,6 +521,46 @@ of service) and the countries.
 - **Privacy:** payment references are the Operator's own; no bank or card
   details are stored (rule 7). Admin cannot read the ledger (rule 5).
 
+## Invoices, credit notes, receipts and statements (Phase 4 slice 2, built)
+
+- **Tax invoices (GST Act, ATO):** while the business is GST-registered
+  on the issue date, an invoice is titled "Tax invoice" and shows the
+  business's name and ABN, the date, each item with its price, how far
+  each is taxable (GST in it, GST-free or no GST), the GST total, and the
+  Renter's name (the ATO asks for the buyer's identity from $1,000; it is
+  always shown). Otherwise it is an "Invoice" with no GST shown.
+  **Ask the accountant:** whether issuing each week's invoice in advance
+  on the charge day is the right tax point; whether a one-off charge held
+  for the next weekly invoice is fine; and that the address and contact
+  lines are enough (they come from Settings → Business details).
+- **Adjustment notes:** a correction (a reversed charge, unused days
+  credited) is issued as an "Adjustment note" while registered (GST Act
+  s29-75), naming the invoice it corrects; otherwise a "Credit note".
+  The ATO's Adjustment Note Information Requirements Determination 2022
+  lists what one must hold. **Ask the accountant** to check ours against
+  it (the business, the Renter, the date, the invoice corrected, each
+  item and the GST taken off).
+- **Numbers:** in sequence per business with no gaps (rule 17):
+  invoices and credit notes share one run; receipts have their own. The
+  database refuses a gap or a repeat.
+- **Fixed once issued (rule 12):** each document's PDF is kept with its
+  SHA-256 fingerprint, never changed; a prefix change never renumbers one.
+- **Record keeping:** invoices, adjustment notes, receipts and statements
+  are tax records: kept at least 5 years (ATO). The retention jobs never
+  touch them.
+- **Email:** each document goes to the Renter from the business (replies
+  go to the business), as a transactional message about their rental, not
+  marketing (Spam Act: no unsubscribe needed; it names the sender). An
+  Operator can turn automatic emails off in Settings → Invoices.
+- **How to pay:** the business may print its own payment details (e.g. its
+  bank account for transfers) under its invoices. These are the
+  Operator's own details, typed by them, not a Renter's (CLAUDE.md rule 7
+  clarified 3 Nov 2026). A wrong number would go out on every invoice: the
+  box says to check it.
+- **Privacy:** the Renter's name and their car's rego are on each
+  document, as on their contract. No bank or card details of the Renter
+  are stored. Admin cannot read any of it (rule 5).
+
 ## Fleet timeline (3 Nov 2026)
 
 - **No new data or third party:** it shows the rentals already on the

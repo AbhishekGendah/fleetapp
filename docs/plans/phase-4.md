@@ -122,6 +122,31 @@ bank transfer), which is also what many Operators will keep doing.
 - **Receipt** per payment (PDF, emailed). **Statement** for any date range
   on demand (PDF), and a closing statement at the end of a rental.
 
+**As built (slice 2, 3 Nov 2026):**
+- Migration 0039: the business's numbering (invoice and receipt runs),
+  billing documents (invoice, credit note, receipt) and which ledger lines
+  each is made of (a line on one document only, of its own kind). Once
+  the first is issued the number only moves on by one; a check at commit
+  refuses a number taken without its document, so no gaps or repeats.
+- Each document is numbered, rendered, stored and recorded in one
+  transaction with the rental locked. Its PDF is reserved as a file first,
+  so a failed issue leaves only an abandoned upload for the nightly
+  clean-up, and takes no number.
+- A credit note is titled "Adjustment note" while GST-registered (the
+  ATO's name), and names the invoice it corrects.
+- Issued after each charge, payment and reversal, after a handover or
+  return, and nightly after the rent run (any line on no document yet).
+  Emailed to the Renter only; the business has every document on the
+  rental's page. "Email again" sends one again.
+- One-off charges wait for the next weekly invoice while rent is still to
+  come (booked or out); on a returned rental they are invoiced at once;
+  "Invoice now" on the rental's page issues them early. The setting is
+  copied onto each rental (rule 14).
+- Statements are per rental, for any range of days, and kept as issued
+  documents. The closing statement comes with slice 7.
+- "How to pay" (Settings → Invoices) prints under every invoice; CLAUDE.md
+  rule 7 clarified that it may hold the Operator's own bank details.
+
 ### Slice 3: the Operator connects Stripe
 
 - Connect each Operator's own Stripe account (decision 1). The Operator's

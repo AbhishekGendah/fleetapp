@@ -6,6 +6,7 @@ import { PHONE_VIEWPORT } from "./e2e-settings";
 import { expectNoSidewaysScroll } from "./phone-checks";
 import {
   addCarToBook,
+  addRenter,
   fillRental,
   morningInDays,
   rentalIdOnPage,
@@ -44,15 +45,6 @@ const TIMELINE_PATH = "/rentals/timeline";
  */
 const TIMELINE_PAGE_BUDGET_KB = 410;
 const DESKTOP_VIEWPORT = { width: 1440, height: 900 };
-
-async function addRenter(page: Page, renter: typeof BOOKED): Promise<void> {
-  await page.goto("/renters/new", { waitUntil: "networkidle" });
-  await page.getByRole("textbox", { name: /^Full name/ }).fill(renter.name);
-  await page.getByRole("textbox", { name: /^Phone/ }).pressSequentially(renter.phone);
-  await page.getByRole("textbox", { name: /^Email/ }).fill(renter.email);
-  await page.getByRole("button", { name: "Add Renter" }).click();
-  await expect(page.getByRole("heading", { name: renter.name })).toBeVisible();
-}
 
 async function book(page: Page, parties: RentalParties): Promise<string> {
   await fillRental(

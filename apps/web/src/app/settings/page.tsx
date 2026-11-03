@@ -11,6 +11,7 @@ import { isDemoDataAllowed } from "../../lib/demo-data/demo-access";
 import {
   BUSINESS_DETAILS_ANCHOR,
   CHARGE_TYPES_PATH,
+  INVOICE_SETTINGS_PATH,
   CONTRACTS_PATH,
   DEMO_DATA_PATH,
   SIGN_IN_PATH,
@@ -113,15 +114,21 @@ export default async function SettingsPage() {
         <CardHeader>
           <CardTitle>Charges</CardTitle>
           <CardDescription>
-            What you charge Renters for (rent, cleaning, tolls, your own), and whether each includes
-            GST.
+            What you charge Renters for (rent, cleaning, tolls, your own), whether each includes
+            GST, and how invoices are numbered and sent.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-2 sm:flex-row">
           <Button asChild variant="outline" className="w-full sm:w-auto">
             <Link href={CHARGE_TYPES_PATH}>
               <ReceiptText aria-hidden />
               Charge types
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="w-full sm:w-auto">
+            <Link href={INVOICE_SETTINGS_PATH}>
+              <FileText aria-hidden />
+              Invoices
             </Link>
           </Button>
         </CardContent>

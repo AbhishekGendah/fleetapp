@@ -90,7 +90,9 @@ Never use "client", "customer" or "tenant" for these in code.
 6. Secrets only in env vars, validated with Zod at startup. Fail fast
    if missing. Stripe secret key never in client code or NEXT_PUBLIC_.
 7. Never log personal data, tokens, licence details or bank details.
-   Never store bank or card details; Stripe holds them.
+   Never store a Renter's bank or card details; Stripe holds them. The
+   one exception is the Operator's own payment details that they type
+   into "How to pay" to print on their invoices (approved 3 Nov 2026).
 8. Identity documents (licence scans etc.) live in a separate private
    storage location, are served only via short-lived signed URLs, and
    every view is written to the activity log.

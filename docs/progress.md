@@ -928,11 +928,34 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
     phone in the browser. Settings → Charges budget 445 KB. Checklist rows
     O-324 to O-331; O-278 updated.
 
+- Phase 4 slice 2 — invoices, receipts and statements (plan: docs/plans/phase-4.md):
+  - Migration 0039: numbering per business (invoices and credit notes
+    share a run, receipts their own), billing documents and their ledger
+    lines. No gaps or repeats, enforced by the database; append-only;
+    the admin app has no access.
+  - A tax invoice for each week's rent (an invoice when not GST-
+    registered), one-off charges on the next weekly invoice by default
+    (or at once, setting), an adjustment note (credit note) for each
+    correction, a receipt for each payment, and statements for any days.
+    Each is a fixed PDF with its fingerprint, emailed to the Renter.
+  - Issued as things happen and caught up nightly after the rent run.
+  - Screens: the rental's "Invoices and receipts" card (open, email
+    again, invoice now, statement), the invoice number on each money
+    line, and Settings → Invoices (numbering, emailing, one-off charges,
+    how to pay). CLAUDE.md rule 7 clarified for "How to pay".
+  - Demo data: the payments' receipts and any invoices waiting.
+  - Tests: numbering, line kinds, totals and statements (core); gapless
+    numbers including six issued at once, a failed issue using no
+    number, append-only and isolation (database); invoice, holding a
+    one-off charge, receipt, adjustment note, catch-up, statement,
+    numbering settings, another Operator refused (server); the screens on
+    a phone in the browser. Settings → Invoices budget below.
+
 ## Next
 
-Phase 4 slice 2 (invoices, receipts and statements). The plan is written
+Phase 4 slice 3 (the Operator connects Stripe). The plan is written
 (docs/plans/phase-4.md), approved 3 Nov 2026 with each Operator on the
-full Stripe dashboard. Slice 1 is built.
+full Stripe dashboard. Slices 1 and 2 are built.
 Open idea: trim the phone rules to Australia only with libphonenumber's
 metadata generator (about 40 KB off each form page); running the
 generator needs Abhi's say-so.

@@ -45,6 +45,11 @@ Add to this list whenever something is relaxed or put off "until launch".
 
 ## Settings and services for production
 
+- [ ] The nightly rent run then issues every business's invoices one at a
+      time, inside one 300-second call. Before many businesses are on the
+      platform, measure how long it takes and split it (e.g. one call per
+      business through a queue) well before it gets near the limit.
+
 - [ ] Production buckets: the old-copies clean-up rule at 7 days, not 30
       (docs/legal-notes.md, Stored files). Uploads first land under `incoming/`
       and are moved once checked: the app's storage login needs read, write,

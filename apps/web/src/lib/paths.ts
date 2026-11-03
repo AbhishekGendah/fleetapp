@@ -10,6 +10,7 @@ export const SETTINGS_PATH = "/settings";
 export const BUSINESS_DETAILS_ANCHOR = "business-details";
 export const CONTRACTS_PATH = `${SETTINGS_PATH}/contracts`;
 export const CHARGE_TYPES_PATH = `${SETTINGS_PATH}/charges`;
+export const INVOICE_SETTINGS_PATH = `${SETTINGS_PATH}/invoices`;
 /** Test sites only: fills the business with made-up records. */
 export const DEMO_DATA_PATH = `${SETTINGS_PATH}/demo-data`;
 
@@ -140,7 +141,16 @@ export const DOCUMENT_ID_PARAM = "document";
  */
 export function rentalDocumentPath(
   rentalId: string,
-  kind: "contract" | "handover_report" | "return_report" | "change_of_terms" | "swap_form",
+  kind:
+    | "contract"
+    | "handover_report"
+    | "return_report"
+    | "change_of_terms"
+    | "swap_form"
+    | "invoice"
+    | "credit_note"
+    | "receipt"
+    | "statement",
   documentId?: string,
 ): string {
   const path = `${rentalPath(rentalId)}/documents/${kind}`;

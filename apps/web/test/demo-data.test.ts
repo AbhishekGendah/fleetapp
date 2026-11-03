@@ -1,4 +1,5 @@
 import {
+  billingDocuments,
   carSwaps,
   ledgerLines,
   damageRecords,
@@ -156,6 +157,16 @@ describe("demo data", () => {
         .filter((line) => line.kind === "payment")
         .reduce((sum, line) => sum + line.amountCents, 0);
       expect(charged).toBeGreaterThan(paid);
+
+      // Each payment has its receipt, and every rent charge is on an invoice.
+      const documents = await withTenant(web.db, actor.operatorId, (tx) =>
+        tx
+          .select({ kind: billingDocuments.kind })
+          .from(billingDocuments)
+          .where(eq(billingDocuments.operatorId, actor.operatorId)),
+      );
+      expect(documents.filter((document) => document.kind === "receipt")).toHaveLength(15);
+      expect(documents.filter((document) => document.kind === "invoice").length).toBeGreaterThan(0);
 
       expect(await runEveryDemoStep(context)).toBe(0);
       expect(await countOf(vehicles, otherOperator.operatorId)).toBe(0);

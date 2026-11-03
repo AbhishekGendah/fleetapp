@@ -66,6 +66,7 @@ export function LedgerLineList(props: LedgerLineListProps) {
               <span>{line.description}</span>
               {line.gstCents > 0 ? <span>Includes GST {formatCents(line.gstCents)}</span> : null}
               {line.reference ? <span>Reference {line.reference}</span> : null}
+              {line.documentNumberText ? <span>On {line.documentNumberText}</span> : null}
             </>
           }
           actions={props.actionsFor?.(line)}

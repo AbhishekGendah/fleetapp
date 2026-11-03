@@ -2,23 +2,17 @@ import { expectAccessible } from "@fleetapp/e2e/accessibility";
 import { scriptKilobytes } from "@fleetapp/e2e/download-size";
 import { expect, test, type Page } from "@playwright/test";
 
-import { E2E_CRON_SECRET, PHONE_VIEWPORT } from "./e2e-settings";
+import { PHONE_VIEWPORT } from "./e2e-settings";
+import { openRentalPage, rentalOutAndCharged } from "./money-steps";
 import { expectNoSidewaysScroll } from "./phone-checks";
-import {
-  addCarToBook,
-  fillRental,
-  morningInDays,
-  rentalIdOnPage,
-  type RentalParties,
-} from "./rental-steps";
-import { recordHandover, recordSignedContract } from "./test-records";
+import type { RentalParties } from "./rental-steps";
 
 /**
  * A rental's money on the Operator's phone: rent added by the daily run
  * from the handover, a one-off charge, a payment received, a mistake
  * reversed; the Renter's whole ledger; and Settings → Charges.
  */
-const RENTER = { name: "Mia Money", email: "mia.money@example.test" };
+const RENTER = { name: "Mia Money", email: "mia.money@example.test", phone: "0412001001" };
 const CAR_REGO = "E2E1001";
 const PARTIES: RentalParties = { renterName: RENTER.name, carRego: CAR_REGO };
 /** The rental page's JavaScript, compressed: as in changes.e2e.ts. */
@@ -26,32 +20,15 @@ const RENTAL_PAGE_BUDGET_KB = 400;
 
 let rentalId = "";
 
-async function openRental(page: Page): Promise<void> {
-  await page.goto(`/rentals/${rentalId}`, { waitUntil: "networkidle" });
-  await rentalIdOnPage(page, PARTIES);
+function openRental(page: Page): Promise<void> {
+  return openRentalPage(page, rentalId, PARTIES);
 }
 
 test.describe.serial("a rental's money", () => {
   test("sets up a rental handed over yesterday, and the daily run charges its rent", async ({
     page,
   }) => {
-    await page.goto("/renters/new", { waitUntil: "networkidle" });
-    await page.getByRole("textbox", { name: /^Full name/ }).fill(RENTER.name);
-    await page.getByRole("textbox", { name: /^Phone/ }).pressSequentially("0412001001");
-    await page.getByRole("textbox", { name: /^Email/ }).fill(RENTER.email);
-    await page.getByRole("button", { name: "Add Renter" }).click();
-    await expect(page.getByRole("heading", { name: RENTER.name })).toBeVisible();
-    await addCarToBook(page, CAR_REGO);
-    await fillRental(page, PARTIES, morningInDays(2), morningInDays(30));
-    await page.getByRole("button", { name: "Book", exact: true }).click();
-    rentalId = await rentalIdOnPage(page, PARTIES);
-    await recordSignedContract(rentalId);
-    await recordHandover(rentalId);
-
-    const run = await page.request.get("/api/cron/rent", {
-      headers: { authorization: `Bearer ${E2E_CRON_SECRET}` },
-    });
-    expect(run.ok()).toBe(true);
+    rentalId = await rentalOutAndCharged(page, RENTER, PARTIES);
     const refused = await page.request.get("/api/cron/rent");
     expect(refused.status()).toBe(401);
   });

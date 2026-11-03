@@ -21,11 +21,16 @@ const OPENABLE = {
   return_report: "Return report.pdf",
   change_of_terms: "Change of terms.pdf",
   swap_form: "Car swap.pdf",
+  invoice: "Invoice.pdf",
+  credit_note: "Credit note.pdf",
+  receipt: "Receipt.pdf",
+  statement: "Statement.pdf",
 } as const;
 const kindSchema = z.enum(Object.keys(OPENABLE) as [keyof typeof OPENABLE]);
 
 /**
- * The rental's latest document of a kind (or the one named, of that kind),
+ * The rental's latest document of a kind (or the one named, of that kind:
+ * an invoice, credit note or receipt is always named),
  * through a short-lived address to the stored PDF.
  */
 export async function GET(

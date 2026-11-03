@@ -21,6 +21,8 @@ describeDownloadBudgets({
   "/settings/contracts": 375,
   // Added 3 Nov 2026 with the ledger: the charge type forms (404 KB measured).
   "/settings/charges": 445,
+  // Added 3 Nov 2026 with invoices: the numbering and how-to-pay forms (measured below).
+  "/settings/invoices": 445,
   // Added 2 Nov 2026 with the test site's demo data button.
   "/settings/demo-data": 190,
 });

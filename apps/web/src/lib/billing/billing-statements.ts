@@ -1,28 +1,17 @@
 import { billingDocumentTitle, statementFigures } from "@fleetapp/core";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { z } from "zod";
 
 import { issueDocument } from "../contracts/issued-documents";
 import { selectRentalLedger } from "../ledger/ledger-queries";
-import { requiredDate } from "../vehicles/amount-input";
 import { loadBillingContext, type BillingDependencies } from "./billing-context";
 import { loadBillingRental } from "./billing-documents";
 import { renderStatementPdf } from "./billing-pdf";
 import { loadBillingDocumentPdf } from "./billing-queries";
 import { amountLineOf, emailBillingDocument } from "./billing-run";
+import type { StatementRange } from "./statement-input";
 
 export const STATEMENT_TITLE = "Statement";
 const STATEMENT_AMOUNT_LINE = "It shows every charge, payment and credit, and the balance.";
-
-/** The days a statement covers, both included. */
-export const statementRangeSchema = z
-  .object({ fromDate: requiredDate, toDate: requiredDate })
-  .refine((range) => range.fromDate <= range.toDate, {
-    message: "The last day must be on or after the first.",
-    path: ["toDate"],
-  });
-export type StatementRange = z.infer<typeof statementRangeSchema>;
-export const STATEMENT_FIELDS = ["fromDate", "toDate"] as const;
 
 export type StatementResult =
   | { status: "issued"; issuedDocumentId: string; pdf: Uint8Array }
