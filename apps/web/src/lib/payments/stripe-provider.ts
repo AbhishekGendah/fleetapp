@@ -1,6 +1,10 @@
 import "server-only";
 
-import { STRIPE_CAPABILITY_STATUSES, type StripeCapabilityStatus } from "@fleetapp/core";
+import {
+  STRIPE_CAPABILITY_STATUSES,
+  type PaymentAccountStatus,
+  type StripeCapabilityStatus,
+} from "@fleetapp/core";
 import Stripe from "stripe";
 import { z } from "zod";
 
@@ -19,10 +23,29 @@ const ACCOUNT_DETAILS = ["configuration.merchant", "requirements"] as const;
 /** v2.core.account.updated, v2.core.account[requirements].updated…: not account_link or account_person. */
 const ACCOUNT_EVENT = /^v2\.core\.account[.[]/;
 
+/**
+ * Stripe marks a capability restricted while it is still checking details
+ * just given; that is waiting, not a limit, so it reads as pending.
+ */
+const STILL_CHECKING = new Set(["determining_status", "requirements_pending_verification"]);
+
 const capabilitySchema = z
-  .object({ status: z.enum(STRIPE_CAPABILITY_STATUSES) })
+  .object({
+    status: z.enum(STRIPE_CAPABILITY_STATUSES),
+    status_details: z.array(z.object({ code: z.string() })).optional(),
+  })
   .optional()
-  .transform((capability): StripeCapabilityStatus => capability?.status ?? "pending");
+  .transform((capability): StripeCapabilityStatus => {
+    if (!capability) {
+      return "pending";
+    }
+    const details = capability.status_details ?? [];
+    const isOnlyChecking =
+      capability.status === "restricted" &&
+      details.length > 0 &&
+      details.every((detail) => STILL_CHECKING.has(detail.code));
+    return isOnlyChecking ? "pending" : capability.status;
+  });
 
 /** The parts of a v2 account the app reads; anything else Stripe sends is ignored. */
 const accountSchema = z.object({
@@ -48,6 +71,19 @@ const accountSchema = z.object({
     })
     .nullish(),
 });
+
+/** What a v2 account, as Stripe returns it, says the business can do. */
+export function accountStatusOf(raw: unknown): PaymentAccountStatus {
+  const account = accountSchema.parse(raw);
+  const capabilities = account.configuration?.merchant?.capabilities;
+  return {
+    cardPayments: capabilities?.card_payments ?? "pending",
+    becsDebitPayments: capabilities?.au_becs_debit_payments ?? "pending",
+    requirementsDue: (account.requirements?.entries ?? []).filter(
+      (entry) => entry.awaiting_action_from === "user",
+    ).length,
+  };
+}
 
 /** Stripe itself, through its official library, on the AGS platform account. */
 export function createStripeProvider(secretKey: string, webhookSecret: string): PaymentsProvider {
@@ -95,17 +131,9 @@ export function createStripeProvider(secretKey: string, webhookSecret: string): 
     },
 
     async accountStatus(accountId) {
-      const account = accountSchema.parse(
+      return accountStatusOf(
         await stripe.v2.core.accounts.retrieve(accountId, { include: [...ACCOUNT_DETAILS] }),
       );
-      const capabilities = account.configuration?.merchant?.capabilities;
-      return {
-        cardPayments: capabilities?.card_payments ?? "pending",
-        becsDebitPayments: capabilities?.au_becs_debit_payments ?? "pending",
-        requirementsDue: (account.requirements?.entries ?? []).filter(
-          (entry) => entry.awaiting_action_from === "user",
-        ).length,
-      };
     },
 
     async readEvent(payload, signature) {
