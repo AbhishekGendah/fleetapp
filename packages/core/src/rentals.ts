@@ -119,6 +119,15 @@ export type BookingProblem =
   | { code: "direct_debit_missing"; level: "handover"; state: DirectDebitState }
   | { code: "licence_expires_during"; level: "notice"; expiresOn: string };
 
+/**
+ * The handover problems the Operator can override with a reason kept with
+ * the handover: bond not yet in full, and no working direct debit.
+ */
+export const OVERRIDABLE_HANDOVER_PROBLEMS: ReadonlySet<BookingProblem["code"]> = new Set([
+  "bond_short",
+  "direct_debit_missing",
+]);
+
 /** A car that has left the fleet can never be booked. */
 const CARS_NEVER_RENTABLE: readonly VehicleStatus[] = ["sold", "written_off"];
 /** A car being fixed can be booked for later, but not handed over until it is back. */

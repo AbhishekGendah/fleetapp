@@ -57,6 +57,13 @@ Add to this list whenever something is relaxed or put off "until launch".
 - [ ] Roll the Stripe sandbox secret key (Developers → API keys → Roll key) and
       update Vercel and Bitwarden: it was shown in a chat screenshot on
       3 Nov 2026. Sandbox only, so left for now by Abhi's choice.
+- [ ] The live event destination for connected accounts (v1 Checkout and
+      mandate events, thin) and its secret (STRIPE_CONNECT_WEBHOOK_SECRET) in
+      the production Vercel project; without it Renters are not offered
+      Stripe's page.
+- [ ] Stripe's answer on paper Direct Debit Requests entered by the business
+      (docs/legal-notes.md, Renter direct debit) read, and the app changed
+      only if Stripe allows it and the lawyer agrees.
 - [ ] Drop the four unused Stripe columns on the operators table (from
       Phase 1; replaced by stripe_accounts in Phase 4 slice 3) in a
       migration after the code that stopped reading them is deployed.

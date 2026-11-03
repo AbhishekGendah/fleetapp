@@ -26,10 +26,10 @@ export async function startTemplate(
 }
 
 /**
- * The Renter's own phone: a fresh browser with no sign-in, opened on their
- * signing link and past the emailed code, showing their details to check.
+ * The Renter's own phone: a fresh browser with no sign-in, opened on one of
+ * their links and past the code we email them.
  */
-export async function openSigningOnPhone(
+export async function openLinkOnPhone(
   browser: Browser,
   link: string,
   renter: { email: string; pageTitle: string },
@@ -42,6 +42,16 @@ export async function openSigningOnPhone(
   await expect(phone.getByLabel(/Type the code/)).toBeVisible();
   const code = CODE_PATTERN.exec((await latestEmailTo(renter.email)).text)?.[1] ?? "";
   await phone.getByLabel(/Type the code/).fill(code);
+  return phone;
+}
+
+/** Their signing link, past the code, showing their details to check. */
+export async function openSigningOnPhone(
+  browser: Browser,
+  link: string,
+  renter: { email: string; pageTitle: string },
+): Promise<Page> {
+  const phone = await openLinkOnPhone(browser, link, renter);
   await expect(phone.getByRole("group", { name: "1. Check your details" })).toBeVisible();
   await phone.waitForLoadState("networkidle");
   return phone;

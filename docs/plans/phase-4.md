@@ -218,6 +218,36 @@ bank transfer), which is also what many Operators will keep doing.
   (to change bank account), single-purpose and expiring like every link
   (rule 26).
 
+**As built (slice 4, 3 Nov 2026):**
+- **Stripe's hosted page** (Checkout), not a form inside ours (Abhi, 3 Nov
+  2026: matches docs/design/05 "Stripe's page"; no Stripe code on our
+  pages, so no Content-Security-Policy change and no download cost).
+  Setup mode with BECS for the direct debit (Stripe shows its Direct Debit
+  Request and service agreement), payment mode with card or BECS for the
+  bond still owing. On the business's own account (decision 1).
+- **A payments link** (its own purpose, for one rental, a week): carried
+  on to straight after signing (the phone already remembered, so no second
+  code, and emailed too), emailed by the Operator, or shown on the
+  Operator's phone as a QR code for the Renter to scan at pickup ("Set up
+  on the spot", Abhi 3 Nov 2026). The Renter always types their own
+  details. A new direct debit replaces the old one (change of bank).
+- Stripe sends the Renter back to a page holding no secret (/r/back); the
+  phone remembered which link it came from (this tab only), so the link's
+  secret never goes to Stripe.
+- Results come as thin events from a second event destination (connected
+  accounts, same endpoint, its own secret, STRIPE_CONNECT_WEBHOOK_SECRET);
+  each is read back from Stripe, matched to its business by account,
+  recorded once, and a rental that is not that business's is ignored.
+  Until the secret is set, Renters are not offered Stripe's page.
+- Migration 0041: the Renter's Stripe customer, their direct debits (Stripe
+  IDs, status, why ended), and payments (method, amount, status, Stripe
+  IDs, failure code; status only moves forward), the bond entry a payment
+  lands as (exactly its amount, once, only when it succeeded), the handover
+  override reason.
+- Handover asks for a working direct debit (setting, default on, override
+  with a reason), only once the business takes payments by Stripe.
+- Not yet: a failed bond debit's emails (slice 6), refunds (slice 7).
+
 ### Slice 5: weekly debits
 
 - On the charge day, after the rent is charged, the job asks Stripe to

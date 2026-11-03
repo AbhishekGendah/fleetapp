@@ -580,6 +580,35 @@ of service) and the countries.
 - **BECS limits:** new Stripe accounts start with low direct-debit
   limits; the page tells the business to ask Stripe for higher ones.
 
+## Renter direct debit and bond (Phase 4 slice 4, built)
+
+- **The Renter gives their bank or card details on Stripe's own page**, on
+  the business's Stripe account. We store only Stripe's IDs and the method
+  type (rule 7). The Renter's name and email go to Stripe to make them a
+  customer of the business. Stripe holds data in Australia and overseas
+  (US): the payments page says so, and the privacy policy must (APP 8).
+- **The Direct Debit Request and service agreement are Stripe's**, shown
+  and accepted on Stripe's page in the business's name. The Renter's
+  acceptance is recorded by Stripe (the mandate); we keep its ID. A Renter
+  can dispute a BECS debit with their bank for up to 7 years: the
+  business's best evidence is Stripe's mandate, made by the Renter on
+  their own device.
+- **"Set up on the spot"** shows the Renter's link as a QR code on the
+  Operator's phone; the Renter still types the emailed code and their own
+  details on their own phone (or on the Operator's, while the Operator
+  watches). The Operator never types a Renter's bank details.
+- **Question for Stripe (Abhi to ask):** can a business enter a Renter's
+  BECS details from a signed paper Direct Debit Request, and what must that
+  form say and how long must it be kept? Until Stripe answers yes, the app
+  offers only the Renter-typed way (rule 7 also forbids us holding them).
+- **Bond by bank debit** takes up to 3 business days to clear; it counts
+  only once Stripe says it succeeded (decision 2). A bounced one is shown
+  and can be paid again. Refunds of a card bond come with closing a rental
+  (slice 7).
+- **Record keeping:** payments are tax-related records, kept with the
+  ledger (never deleted by retention jobs). Admin cannot read any of it
+  (rule 5).
+
 ## Fleet timeline (3 Nov 2026)
 
 - **No new data or third party:** it shows the rentals already on the

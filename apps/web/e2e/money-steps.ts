@@ -12,6 +12,19 @@ import {
 } from "./rental-steps";
 import { recordHandover, recordSignedContract } from "./test-records";
 
+/** A Renter, a car and a rental booked from the day after tomorrow for four weeks. Gives its id. */
+export async function bookedRental(
+  page: Page,
+  renter: NewRenter,
+  parties: RentalParties,
+): Promise<string> {
+  await addRenter(page, renter);
+  await addCarToBook(page, parties.carRego);
+  await fillRental(page, parties, morningInDays(2), morningInDays(30));
+  await page.getByRole("button", { name: "Book", exact: true }).click();
+  return rentalIdOnPage(page, parties);
+}
+
 /**
  * A Renter, a car and a rental booked, signed and handed over yesterday,
  * then the daily run (rent charged, then its invoice issued). Gives the
@@ -22,11 +35,7 @@ export async function rentalOutAndCharged(
   renter: NewRenter,
   parties: RentalParties,
 ): Promise<string> {
-  await addRenter(page, renter);
-  await addCarToBook(page, parties.carRego);
-  await fillRental(page, parties, morningInDays(2), morningInDays(30));
-  await page.getByRole("button", { name: "Book", exact: true }).click();
-  const rentalId = await rentalIdOnPage(page, parties);
+  const rentalId = await bookedRental(page, renter, parties);
   await recordSignedContract(rentalId);
   await recordHandover(rentalId);
   const run = await page.request.get("/api/cron/rent", {

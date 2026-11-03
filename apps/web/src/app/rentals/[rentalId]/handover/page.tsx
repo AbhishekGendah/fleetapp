@@ -1,9 +1,11 @@
+import { OVERRIDABLE_HANDOVER_PROBLEMS } from "@fleetapp/core";
 import { PageHeader } from "@fleetapp/ui/page-header";
 
 import { AppShell } from "../../../app-shell";
 import { appDb } from "../../../../lib/app-db";
 import { loadSigningStatus } from "../../../../lib/contracts/signing-links";
 import type { HandoverView } from "../../../../lib/handover/handover-queries";
+import { canHearRenterPayments } from "../../../../lib/payments/app-payments";
 import { rentalPath } from "../../../../lib/paths";
 import { loadRentalProblems } from "../../../../lib/rentals/booking-checks";
 import { bookingProblemMessage } from "../../../../lib/rentals/rental-messages";
@@ -25,16 +27,21 @@ async function acceptanceChecks(user: SignedInUser, view: HandoverView) {
   const clock = { timeZone: user.operatorTimezone, now: new Date() };
   const [signing, problems] = await Promise.all([
     loadSigningStatus(appDb, user.operatorId, view.rentalId, clock.now),
-    loadRentalProblems(appDb, user.operatorId, { ...view, id: view.rentalId }, clock),
+    loadRentalProblems(appDb, user.operatorId, { ...view, id: view.rentalId }, clock, {
+      canHearRenterPayments,
+    }),
   ]);
   const found = typeof problems === "string" ? [] : problems;
   const blockers = found
-    .filter((problem) => problem.level === "handover" && problem.code !== "bond_short")
+    .filter(
+      (problem) => problem.level === "handover" && !OVERRIDABLE_HANDOVER_PROBLEMS.has(problem.code),
+    )
     .map(bookingProblemMessage);
   const bondShort = found.find((problem) => problem.code === "bond_short");
   return {
     blockers: signing.signed ? blockers : [UNSIGNED_MESSAGE, ...blockers],
     bondShortCents: bondShort?.code === "bond_short" ? bondShort.owingCents : null,
+    isDirectDebitMissing: found.some((problem) => problem.code === "direct_debit_missing"),
   };
 }
 
@@ -67,6 +74,7 @@ export default async function HandoverPage(props: { params: Promise<{ rentalId: 
                 renterName={view.renterFullName}
                 summary={`${view.carRego} · ${view.carMakeModel}`}
                 bondShortCents={checks.bondShortCents}
+                isDirectDebitMissing={checks.isDirectDebitMissing}
               />
             ),
           }}

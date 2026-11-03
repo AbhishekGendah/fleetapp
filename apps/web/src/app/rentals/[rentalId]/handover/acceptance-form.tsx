@@ -10,7 +10,35 @@ import { useForgetWhenDone } from "./use-forget-when-done";
 import { INITIAL_COMPLETE_STATE, SIGNATURE_NEEDED } from "./handover-state";
 import { RenterSignatureStep } from "./renter-signature-step";
 
-const REASON_NEEDED = "Say why the car goes before the bond is paid.";
+const BOND_REASON_NEEDED = "Say why the car goes before the bond is paid.";
+const DIRECT_DEBIT_REASON_NEEDED = "Say why the car goes without a direct debit set up.";
+const REASON_MAX_LENGTH = 200;
+
+/** Why the car goes anyway: kept with the handover, never shown to the Renter. */
+function OverrideReason(props: {
+  name: "bondOverrideReason" | "directDebitOverrideReason";
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <FormField
+      htmlFor={props.name}
+      label={props.label}
+      isRequired
+      hint="Kept with the handover for your records. The Renter does not see it."
+    >
+      <Input
+        id={props.name}
+        name={props.name}
+        value={props.value}
+        onChange={(event) => props.onChange(event.target.value)}
+        maxLength={REASON_MAX_LENGTH}
+        required
+      />
+    </FormField>
+  );
+}
 
 /**
  * The Renter reads what they are accepting and signs with their finger on
@@ -24,6 +52,7 @@ export function AcceptanceForm(props: {
   renterName: string;
   summary: string;
   bondShortCents: number | null;
+  isDirectDebitMissing: boolean;
 }) {
   const complete = useMemo(
     () => completeHandoverAction.bind(null, props.rentalId, props.inspectionId),
@@ -32,17 +61,20 @@ export function AcceptanceForm(props: {
   const [state, formAction, isPending] = useActionState(complete, INITIAL_COMPLETE_STATE);
   const [signature, setSignature] = useState("");
   const [reason, setReason] = useState("");
+  const [directDebitReason, setDirectDebitReason] = useState("");
   const [problem, setProblem] = useState<string | null>(null);
 
   useForgetWhenDone(state.status === "completed", props);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
     const missing =
-      signature === ""
-        ? SIGNATURE_NEEDED
-        : props.bondShortCents !== null && reason.trim() === ""
-          ? REASON_NEEDED
-          : null;
+      [
+        signature === "" ? SIGNATURE_NEEDED : null,
+        props.bondShortCents !== null && reason.trim() === "" ? BOND_REASON_NEEDED : null,
+        props.isDirectDebitMissing && directDebitReason.trim() === ""
+          ? DIRECT_DEBIT_REASON_NEEDED
+          : null,
+      ].find((message) => message !== null) ?? null;
     setProblem(missing);
     if (missing) {
       event.preventDefault();
@@ -57,21 +89,20 @@ export function AcceptanceForm(props: {
         checklist. The time is recorded when you sign.
       </p>
       {props.bondShortCents !== null ? (
-        <FormField
-          htmlFor="bondOverrideReason"
+        <OverrideReason
+          name="bondOverrideReason"
           label={`The bond is ${formatCents(props.bondShortCents)} short. Why does the car go anyway?`}
-          isRequired
-          hint="Kept with the handover for your records. The Renter does not see it."
-        >
-          <Input
-            id="bondOverrideReason"
-            name="bondOverrideReason"
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            maxLength={200}
-            required
-          />
-        </FormField>
+          value={reason}
+          onChange={setReason}
+        />
+      ) : null}
+      {props.isDirectDebitMissing ? (
+        <OverrideReason
+          name="directDebitOverrideReason"
+          label="The Renter's direct debit is not set up. Why does the car go anyway?"
+          value={directDebitReason}
+          onChange={setDirectDebitReason}
+        />
       ) : null}
       <RenterSignatureStep
         id="renter-signature"

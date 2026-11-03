@@ -9,6 +9,7 @@ import type { RenterLinkPurpose } from "@fleetapp/core";
 import { appDb } from "../../../lib/app-db";
 import { detailsFormStart } from "../../../lib/renter-links/details-form-input";
 import { isPhoneRemembered, openLink } from "../../../lib/renter-links/link-visits";
+import { STRIPE_RETURN_STEPS } from "../../../lib/payments/renter-checkout";
 import { loadFormStart } from "../../../lib/renter-links/submissions";
 import { checkCodeAction, sendCodeAction } from "./actions";
 import { CodeStep } from "./code-step";
@@ -16,6 +17,8 @@ import { DetailsForm } from "./details-form";
 import { ForgetDraft } from "./forget-draft";
 import { DEVICE_COOKIE } from "./link-state";
 import { SentThanks } from "./sent-thanks";
+import { BACK_FROM_STRIPE_PARAM } from "./payments-return";
+import { PaymentsStep } from "./payments-step";
 import { SigningStep } from "./signing-step";
 
 export const runtime = "nodejs";
@@ -56,8 +59,11 @@ function LinkPage(props: { operatorName?: string; title: string; children: React
  * finds the link. A phone it has not seen must type an emailed code first,
  * and until then nothing about the Renter is shown.
  */
-export default async function RenterLinkPage(props: { params: Promise<{ token: string }> }) {
-  const { token } = await props.params;
+export default async function RenterLinkPage(props: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [{ token }, searchParams] = await Promise.all([props.params, props.searchParams]);
   const visit = await openLink(appDb, token);
   if (!visit) {
     return (
@@ -86,6 +92,17 @@ export default async function RenterLinkPage(props: { params: Promise<{ token: s
           maskedEmail={visit.maskedEmail}
           sendCode={sendCodeAction.bind(null, token)}
           checkCode={checkCodeAction.bind(null, token)}
+        />
+      </LinkPage>
+    );
+  }
+  if (visit.purpose === "set_up_payments") {
+    return (
+      <LinkPage operatorName={visit.operatorName} title={PAGE_TITLES.set_up_payments}>
+        <PaymentsStep
+          token={token}
+          visit={visit}
+          isBackFromStripe={searchParams[BACK_FROM_STRIPE_PARAM] === STRIPE_RETURN_STEPS.finished}
         />
       </LinkPage>
     );

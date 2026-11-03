@@ -1,7 +1,6 @@
 "use client";
 
 import type { AuthenticatorEnrolment } from "@fleetapp/auth/client";
-import QRCode from "qrcode";
 import { useState } from "react";
 
 import { AuthPageLayout } from "./auth-page-layout";
@@ -12,9 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./car
 import { FormError } from "./form-message";
 import { FormField } from "./form-field";
 import { CurrentPasswordField } from "./password-field";
+import { QrCode } from "./qr-code";
 import { RequiredFieldsNote } from "./input";
-
-const QR_CODE_WIDTH_PX = 240;
 
 const PASSWORD_FAILED_MESSAGE = "That password was not right.";
 const CODE_FAILED_MESSAGE = "That code was not right. Wait for the next one and try again.";
@@ -29,7 +27,7 @@ export interface AuthenticatorSetupProps {
 }
 
 interface ScanDetails {
-  qrCodeDataUrl: string;
+  totpUri: string;
   manualKey: string | null;
   recoveryCodes: string[];
 }
@@ -42,9 +40,9 @@ const STEP_DESCRIPTIONS: Record<Step, string> = {
   "recovery-codes": "Save these somewhere safe. They are your way back in if you lose your phone.",
 };
 
-async function toScanDetails(enrolment: AuthenticatorEnrolment): Promise<ScanDetails> {
+function toScanDetails(enrolment: AuthenticatorEnrolment): ScanDetails {
   return {
-    qrCodeDataUrl: await QRCode.toDataURL(enrolment.totpURI, { width: QR_CODE_WIDTH_PX }),
+    totpUri: enrolment.totpURI,
     manualKey: new URL(enrolment.totpURI.replace("otpauth://", "https://")).searchParams.get(
       "secret",
     ),
@@ -65,7 +63,7 @@ export function AuthenticatorSetup(props: AuthenticatorSetupProps) {
   const [scanDetails, setScanDetails] = useState<ScanDetails | null>(null);
 
   async function handleEnrolled(enrolment: AuthenticatorEnrolment): Promise<void> {
-    setScanDetails(await toScanDetails(enrolment));
+    setScanDetails(toScanDetails(enrolment));
     setStep("scan");
   }
 
@@ -169,14 +167,7 @@ function ScanStep(props: {
 
   return (
     <ClientForm className="flex flex-col gap-4" onSubmit={handleSubmit}>
-      {/* A plain img: a data URL made in the browser is nothing next/image can optimise. */}
-      <img
-        src={props.details.qrCodeDataUrl}
-        alt="QR code for your authenticator app"
-        width={QR_CODE_WIDTH_PX}
-        height={QR_CODE_WIDTH_PX}
-        className="mx-auto rounded-md bg-white p-2"
-      />
+      <QrCode value={props.details.totpUri} label="QR code for your authenticator app" />
       {props.details.manualKey ? (
         <p className="text-muted-foreground text-center text-xs break-all">
           Can&rsquo;t scan? Enter this key by hand:

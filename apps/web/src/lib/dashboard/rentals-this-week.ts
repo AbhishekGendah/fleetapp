@@ -11,7 +11,7 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, inArray, lt, or } from "drizzle-orm";
 
 import { loadSigningStatus } from "../contracts/signing-links";
-import { loadRentalProblems } from "../rentals/booking-checks";
+import { loadRentalProblems, type PaymentsReach } from "../rentals/booking-checks";
 import { listRentalSummaries, type RentalSummary } from "../rentals/rental-queries";
 import type { RentalClock } from "../rentals/rental-records";
 
@@ -78,6 +78,7 @@ export async function loadBookingReadiness(
   operatorId: string,
   thisWeek: readonly RentalThisWeek[],
   clock: RentalClock,
+  reach?: PaymentsReach,
 ): Promise<BookingReadiness[]> {
   const bookingIds = thisWeek
     .filter((rental) => MOMENTS_BEFORE_HANDOVER.includes(rental.moment))
@@ -94,7 +95,7 @@ export async function loadBookingReadiness(
   const readiness = await Promise.all(
     bookings.map(async (booking): Promise<BookingReadiness> => {
       const [problems, signing] = await Promise.all([
-        loadRentalProblems(database, operatorId, booking, clock),
+        loadRentalProblems(database, operatorId, booking, clock, reach),
         loadSigningStatus(database, operatorId, booking.id, clock.now),
       ]);
       const handoverProblems =

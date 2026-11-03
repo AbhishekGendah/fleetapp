@@ -182,6 +182,15 @@ export default async function SettingsPage() {
               settings.isBondRequiredBeforeHandover,
             )}
           />
+          <ChoiceSettingForm
+            setting="isDirectDebitRequiredBeforeHandover"
+            label="Must the Renter's direct debit be set up before the car is handed over?"
+            hint="Only once you take payments by Stripe (Settings → Payments)."
+            value={choiceSettingValue(
+              "isDirectDebitRequiredBeforeHandover",
+              settings.isDirectDebitRequiredBeforeHandover,
+            )}
+          />
           <NumberSettingForm
             setting="bondHoldDaysAfterReturn"
             label="Keep the bond this many days after the car comes back"

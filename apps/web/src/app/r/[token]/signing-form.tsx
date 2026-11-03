@@ -16,11 +16,10 @@ import { Select } from "@fleetapp/ui/select";
 import { SignaturePad } from "@fleetapp/ui/signature-pad";
 import { useFormFields, type FormFields } from "@fleetapp/ui/use-form-fields";
 import { ArrowRight, PenLine } from "lucide-react";
-import Link from "next/link";
 import { useActionState, useMemo } from "react";
 import { z } from "zod";
 
-import { signContractAction } from "./signing-actions";
+import { goToPaymentsAction, signContractAction } from "./signing-actions";
 import { INITIAL_SIGN_STATE } from "./signing-state";
 
 type SignField = (typeof SIGN_CONTRACT_FIELDS)[number];
@@ -145,18 +144,23 @@ export function SigningForm(props: {
           You signed the {props.documentName} with {props.operatorName} on {state.signedAtText}. A
           copy has been emailed to you.
         </p>
-        {state.paymentsPath ? (
-          <>
+        {state.paymentsNext ? (
+          <form
+            action={goToPaymentsAction.bind(
+              null,
+              state.paymentsNext.token,
+              state.paymentsNext.deviceToken,
+            )}
+            className="flex flex-col gap-2"
+          >
             <p className="text-sm">
               Next, set up your direct debit and pay the bond, on Stripe&apos;s secure page.
             </p>
-            <Button asChild className="w-full">
-              <Link href={state.paymentsPath}>
-                <ArrowRight aria-hidden />
-                Set up your payments
-              </Link>
+            <Button type="submit" className="w-full">
+              <ArrowRight aria-hidden />
+              Set up your payments
             </Button>
-          </>
+          </form>
         ) : null}
       </div>
     );

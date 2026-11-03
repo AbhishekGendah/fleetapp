@@ -149,12 +149,16 @@ test.describe.serial("signing a contract", () => {
 
     await expect(phone.getByText("Signed. Thank you.")).toBeVisible();
     await expectAccessible(phone);
-    const copy = await latestEmailTo(RENTER.email);
-    expect(copy.subject).toMatch(/^Your signed rental contract with /);
+    const copy = await latestEmailTo(RENTER.email, "Your signed rental contract with ");
     expect(copy.attachmentNames).toEqual([expect.stringMatching(/^Rental contract .*\.pdf$/)]);
 
     // Signing uses the link up: it can never be used again.
-    await phone.reload({ waitUntil: "networkidle" });
+    const signingUrl = phone.url();
+    // The business takes payments by Stripe (its stand-in, connected by the
+    // payments test): the Renter carries on to them with no second code.
+    await phone.getByRole("button", { name: "Set up your payments" }).click();
+    await expect(phone.getByRole("heading", { name: "1. Set up your direct debit" })).toBeVisible();
+    await phone.goto(signingUrl, { waitUntil: "networkidle" });
     await expect(phone.getByText("This link no longer works")).toBeVisible();
     await phone.context().close();
   });

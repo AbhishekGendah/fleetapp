@@ -25,6 +25,7 @@ import { appDb } from "../../../lib/app-db";
 import { loadBondAccount } from "../../../lib/bonds/bond-account";
 import { carPath, rentalPath, RENTALS_PATH, renterPath } from "../../../lib/paths";
 import { recordTabs, TAB_PARAM, type RecordTab } from "../../../lib/record-tabs";
+import { canHearRenterPayments } from "../../../lib/payments/app-payments";
 import { loadRentalProblems } from "../../../lib/rentals/booking-checks";
 import { bookingProblemMessage } from "../../../lib/rentals/rental-messages";
 import {
@@ -44,6 +45,7 @@ import { ChangesCard } from "./changes-card";
 import { ContractCard } from "./contract-card";
 import { BillingCard } from "./billing-card";
 import { MoneyCard } from "./money-card";
+import { PaymentsCard } from "./payments-card";
 import { HandoverCard, ReturnCard } from "./handover-card";
 import { SwapCard } from "./swap-card";
 import { DamageList } from "../../cars/damage-list";
@@ -122,7 +124,9 @@ async function BeforeHandoverCard({
   if (!BEFORE_HANDOVER.has(rental.status)) {
     return null;
   }
-  const problems = await loadRentalProblems(appDb, user.operatorId, rental, clock);
+  const problems = await loadRentalProblems(appDb, user.operatorId, rental, clock, {
+    canHearRenterPayments,
+  });
   if (typeof problems === "string") {
     return (
       <Card>
@@ -307,6 +311,7 @@ export default async function RentalPage(props: {
           <HandoverCard rental={rental} user={user} />
           <MoneyCard rental={rental} user={user} clock={clock} />
           <BillingCard rental={rental} user={user} clock={clock} />
+          <PaymentsCard rental={rental} user={user} clock={clock} />
           <BondCard rental={rental} user={user} clock={clock} />
           <RatesCard rental={rental} />
           <ActionsCard rental={rental} />

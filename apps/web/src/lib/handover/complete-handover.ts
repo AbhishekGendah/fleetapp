@@ -3,6 +3,7 @@ import {
   decodeDrawnSignature,
   formatDateTimeInTimeZone,
   handoverAcceptanceText,
+  OVERRIDABLE_HANDOVER_PROBLEMS,
   type BookingProblem,
   type HandoverGap,
 } from "@fleetapp/core";
@@ -55,12 +56,6 @@ export interface HandoverDependencies extends FileDependencies, Partial<Payments
   emailSender: EmailSender;
 }
 
-/** The handover problems a reason can override: the bond and the direct debit. */
-const OVERRIDABLE: ReadonlySet<BookingProblem["code"]> = new Set([
-  "bond_short",
-  "direct_debit_missing",
-]);
-
 /**
  * What stops the Renter accepting now: anything missing from the checklist,
  * an unsigned contract, a handover problem (licence, car not ready), the
@@ -89,7 +84,7 @@ async function acceptanceRefusal(
     return { status: "not_found" };
   }
   const blocking = problems.filter(
-    (problem) => problem.level === "handover" && !OVERRIDABLE.has(problem.code),
+    (problem) => problem.level === "handover" && !OVERRIDABLE_HANDOVER_PROBLEMS.has(problem.code),
   );
   if (blocking.length > 0) {
     return { status: "blocked", problems: blocking };

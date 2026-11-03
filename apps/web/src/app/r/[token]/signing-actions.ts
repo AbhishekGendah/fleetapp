@@ -2,6 +2,7 @@
 
 import { describeErrorForLog, formTextValues, SIGN_CONTRACT_FIELDS } from "@fleetapp/core";
 import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 import { env } from "../../../env";
 
@@ -11,7 +12,7 @@ import { appEmailSender } from "../../../lib/email-sender";
 import { fileDependencies } from "../../../lib/files/file-action-support";
 import { appPaymentsLinkDependencies } from "../../../lib/payments/app-payments-links";
 import { continueToPayments } from "../../../lib/payments/payments-links";
-import { openVerifiedLink, type LinkVisit } from "../../../lib/renter-links/link-visits";
+import { openLink, openVerifiedLink, type LinkVisit } from "../../../lib/renter-links/link-visits";
 import { requestMetaFrom } from "../../../lib/request-meta";
 import { DEVICE_COOKIE, linkPagePath } from "./link-state";
 import type { SignState } from "./signing-state";
@@ -32,7 +33,7 @@ const NOT_SIGNED_MESSAGES: Record<
 
 function signState(result: SignContractResult): SignState {
   if (result.status === "signed") {
-    return { status: "signed", signedAtText: result.signedAtText, paymentsPath: null };
+    return { status: "signed", signedAtText: result.signedAtText, paymentsNext: null };
   }
   if (result.status === "invalid") {
     const firstMessage = Object.values(result.fieldErrors).find((messages) => messages?.length);
@@ -63,7 +64,7 @@ export async function signContractAction(
       requestMetaFrom(await headers()),
     );
     const state = signState(result);
-    return state.status === "signed" ? { ...state, paymentsPath: await carryOn(visit) } : state;
+    return state.status === "signed" ? { ...state, paymentsNext: await carryOn(visit) } : state;
   } catch (error) {
     // Never the error's details: they could hold the Renter's name or the link.
     console.error("Signing a contract failed", describeErrorForLog(error));
@@ -73,26 +74,38 @@ export async function signContractAction(
 
 /**
  * Once signed, the Renter carries on to their direct debit and bond, if
- * the business takes payments by Stripe and either is still to do. Their
- * phone is remembered for the new link, so no second code. A failure here
- * leaves the signing done: the payments link can be sent from the rental.
+ * the business takes payments by Stripe and either is still to do. This
+ * phone gets a pass for the new link, so no second code; it is set as the
+ * link's cookie only when they press on (setting it here would reload the
+ * page, whose signing link is now used up). A failure here leaves the
+ * signing done: the payments link can be sent from the rental.
  */
-async function carryOn(visit: LinkVisit): Promise<string | null> {
+async function carryOn(visit: LinkVisit): Promise<{ token: string; deviceToken: string } | null> {
   try {
     const next = await continueToPayments(appPaymentsLinkDependencies(visit.timeZone), visit);
-    if (!next) {
-      return null;
-    }
-    (await cookies()).set(DEVICE_COOKIE, next.deviceToken, {
-      httpOnly: true,
-      secure: new URL(env.APP_URL).protocol === "https:",
-      sameSite: "lax",
-      path: linkPagePath(next.token),
-      expires: next.expiresAt,
-    });
-    return linkPagePath(next.token);
+    return next ? { token: next.token, deviceToken: next.deviceToken } : null;
   } catch (error) {
     console.error("Carrying on to payments after signing failed", describeErrorForLog(error));
     return null;
   }
+}
+
+/**
+ * The Renter presses on to their payments link: this phone's pass is kept
+ * as the link's cookie, and they go there. A pass that is not the link's
+ * own does nothing: the link then asks for a code as usual.
+ */
+export async function goToPaymentsAction(token: string, deviceToken: string): Promise<void> {
+  const visit = await openLink(appDb, token);
+  if (visit) {
+    (await cookies()).set(DEVICE_COOKIE, deviceToken, {
+      httpOnly: true,
+      secure: new URL(env.APP_URL).protocol === "https:",
+      sameSite: "lax",
+      path: linkPagePath(token),
+      expires: visit.expiresAt,
+    });
+  }
+  // Outside any try: Next carries out a redirect by throwing.
+  redirect(linkPagePath(token));
 }

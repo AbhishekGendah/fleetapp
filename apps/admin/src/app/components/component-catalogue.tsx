@@ -24,6 +24,7 @@ import { BookingsCalendar, type CalendarEntry } from "@fleetapp/ui/bookings-cale
 import { Drawer } from "@fleetapp/ui/drawer";
 import { FleetTimeline, type TimelineBar } from "@fleetapp/ui/fleet-timeline";
 import { MultiRecordPicker } from "@fleetapp/ui/multi-record-picker";
+import { QrCode } from "@fleetapp/ui/qr-code";
 import { ToggleGroup } from "@fleetapp/ui/toggle-group";
 import { ComboBox } from "@fleetapp/ui/combo-box";
 import { CodeInput, TOTP_CODE_LENGTH } from "@fleetapp/ui/code-input";
@@ -881,6 +882,16 @@ export function ComponentCatalogue() {
           today="2026-12-02"
           zoom="days"
           scrollTarget={EXAMPLE_TIMELINE_SCROLL}
+        />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="QR code"
+        note="For a phone to scan: an authenticator app's setup, or a Renter's link shown at pickup."
+      >
+        <QrCode
+          value="https://example.test/r/a-made-up-link"
+          label="QR code for the example link"
         />
       </CatalogueSection>
 

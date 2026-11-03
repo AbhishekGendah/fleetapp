@@ -221,7 +221,7 @@ test.describe("rentals at phone width", () => {
       .getByRole("link", { name: new RegExp(RENTER_NAME) })
       .first()
       .click();
-    await expect(page.getByRole("heading", { name: "Bond" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Bond", exact: true })).toBeVisible();
     await expectNoSidewaysScroll(page);
     await expectTappableButtons(page, ["Record bond received"]);
   });

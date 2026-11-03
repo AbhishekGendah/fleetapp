@@ -975,10 +975,32 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
   - Fixed on the way: Stripe marks capabilities restricted while it checks
     new details; that now reads "Stripe is checking your details".
 
+- Phase 4 slice 4 — the Renter's direct debit and bond (plan: docs/plans/phase-4.md):
+  - Stripe's hosted page on the business's account: set up a BECS direct
+    debit, and pay the bond by card or bank debit. Only Stripe's IDs kept.
+  - A payments link: carried on to straight after signing, emailed, or
+    shown as a QR code to scan on the spot. Change of bank: send it again.
+  - Rental page: "Direct debit and bond by Stripe" card (state, payments,
+    Email the link, Set up on the spot). Handover asks for the direct
+    debit (Settings → Rentals, default yes; override with a reason).
+  - Migration 0041; a second Stripe event destination's secret
+    (STRIPE_CONNECT_WEBHOOK_SECRET). The Stripe settings are now listed in
+    turbo.json (missed in slice 3).
+  - Tests: direct debit rules (core); one active direct debit, payments
+    forward only, the bond entry matching once, isolation (database); the
+    link, set up once, replaced, cancelled by the bank, card bond, bank
+    debit cleared or bounced, another business's account ignored, carried
+    on from signing (server); the whole journey on two phones in the
+    browser.
+  - Also: the setup checklist's contract and cars-and-Renters steps tick
+    from real records; Renovate keeps ranges for engines and peer
+    dependencies (its Node 26 pin had broken the pin-dependencies PR).
+
 ## Next
 
-Phase 4 slice 4 (the Renter's direct debit and bond payment). Slices 1 to
-3 are built and the Stripe sandbox is connected on the dev site.
+Abhi: add the second Stripe event destination (connected accounts) and its
+secret, then try slice 4 on the dev site. Then Phase 4 slice 5 (weekly
+debits).
 Open idea: trim the phone rules to Australia only with libphonenumber's
 metadata generator (about 40 KB off each form page); running the
 generator needs Abhi's say-so.

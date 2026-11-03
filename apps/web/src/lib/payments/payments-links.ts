@@ -10,13 +10,12 @@ import {
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { renderRenterPaymentsLinkEmail } from "@fleetapp/email";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import type { ActingUser } from "../acting-user";
 import { cancelLinksAs } from "../renter-links/cancel-links";
 import {
-  LINK_IN_PLAY_COLUMNS,
-  linkInPlay,
+  loadLinkInPlay,
   renterLinkUrl,
   type LinkDependencies,
   type RenterLinkInPlay,
@@ -263,26 +262,11 @@ export async function continueToPayments(
 }
 
 /** The rental's payments link still in play (maybe expired or locked), or null. */
-export async function loadPaymentsLink(
+export function loadPaymentsLink(
   database: AnyDatabase,
   operatorId: string,
   rentalId: string,
   now: Date,
 ): Promise<RenterLinkInPlay | null> {
-  const [link] = await withTenant(database, operatorId, (tx) =>
-    tx
-      .select(LINK_IN_PLAY_COLUMNS)
-      .from(renterLinks)
-      .where(
-        and(
-          eq(renterLinks.operatorId, operatorId),
-          eq(renterLinks.rentalId, rentalId),
-          eq(renterLinks.purpose, PURPOSE),
-          isNull(renterLinks.cancelledAt),
-        ),
-      )
-      .orderBy(desc(renterLinks.createdAt))
-      .limit(1),
-  );
-  return link ? linkInPlay(link, now) : null;
+  return loadLinkInPlay(database, operatorId, { purpose: PURPOSE, rentalId }, now);
 }

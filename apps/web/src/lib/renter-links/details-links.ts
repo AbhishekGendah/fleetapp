@@ -1,4 +1,4 @@
-import { describeErrorForLog, MILLISECONDS_PER_DAY } from "@fleetapp/core";
+import { describeErrorForLog, MILLISECONDS_PER_DAY, type RenterLinkPurpose } from "@fleetapp/core";
 import { generateSecretToken, hashSecretToken } from "@fleetapp/core/server";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, renterLinks } from "@fleetapp/db/schema";
@@ -157,11 +157,11 @@ export function linkInPlay(
   };
 }
 
-/** The Renter's details link still in play (maybe expired or locked), or null. */
-export async function loadDetailsLink(
+/** The newest link of one purpose still in play for a Renter or a rental (maybe expired or locked), or null. */
+export async function loadLinkInPlay(
   database: AnyDatabase,
   operatorId: string,
-  renterId: string,
+  which: { purpose: RenterLinkPurpose; renterId?: string; rentalId?: string },
   now: Date,
 ): Promise<RenterLinkInPlay | null> {
   const [link] = await withTenant(database, operatorId, (tx) =>
@@ -171,8 +171,9 @@ export async function loadDetailsLink(
       .where(
         and(
           eq(renterLinks.operatorId, operatorId),
-          eq(renterLinks.renterId, renterId),
-          eq(renterLinks.purpose, PURPOSE),
+          which.renterId ? eq(renterLinks.renterId, which.renterId) : undefined,
+          which.rentalId ? eq(renterLinks.rentalId, which.rentalId) : undefined,
+          eq(renterLinks.purpose, which.purpose),
           isNull(renterLinks.cancelledAt),
         ),
       )
@@ -180,6 +181,16 @@ export async function loadDetailsLink(
       .limit(1),
   );
   return link ? linkInPlay(link, now) : null;
+}
+
+/** The Renter's details link still in play (maybe expired or locked), or null. */
+export function loadDetailsLink(
+  database: AnyDatabase,
+  operatorId: string,
+  renterId: string,
+  now: Date,
+): Promise<RenterLinkInPlay | null> {
+  return loadLinkInPlay(database, operatorId, { purpose: PURPOSE, renterId }, now);
 }
 
 /** Every link the Renter has had, for their Log. */

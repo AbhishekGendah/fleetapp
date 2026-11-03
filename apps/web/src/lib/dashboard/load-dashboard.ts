@@ -1,6 +1,7 @@
 import { dashboardWindow, type DashboardWindow, type VehicleStatus } from "@fleetapp/core";
 
 import { appDb } from "../app-db";
+import { canHearRenterPayments } from "../payments/app-payments";
 import { loadDamageAttention, type DamageAttention } from "../damage/damage-queries";
 import type { SignedInUser } from "../require-user";
 import { loadOperatorSettings } from "../settings/operator-settings";
@@ -63,7 +64,7 @@ export async function loadDashboard(user: SignedInUser): Promise<DashboardData> 
       loadReviewsWaiting(appDb, operatorId),
     ]);
   const [notReady, damage] = await Promise.all([
-    loadBookingReadiness(appDb, operatorId, rentals, clock),
+    loadBookingReadiness(appDb, operatorId, rentals, clock, { canHearRenterPayments }),
     loadDamageAttention(appDb, operatorId),
   ]);
   return {
