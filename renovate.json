@@ -12,6 +12,16 @@
   "postUpdateOptions": ["pnpmDedupe"],
   "packageRules": [
     {
+      "description": "Ranges, not pins, where a range is the point: the Node line we run on (engines) and the React versions our shared packages work with (peerDependencies).",
+      "matchDepTypes": ["engines", "peerDependencies"],
+      "rangeStrategy": "replace"
+    },
+    {
+      "description": "Node moves as one: .nvmrc (CI) and engines (Vercel) always name the same line.",
+      "matchPackageNames": ["node"],
+      "groupName": "Node.js"
+    },
+    {
       "description": "Packages released together are updated together.",
       "matchPackageNames": ["next", "eslint-config-next", "@next/**"],
       "groupName": "Next.js"
