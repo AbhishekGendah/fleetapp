@@ -5,6 +5,10 @@
     {
       "path": "/api/cron/file-housekeeping",
       "schedule": "0 19 * * *"
+    },
+    {
+      "path": "/api/cron/rent",
+      "schedule": "0 16 * * *"
     }
   ]
 }

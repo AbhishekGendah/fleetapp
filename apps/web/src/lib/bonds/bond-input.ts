@@ -1,59 +1,23 @@
-import {
-  centsForEditing,
-  MANUAL_PAYMENT_METHODS,
-  optionalLine,
-  REQUIRED_MESSAGE,
-  requiredDollars,
-  requiredLine,
-} from "@fleetapp/core";
+import { requiredLine } from "@fleetapp/core";
 import { z } from "zod";
 
-import { requiredDate } from "../vehicles/amount-input";
+import {
+  MANUAL_PAYMENT_FIELDS,
+  manualPaymentInputSchema,
+  manualPaymentStart,
+  REQUIRED_MANUAL_PAYMENT_FIELDS,
+  type ManualPaymentField,
+  type ManualPaymentInput,
+} from "../money/manual-payment-input";
 
-const ABOVE_ZERO_MESSAGE = "Enter more than $0.";
-const FUTURE_MESSAGE = "This can't be a day still to come.";
-
-/**
- * Bond received by hand: how much, how (bank transfer or cash), the day,
- * and the transfer's reference or receipt number in capitals (rule 31).
- * `today` is the Operator's, so a payment cannot be dated in the future.
- */
-function buildBondReceivedSchema(today: string) {
-  return z.object({
-    amountCents: requiredDollars.refine((cents) => cents > 0, ABOVE_ZERO_MESSAGE),
-    method: z.enum(MANUAL_PAYMENT_METHODS, REQUIRED_MESSAGE),
-    reference: optionalLine.transform((value) => value?.toUpperCase() ?? null),
-    occurredOn: requiredDate.refine((day) => day <= today, FUTURE_MESSAGE),
-  });
-}
-
-type BondReceivedSchema = ReturnType<typeof buildBondReceivedSchema>;
-
-export function bondReceivedInputSchema(today: string): BondReceivedSchema {
-  return buildBondReceivedSchema(today);
-}
-
-export type BondReceivedInput = z.infer<BondReceivedSchema>;
-export const BOND_RECEIVED_FIELDS = ["amountCents", "method", "reference", "occurredOn"] as const;
-export type BondReceivedField = (typeof BOND_RECEIVED_FIELDS)[number];
-export const REQUIRED_BOND_RECEIVED_FIELDS: ReadonlySet<BondReceivedField> = new Set([
-  "amountCents",
-  "method",
-  "occurredOn",
-]);
-
+/** Bond received by hand: the same as any money received by hand. */
+export const bondReceivedInputSchema = manualPaymentInputSchema;
+export type BondReceivedInput = ManualPaymentInput;
+export const BOND_RECEIVED_FIELDS = MANUAL_PAYMENT_FIELDS;
+export const REQUIRED_BOND_RECEIVED_FIELDS = REQUIRED_MANUAL_PAYMENT_FIELDS;
+export type BondReceivedField = ManualPaymentField;
 /** What the form starts with: the rest of the bond, by bank transfer, today. */
-export function bondReceivedStart(
-  owingCents: number,
-  today: string,
-): Record<BondReceivedField, string> {
-  return {
-    amountCents: owingCents > 0 ? centsForEditing(owingCents) : "",
-    method: "bank_transfer",
-    reference: "",
-    occurredOn: today,
-  };
-}
+export const bondReceivedStart = manualPaymentStart;
 
 /** Why an entry is corrected; kept with the bond, never in the Log. */
 export const bondReversalInputSchema = z.object({ note: requiredLine });

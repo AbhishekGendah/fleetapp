@@ -113,3 +113,20 @@ GRANT SELECT, INSERT ON "ledger_lines" TO "web_app_role";--> statement-breakpoin
 CREATE POLICY "ledger_lines_web_tenant" ON "ledger_lines" FOR ALL TO "web_app_role"
   USING ("operator_id" = "app"."current_operator_id"())
   WITH CHECK ("operator_id" = "app"."current_operator_id"());
+--> statement-breakpoint
+
+-- The daily rent job has no session (rule 3): it asks which businesses have a
+-- rental to charge or credit, then works one business at a time in its own
+-- tenant context. Only ids cross between businesses here.
+CREATE FUNCTION "app"."operators_with_rent_due"(
+  "returned_since" timestamp with time zone
+) RETURNS SETOF uuid
+  LANGUAGE sql STABLE SECURITY DEFINER
+  SET search_path = pg_catalog, public
+AS $$
+  SELECT DISTINCT "operator_id" FROM "public"."rentals"
+  WHERE "status" = 'active'
+     OR ("status" IN ('returned', 'closed') AND "returned_at" >= "returned_since")
+$$;--> statement-breakpoint
+REVOKE ALL ON FUNCTION "app"."operators_with_rent_due"(timestamp with time zone) FROM PUBLIC;--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION "app"."operators_with_rent_due"(timestamp with time zone) TO "web_app_role";
