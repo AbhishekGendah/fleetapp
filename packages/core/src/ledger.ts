@@ -116,6 +116,41 @@ export function ledgerBalanceCents(lines: readonly LedgerLineAmount[]): number {
   return lines.reduce((total, line) => total + balanceEffect(line, linesById), 0);
 }
 
+export interface StatementFigures<Line extends DatedLedgerLine> {
+  /** The balance at the start of the first day. */
+  openingCents: number;
+  /** The lines in the range, oldest first, each with the balance after it. */
+  lines: { line: Line; balanceAfterCents: number }[];
+  closingCents: number;
+}
+
+/**
+ * A statement for the days from `fromDate` to `toDate` (both included): the
+ * balance before them, each line in them with the balance after it, and the
+ * balance at the end. Every figure is added up from the lines (rule 11).
+ */
+export function statementFigures<Line extends DatedLedgerLine>(
+  lines: readonly Line[],
+  fromDate: string,
+  toDate: string,
+): StatementFigures<Line> {
+  const linesById = new Map<string, LedgerLineAmount>(lines.map((line) => [line.id, line]));
+  const oldestFirst = [...lines].sort((first, second) =>
+    first.effectiveOn.localeCompare(second.effectiveOn),
+  );
+  const openingCents = oldestFirst
+    .filter((line) => line.effectiveOn < fromDate)
+    .reduce((total, line) => total + balanceEffect(line, linesById), 0);
+  let running = openingCents;
+  const inRange = oldestFirst
+    .filter((line) => line.effectiveOn >= fromDate && line.effectiveOn <= toDate)
+    .map((line) => {
+      running += balanceEffect(line, linesById);
+      return { line, balanceAfterCents: running };
+    });
+  return { openingCents, lines: inRange, closingCents: running };
+}
+
 /** The lines that can still be reversed: not a reversal, and not reversed already. */
 export function reversibleLineIds(lines: readonly LedgerLineAmount[]): Set<string> {
   const reversed = new Set(lines.flatMap((line) => (line.reversesId ? [line.reversesId] : [])));

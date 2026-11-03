@@ -11,6 +11,7 @@ import {
   rentForDays,
   rentForPeriod,
   reversibleLineIds,
+  statementFigures,
   unusedDaysCredit,
   type DatedLedgerLine,
   type RateFromDate,
@@ -169,5 +170,45 @@ describe("the balance", () => {
     expect(owingCharges(bounced).reduce((sum, owing) => sum + owing.owingCents, 0)).toBe(
       ledgerBalanceCents(bounced),
     );
+  });
+});
+
+describe("a statement", () => {
+  const lines = [
+    line("rent-1", "charge", 350_00, "2026-11-03"),
+    line("paid-1", "payment", 350_00, "2026-11-04"),
+    line("rent-2", "charge", 350_00, "2026-11-10"),
+    line("clean", "charge", 80_00, "2026-11-12"),
+    line("undo-clean", "reversal", 80_00, "2026-11-13", "clean"),
+    line("rent-3", "charge", 350_00, "2026-11-17"),
+  ];
+
+  it("opens with the balance before its first day and runs each line's balance", () => {
+    const figures = statementFigures(lines, "2026-11-10", "2026-11-13");
+
+    expect(figures.openingCents).toBe(0);
+    expect(figures.lines.map((row) => [row.line.id, row.balanceAfterCents])).toEqual([
+      ["rent-2", 350_00],
+      ["clean", 430_00],
+      ["undo-clean", 350_00],
+    ]);
+    expect(figures.closingCents).toBe(350_00);
+  });
+
+  it("takes in the whole ledger, and a reversal of a line before the range still counts", () => {
+    expect(statementFigures(lines, "2026-11-01", "2026-11-30").closingCents).toBe(
+      ledgerBalanceCents(lines),
+    );
+    const late = statementFigures(lines, "2026-11-13", "2026-11-13");
+    expect(late.openingCents).toBe(430_00);
+    expect(late.closingCents).toBe(350_00);
+  });
+
+  it("is empty for days with no lines", () => {
+    expect(statementFigures(lines, "2026-12-01", "2026-12-31")).toEqual({
+      openingCents: ledgerBalanceCents(lines),
+      lines: [],
+      closingCents: ledgerBalanceCents(lines),
+    });
   });
 });

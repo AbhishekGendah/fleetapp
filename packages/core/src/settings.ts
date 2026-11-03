@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { HOW_TO_PAY_MAX_LENGTH, ONE_OFF_CHARGE_INVOICING } from "./billing";
+
 import {
   DEFAULT_RENTER_LINK_DAYS,
   MAXIMUM_RENTER_LINK_DAYS,
@@ -106,6 +108,14 @@ export const operatorSettingsSchema = z.object({
     .min(0)
     .max(MAXIMUM_ONGOING_NOTICE_DAYS)
     .default(DEFAULT_ONGOING_NOTICE_DAYS),
+
+  // Money (Phase 4).
+  /** One-off charges: on the next weekly invoice, or invoiced at once. Copied onto each rental. */
+  oneOffChargeInvoicing: z.enum(ONE_OFF_CHARGE_INVOICING).default("with_next_rent"),
+  /** Whether invoices, credit notes and receipts are emailed to the Renter as they are issued. */
+  isInvoiceEmailedAutomatically: z.boolean().default(true),
+  /** Printed on every invoice: how to pay, e.g. the business's bank details for a transfer. */
+  howToPay: z.string().trim().max(HOW_TO_PAY_MAX_LENGTH).default(""),
 });
 
 export type OperatorSettings = z.infer<typeof operatorSettingsSchema>;
