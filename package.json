@@ -22,7 +22,7 @@
   "devDependencies": {
     "@fleetapp/config": "workspace:*",
     "jscpd": "5.4.1",
-    "prettier": "3.9.8",
+    "prettier": "3.9.10",
     "prettier-plugin-tailwindcss": "0.8.1",
     "turbo": "2.11.2"
   }
