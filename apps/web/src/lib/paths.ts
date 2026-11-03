@@ -149,8 +149,13 @@ export function rentalReturnPath(rentalId: string): string {
   return `${rentalPath(rentalId)}/return`;
 }
 
-/** The New rental form, opened from a Renter's or a car's page with them chosen. */
-export function newRentalPath(preset: { renterId?: string; vehicleId?: string } = {}): string {
+/** A day the New rental form starts on, e.g. an empty day tapped on the timeline. */
+export const NEW_RENTAL_STARTS_ON = "startsOn";
+
+/** The New rental form, opened from a Renter's or a car's page (or the timeline) with them chosen. */
+export function newRentalPath(
+  preset: { renterId?: string; vehicleId?: string; [NEW_RENTAL_STARTS_ON]?: string } = {},
+): string {
   const query = new URLSearchParams(
     Object.entries(preset).filter((entry): entry is [string, string] => Boolean(entry[1])),
   ).toString();

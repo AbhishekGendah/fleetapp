@@ -46,6 +46,8 @@ const summaryColumns = {
   year: vehicles.year,
   colour: vehicles.colour,
   status: vehicles.status,
+  statusReason: vehicles.statusReason,
+  statusExpectedBack: vehicles.statusExpectedBack,
   archivedAt: vehicles.archivedAt,
   currentKilometres,
   isRegoOnDirectDebit,
@@ -66,6 +68,9 @@ export interface VehicleSummary {
   year: number;
   colour: string | null;
   status: VehicleStatus;
+  /** Why it is in the workshop or off the road, and when it is expected back. */
+  statusReason: string | null;
+  statusExpectedBack: string | null;
   archivedAt: Date | null;
   currentKilometres: number | null;
   isRegoOnDirectDebit: boolean;

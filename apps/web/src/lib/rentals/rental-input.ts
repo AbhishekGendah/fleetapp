@@ -109,7 +109,7 @@ export function parseRentalForm(
 
 /** A blank form, with the Renter or car filled in when it was opened from their page. */
 export function emptyRentalForm(
-  preset: Partial<Pick<RentalFormValues, "renterId" | "vehicleId">> = {},
+  preset: Partial<Pick<RentalFormValues, "renterId" | "vehicleId" | "plannedStart">> = {},
 ): RentalFormValues {
   const type: RentalType = "fixed_term";
   return { ...emptyForm(RENTAL_FORM_FIELDS), type, ...preset };

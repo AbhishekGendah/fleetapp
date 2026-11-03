@@ -1,9 +1,9 @@
-import { isRecordId, WEEKDAY_LABELS } from "@fleetapp/core";
+import { isCalendarDate, isRecordId, WEEKDAY_LABELS } from "@fleetapp/core";
 import { Card, CardContent } from "@fleetapp/ui/card";
 import { PageHeader } from "@fleetapp/ui/page-header";
 
 import { appDb } from "../../../lib/app-db";
-import { NEW_RENTAL_PRESETS, RENTALS_PATH } from "../../../lib/paths";
+import { NEW_RENTAL_PRESETS, NEW_RENTAL_STARTS_ON, RENTALS_PATH } from "../../../lib/paths";
 import { listPickableCars, listPickableRenters } from "../../../lib/rentals/pickable-records";
 import { emptyRentalForm } from "../../../lib/rentals/rental-input";
 import { requireUser } from "../../../lib/require-user";
@@ -15,16 +15,26 @@ import { RentalForm } from "../rental-form";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** A Renter or car chosen by the page that opened the form, if it is a record id at all. */
+/** A day chosen on the timeline starts at the usual pickup time; the Operator can change it. */
+const PRESET_PICKUP_TIME = "09:00";
+
+/**
+ * A Renter or car chosen by the page that opened the form, if it is a
+ * record id at all, and a start day if it is a real date.
+ */
 function presetsFrom(
   searchParams: Record<string, string | string[] | undefined>,
-): Partial<Record<(typeof NEW_RENTAL_PRESETS)[number], string>> {
-  return Object.fromEntries(
-    NEW_RENTAL_PRESETS.flatMap((key) => {
-      const value = searchParams[key];
-      return typeof value === "string" && isRecordId(value) ? [[key, value]] : [];
-    }),
-  );
+): Partial<Record<(typeof NEW_RENTAL_PRESETS)[number] | "plannedStart", string>> {
+  const ids = NEW_RENTAL_PRESETS.flatMap((key) => {
+    const value = searchParams[key];
+    return typeof value === "string" && isRecordId(value) ? [[key, value]] : [];
+  });
+  const startsOn = searchParams[NEW_RENTAL_STARTS_ON];
+  const start =
+    typeof startsOn === "string" && isCalendarDate(startsOn)
+      ? [["plannedStart", `${startsOn}T${PRESET_PICKUP_TIME}`]]
+      : [];
+  return Object.fromEntries([...ids, ...start]);
 }
 
 export default async function NewRentalPage(props: {
