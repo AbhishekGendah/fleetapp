@@ -188,6 +188,13 @@ Never use "client", "customer" or "tenant" for these in code.
 - For anything touching schema, money, auth or tenancy: show a plan
   first and wait for approval before editing.
 - Small, single-purpose changes. Conventional commits.
+- Review each slice before it is called done: review only what the
+  slice changed, with depth matched to risk. Money, tenancy, logins and
+  signing get a deep review where each finding is checked by two
+  independent checkers; screens and wording get one quick pass. Every
+  bug fixed gets an automatic test so it cannot come back. A full
+  review of the whole app happens only before launch, focused on what
+  cuts across areas (docs/reviews/2026-11-04-full-code-review.md).
 - Every schema change goes through a Drizzle migration. Never edit a
   migration that has already been applied.
 - Tests are required for: money and GST calculations, the ledger,

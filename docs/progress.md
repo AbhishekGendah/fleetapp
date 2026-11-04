@@ -996,11 +996,21 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
     from real records; Renovate keeps ranges for engines and peer
     dependencies (its Node 26 pin had broken the pin-dependencies PR).
 
+- **Full code review, 4 Nov 2026** (docs/reviews/2026-11-04-full-code-review.md):
+  the whole app before slice 5, every finding checked by two independent
+  checkers. 155 items (13 serious, 82 medium, 60 small); the known slice-4
+  list confirmed or refuted item by item. Sound: business separation,
+  gapless numbering under load, Stripe event handling, Renter link secrets,
+  GST rounding. Fix order agreed: rent maths, then bond and direct debit
+  (both before slice 5), then logins, signing, privacy, database updates.
+  CLAUDE.md now asks for a review of each slice before it is called done.
+
 ## Next
 
-Abhi: add the second Stripe event destination (connected accounts) and its
-secret, then try slice 4 on the dev site. Then Phase 4 slice 5 (weekly
-debits).
+Fix the review's batches 1 and 2 (rent maths, then bond and direct debit),
+plan first. Abhi: add the second Stripe event destination (connected
+accounts) and its secret, then try slice 4 on the dev site. Then Phase 4
+slice 5 (weekly debits).
 Open idea: trim the phone rules to Australia only with libphonenumber's
 metadata generator (about 40 KB off each form page); running the
 generator needs Abhi's say-so.
