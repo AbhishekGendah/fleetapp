@@ -105,12 +105,16 @@ async function chargeRental(
   context: RentContext,
   rental: RentalToCharge,
 ): Promise<RentAdded> {
-  const rates: RateFromDate[] = await tx
+  const rows = await tx
     .select({ appliesFrom: rentalRates.appliesFrom, weeklyRateCents: rentalRates.weeklyRateCents })
     .from(rentalRates)
     .where(
       and(eq(rentalRates.operatorId, context.operatorId), eq(rentalRates.rentalId, rental.id)),
     );
+  // TODO(batch 1): this weekday engine is replaced by block rent; it reads weekday rates only.
+  const rates: RateFromDate[] = rows.flatMap(({ appliesFrom, weeklyRateCents }) =>
+    appliesFrom !== null && weeklyRateCents !== null ? [{ appliesFrom, weeklyRateCents }] : [],
+  );
   const { partWeekCharging } = readSettings(operatorSettingsSchema, rental.settingsSnapshot);
   const timeZone = context.gst.timeZone;
   const returnDate = rental.returnedAt ? todayInTimeZone(rental.returnedAt, timeZone) : null;

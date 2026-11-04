@@ -6,6 +6,7 @@ import {
 } from "@fleetapp/core";
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   date,
   foreignKey,
@@ -87,6 +88,11 @@ export const ledgerLines = pgTable(
     /** For rent and its credit: the days it covers, from the first to the day after the last. */
     periodStart: date("period_start"),
     periodEnd: date("period_end"),
+    /** For block rent: the exact span it covers, from the first block's start to the last's end. */
+    periodStartsAt: timestamp("period_starts_at", { withTimezone: true }),
+    periodEndsAt: timestamp("period_ends_at", { withTimezone: true }),
+    /** A correction to a block period already charged (a return, re-pricing or waiver). */
+    isCorrection: boolean("is_correction").notNull().default(false),
     /** How a payment or refund moved (a type, never its details; rule 16). */
     method: paymentMethodEnum("method"),
     /** A bank transfer's reference or a receipt number, in capitals. */
@@ -130,6 +136,12 @@ export const ledgerLines = pgTable(
     uniqueIndex("ledger_lines_one_credit_per_period")
       .on(table.operatorId, table.rentalId, table.periodStart)
       .where(sql`${table.kind} = 'credit' and ${table.periodStart} is not null`),
+    // One original charge per block period; corrections to it are separate lines (rule 11).
+    uniqueIndex("ledger_lines_one_block_rent_per_period")
+      .on(table.operatorId, table.rentalId, table.periodStartsAt)
+      .where(
+        sql`${table.kind} = 'charge' and not ${table.isCorrection} and ${table.periodStartsAt} is not null`,
+      ),
     check("ledger_lines_amount", sql`${table.amountCents} > 0`),
     check(
       "ledger_lines_gst",
@@ -147,6 +159,13 @@ export const ledgerLines = pgTable(
     check(
       "ledger_lines_charge_type",
       sql`(${table.kind} in ('charge', 'credit')) = (${table.chargeTypeId} is not null)`,
+    ),
+    check(
+      "ledger_lines_block_period",
+      sql`(${table.periodStartsAt} is null) = (${table.periodEndsAt} is null)
+        and (${table.periodStartsAt} is null or (${table.kind} in ('charge', 'credit')
+          and ${table.periodStart} is null and ${table.periodEndsAt} > ${table.periodStartsAt}))
+        and (not ${table.isCorrection} or ${table.periodStartsAt} is not null)`,
     ),
     check(
       "ledger_lines_period",

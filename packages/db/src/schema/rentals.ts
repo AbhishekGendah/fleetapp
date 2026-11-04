@@ -1,6 +1,7 @@
-import { RENTAL_STATUSES, RENTAL_TYPES } from "@fleetapp/core";
+import { RENT_MODELS, RENTAL_STATUSES, RENTAL_TYPES } from "@fleetapp/core";
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   customType,
   date,
@@ -26,6 +27,7 @@ import { carLink } from "./vehicles";
 
 export const rentalTypeEnum = pgEnum("rental_type", RENTAL_TYPES);
 export const rentalStatusEnum = pgEnum("rental_status", RENTAL_STATUSES);
+export const rentModelEnum = pgEnum("rent_model", RENT_MODELS);
 
 /**
  * A span of time, from (included) up to (not included), so one booking can
@@ -61,6 +63,19 @@ export const rentals = pgTable(
     chargeWeekday: smallint("charge_weekday").notNull(),
     bondCents: integer("bond_cents").notNull(),
 
+    /** How rent is worked out; the rent run charges `blocks` rentals only. */
+    rentModel: rentModelEnum("rent_model").notNull().default("weekday"),
+    /** Copied at booking (rule 14): long-term rentals pay a week of blocks at a time. */
+    isLongTerm: boolean("is_long_term"),
+    /** Minutes past the last whole block that are free at the return. */
+    graceMinutes: smallint("grace_minutes"),
+    /** A long-term rental back in fewer blocks than this is re-priced at the daily rate. */
+    longTermMinimumDays: smallint("long_term_minimum_days"),
+    /** The blocks booked; none for an ongoing rental. */
+    bookedBlocks: integer("booked_blocks"),
+    /** Why the business waived the daily-rate re-pricing at the return, if it did. */
+    dailyRateWaivedReason: text("daily_rate_waived_reason"),
+
     /** The Operator's settings when this rental was made, and the version they came from. */
     settingsSnapshot: jsonb("settings_snapshot").$type<Record<string, unknown>>().notNull(),
     settingsVersion: integer("settings_version").notNull(),
@@ -89,6 +104,17 @@ export const rentals = pgTable(
     ),
     check("rentals_charge_weekday", sql`${table.chargeWeekday} between 1 and 7`),
     check("rentals_bond", sql`${table.bondCents} >= 0`),
+    check(
+      "rentals_block_terms",
+      sql`(${table.rentModel} = 'blocks') = (${table.isLongTerm} is not null
+          and ${table.graceMinutes} is not null and ${table.longTermMinimumDays} is not null)
+        and (${table.graceMinutes} is null or ${table.graceMinutes} between 0 and 240)
+        and (${table.longTermMinimumDays} is null or ${table.longTermMinimumDays} between 1 and 90)
+        and (${table.bookedBlocks} is null or ${table.bookedBlocks} > 0)
+        and (${table.rentModel} = 'weekday' or ${table.isLongTerm} or ${table.bookedBlocks} is not null)
+        and (${table.dailyRateWaivedReason} is null
+          or (${table.isLongTerm} and length(trim(${table.dailyRateWaivedReason})) > 0))`,
+    ),
     check(
       "rentals_cancelled",
       sql`(${table.status} = 'cancelled') = (${table.cancelledAt} is not null)
@@ -119,8 +145,10 @@ export function rentalLink(
 }
 
 /**
- * The weekly rate and the date it applies from. Added to, never changed
+ * A rental's rate and where it applies from. Added to, never changed
  * (rule 9's history): a new rate is a new row, so past weeks keep theirs.
+ * Block rentals say the block it starts at (a week start for long-term
+ * rentals) and carry the daily rate; weekday rentals said a date.
  */
 export const rentalRates = pgTable(
   "rental_rates",
@@ -128,8 +156,11 @@ export const rentalRates = pgTable(
     ...primaryKeyColumn,
     ...operatorIdColumn,
     rentalId: uuid("rental_id").notNull(),
-    weeklyRateCents: integer("weekly_rate_cents").notNull(),
-    appliesFrom: date("applies_from").notNull(),
+    /** The weekly price; none on a block rental priced by the day only. */
+    weeklyRateCents: integer("weekly_rate_cents"),
+    appliesFrom: date("applies_from"),
+    dailyRateCents: integer("daily_rate_cents"),
+    appliesFromBlock: integer("applies_from_block"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
@@ -141,7 +172,23 @@ export const rentalRates = pgTable(
       table.rentalId,
       table.appliesFrom,
     ),
-    check("rental_rates_amount", sql`${table.weeklyRateCents} > 0`),
+    unique("rental_rates_rental_block_unique").on(
+      table.operatorId,
+      table.rentalId,
+      table.appliesFromBlock,
+    ),
+    check(
+      "rental_rates_amount",
+      sql`(${table.weeklyRateCents} is null or ${table.weeklyRateCents} > 0)
+        and (${table.dailyRateCents} is null or ${table.dailyRateCents} > 0)`,
+    ),
+    check(
+      "rental_rates_start",
+      sql`(${table.appliesFrom} is null) <> (${table.appliesFromBlock} is null)
+        and (${table.appliesFrom} is null or ${table.weeklyRateCents} is not null)
+        and (${table.appliesFromBlock} is null
+          or (${table.appliesFromBlock} >= 0 and ${table.dailyRateCents} is not null))`,
+    ),
   ],
 );
 

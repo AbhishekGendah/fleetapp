@@ -12,6 +12,14 @@ import { MILLISECONDS_PER_DAY, MILLISECONDS_PER_MINUTE } from "./time-units";
  */
 export const BLOCK_MILLISECONDS = MILLISECONDS_PER_DAY;
 
+/**
+ * How a rental's rent is worked out: `blocks` for every rental booked from
+ * the rent rework on, `weekday` for the test rentals made before it, which
+ * the rent run no longer charges (batch 1 plan, decision 5).
+ */
+export const RENT_MODELS = ["weekday", "blocks"] as const;
+export type RentModel = (typeof RENT_MODELS)[number];
+
 export const DEFAULT_GRACE_MINUTES = 60;
 export const MAXIMUM_GRACE_MINUTES = 240;
 export const DEFAULT_LONG_TERM_MINIMUM_DAYS = 7;

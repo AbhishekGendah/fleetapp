@@ -69,6 +69,11 @@ export const vehicles = pgTable(
     fuelType: fuelTypeEnum("fuel_type"),
     seats: integer("seats"),
 
+    /** The price of one 24-hour block on a short hire. Required on the form; old cars have none. */
+    dailyRateCents: integer("daily_rate_cents"),
+    /** The cheaper price for seven blocks on a long-term rental; none means seven daily rates. */
+    longTermWeeklyCents: integer("long_term_weekly_cents"),
+
     status: vehicleStatusEnum("status").notNull().default("available"),
     /** Why it is in service or off road, and when it is expected back. */
     statusReason: text("status_reason"),
@@ -96,6 +101,11 @@ export const vehicles = pgTable(
     check(
       "vehicles_year_range",
       sql`${table.year} between ${sql.raw(String(EARLIEST_VEHICLE_YEAR))} and ${sql.raw(String(LATEST_ALLOWED_YEAR))}`,
+    ),
+    check(
+      "vehicles_rates",
+      sql`(${table.dailyRateCents} is null or ${table.dailyRateCents} > 0)
+        and (${table.longTermWeeklyCents} is null or ${table.longTermWeeklyCents} > 0)`,
     ),
     check(
       "vehicles_seats_range",

@@ -234,7 +234,7 @@ export async function loadRental(
       })
       .from(rentals)
       .where(eq(rentals.id, rentalId));
-    const rates = await tx
+    const rateRows = await tx
       .select({
         weeklyRateCents: rentalRates.weeklyRateCents,
         appliesFrom: rentalRates.appliesFrom,
@@ -242,6 +242,10 @@ export async function loadRental(
       .from(rentalRates)
       .where(and(eq(rentalRates.operatorId, operatorId), eq(rentalRates.rentalId, rentalId)))
       .orderBy(desc(rentalRates.appliesFrom));
+    // TODO(batch 1): block rentals' rates are shown once the rental page moves to block rent.
+    const rates = rateRows.flatMap(({ appliesFrom, weeklyRateCents }) =>
+      appliesFrom !== null && weeklyRateCents !== null ? [{ appliesFrom, weeklyRateCents }] : [],
+    );
     return details ? { ...summary, ...details, rates } : null;
   });
 }
