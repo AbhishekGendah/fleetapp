@@ -1040,6 +1040,16 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
     O-332 and O-342 updated.
   - Moved to the money tidy-up: retrying failed invoice emails ("Not
     emailed", Email again).
+  - Deep review of this slice (two checkers each): 7 problems fixed.
+    Booked days count the grace period; changing the end before the
+    handover works the terms out again, and a short hire can't become
+    ongoing after it; shortening a booking no longer fails (review A6-2);
+    the waiver is refused outside the 60-day lookback or after a manual
+    reversal; picking a car always replaces both prices; rent after the
+    return shows its real end; corrections are dated the day made; old
+    contract templates still print, and one missing the rent terms shows a
+    warning. Browser tests added for the waiver and the warning. Checklist
+    O-363 new; O-359 and O-361 updated.
 
 ## Next
 
