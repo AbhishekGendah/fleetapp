@@ -1,4 +1,4 @@
-# Review fixes, batch 2: bond and direct debit (plan, awaiting approval)
+# Review fixes, batch 2: bond and direct debit (approved 4 Nov 2026, built)
 
 From docs/reviews/2026-11-04-full-code-review.md, fix order item 2. Every
 item here comes before Phase 4 slice 5 (weekly debits), because slice 5
@@ -286,3 +286,28 @@ before relying on it, and anything different gets changed here first:
   - the bond-to-refund flag on cancelled bookings (consumer law);
   - Stripe's terms on cancelling direct debits from the business's side
     (detaching is Stripe's documented way).
+
+## As built (4 Nov 2026)
+
+- **Sandbox checks:** the cloud session can't reach Stripe, so the three
+  sandbox checks above are moved to the manual Stripe test-mode run before
+  slice 5 goes live (docs/launch-checklist.md). The code follows Stripe's
+  documented behaviour and every case is tested against the stand-in.
+- **Older rentals and the direct debit (KS-4): not done as planned.** A
+  rental's settings snapshot can't be changed: the database refuses it
+  (rule 14). And a snapshot holds only what the business had set, so a
+  setting added later reads as its default on every older rental. The fix
+  belongs with how snapshots are made (store every setting's value at
+  booking, so a later default never reaches an older rental). That is
+  raised for its own small plan. Today it affects only test rentals.
+- **Bond to refund:** shown on the rental and in the dashboard's Needs
+  attention. Recording a cash refund by hand waits for slice 7.
+- **Override reasons (KS-8):** checked again as the handover saves; a
+  reason typed for something since put right is dropped.
+- **Disconnected account:** Settings → Payments says to contact AGS to
+  connect a different account (its own plan later).
+- **Stripe pages:** kept in `stripe_checkouts`; a bond page lasts an hour
+  and is handed out again while it is open for the same amount. Two
+  presses at once keep one page and expire the other at Stripe.
+- **Link limits:** 10 Stripe pages and 20 licence photos per link an hour,
+  counted in `renter_link_attempts`.

@@ -60,7 +60,24 @@ Add to this list whenever something is relaxed or put off "until launch".
 - [ ] The live event destination for connected accounts (v1 Checkout and
       mandate events, thin) and its secret (STRIPE_CONNECT_WEBHOOK_SECRET) in
       the production Vercel project; without it Renters are not offered
-      Stripe's page.
+      Stripe's page. It also needs the events added in review fixes batch 2:
+      v1.checkout.session.expired, v1.refund.created, v1.refund.updated,
+      v1.refund.failed, v1.charge.dispute.funds_withdrawn,
+      v1.charge.dispute.funds_reinstated and v1.account.application.deauthorized;
+      the platform destination needs v2.core.account.closed.
+- [ ] `APP_STAGE=production` in the production Vercel project. The app now
+      refuses to start with a live Stripe key unless it is set, and refuses a
+      test key when it is (review A5-9).
+- [ ] Before slice 5 goes live, in Stripe's sandbox (they couldn't be tried
+      from the cloud session, which can't reach Stripe): that refund and
+      dispute events arrive as thin events from the connected-accounts
+      destination; which event a business disconnecting sends with Accounts
+      v2; and that detaching a replaced direct debit's bank account sends
+      "mandate updated" with it inactive (docs/plans/review-fixes-batch-2.md).
+- [ ] A Renter's bond refunded by hand (cash or transfer) can't be recorded
+      yet: refunds come with Phase 4 slice 7. Until then a cancelled booking
+      still holding a cash bond shows "Bond to refund" and stays on the
+      dashboard.
 - [ ] Stripe's answer on paper Direct Debit Requests entered by the business
       (docs/legal-notes.md, Renter direct debit) read, and the app changed
       only if Stripe allows it and the lawyer agrees.

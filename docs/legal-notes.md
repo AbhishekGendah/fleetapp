@@ -682,6 +682,29 @@ of service) and the countries.
   contact details belong on every rental contract. Invoices are built in a
   later phase; this makes sure the details are there when they are.
 
+## Bond and direct debit (review fixes batch 2, 4 Nov 2026, built)
+
+- **What the business sees:** the payments page no longer says the business
+  "never sees" bank or card details. It says the business sees only the
+  last digits, and nobody can take money with them (consumer law: no
+  misleading statements; privacy: APP 5 notice accuracy).
+- **Bond paid twice:** the app now stops a Renter paying the bond twice on
+  Stripe's page, and stops staff recording cash while a bank debit for it
+  is still clearing (consumer law: no taking more than agreed).
+- **Bond owed back:** a bond that arrives after a booking was cancelled is
+  shown as "Bond to refund" until refunded. Refunds and disputes made in
+  Stripe are recorded on the bond by themselves (record keeping). Refunding
+  a cash bond by hand comes with Phase 4 slice 7 (launch checklist).
+- **Old direct debits:** a direct debit the Renter replaced is cancelled at
+  Stripe straight away (Stripe's terms and the Direct Debit Request: only
+  the account the Renter chose may be debited).
+- **Stripe's copy of the Renter:** a corrected name or email is sent to
+  Stripe, so direct-debit notices Stripe sends reach the Renter, not an old
+  inbox (privacy: APP 10, keeping personal information accurate; and the
+  advance notice of debits the Direct Debit Request promises).
+- **Test payments on the live site:** the live site refuses Stripe's test
+  key, so a fake test card can't "pay" a bond there.
+
 ## Logs
 
 - Error logs (Vercel) hold only the kind of error and, for a database
