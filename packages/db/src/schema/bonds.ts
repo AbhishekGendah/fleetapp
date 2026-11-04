@@ -11,6 +11,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -47,8 +48,13 @@ export const bondMovements = pgTable(
     note: text("note"),
     /** The entry a reversal undoes. */
     reversesId: uuid("reverses_id"),
-    /** The payment through Stripe this money came in by, recorded once Stripe says it succeeded. */
-    paymentId: uuid("payment_id").unique(),
+    /**
+     * The payment through Stripe this money came in by (recorded once Stripe
+     * says it succeeded), or went back out of by a refund or dispute.
+     */
+    paymentId: uuid("payment_id"),
+    /** The Stripe refund or dispute an entry came from, so a repeated message adds nothing (rule 20). */
+    stripeObjectId: text("stripe_object_id"),
     createdByUserId: uuid("created_by_user_id").references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -74,9 +80,18 @@ export const bondMovements = pgTable(
       columns: [table.paymentId, table.operatorId, table.rentalId],
       foreignColumns: [payments.id, payments.operatorId, payments.rentalId],
     }),
+    // A payment lands on the bond once; a dispute won puts it back under the dispute's own ID.
+    uniqueIndex("bond_movements_one_per_payment")
+      .on(table.paymentId)
+      .where(sql`${table.kind} = 'received' and ${table.stripeObjectId} is null`),
+    unique("bond_movements_stripe_object_once").on(table.stripeObjectId, table.kind),
     check(
-      "bond_movements_payment_received",
-      sql`${table.paymentId} is null or ${table.kind} = 'received'`,
+      "bond_movements_payment_kind",
+      sql`${table.paymentId} is null or ${table.kind} in ('received', 'refunded')`,
+    ),
+    check(
+      "bond_movements_stripe_object_shape",
+      sql`${table.stripeObjectId} is null or ${table.stripeObjectId} ~ '^(re|pyr|du)_[A-Za-z0-9]+$'`,
     ),
     index("bond_movements_rental_idx").on(table.operatorId, table.rentalId),
     check("bond_movements_amount", sql`${table.amountCents} > 0`),

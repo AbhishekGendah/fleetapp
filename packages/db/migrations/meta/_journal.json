@@ -302,6 +302,13 @@
       "when": 1793806765848,
       "tag": "0042_block_rent",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1793824293399,
+      "tag": "0043_stripe_followups",
+      "breakpoints": true
     }
   ]
 }

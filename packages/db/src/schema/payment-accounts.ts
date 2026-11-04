@@ -38,13 +38,20 @@ export const stripeAccounts = pgTable(
       .notNull()
       .default("pending"),
     requirementsDue: integer("requirements_due").notNull().default(0),
+    /** Things Stripe will want only later: shown, never switching payments off (review A5-1). */
+    requirementsLater: integer("requirements_later").notNull().default(0),
+    /** When Stripe closed the account or the business disconnected it (review A5-5). */
+    disconnectedAt: timestamp("disconnected_at", { withTimezone: true }),
     /** When Stripe was last asked; the status is always read from Stripe, never from the browser. */
     checkedAt: timestamp("checked_at", { withTimezone: true }),
     ...timestampColumns,
   },
   (table) => [
     check("stripe_accounts_id_shape", sql`${table.stripeAccountId} ~ '^acct_[A-Za-z0-9]+$'`),
-    check("stripe_accounts_requirements", sql`${table.requirementsDue} >= 0`),
+    check(
+      "stripe_accounts_requirements",
+      sql`${table.requirementsDue} >= 0 and ${table.requirementsLater} >= 0`,
+    ),
   ],
 );
 

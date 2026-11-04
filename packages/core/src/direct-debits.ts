@@ -42,6 +42,17 @@ export type PaymentPurpose = (typeof PAYMENT_PURPOSES)[number];
 export const CHECKOUT_PURPOSES = ["direct_debit", "bond"] as const;
 export type CheckoutPurpose = (typeof CHECKOUT_PURPOSES)[number];
 
+/** A visit to Stripe's page we opened: still open, finished by the Renter, or expired. */
+export const CHECKOUT_STATUSES = ["open", "complete", "expired"] as const;
+export type CheckoutStatus = (typeof CHECKOUT_STATUSES)[number];
+
+/**
+ * How long a Stripe page we open stays payable (Stripe allows 30 minutes
+ * to 24 hours): long enough to finish, short enough that yesterday's page
+ * can't be paid (review KS-1).
+ */
+export const CHECKOUT_LIFETIME_MS = 60 * 60 * 1000;
+
 /** The rental's direct debit, as the Operator sees it. */
 export const DIRECT_DEBIT_STATES = ["not_set_up", "waiting", "active", "cancelled"] as const;
 export type DirectDebitState = (typeof DIRECT_DEBIT_STATES)[number];
@@ -96,6 +107,23 @@ export function bondToCollectCents(input: {
   pendingCents: number;
 }): number {
   return Math.max(input.requiredCents - input.heldCents - input.pendingCents, 0);
+}
+
+/** Stripe takes no payment under 50 cents (AUD), so a smaller bond remainder is left to the business. */
+export const STRIPE_MINIMUM_CHARGE_CENTS = 50;
+
+/** The bond the Renter can pay on Stripe's page: what is still to collect, if Stripe will take it. */
+export function bondPayableOnlineCents(toCollectCents: number): number {
+  return toCollectCents >= STRIPE_MINIMUM_CHARGE_CENTS ? toCollectCents : 0;
+}
+
+/**
+ * Whether a direct debit set up at this time has been overtaken by another
+ * the Renter set up later (review KS-2): the newest one set up is always the
+ * current one, whatever order Stripe's messages arrive in.
+ */
+export function isOvertakenMandate(setUpAt: Date, others: readonly { setUpAt: Date }[]): boolean {
+  return others.some((other) => other.setUpAt.getTime() > setUpAt.getTime());
 }
 
 /** A Stripe mandate's status in our words; anything unknown is treated as not usable. */

@@ -1,5 +1,9 @@
 import { MAXIMUM_OVERSEAS_LICENCE_NUMBER_LENGTH } from "@fleetapp/core";
-import { RENTER_LINK_PURPOSES, RENTER_SUBMISSION_STATUSES } from "@fleetapp/core";
+import {
+  LINK_HOURLY_LIMITS,
+  RENTER_LINK_PURPOSES,
+  RENTER_SUBMISSION_STATUSES,
+} from "@fleetapp/core";
 import { sql } from "drizzle-orm";
 import {
   check,
@@ -9,6 +13,7 @@ import {
   integer,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   unique,
@@ -223,5 +228,35 @@ export const renterSubmissions = pgTable(
       "renter_submissions_reviewed",
       sql`(${table.status} = 'waiting') = (${table.reviewedAt} is null)`,
     ),
+  ],
+);
+
+const LIMITED_ACTIONS_SQL = Object.keys(LINK_HOURLY_LIMITS)
+  .map((action) => `'${action}'`)
+  .join(", ");
+
+/**
+ * How often a link opened Stripe's page or uploaded a licence photo, per
+ * hour (review G6-6), so a flood or a script is stopped. Counts only; old
+ * hours are left for the retention job.
+ */
+export const renterLinkAttempts = pgTable(
+  "renter_link_attempts",
+  {
+    ...operatorIdColumn,
+    linkId: uuid("link_id").notNull(),
+    action: text("action").notNull(),
+    hourStartsAt: timestamp("hour_starts_at", { withTimezone: true }).notNull(),
+    attempts: integer("attempts").notNull().default(1),
+  },
+  (table) => [
+    primaryKey({ columns: [table.linkId, table.action, table.hourStartsAt] }),
+    foreignKey({
+      name: "renter_link_attempts_link_fk",
+      columns: [table.linkId, table.operatorId],
+      foreignColumns: [renterLinks.id, renterLinks.operatorId],
+    }),
+    check("renter_link_attempts_action", sql`${table.action} in (${sql.raw(LIMITED_ACTIONS_SQL)})`),
+    check("renter_link_attempts_count", sql`${table.attempts} > 0`),
   ],
 );

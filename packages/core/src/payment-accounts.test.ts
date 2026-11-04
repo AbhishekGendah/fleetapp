@@ -11,6 +11,8 @@ const READY: PaymentAccountStatus = {
   cardPayments: "active",
   becsDebitPayments: "active",
   requirementsDue: 0,
+  requirementsLater: 0,
+  isDisconnected: false,
 };
 
 describe("a business's Stripe account", () => {
@@ -34,6 +36,18 @@ describe("a business's Stripe account", () => {
     for (const state of ["details_needed", "restricted", "in_review"] as const) {
       expect(canTakeStripePayments(state)).toBe(false);
     }
+  });
+
+  it("stays ready with things Stripe will only want later (review A5-1)", () => {
+    expect(paymentAccountState({ ...READY, requirementsLater: 3 })).toBe("ready");
+  });
+
+  it("is disconnected once Stripe closes it or the business disconnects, whatever it said before", () => {
+    expect(paymentAccountState({ ...READY, isDisconnected: true })).toBe("disconnected");
+    expect(paymentAccountState({ ...READY, requirementsDue: 1, isDisconnected: true })).toBe(
+      "disconnected",
+    );
+    expect(canTakeStripePayments("disconnected")).toBe(false);
   });
 
   it("knows a connected account's ID", () => {

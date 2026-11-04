@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  bondPayableOnlineCents,
   bondToCollectCents,
   directDebitState,
   isDirectDebitMissingForHandover,
+  isOvertakenMandate,
   mandateStatusOf,
   STRIPE_ID_PATTERNS,
 } from "./direct-debits";
@@ -76,6 +78,27 @@ describe("the bond still to collect", () => {
     expect(bondToCollectCents({ requiredCents: 50_000, heldCents: 60_000, pendingCents: 0 })).toBe(
       0,
     );
+  });
+});
+
+describe("the bond the Renter can pay on Stripe's page", () => {
+  it("is what is still to collect, down to Stripe's 50 cent minimum (review KM-2)", () => {
+    expect(bondPayableOnlineCents(50_000)).toBe(50_000);
+    expect(bondPayableOnlineCents(50)).toBe(50);
+    expect(bondPayableOnlineCents(49)).toBe(0);
+    expect(bondPayableOnlineCents(0)).toBe(0);
+  });
+});
+
+describe("which direct debit is current", () => {
+  const MONDAY = new Date("2026-11-02T01:00:00Z");
+  const TUESDAY = new Date("2026-11-03T01:00:00Z");
+
+  it("is the one set up last, whatever order Stripe tells us in (review KS-2)", () => {
+    expect(isOvertakenMandate(MONDAY, [{ setUpAt: TUESDAY }])).toBe(true);
+    expect(isOvertakenMandate(TUESDAY, [{ setUpAt: MONDAY }])).toBe(false);
+    expect(isOvertakenMandate(MONDAY, [])).toBe(false);
+    expect(isOvertakenMandate(MONDAY, [{ setUpAt: MONDAY }])).toBe(false);
   });
 });
 

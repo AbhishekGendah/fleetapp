@@ -17,8 +17,11 @@ import {
 } from "./fixtures";
 
 const CHECK_VIOLATION = "23514";
+const RESTRICT_VIOLATION = "23001";
 const UNIQUE_VIOLATION = "23505";
 const BOND_CENTS = 500_00;
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const ONE_HOUR_MS = 60 * 60 * 1000;
 
 /** A made-up Stripe ID of a given kind, unique to this run. */
 function stripeId(prefix: string): string {
@@ -39,6 +42,7 @@ describe("Renter payments", () => {
   let operatorBId: string;
   let renterId: string;
   let rentalId: string;
+  let linkId: string;
 
   function addMandate(values: Partial<typeof schema.paymentMandates.$inferInsert> = {}) {
     return withTenant(web.db, operatorAId, (tx) =>
@@ -52,6 +56,7 @@ describe("Renter payments", () => {
           stripeSetupIntentId: stripeId("seti"),
           stripePaymentMethodId: stripeId("pm"),
           stripeMandateId: stripeId("mandate"),
+          setUpAt: new Date(),
           ...values,
         })
         .returning({ id: schema.paymentMandates.id }),
@@ -127,6 +132,26 @@ describe("Renter payments", () => {
         .returning({ id: schema.rentals.id }),
     );
     rentalId = rental!.id;
+    const [user] = await admin.db
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(eq(schema.users.operatorId, operatorAId));
+    const [link] = await withTenant(web.db, operatorAId, (tx) =>
+      tx
+        .insert(schema.renterLinks)
+        .values({
+          operatorId: operatorAId,
+          renterId,
+          rentalId,
+          purpose: "set_up_payments",
+          tokenHash: randomUUID(),
+          sentToEmail: "sam@example.test",
+          expiresAt: new Date(Date.now() + ONE_DAY_MS),
+          createdByUserId: user!.id,
+        })
+        .returning({ id: schema.renterLinks.id }),
+    );
+    linkId = link!.id;
   });
 
   afterAll(async () => {
@@ -244,5 +269,156 @@ describe("Renter payments", () => {
     ];
     expect(seenByB).toEqual([]);
     expect(codes).toEqual(Array(4).fill(POSTGRES_ERROR_CODES.insufficientPrivilege));
+  });
+
+  function openCheckout(values: Partial<typeof schema.stripeCheckouts.$inferInsert> = {}) {
+    return withTenant(web.db, operatorAId, (tx) =>
+      tx
+        .insert(schema.stripeCheckouts)
+        .values({
+          operatorId: operatorAId,
+          rentalId,
+          linkId,
+          purpose: "bond",
+          amountCents: BOND_CENTS,
+          stripeCheckoutSessionId: stripeId("cs_test"),
+          url: "https://checkout.stripe.test/pay",
+          expiresAt: new Date(Date.now() + ONE_HOUR_MS),
+          ...values,
+        })
+        .returning({ id: schema.stripeCheckouts.id }),
+    );
+  }
+
+  it("keeps one open Stripe bond page per rental, moving only from open (review KS-1)", async () => {
+    const [first] = await openCheckout();
+    const codes = [
+      await postgresErrorCodeOf(openCheckout()),
+      await postgresErrorCodeOf(openCheckout({ purpose: "direct_debit", amountCents: null })),
+      await postgresErrorCodeOf(openCheckout({ purpose: "direct_debit" })),
+    ];
+    expect(codes).toEqual([UNIQUE_VIOLATION, undefined, CHECK_VIOLATION]);
+
+    const setStatus = (status: "open" | "complete" | "expired") =>
+      withTenant(web.db, operatorAId, (tx) =>
+        tx
+          .update(schema.stripeCheckouts)
+          .set({ status })
+          .where(eq(schema.stripeCheckouts.id, first!.id)),
+      );
+    await setStatus("expired");
+    expect(await postgresErrorCodeOf(openCheckout())).toBeUndefined();
+    const changes = [
+      await postgresErrorCodeOf(setStatus("open")),
+      await postgresErrorCodeOf(
+        withTenant(web.db, operatorAId, (tx) =>
+          tx
+            .update(schema.stripeCheckouts)
+            .set({ amountCents: 1 })
+            .where(eq(schema.stripeCheckouts.id, first!.id)),
+        ),
+      ),
+      await postgresErrorCodeOf(
+        withTenant(web.db, operatorAId, (tx) =>
+          tx.delete(schema.stripeCheckouts).where(eq(schema.stripeCheckouts.id, first!.id)),
+        ),
+      ),
+    ];
+    expect(changes).toEqual([
+      CHECK_VIOLATION,
+      POSTGRES_ERROR_CODES.insufficientPrivilege,
+      POSTGRES_ERROR_CODES.insufficientPrivilege,
+    ]);
+  });
+
+  it("takes a refund or dispute off a Stripe bond once, never more than was paid (review A5-4)", async () => {
+    const paymentId = await addPayment();
+    await setPaymentStatus(paymentId, "succeeded");
+    await addBondFromPayment(paymentId);
+    const takeBack = (stripeObjectId: string | null, amountCents: number) =>
+      withTenant(web.db, operatorAId, (tx) =>
+        tx.insert(schema.bondMovements).values({
+          operatorId: operatorAId,
+          rentalId,
+          kind: "refunded",
+          amountCents,
+          method: "card",
+          occurredOn: "2026-12-02",
+          paymentId,
+          stripeObjectId,
+        }),
+      );
+    const refundId = stripeId("re");
+    const codes = [
+      await postgresErrorCodeOf(takeBack(refundId, 100_00)),
+      await postgresErrorCodeOf(takeBack(refundId, 100_00)),
+      await postgresErrorCodeOf(takeBack(stripeId("re"), BOND_CENTS + 1)),
+      await postgresErrorCodeOf(takeBack(null, 100_00)),
+      await postgresErrorCodeOf(takeBack("a bank account", 100_00)),
+    ];
+    expect(codes).toEqual([
+      undefined,
+      UNIQUE_VIOLATION,
+      CHECK_VIOLATION,
+      CHECK_VIOLATION,
+      CHECK_VIOLATION,
+    ]);
+  });
+
+  it("lets only the 'tell Stripe' note on a Renter's Stripe customer change (review A5-6)", async () => {
+    const changeCustomer = (change: Partial<typeof schema.renterStripeCustomers.$inferInsert>) =>
+      withTenant(web.db, operatorAId, (tx) =>
+        tx
+          .update(schema.renterStripeCustomers)
+          .set(change)
+          .where(eq(schema.renterStripeCustomers.renterId, renterId))
+          .returning({ needsUpdate: schema.renterStripeCustomers.needsUpdate }),
+      );
+    expect(await changeCustomer({ needsUpdate: true })).toEqual([{ needsUpdate: true }]);
+    expect(await postgresErrorCodeOf(changeCustomer({ createdAt: new Date() }))).toBe(
+      POSTGRES_ERROR_CODES.insufficientPrivilege,
+    );
+    const viaOwner = await postgresErrorCodeOf(
+      superuser.db
+        .update(schema.renterStripeCustomers)
+        .set({ stripeCustomerId: stripeId("cus") })
+        .where(eq(schema.renterStripeCustomers.renterId, renterId)),
+    );
+    expect(viaOwner).toBe(RESTRICT_VIOLATION);
+  });
+
+  it("keeps Stripe pages and link counts to their business, and away from the admin app", async () => {
+    await withTenant(web.db, operatorAId, (tx) =>
+      tx.insert(schema.renterLinkAttempts).values({
+        operatorId: operatorAId,
+        linkId,
+        action: "stripePages",
+        hourStartsAt: new Date("2026-11-04T01:00:00Z"),
+      }),
+    );
+    const seenByB = await withTenant(web.db, operatorBId, async (tx) => [
+      ...(await tx.select().from(schema.stripeCheckouts)),
+      ...(await tx.select().from(schema.renterLinkAttempts)),
+    ]);
+    const codes = [
+      await postgresErrorCodeOf(admin.db.select().from(schema.stripeCheckouts)),
+      await postgresErrorCodeOf(admin.db.select().from(schema.renterLinkAttempts)),
+      await postgresErrorCodeOf(
+        withTenant(web.db, operatorAId, (tx) =>
+          tx.insert(schema.renterLinkAttempts).values({
+            operatorId: operatorAId,
+            linkId,
+            action: "anything",
+            hourStartsAt: new Date("2026-11-04T02:00:00Z"),
+          }),
+        ),
+      ),
+    ];
+    expect(seenByB).toEqual([]);
+    expect(codes).toEqual([
+      POSTGRES_ERROR_CODES.insufficientPrivilege,
+      POSTGRES_ERROR_CODES.insufficientPrivilege,
+      CHECK_VIOLATION,
+    ]);
   });
 });

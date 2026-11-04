@@ -52,3 +52,11 @@ export const MAXIMUM_LINK_ADDRESS_SEARCHES = 50;
 /** What a Renter sent through their link: waiting for the Operator, then approved or sent back. */
 export const RENTER_SUBMISSION_STATUSES = ["waiting", "approved", "sent_back"] as const;
 export type RenterSubmissionStatus = (typeof RENTER_SUBMISSION_STATUSES)[number];
+
+/**
+ * How often one link may open Stripe's page, or upload a licence photo, in
+ * an hour (review G6-6): far more than a Renter needs, so only a flood or
+ * a script is stopped.
+ */
+export const LINK_HOURLY_LIMITS = { stripePages: 10, licencePhotos: 20 } as const;
+export type LinkLimitedAction = keyof typeof LINK_HOURLY_LIMITS;
