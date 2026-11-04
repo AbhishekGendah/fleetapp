@@ -13,8 +13,7 @@ import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
 import { Settings } from "lucide-react";
 import Link from "next/link";
 
-import { OnTheSpotLink } from "../../../components/on-the-spot-link";
-import { RenterLinkSender } from "../../../components/renter-link-sender";
+import { LinkSendChoices } from "../../../components/link-send-choices";
 import { RenterLinkStatus } from "../../../components/renter-link-status";
 import { appDb } from "../../../lib/app-db";
 import { BOND_OPEN_STATUSES } from "../../../lib/bonds/bond-account";
@@ -107,19 +106,15 @@ async function PaymentsLinkActions(props: { rentalId: string; user: SignedInUser
   return (
     <>
       {link ? <RenterLinkStatus link={link} timeZone={props.user.operatorTimezone} /> : null}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-        <RenterLinkSender
-          action={emailPaymentsLinkAction.bind(null, props.rentalId)}
-          hasLink={link !== null}
-          sendLabel="Email the link"
-          urlFieldId="payments-link"
-        />
-        <OnTheSpotLink
-          action={showPaymentsLinkAction.bind(null, props.rentalId)}
-          label="Set up on the spot"
-          instructions="They type the code we email them, then their own bank or card details on Stripe's page."
-        />
-      </div>
+      <LinkSendChoices
+        emailAction={emailPaymentsLinkAction.bind(null, props.rentalId)}
+        onTheSpotAction={showPaymentsLinkAction.bind(null, props.rentalId)}
+        hasLink={link !== null}
+        sendLabel="Email the link"
+        urlFieldId="payments-link"
+        onTheSpotLabel="Set up on the spot"
+        onTheSpotInstructions="They type the code we email them, then their own bank or card details on Stripe's page."
+      />
     </>
   );
 }

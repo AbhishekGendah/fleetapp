@@ -98,7 +98,11 @@ const standInEventSchema = z.object({
   type: z.string(),
   accountId: z.string().nullable(),
   objectId: z.string().nullable().default(null),
-  occurredAt: z.coerce.date(),
+  // A test's hand-made event may leave it out: it happened now.
+  occurredAt: z.coerce
+    .date()
+    .optional()
+    .transform((moment) => moment ?? new Date()),
 });
 
 /** A made-up ID in Stripe's shape. */

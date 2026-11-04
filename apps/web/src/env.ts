@@ -3,43 +3,14 @@ import "server-only";
 
 import { authEnvShape } from "@fleetapp/auth";
 import { PAYMENTS_TRANSPORTS } from "@fleetapp/core";
+
+import { stripeSettingsProblems, type StripeSettings } from "./lib/payments/stripe-settings";
 import { emailEnvShape, refuseTestInboxInProduction } from "@fleetapp/email";
 import { z } from "zod";
 
-/**
- * Stripe needs both its secrets; the stand-in needs the events secret to
- * sign with; and production never runs on the stand-in (decision 6).
- */
-function requireStripeSettings(
-  env: {
-    PAYMENTS_TRANSPORT: string;
-    STRIPE_SECRET_KEY?: string | undefined;
-    STRIPE_WEBHOOK_SECRET?: string | undefined;
-    APP_STAGE?: string | undefined;
-  },
-  context: z.RefinementCtx,
-): void {
-  const isStripe = env.PAYMENTS_TRANSPORT === "stripe";
-  if (isStripe && !env.STRIPE_SECRET_KEY) {
-    context.addIssue({
-      code: "custom",
-      path: ["STRIPE_SECRET_KEY"],
-      message: "PAYMENTS_TRANSPORT=stripe needs STRIPE_SECRET_KEY.",
-    });
-  }
-  if (env.PAYMENTS_TRANSPORT !== "off" && !env.STRIPE_WEBHOOK_SECRET) {
-    context.addIssue({
-      code: "custom",
-      path: ["STRIPE_WEBHOOK_SECRET"],
-      message: "Taking Stripe's events needs STRIPE_WEBHOOK_SECRET.",
-    });
-  }
-  if (env.APP_STAGE === "production" && env.PAYMENTS_TRANSPORT === "stand_in") {
-    context.addIssue({
-      code: "custom",
-      path: ["PAYMENTS_TRANSPORT"],
-      message: "PAYMENTS_TRANSPORT=stand_in must never be used in production.",
-    });
+function requireStripeSettings(env: StripeSettings, context: z.RefinementCtx): void {
+  for (const problem of stripeSettingsProblems(env)) {
+    context.addIssue({ code: "custom", path: [problem.path], message: problem.message });
   }
 }
 

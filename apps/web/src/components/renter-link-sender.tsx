@@ -5,9 +5,10 @@ import { FormError } from "@fleetapp/ui/form-message";
 import { FormField } from "@fleetapp/ui/form-field";
 import { Input } from "@fleetapp/ui/input";
 import { Copy, Send } from "lucide-react";
-import { useActionState, useState } from "react";
+import { useState } from "react";
 
-import { INITIAL_LINK_SEND_STATE, type LinkSendState } from "../lib/renter-links/link-send-state";
+import type { LinkSendState } from "../lib/renter-links/link-send-state";
+import { useLinkSend } from "./use-link-send";
 
 const COPIED_MS = 2000;
 
@@ -17,13 +18,19 @@ const COPIED_MS = 2000;
  */
 export function RenterLinkSender(props: {
   action: (state: LinkSendState) => Promise<LinkSendState>;
+  /** Told when a new link is made, so a sibling showing an older one can hide it. */
+  onSent?: () => void;
+  /** False once a newer link replaced the one this shows. */
+  isCurrent?: boolean;
   hasLink: boolean;
   /** The button before any link is sent, e.g. "Send details form". */
   sendLabel: string;
   /** The id of the box showing the address; unique on the page. */
   urlFieldId: string;
 }) {
-  const [state, formAction, isPending] = useActionState(props.action, INITIAL_LINK_SEND_STATE);
+  const [state, formAction, isPending] = useLinkSend(props.action, props.onSent);
+  // A newer link made by the other button cancelled this one: never leave it on screen (review KS-6).
+  const isCurrent = props.isCurrent ?? true;
   const [isCopied, setIsCopied] = useState(false);
 
   async function handleCopy(url: string): Promise<void> {
@@ -50,7 +57,7 @@ export function RenterLinkSender(props: {
         </Button>
       </form>
       {state.status === "failed" ? <FormError message={state.message} /> : null}
-      {state.status === "sent" ? (
+      {state.status === "sent" && isCurrent ? (
         <div className="flex flex-col gap-2">
           {state.isEmailed ? (
             <p className="text-teal text-sm font-medium">

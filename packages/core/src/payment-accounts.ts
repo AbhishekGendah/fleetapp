@@ -103,6 +103,20 @@ export function canTakeStripePayments(state: PaymentAccountState): boolean {
   return state === "ready";
 }
 
+/**
+ * Whether a business's Renters are sent to Stripe's page: this site takes
+ * payments by Stripe and hears back about the business's own account, and
+ * that account is ready. The one rule, used by the handover checks, the
+ * Stripe card and the Renter's links alike (review KL-3).
+ */
+export function areRenterPaymentsOffered(input: {
+  isSiteSetUp: boolean;
+  canHearRenterPayments: boolean;
+  state: PaymentAccountState;
+}): boolean {
+  return input.isSiteSetUp && input.canHearRenterPayments && canTakeStripePayments(input.state);
+}
+
 /** A Stripe connected account's ID, e.g. "acct_1AbC…". */
 export const STRIPE_ACCOUNT_ID_PATTERN = /^acct_[A-Za-z0-9]+$/;
 

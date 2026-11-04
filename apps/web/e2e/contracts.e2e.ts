@@ -12,6 +12,8 @@ import { expectNoSidewaysScroll } from "./phone-checks";
  * preview it as a PDF.
  */
 const TEMPLATE_NAME = "Standard contract";
+/** A second template, emptied to show the missing rent terms warning. */
+const BARE_TEMPLATE_NAME = "Contract without rent terms";
 /**
  * The editor page's JavaScript, compressed: what it downloads today
  * (1 Nov 2026, with TipTap) plus about 10%. Its address holds the template's
@@ -77,8 +79,11 @@ test.describe.serial("contract templates", () => {
   });
 
   test("warns when a contract no longer states how rent is charged", async ({ page }) => {
+    // A template of its own: the one used for new rentals stays whole for the rentals tests.
     await page.goto("/settings/contracts", { waitUntil: "networkidle" });
-    await page.getByRole("link", { name: TEMPLATE_NAME }).click();
+    await page.getByRole("textbox", { name: /^Name/ }).fill(BARE_TEMPLATE_NAME);
+    await page.getByRole("button", { name: "Add template" }).click();
+    await expect(page.getByRole("heading", { name: BARE_TEMPLATE_NAME })).toBeVisible();
     await expect(page.getByText(/does not state how rent is charged/)).toHaveCount(0);
 
     const editor = page.getByRole("textbox", { name: /^Contract text/ });

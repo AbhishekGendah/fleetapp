@@ -1,6 +1,7 @@
 import { DEFAULT_HANDOVER_PHOTOS } from "@fleetapp/core";
 import {
   files,
+  inspections,
   issuedDocuments,
   odometerReadings,
   possessions,
@@ -220,5 +221,34 @@ describe("handing a car over", () => {
     );
 
     expect(result.status).toBe("completed");
+  });
+
+  it("keeps an override reason only when the override was needed (review KS-8)", async () => {
+    const { rentalId } = await readyRental({ isBondHeld: true });
+    const inspectionId = await filledHandover(rentalId);
+
+    const result = await completeHandover(
+      handoverDeps(),
+      actor,
+      inspectionId,
+      {
+        drawnSignature: TEST_SIGNATURE,
+        bondOverrideReason: "Typed before the bond came in",
+        directDebitOverrideReason: "Typed before the direct debit was set up",
+      },
+      clock(),
+    );
+
+    expect(result.status).toBe("completed");
+    const [kept] = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx
+        .select({
+          bond: inspections.bondOverrideReason,
+          directDebit: inspections.directDebitOverrideReason,
+        })
+        .from(inspections)
+        .where(eq(inspections.id, inspectionId)),
+    );
+    expect(kept).toEqual({ bond: null, directDebit: null });
   });
 });

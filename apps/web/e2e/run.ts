@@ -95,6 +95,7 @@ async function main(): Promise<void> {
       OPS_ALERT_EMAIL: "ops@example.test",
       // Stripe's stand-in (decision 6): the browser tests never talk to Stripe.
       PAYMENTS_TRANSPORT: "stand_in",
+      APP_STAGE: "development",
       STRIPE_WEBHOOK_SECRET: E2E_STRIPE_WEBHOOK_SECRET,
       NEXT_TELEMETRY_DISABLED: "1",
     };

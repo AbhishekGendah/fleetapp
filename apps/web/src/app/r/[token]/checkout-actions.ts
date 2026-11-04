@@ -10,6 +10,7 @@ import {
   startRenterCheckout,
   type StartCheckoutResult,
 } from "../../../lib/payments/renter-checkout";
+import { TOO_MANY_TRIES_MESSAGE } from "../../../lib/renter-links/link-limits";
 import { openVerifiedLink } from "../../../lib/renter-links/link-visits";
 import { DEVICE_COOKIE } from "./link-state";
 
@@ -23,6 +24,7 @@ const NOT_STARTED_MESSAGES: Readonly<
     "Payments are not being taken online right now. The business will tell you how to pay.",
   not_found: "This link no longer works. Ask the business that sent it for a new one.",
   nothing_owing: "Nothing is owing on the bond now.",
+  too_many: TOO_MANY_TRIES_MESSAGE,
   just_paid:
     "A bond payment you started has just gone through. Reload this page to see what is left.",
 };

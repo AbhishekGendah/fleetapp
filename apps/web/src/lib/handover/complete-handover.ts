@@ -56,18 +56,26 @@ export interface HandoverDependencies extends FileDependencies, Partial<Payments
   emailSender: EmailSender;
 }
 
+/** What the checks found was really skipped: only those reasons are kept (review KS-8). */
+interface NeededOverrides {
+  status: "accepted";
+  bondOverrideReason: string | null;
+  directDebitOverrideReason: string | null;
+}
+
 /**
  * What stops the Renter accepting now: anything missing from the checklist,
  * an unsigned contract, a handover problem (licence, car not ready), the
  * kilometres below the car's last reading, or bond short with no reason.
+ * Otherwise, the override reasons still needed.
  */
-async function acceptanceRefusal(
+async function checkAcceptance(
   deps: HandoverDependencies,
   operatorId: string,
   view: HandoverView,
   input: CompleteHandoverInput,
   clock: RentalClock,
-): Promise<CompleteHandoverResult | null> {
+): Promise<CompleteHandoverResult | NeededOverrides> {
   const unfinished = checklistRefusal(view);
   if (unfinished) {
     return unfinished;
@@ -101,7 +109,13 @@ async function acceptanceRefusal(
   if (isDirectDebitMissing && !input.directDebitOverrideReason) {
     return { status: "direct_debit_missing" };
   }
-  return null;
+  // A reason typed for something since put right (say, the Renter just set up their
+  // direct debit) is not kept, and the Log doesn't say it was overridden.
+  return {
+    status: "accepted",
+    bondOverrideReason: bondShort ? input.bondOverrideReason : null,
+    directDebitOverrideReason: isDirectDebitMissing ? input.directDebitOverrideReason : null,
+  };
 }
 
 /**
@@ -208,9 +222,9 @@ export async function completeHandover(
   if (view.status !== "in_progress") {
     return { status: "finished_already" };
   }
-  const refusal = await acceptanceRefusal(deps, actor.operatorId, view, input, clock);
-  if (refusal) {
-    return refusal;
+  const checked = await checkAcceptance(deps, actor.operatorId, view, input, clock);
+  if (checked.status !== "accepted") {
+    return checked;
   }
   const signaturePng = decodeDrawnSignature(input.drawnSignature);
   if (!signaturePng) {
@@ -237,8 +251,8 @@ export async function completeHandover(
       recordHandedOver(tx, actor, view, {
         at,
         acceptanceText,
-        bondOverrideReason: input.bondOverrideReason,
-        directDebitOverrideReason: input.directDebitOverrideReason,
+        bondOverrideReason: checked.bondOverrideReason,
+        directDebitOverrideReason: checked.directDebitOverrideReason,
       }),
   });
   if (issued.status !== "issued") {

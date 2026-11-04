@@ -30,6 +30,7 @@ import {
   DETAILS_FORM_FIELDS,
   parseDetailsForm,
 } from "../../../lib/renter-links/details-form-input";
+import { isWithinLinkLimit, TOO_MANY_TRIES_MESSAGE } from "../../../lib/renter-links/link-limits";
 import { openVerifiedLink, type LinkVisit } from "../../../lib/renter-links/link-visits";
 import {
   countAddressSearch,
@@ -67,6 +68,10 @@ export async function startLinkPhotoAction(
   }
   if (!parsed.success) {
     return { status: "refused", message: UPLOAD_PROBLEM_MESSAGES.type_not_allowed };
+  }
+  const isWithinLimit = await isWithinLinkLimit(appDb, visit, "licencePhotos", new Date());
+  if (!isWithinLimit) {
+    return { status: "refused", message: TOO_MANY_TRIES_MESSAGE };
   }
   const { side, ...planned } = parsed.data;
   return startRecordUpload("Starting a link photo upload", ALREADY_SENT_MESSAGE, () =>

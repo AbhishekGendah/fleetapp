@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  areRenterPaymentsOffered,
   canTakeStripePayments,
   isStripeAccountId,
   paymentAccountState,
@@ -54,5 +55,13 @@ describe("a business's Stripe account", () => {
     expect(isStripeAccountId("acct_1AbCdEf234")).toBe(true);
     expect(isStripeAccountId("cus_123")).toBe(false);
     expect(isStripeAccountId("acct_1; drop")).toBe(false);
+  });
+
+  it("offers Renters Stripe's page only with the site set up, heard back from and the account ready", () => {
+    const offered = { isSiteSetUp: true, canHearRenterPayments: true, state: "ready" as const };
+    expect(areRenterPaymentsOffered(offered)).toBe(true);
+    expect(areRenterPaymentsOffered({ ...offered, isSiteSetUp: false })).toBe(false);
+    expect(areRenterPaymentsOffered({ ...offered, canHearRenterPayments: false })).toBe(false);
+    expect(areRenterPaymentsOffered({ ...offered, state: "details_needed" })).toBe(false);
   });
 });

@@ -180,6 +180,8 @@ describe("a Renter's direct debit and bond", () => {
     expect(emailed).toMatchObject({ status: "sent", isEmailed: true });
     expect(onTheSpot).toMatchObject({ status: "sent", isEmailed: false });
     expect(sentEmails.at(-1)?.subject).toMatch(/Set up your payments/);
+    // Named the way the Renter knows the rental: the car and the day it starts (review KL-6).
+    expect(sentEmails.at(-1)?.text).toMatch(/[A-Z0-9]+ \S+ \S+, from /);
 
     const visit = await openLink(web.db, (onTheSpot as { url: string }).url.split("/r/")[1]!);
     expect(visit).toMatchObject({ purpose: "set_up_payments", rentalId: rental.rentalId });
@@ -581,6 +583,21 @@ describe("a Renter's direct debit and bond", () => {
     expect(stripe.customer(customer!.id)?.email).toBe("pat.new@example.test");
     await runStripeTidyUp(paymentDeps, () => false);
     expect(stripe.customer(customer!.id)?.email).toBe("pat.newer@example.test");
+  });
+
+  it("opens no more than ten Stripe pages an hour from one link (review G6-6)", async () => {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    const statuses = [];
+    for (let press = 0; press < 11; press += 1) {
+      statuses.push((await startRenterCheckout(deps(), visit, "direct_debit")).status);
+    }
+    expect(statuses.slice(0, 10)).toEqual(Array(10).fill("started"));
+    expect(statuses[10]).toBe("too_many");
+    const anHourOn = new Date(Date.now() + 60 * 60 * 1000);
+    expect(
+      (await startRenterCheckout(deps({ now: () => anHourOn }), visit, "direct_debit")).status,
+    ).toBe("started");
   });
 
   it("counts a bank debit bond only once it clears; a bounced one is asked for again", async () => {

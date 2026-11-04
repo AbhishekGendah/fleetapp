@@ -1,6 +1,6 @@
 import {
+  areRenterPaymentsOffered,
   bondPayableOnlineCents,
-  canTakeStripePayments,
   CHECKOUT_LIFETIME_MS,
   describeErrorForLog,
   type CheckoutPurpose,
@@ -16,10 +16,11 @@ import {
   vehicles,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { BOND_OPEN_STATUSES } from "../bonds/bond-account";
 import { STRIPE_RETURN_PATH } from "../paths";
+import { isWithinLinkLimit } from "../renter-links/link-limits";
 import type { LinkVisit } from "../renter-links/link-visits";
 import { loadPaymentAccount } from "./payment-accounts";
 import type { CheckoutOutcome, PaymentsProvider } from "./payments-provider";
@@ -55,13 +56,18 @@ export async function isStripeOfferedToRenters(
   deps: RenterCheckoutDependencies,
   operatorId: string,
 ): Promise<{ accountId: string; payments: PaymentsProvider } | null> {
-  if (!deps.payments || !deps.canHearRenterPayments) {
+  if (!deps.payments) {
     return null;
   }
   const account = await loadPaymentAccount(deps.database, operatorId);
-  return account && canTakeStripePayments(account.state)
-    ? { accountId: account.stripeAccountId, payments: deps.payments }
-    : null;
+  const isOffered =
+    account !== null &&
+    areRenterPaymentsOffered({
+      isSiteSetUp: true,
+      canHearRenterPayments: deps.canHearRenterPayments,
+      state: account.state,
+    });
+  return isOffered ? { accountId: account.stripeAccountId, payments: deps.payments } : null;
 }
 
 /**
@@ -77,6 +83,8 @@ export interface PaymentsRental {
   renterName: string;
   renterEmail: string | null;
   carRego: string;
+  carMakeModel: string;
+  plannedStart: Date;
 }
 
 export async function findPaymentsRental(
@@ -95,6 +103,8 @@ export async function findPaymentsRental(
       renterName: renters.fullName,
       renterEmail: renters.email,
       carRego: vehicles.rego,
+      carMakeModel: sql<string>`${vehicles.make} || ' ' || ${vehicles.model}`,
+      plannedStart: rentals.plannedStart,
     })
     .from(rentals)
     .innerJoin(renters, eq(renters.id, rentals.renterId))
@@ -174,7 +184,7 @@ async function customerFor(
 
 export type StartCheckoutResult =
   | { status: "started"; url: string }
-  | { status: "not_offered" | "not_found" | "nothing_owing" | "just_paid" };
+  | { status: "not_offered" | "not_found" | "nothing_owing" | "just_paid" | "too_many" };
 
 /** A bond page this close to expiring isn't handed out again: a fresh one is opened instead. */
 const REUSE_MARGIN_MS = 5 * 60 * 1000;
@@ -330,6 +340,10 @@ export async function startRenterCheckout(
     if (open.status === "just_paid") {
       return { status: "just_paid" };
     }
+  }
+  const isWithinLimit = await isWithinLinkLimit(deps.database, visit, "stripePages", deps.now());
+  if (!isWithinLimit) {
+    return { status: "too_many" };
   }
   const amountCents = purpose === "bond" ? payableCents : null;
   const url = await openNewPage(deps, stripe, visit, {

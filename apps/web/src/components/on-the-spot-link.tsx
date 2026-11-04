@@ -4,9 +4,9 @@ import { Button } from "@fleetapp/ui/button";
 import { FormError } from "@fleetapp/ui/form-message";
 import { QrCode } from "@fleetapp/ui/qr-code";
 import { QrCode as QrCodeIcon } from "lucide-react";
-import { useActionState } from "react";
 
-import { INITIAL_LINK_SEND_STATE, type LinkSendState } from "../lib/renter-links/link-send-state";
+import type { LinkSendState } from "../lib/renter-links/link-send-state";
+import { useLinkSend } from "./use-link-send";
 
 /**
  * A Renter link shown on the Operator's phone as a code for the Renter to
@@ -15,12 +15,18 @@ import { INITIAL_LINK_SEND_STATE, type LinkSendState } from "../lib/renter-links
  */
 export function OnTheSpotLink(props: {
   action: (state: LinkSendState) => Promise<LinkSendState>;
+  /** Told when a new link is made, so a sibling showing an older one can hide it. */
+  onSent?: () => void;
+  /** False once a newer link replaced the one this shows. */
+  isCurrent?: boolean;
   /** The button, e.g. "Set up on the spot". */
   label: string;
   /** What the Renter does once it opens, in a sentence. */
   instructions: string;
 }) {
-  const [state, formAction, isPending] = useActionState(props.action, INITIAL_LINK_SEND_STATE);
+  const [state, formAction, isPending] = useLinkSend(props.action, props.onSent);
+  // A newer link made by the other button cancelled this one: never leave it on screen (review KS-6).
+  const isCurrent = props.isCurrent ?? true;
   return (
     <div className="flex flex-col gap-3">
       <form action={formAction}>
@@ -30,7 +36,7 @@ export function OnTheSpotLink(props: {
         </Button>
       </form>
       {state.status === "failed" ? <FormError message={state.message} /> : null}
-      {state.status === "sent" ? (
+      {state.status === "sent" && isCurrent ? (
         <div role="status" className="flex flex-col gap-2">
           <p className="text-sm">
             Ask the Renter to scan this with their phone&apos;s camera. {props.instructions} It

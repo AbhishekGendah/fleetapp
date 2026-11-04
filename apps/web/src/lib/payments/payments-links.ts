@@ -2,14 +2,9 @@ import { describeErrorForLog, MILLISECONDS_PER_DAY, SIGNING_LINK_DAYS } from "@f
 import { generateSecretToken, hashSecretToken } from "@fleetapp/core/server";
 import { recordActivity, type ActivityEntry } from "@fleetapp/db/activity";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
-import {
-  ACTIVITY_ACTIONS,
-  ACTIVITY_ENTITY_TYPES,
-  renterLinkDevices,
-  renterLinks,
-} from "@fleetapp/db/schema";
+import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, renterLinks } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { renderRenterPaymentsLinkEmail } from "@fleetapp/email";
+import { renderRenterPaymentsLinkEmail, type EmailMessage } from "@fleetapp/email";
 import { eq } from "drizzle-orm";
 
 import type { ActingUser } from "../acting-user";
@@ -21,10 +16,12 @@ import {
   type RenterLinkInPlay,
 } from "../renter-links/details-links";
 import { loadLinkSender } from "../renter-links/link-email";
-import type { LinkVisit } from "../renter-links/link-visits";
+import { rentalSummaryText } from "../contracts/signing-links";
+import { rememberPhone, type LinkVisit } from "../renter-links/link-visits";
 import {
   findPaymentsRental,
   isStripeOfferedToRenters,
+  type PaymentsRental,
   type RenterCheckoutDependencies,
 } from "./renter-checkout";
 import { rentalPaymentsIn } from "./renter-payment-records";
@@ -94,26 +91,48 @@ async function issuePaymentsLink(
   return { linkId: added.id, token, expiresAt };
 }
 
-/** Emails the link; false if the email failed, so the Operator can hand it over another way. */
-async function emailPaymentsLink(
+/** The rental a payments email is for, named the way the Renter knows it (review KL-6). */
+interface PaymentsEmailTo {
+  operatorId: string;
+  email: string;
+  renterName: string;
+  rental: PaymentsRental;
+}
+
+/**
+ * The payments link email, made inside the transaction that saves the link
+ * but sent only after it is saved (review KS-5), so a link that failed to
+ * save is never emailed.
+ */
+async function preparePaymentsLinkEmail(
   deps: PaymentsLinkDependencies,
   tx: AnyTransaction,
-  to: { operatorId: string; email: string; renterName: string; carRego: string },
+  to: PaymentsEmailTo,
   issued: IssuedLink,
-): Promise<boolean> {
+): Promise<EmailMessage> {
   const sender = await loadLinkSender(tx, to.operatorId);
+  return renderRenterPaymentsLinkEmail({
+    to: to.email,
+    renterName: to.renterName,
+    operatorName: sender.operatorName,
+    replyTo: sender.replyTo,
+    rentalSummary: rentalSummaryText({
+      carRego: to.rental.carRego,
+      carMakeModel: to.rental.carMakeModel,
+      rentalStart: deps.describeDay(to.rental.plannedStart),
+    }),
+    linkUrl: renterLinkUrl(deps.appUrl, issued.token),
+    validUntil: deps.describeDay(issued.expiresAt),
+  });
+}
+
+/** Sends a prepared email; false if it failed, so the Operator can hand the link over another way. */
+async function sendPrepared(
+  deps: PaymentsLinkDependencies,
+  message: EmailMessage,
+): Promise<boolean> {
   try {
-    await deps.emailSender.send(
-      await renderRenterPaymentsLinkEmail({
-        to: to.email,
-        renterName: to.renterName,
-        operatorName: sender.operatorName,
-        replyTo: sender.replyTo,
-        rentalSummary: to.carRego,
-        linkUrl: renterLinkUrl(deps.appUrl, issued.token),
-        validUntil: deps.describeDay(issued.expiresAt),
-      }),
-    );
+    await deps.emailSender.send(message);
     return true;
   } catch (error) {
     // Never the error's details: they could hold the link's address.
@@ -142,7 +161,7 @@ export async function sendPaymentsLink(
     return { status: "not_offered" };
   }
   const now = deps.now();
-  return withTenant(deps.database, actor.operatorId, async (tx) => {
+  const saved = await withTenant(deps.database, actor.operatorId, async (tx) => {
     const rental = await findPaymentsRental(tx, {
       operatorId: actor.operatorId,
       rentalId,
@@ -165,26 +184,32 @@ export async function sendPaymentsLink(
         now,
       },
     );
-    const isEmailed =
-      delivery === "email" &&
-      (await emailPaymentsLink(
-        deps,
-        tx,
-        {
-          operatorId: actor.operatorId,
-          email: rental.renterEmail,
-          renterName: rental.renterName,
-          carRego: rental.carRego,
-        },
-        issued,
-      ));
-    return {
-      status: "sent" as const,
-      url: renterLinkUrl(deps.appUrl, issued.token),
-      expiresAt: issued.expiresAt,
-      isEmailed,
-    };
+    const email =
+      delivery === "email"
+        ? await preparePaymentsLinkEmail(
+            deps,
+            tx,
+            {
+              operatorId: actor.operatorId,
+              email: rental.renterEmail,
+              renterName: rental.renterName,
+              rental,
+            },
+            issued,
+          )
+        : null;
+    return { status: "saved" as const, issued, email };
   });
+  if (saved.status !== "saved") {
+    return saved;
+  }
+  const isEmailed = saved.email !== null && (await sendPrepared(deps, saved.email));
+  return {
+    status: "sent",
+    url: renterLinkUrl(deps.appUrl, saved.issued.token),
+    expiresAt: saved.issued.expiresAt,
+    isEmailed,
+  };
 }
 
 /** The payments link the Renter goes on to, already remembered on the phone they signed on. */
@@ -212,7 +237,7 @@ export async function continueToPayments(
     return null;
   }
   const now = deps.now();
-  return withTenant(deps.database, signing.operatorId, async (tx) => {
+  const continued = await withTenant(deps.database, signing.operatorId, async (tx) => {
     const rental = await findPaymentsRental(tx, {
       operatorId: signing.operatorId,
       rentalId: signing.rentalId,
@@ -240,25 +265,38 @@ export async function continueToPayments(
         now,
       },
     );
-    const deviceToken = generateSecretToken();
-    await tx.insert(renterLinkDevices).values({
+    const deviceToken = await rememberPhone(tx, {
       operatorId: signing.operatorId,
       linkId: issued.linkId,
-      deviceTokenHash: hashSecretToken(deviceToken),
     });
-    await emailPaymentsLink(
+    // The phone that signed goes straight on, so it is remembered: logged like a code typed (review KL-7).
+    await recordActivity(tx, {
+      operatorId: signing.operatorId,
+      actor: { type: "renter_link", id: signing.linkId },
+      entityType: ACTIVITY_ENTITY_TYPES.renterLink,
+      entityId: issued.linkId,
+      action: ACTIVITY_ACTIONS.phoneVerified,
+      valuesAfter: { renterId: signing.renterId, fromSigning: true },
+    });
+    const email = await preparePaymentsLinkEmail(
       deps,
       tx,
       {
         operatorId: signing.operatorId,
         email: link.email,
         renterName: rental.renterName,
-        carRego: rental.carRego,
+        rental,
       },
       issued,
     );
-    return { token: issued.token, deviceToken, expiresAt: issued.expiresAt };
+    return { link: { token: issued.token, deviceToken, expiresAt: issued.expiresAt }, email };
   });
+  if (!continued) {
+    return null;
+  }
+  // After the save; the signing page doesn't wait on a slow email service's answer.
+  await sendPrepared(deps, continued.email);
+  return continued.link;
 }
 
 /** The rental's payments link still in play (maybe expired or locked), or null. */

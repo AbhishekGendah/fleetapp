@@ -1,6 +1,6 @@
 import {
   bookingProblems,
-  canTakeStripePayments,
+  areRenterPaymentsOffered,
   isBondShortForHandover,
   isDirectDebitMissingForHandover,
   paymentAccountState,
@@ -34,16 +34,18 @@ async function isStripeOffered(
   operatorId: string,
   reach: PaymentsReach,
 ): Promise<boolean> {
-  if (!reach.canHearRenterPayments) {
-    return false;
-  }
   const [account] = await tx
     .select()
     .from(stripeAccounts)
     .where(eq(stripeAccounts.operatorId, operatorId));
+  // Hearing back about Renters' payments is only set up where payments by Stripe are.
   return (
     account !== undefined &&
-    canTakeStripePayments(paymentAccountState(storedAccountStatus(account)))
+    areRenterPaymentsOffered({
+      isSiteSetUp: reach.canHearRenterPayments,
+      canHearRenterPayments: reach.canHearRenterPayments,
+      state: paymentAccountState(storedAccountStatus(account)),
+    })
   );
 }
 

@@ -125,6 +125,24 @@ function logLink(tx: AnyTransaction, visit: LinkVisit, action: ActivityAction): 
   });
 }
 
+/**
+ * Remembers this phone for a link, so it needs no code again (rule 26).
+ * Only the token's hash is kept; the token goes in the phone's cookie.
+ * The one way a phone is remembered (review KL-5).
+ */
+export async function rememberPhone(
+  tx: AnyTransaction,
+  link: { operatorId: string; linkId: string },
+): Promise<string> {
+  const deviceToken = generateSecretToken();
+  await tx.insert(renterLinkDevices).values({
+    operatorId: link.operatorId,
+    linkId: link.linkId,
+    deviceTokenHash: hashSecretToken(deviceToken),
+  });
+  return deviceToken;
+}
+
 /** Whether this phone has typed a right code for this link before. */
 export async function isPhoneRemembered(
   database: AnyDatabase,
@@ -247,16 +265,11 @@ export async function checkLinkCode(
       return { status: "expired" };
     }
     if (hashLinkCode(link.id, typedCode) === link.codeHash) {
-      const deviceToken = generateSecretToken();
       await tx
         .update(renterLinks)
         .set({ codeHash: null, codeExpiresAt: null, updatedAt: now })
         .where(eq(renterLinks.id, link.id));
-      await tx.insert(renterLinkDevices).values({
-        operatorId: link.operatorId,
-        linkId: link.id,
-        deviceTokenHash: hashSecretToken(deviceToken),
-      });
+      const deviceToken = await rememberPhone(tx, { operatorId: link.operatorId, linkId: link.id });
       await logLink(tx, visit, ACTIVITY_ACTIONS.phoneVerified);
       return { status: "right", deviceToken };
     }

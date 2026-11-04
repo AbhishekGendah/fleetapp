@@ -66,6 +66,8 @@ test.describe.serial("a Renter's direct debit and bond", () => {
     // A link now exists (the one shown as a code), so the button sends a new one.
     await page.getByRole("button", { name: "Send again" }).click();
     await expect(page.getByText(/^Emailed\./)).toBeVisible();
+    // The code shown before stopped working with the new link, so it is gone (review KS-6).
+    await expect(page.getByRole("img", { name: "QR code for the Renter's link" })).toHaveCount(0);
     linkUrl = await page.getByRole("textbox", { name: /copy the link/ }).inputValue();
     expect(linkUrl).toMatch(/\/r\/[A-Za-z0-9_-]+$/);
   });
