@@ -1005,10 +1005,46 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
   (both before slice 5), then logins, signing, privacy, database updates.
   CLAUDE.md now asks for a review of each slice before it is called done.
 
+- **Review fixes batch 1: rent in 24-hour blocks** (plan:
+  docs/plans/review-fixes-batch-1.md, approved 4 Nov 2026 with Abhi's
+  direction: daily rate plus a cheaper long-term rate, blocks from the
+  handover time, re-priced at the daily rate below the long-term minimum
+  with a waiver):
+  - Migration 0042: car prices; rentals keep their block terms (long-term or
+    short hire, grace minutes, long-term minimum, booked blocks, waiver
+    reason); rates from a block; exact block periods and correction lines on
+    the ledger, one original charge per period and a trigger refusing
+    overlaps; a Daily rent charge type; rate changes from a rent week.
+  - Rent: long-term weeks charged in advance, short hires their booked days
+    at the handover then each extra day; at the return unused days credited
+    and early long-term returns re-priced (Waive the daily rate on the Money
+    card). Each rental is worked on its own, locked, and corrected to what it
+    should cost, so returns on rent day, back-dated returns, rate changes,
+    waived weeks and timezone changes no longer charge wrongly.
+  - Rate changes start at a rent week, once per week, and can't be signed
+    after it starts. Cancelled bookings keep their Money and Invoices cards.
+    Credit notes follow the invoice they correct, print minus amounts and
+    name what is taken back; taking back a credit gets an invoice.
+  - Nightly run: each part guarded, stops before Vercel's limit, timeouts on
+    storage and images, and an alert email to AGS (new setting
+    OPS_ALERT_EMAIL).
+  - Screens: car Prices section and card, booking form prices and the
+    long-term/short-hire line, Settings → Rentals (long-term minimum, grace
+    period; the charge-day and part-week settings removed), rate change week
+    list. Contract fields and default wording for the block terms.
+  - Rentals booked before this (dev test data) are no longer charged.
+  - Tests: block rules (core); the new columns, overlap trigger and
+    isolation (database); the run, returns on time and early, re-pricing and
+    waiver, rate weeks, late signing refused (server); browser tests updated.
+    Checklist rows O-357 to O-362 new; O-227, O-237, O-307, O-324, O-325,
+    O-332 and O-342 updated.
+  - Moved to the money tidy-up: retrying failed invoice emails ("Not
+    emailed", Email again).
+
 ## Next
 
-Fix the review's batches 1 and 2 (rent maths, then bond and direct debit),
-plan first. Abhi: add the second Stripe event destination (connected
+Abhi: add OPS_ALERT_EMAIL in Vercel (fleetapp-web) before this branch is
+merged. Then review batch 2 (bond and direct debit), plan first. Abhi: add the second Stripe event destination (connected
 accounts) and its secret, then try slice 4 on the dev site. Then Phase 4
 slice 5 (weekly debits).
 Open idea: trim the phone rules to Australia only with libphonenumber's
