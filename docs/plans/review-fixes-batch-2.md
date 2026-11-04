@@ -311,3 +311,18 @@ before relying on it, and anything different gets changed here first:
   presses at once keep one page and expire the other at Stripe.
 - **Link limits:** 10 Stripe pages and 20 licence photos per link an hour,
   counted in `renter_link_attempts`.
+- **Fixed after this slice's own deep review** (10 findings, each checked
+  by two checkers; one disproved, the rest fixed):
+  - a direct debit is dated by when the Renter accepted it, not when its
+    page opened;
+  - the old direct debit is replaced only once the new one is active;
+  - news about a direct debit or payment the app never made is retried for
+    an hour at most, then left, so the shared endpoint never fails for days;
+  - a refund arriving before its payment's own message waits for it;
+  - refund or dispute is told by the event, not by the ID's prefix;
+  - clearing a Renter's email clears it at Stripe;
+  - recording bond by hand stops the Renter's open Stripe bond page, and
+    says so if they had just paid it;
+  - the hourly limit is checked before an old page is expired;
+  - disconnected accounts are skipped by the nightly run and their news
+    is left alone.

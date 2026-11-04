@@ -13,9 +13,6 @@ import { businessDayOf } from "./business-day";
 import type { MoneyTakenBack } from "./payments-provider";
 
 const SYSTEM_ACTOR = { type: "system", id: null } as const;
-/** Stripe's dispute IDs start so; a refund's start "re_" or "pyr_". */
-const DISPUTE_ID_PREFIX = "du_";
-
 /** Why each entry from Stripe was made, as the bond card shows it (kept for the business). */
 const NOTES = {
   refunded: "Refunded in Stripe.",
@@ -25,7 +22,19 @@ const NOTES = {
 } as const;
 
 /** The bond payment a refund or dispute is about, or null if it is not one of this business's bonds. */
-async function bondPaymentOf(tx: AnyTransaction, operatorId: string, paymentIntentId: string) {
+/** A bond payment through Stripe, as a refund or dispute needs it. */
+export interface BondPaymentRef {
+  id: string;
+  rentalId: string;
+  method: string;
+  purpose: string;
+}
+
+export async function bondPaymentOf(
+  tx: AnyTransaction,
+  operatorId: string,
+  paymentIntentId: string,
+): Promise<BondPaymentRef | null> {
   const [payment] = await tx
     .select({
       id: payments.id,
@@ -55,12 +64,17 @@ type BondEntry = {
 async function addEntryOnce(
   tx: AnyTransaction,
   operatorId: string,
-  objectId: string,
+  source: Pick<MoneyTakenBack, "objectId" | "kind">,
   entry: BondEntry,
 ): Promise<void> {
   const [added] = await tx
     .insert(bondMovements)
-    .values({ operatorId, stripeObjectId: objectId, ...entry })
+    .values({
+      operatorId,
+      stripeObjectId: source.objectId,
+      stripeObjectKind: source.kind,
+      ...entry,
+    })
     .onConflictDoNothing({ target: [bondMovements.stripeObjectId, bondMovements.kind] })
     .returning({ id: bondMovements.id });
   if (added) {
@@ -100,7 +114,7 @@ async function undoFailedRefund(
   if (!refunded) {
     return;
   }
-  await addEntryOnce(tx, operatorId, takenBack.objectId, {
+  await addEntryOnce(tx, operatorId, takenBack, {
     rentalId: refunded.rentalId,
     kind: "reversal",
     amountCents: takenBack.amountCents,
@@ -124,7 +138,9 @@ export async function applyMoneyTakenBack(
   takenBack: MoneyTakenBack,
   occurredAt: Date,
 ): Promise<void> {
-  const payment = await bondPaymentOf(tx, operatorId, takenBack.paymentIntentId);
+  const payment = takenBack.paymentIntentId
+    ? await bondPaymentOf(tx, operatorId, takenBack.paymentIntentId)
+    : null;
   if (!payment) {
     return;
   }
@@ -133,9 +149,9 @@ export async function applyMoneyTakenBack(
     await undoFailedRefund(tx, operatorId, takenBack, occurredOn);
     return;
   }
-  const isDispute = takenBack.objectId.startsWith(DISPUTE_ID_PREFIX);
+  const isDispute = takenBack.kind === "dispute";
   const isReturned = takenBack.status === "returned";
-  await addEntryOnce(tx, operatorId, takenBack.objectId, {
+  await addEntryOnce(tx, operatorId, takenBack, {
     rentalId: payment.rentalId,
     kind: isReturned ? "received" : "refunded",
     amountCents: takenBack.amountCents,

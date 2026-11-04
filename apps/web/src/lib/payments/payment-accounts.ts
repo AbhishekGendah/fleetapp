@@ -16,7 +16,7 @@ import { z } from "zod";
 import type { ActingUser } from "../acting-user";
 import { loadBusinessDetails } from "../settings/business-details";
 import { detachReplacedMandates } from "./stripe-tidy-up";
-import { applyMoneyTakenBack } from "./stripe-money-back";
+import { applyMoneyTakenBack, bondPaymentOf } from "./stripe-money-back";
 import type {
   CheckoutOutcome,
   MoneyTakenBack,
@@ -304,6 +304,39 @@ async function markDisconnected(tx: AnyTransaction, operatorId: string, now: Dat
 }
 
 /**
+ * How long news about a direct debit or payment we haven't recorded yet is
+ * sent back for Stripe to retry. Its own Checkout message comes within
+ * minutes; one still unknown after this was never ours (say, a direct
+ * debit the business made in its own Stripe dashboard), so it is left
+ * alone rather than failing for days (deep review of batch 2).
+ */
+const NOT_READY_WINDOW_MS = 60 * 60 * 1000;
+
+/** Whether an event is about something of ours whose own record is still on its way. */
+async function isAwaitingOwnRecord(
+  tx: AnyTransaction,
+  operatorId: string,
+  details: EventDetails,
+  notice: PaymentEventNotice,
+  now: Date,
+): Promise<boolean> {
+  if (now.getTime() - notice.occurredAt.getTime() > NOT_READY_WINDOW_MS) {
+    return false;
+  }
+  if (details.kind === "mandate") {
+    return !(await isMandateKnown(tx, details.mandateId));
+  }
+  if (details.kind === "taken_back" && details.takenBack.paymentIntentId) {
+    return !(await bondPaymentOf(tx, operatorId, details.takenBack.paymentIntentId));
+  }
+  return false;
+}
+
+async function isDisconnected(deps: PaymentDependencies, operatorId: string): Promise<boolean> {
+  return (await loadPaymentAccount(deps.database, operatorId))?.state === "disconnected";
+}
+
+/**
  * An event from Stripe: its signature proved, its business found from its
  * account, then handled once in that business's own tenant context (rules
  * 3 and 20). What it is about is read from Stripe itself: an account's
@@ -325,10 +358,14 @@ export async function handlePaymentEvent(
   if (!operatorId || !notice.accountId) {
     return "ignored";
   }
+  if (!DISCONNECT_EVENTS.has(notice.type) && (await isDisconnected(deps, operatorId))) {
+    // Stripe no longer lets us read it: news about it is left, never retried for days.
+    return "ignored";
+  }
   // Asked before the transaction: Stripe is never waited on while rows are locked.
   const details = await readEventDetails(deps.payments, notice, notice.accountId);
   const result = await withTenant(deps.database, operatorId, async (tx) => {
-    if (details.kind === "mandate" && !(await isMandateKnown(tx, details.mandateId))) {
+    if (await isAwaitingOwnRecord(tx, operatorId, details, notice, deps.now())) {
       // Its Checkout message is still on its way: not marked handled, so Stripe sends this again.
       return "not_ready" as const;
     }

@@ -29,7 +29,7 @@ import {
   rentalPaymentsIn,
   type RentalPayments,
 } from "./renter-payment-records";
-import { lockOpenBondCheckout, openCheckoutsOfLink, saveCheckout } from "./stripe-checkouts";
+import { findOpenBondCheckout, openCheckoutsOfLink, saveCheckout } from "./stripe-checkouts";
 import { tellStripeAboutRenter } from "./stripe-tidy-up";
 
 /** What the Renter's payment steps need: the database, Stripe (if set up here) and this site's address. */
@@ -209,34 +209,70 @@ async function recordOutcome(
   return outcome;
 }
 
-type OpenBondPage = { status: "reuse"; url: string } | { status: "none" | "just_paid" };
-
 /**
- * The rental's open bond page, if it can be handed out again: the same
- * page for the same amount, so two phones or two presses can't both pay
- * (review KS-1). One for a different amount, or about to expire, is
- * expired at Stripe first; if the Renter had just paid it, that is
- * recorded instead.
+ * Stops the rental's open bond page being paid: expired at Stripe, and if
+ * the Renter had just paid it, that is recorded instead. Used before a new
+ * page for a different amount, and once bond is recorded by hand, so a
+ * Renter can't pay the bond on Stripe's page as well as at the counter
+ * (deep review of batch 2). Stripe is asked outside any transaction.
  */
-async function openBondPage(
+export async function retireOpenBondPage(
   deps: RenterCheckoutDependencies,
   stripe: StripeAccess,
   operatorId: string,
-  rental: { id: string; payableCents: number },
-): Promise<OpenBondPage> {
+  rentalId: string,
+): Promise<"none" | "expired" | "just_paid"> {
   const open = await withTenant(deps.database, operatorId, (tx) =>
-    lockOpenBondCheckout(tx, operatorId, rental.id),
+    findOpenBondCheckout(tx, operatorId, rentalId),
   );
   if (!open) {
-    return { status: "none" };
-  }
-  const isFresh = open.expiresAt.getTime() - deps.now().getTime() > REUSE_MARGIN_MS;
-  if (isFresh && open.amountCents === rental.payableCents) {
-    return { status: "reuse", url: open.url };
+    return "none";
   }
   await stripe.payments.expireCheckout(stripe.accountId, open.sessionId);
   const outcome = await recordOutcome(deps, stripe, operatorId, open.sessionId);
-  return outcome.isComplete ? { status: "just_paid" } : { status: "none" };
+  return outcome.isComplete ? "just_paid" : "expired";
+}
+
+/**
+ * Once bond is recorded by hand: the rental's open Stripe bond page is
+ * stopped, so it can't be paid as well. Gives "just_paid" if the Renter
+ * had paid it meanwhile (the business then holds the bond twice). A
+ * failure is logged; the page expires by itself within the hour.
+ */
+export async function stopBondPageAfterHandEntry(
+  deps: RenterCheckoutDependencies,
+  operatorId: string,
+  rentalId: string,
+): Promise<"none" | "expired" | "just_paid"> {
+  const account = await loadPaymentAccount(deps.database, operatorId);
+  if (!deps.payments || !account || account.state === "disconnected") {
+    return "none";
+  }
+  try {
+    return await retireOpenBondPage(
+      deps,
+      { accountId: account.stripeAccountId, payments: deps.payments },
+      operatorId,
+      rentalId,
+    );
+  } catch (error) {
+    console.error("Stopping a Stripe bond page failed", describeErrorForLog(error));
+    return "none";
+  }
+}
+
+/** The rental's open bond page if it can be handed out again: open, fresh, and for the same amount. */
+async function reusableBondPage(
+  deps: RenterCheckoutDependencies,
+  operatorId: string,
+  rental: { id: string; payableCents: number },
+): Promise<string | null> {
+  const open = await withTenant(deps.database, operatorId, (tx) =>
+    findOpenBondCheckout(tx, operatorId, rental.id),
+  );
+  const isFresh =
+    open !== null && open.expiresAt.getTime() - deps.now().getTime() > REUSE_MARGIN_MS;
+  return isFresh && open.amountCents === rental.payableCents ? open.url : null;
 }
 
 /** Where Stripe's page sends the Renter back to: a page holding no secret (APP_URL). */
@@ -290,7 +326,7 @@ async function openNewPage(
       expiresAt,
       now: deps.now(),
     });
-    return isSaved ? null : lockOpenBondCheckout(tx, visit.operatorId, page.rental.id);
+    return isSaved ? null : findOpenBondCheckout(tx, visit.operatorId, page.rental.id);
   });
   if (!winner) {
     return opened.url;
@@ -326,24 +362,27 @@ export async function startRenterCheckout(
     return { status: "not_found" };
   }
   const payableCents = bondPayableOnlineCents(found.payments.bond.toCollectCents);
-  if (purpose === "bond") {
-    if (payableCents === 0) {
-      return { status: "nothing_owing" };
-    }
-    const open = await openBondPage(deps, stripe, visit.operatorId, {
-      id: found.rental.id,
-      payableCents,
-    });
-    if (open.status === "reuse") {
-      return { status: "started", url: open.url };
-    }
-    if (open.status === "just_paid") {
-      return { status: "just_paid" };
-    }
+  if (purpose === "bond" && payableCents === 0) {
+    return { status: "nothing_owing" };
   }
+  // The same page for the same amount, so two phones or two presses can't both pay (review KS-1).
+  const reusable =
+    purpose === "bond"
+      ? await reusableBondPage(deps, visit.operatorId, { id: found.rental.id, payableCents })
+      : null;
+  if (reusable) {
+    return { status: "started", url: reusable };
+  }
+  // Checked before an old page is expired, so a Renter over the limit keeps theirs.
   const isWithinLimit = await isWithinLinkLimit(deps.database, visit, "stripePages", deps.now());
   if (!isWithinLimit) {
     return { status: "too_many" };
+  }
+  if (
+    purpose === "bond" &&
+    (await retireOpenBondPage(deps, stripe, visit.operatorId, found.rental.id)) === "just_paid"
+  ) {
+    return { status: "just_paid" };
   }
   const amountCents = purpose === "bond" ? payableCents : null;
   const url = await openNewPage(deps, stripe, visit, {

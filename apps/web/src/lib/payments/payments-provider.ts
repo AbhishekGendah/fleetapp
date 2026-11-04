@@ -87,10 +87,12 @@ export interface CheckoutOutcome {
  * made in its Stripe dashboard, or a dispute with the Renter's bank.
  */
 export interface MoneyTakenBack {
-  /** Stripe's refund (re_… or pyr_…) or dispute (du_…) ID. */
+  /** A refund, or a dispute: told by the kind of event, never by the shape of the ID. */
+  kind: "refund" | "dispute";
+  /** Stripe's refund or dispute ID. */
   objectId: string;
-  /** The payment it takes back from. */
-  paymentIntentId: string;
+  /** The payment it takes back from; null for a charge made without one (never ours). */
+  paymentIntentId: string | null;
   amountCents: number;
   /**
    * For a refund: "taken" while it is on its way or done, "failed" if Stripe

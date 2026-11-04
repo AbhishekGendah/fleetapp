@@ -37,6 +37,7 @@ ALTER TABLE "bond_movements" DROP CONSTRAINT "bond_movements_payment_received";-
 ALTER TABLE "stripe_accounts" ADD COLUMN "requirements_later" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
 ALTER TABLE "stripe_accounts" ADD COLUMN "disconnected_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "bond_movements" ADD COLUMN "stripe_object_id" text;--> statement-breakpoint
+ALTER TABLE "bond_movements" ADD COLUMN "stripe_object_kind" text;--> statement-breakpoint
 ALTER TABLE "payment_mandates" ADD COLUMN "set_up_at" timestamp with time zone;--> statement-breakpoint
 -- Those already recorded were set up when they were first recorded.
 UPDATE "payment_mandates" SET "set_up_at" = "created_at";--> statement-breakpoint
@@ -54,7 +55,9 @@ CREATE UNIQUE INDEX "bond_movements_one_per_payment" ON "bond_movements" USING b
 ALTER TABLE "bond_movements" ADD CONSTRAINT "bond_movements_stripe_object_once" UNIQUE("stripe_object_id","kind");--> statement-breakpoint
 ALTER TABLE "stripe_accounts" ADD CONSTRAINT "stripe_accounts_requirements" CHECK ("stripe_accounts"."requirements_due" >= 0 and "stripe_accounts"."requirements_later" >= 0);--> statement-breakpoint
 ALTER TABLE "bond_movements" ADD CONSTRAINT "bond_movements_payment_kind" CHECK ("bond_movements"."payment_id" is null or "bond_movements"."kind" in ('received', 'refunded'));--> statement-breakpoint
-ALTER TABLE "bond_movements" ADD CONSTRAINT "bond_movements_stripe_object_shape" CHECK ("bond_movements"."stripe_object_id" is null or "bond_movements"."stripe_object_id" ~ '^(re|pyr|du)_[A-Za-z0-9]+$');--> statement-breakpoint
+ALTER TABLE "bond_movements" ADD CONSTRAINT "bond_movements_stripe_object_shape" CHECK ("bond_movements"."stripe_object_id" is null or "bond_movements"."stripe_object_id" ~ '^[a-z]+_[A-Za-z0-9]+$');--> statement-breakpoint
+ALTER TABLE "bond_movements" ADD CONSTRAINT "bond_movements_stripe_object_kind" CHECK (("bond_movements"."stripe_object_id" is null) = ("bond_movements"."stripe_object_kind" is null)
+        and ("bond_movements"."stripe_object_kind" is null or "bond_movements"."stripe_object_kind" in ('refund', 'dispute')));--> statement-breakpoint
 
 -- A bond entry tied to a payment matches it: the money in once Stripe says
 -- the bond payment succeeded (exactly its amount), a dispute won putting
@@ -172,11 +175,16 @@ CREATE FUNCTION "app"."operators_with_stripe_tidy_up"() RETURNS SETOF uuid
   LANGUAGE sql STABLE SECURITY DEFINER
   SET search_path = pg_catalog, public
 AS $$
-  SELECT "m"."operator_id" FROM "public"."payment_mandates" "m"
-  WHERE "m"."end_reason" = 'replaced' AND "m"."detached_at" IS NULL
-  UNION
-  SELECT "c"."operator_id" FROM "public"."renter_stripe_customers" "c"
-  WHERE "c"."needs_update"
+  SELECT "due"."operator_id" FROM (
+    SELECT "m"."operator_id" FROM "public"."payment_mandates" "m"
+    WHERE "m"."end_reason" = 'replaced' AND "m"."detached_at" IS NULL
+    UNION
+    SELECT "c"."operator_id" FROM "public"."renter_stripe_customers" "c"
+    WHERE "c"."needs_update"
+  ) "due"
+  -- Stripe no longer lets us reach a disconnected account: nothing to try there.
+  JOIN "public"."stripe_accounts" "a" ON "a"."operator_id" = "due"."operator_id"
+  WHERE "a"."disconnected_at" IS NULL
 $$;--> statement-breakpoint
 REVOKE ALL ON FUNCTION "app"."operators_with_stripe_tidy_up"() FROM PUBLIC;--> statement-breakpoint
 GRANT EXECUTE ON FUNCTION "app"."operators_with_stripe_tidy_up"() TO "web_app_role";

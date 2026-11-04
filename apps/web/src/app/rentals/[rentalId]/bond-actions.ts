@@ -11,6 +11,8 @@ import {
   bondReversalInputSchema,
 } from "../../../lib/bonds/bond-input";
 import { recordBondReceived, reverseBondMovement } from "../../../lib/bonds/bond-records";
+import { appPaymentsLinkDependencies } from "../../../lib/payments/app-payments-links";
+import { stopBondPageAfterHandEntry } from "../../../lib/payments/renter-checkout";
 import { rentalPath } from "../../../lib/paths";
 import { runUserChange } from "../../../lib/run-change";
 
@@ -61,9 +63,21 @@ export async function recordBondReceivedAction(
       if (result.status === "not_open") {
         return failedState("This rental is closed or cancelled, so no bond can be added.");
       }
-      return result.status === "saved"
-        ? savedState(`Recorded. ${heldText(result.account.heldCents)}`)
-        : failedState(NOT_FOUND_MESSAGE);
+      if (result.status !== "saved") {
+        return failedState(NOT_FOUND_MESSAGE);
+      }
+      // The Renter's open Stripe bond page can't now be paid as well (deep review of batch 2).
+      const page = await stopBondPageAfterHandEntry(
+        appPaymentsLinkDependencies(user.operatorTimezone),
+        actor.operatorId,
+        rentalId,
+      );
+      return page === "just_paid"
+        ? savedState(
+            "Recorded, but the Renter had just paid the bond on Stripe's page too, so it is held twice. Refund one of them.",
+            true,
+          )
+        : savedState(`Recorded. ${heldText(result.account.heldCents)}`);
     },
   });
 }

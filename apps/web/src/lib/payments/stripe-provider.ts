@@ -195,7 +195,7 @@ const refundSchema = z.object({
   id: z.string(),
   amount: z.number().int().positive(),
   status: z.string().nullable(),
-  payment_intent: z.string(),
+  payment_intent: z.string().nullable(),
 });
 /** A refund in these states never reached the Renter: the money stays with the business. */
 const FAILED_REFUND_STATUSES: ReadonlySet<string | null> = new Set(["failed", "canceled"]);
@@ -204,7 +204,7 @@ const FAILED_REFUND_STATUSES: ReadonlySet<string | null> = new Set(["failed", "c
 const disputeSchema = z.object({
   id: z.string(),
   amount: z.number().int().positive(),
-  payment_intent: z.string(),
+  payment_intent: z.string().nullable(),
 });
 
 /** A payment's method, amount and whether the money is in, or null if it is not one we take. */
@@ -230,7 +230,19 @@ function paymentOf(
  * What came of a visit to Stripe's page, from the session as Stripe returns
  * it (its intents expanded) and its mandate's status, if one was set up.
  */
-export function checkoutOutcomeOf(raw: unknown, mandateStatus: string | null): CheckoutOutcome {
+/** A direct debit's mandate as Stripe has it: its status, and when the Renter accepted it. */
+export interface MandateRead {
+  status: string;
+  /** Seconds since 1970, from customer_acceptance.accepted_at; null if Stripe gave none. */
+  acceptedAtSeconds: number | null;
+}
+
+const mandateSchema = z.object({
+  status: z.string(),
+  customer_acceptance: z.object({ accepted_at: z.number().int().nullish() }).nullish(),
+});
+
+export function checkoutOutcomeOf(raw: unknown, mandate: MandateRead | null): CheckoutOutcome {
   const session = sessionSchema.parse(raw);
   const setupIntent = session.setup_intent;
   return {
@@ -239,13 +251,17 @@ export function checkoutOutcomeOf(raw: unknown, mandateStatus: string | null): C
     isComplete: session.status === "complete",
     isExpired: session.status === "expired",
     setup:
-      setupIntent?.mandate && setupIntent.payment_method && mandateStatus
+      setupIntent?.mandate && setupIntent.payment_method && mandate
         ? {
             setupIntentId: setupIntent.id,
             paymentMethodId: setupIntent.payment_method,
             mandateId: setupIntent.mandate,
-            mandateStatus,
-            setUpAt: new Date(setupIntent.created * MILLISECONDS_PER_SECOND),
+            mandateStatus: mandate.status,
+            // When the Renter accepted it, not when the page opened: a page opened first
+            // can be finished last (deep review of batch 2).
+            setUpAt: new Date(
+              (mandate.acceptedAtSeconds ?? setupIntent.created) * MILLISECONDS_PER_SECOND,
+            ),
           }
         : null,
     payment: paymentOf(session.payment_intent),
@@ -403,12 +419,21 @@ export function createStripeProvider(
         { stripeAccount: accountId },
       );
       const setupIntent = sessionSchema.parse(raw).setup_intent;
-      const mandateStatus =
+      const mandate =
         setupIntent?.mandate && setupIntent.payment_method
-          ? (await stripe.mandates.retrieve(setupIntent.mandate, {}, { stripeAccount: accountId }))
-              .status
+          ? mandateSchema.parse(
+              await stripe.mandates.retrieve(setupIntent.mandate, {}, { stripeAccount: accountId }),
+            )
           : null;
-      return checkoutOutcomeOf(raw, mandateStatus);
+      return checkoutOutcomeOf(
+        raw,
+        mandate
+          ? {
+              status: mandate.status,
+              acceptedAtSeconds: mandate.customer_acceptance?.accepted_at ?? null,
+            }
+          : null,
+      );
     },
 
     async readMandateStatus(accountId, mandateId) {
@@ -421,6 +446,7 @@ export function createStripeProvider(
         await stripe.refunds.retrieve(refundId, {}, { stripeAccount: accountId }),
       );
       return {
+        kind: "refund",
         objectId: refund.id,
         paymentIntentId: refund.payment_intent,
         amountCents: refund.amount,
@@ -433,6 +459,7 @@ export function createStripeProvider(
         await stripe.disputes.retrieve(disputeId, {}, { stripeAccount: accountId }),
       );
       return {
+        kind: "dispute",
         objectId: dispute.id,
         paymentIntentId: dispute.payment_intent,
         amountCents: dispute.amount,
@@ -443,7 +470,8 @@ export function createStripeProvider(
     async updateCustomer(accountId, customerId, customer) {
       await stripe.customers.update(
         customerId,
-        { name: customer.name, ...(customer.email ? { email: customer.email } : {}) },
+        // An empty email clears Stripe's copy, so its notices stop going to a removed address.
+        { name: customer.name, email: customer.email ?? "" },
         { stripeAccount: accountId },
       );
     },

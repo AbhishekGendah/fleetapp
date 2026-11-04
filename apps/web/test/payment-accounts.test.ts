@@ -148,6 +148,8 @@ describe("connecting Stripe", () => {
     );
     // Stripe's last word about what it could do never brings it back.
     expect(await refreshPaymentAccount(deps(), otherOperator.operatorId)).toBe("disconnected");
+    // News about a disconnected account is left alone, never retried for days.
+    expect(await sendEvent(theirs.stripeAccountId).handled).toBe("ignored");
     expect((await loadPaymentAccount(web.db, actor.operatorId))?.state).toBe("ready");
   });
 

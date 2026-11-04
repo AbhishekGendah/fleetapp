@@ -1051,10 +1051,31 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
     warning. Browser tests added for the waiver and the warning. Checklist
     O-363 new; O-359 and O-361 updated.
 
+- **Review fixes batch 2: bond and direct debit** (plan:
+  docs/plans/review-fixes-batch-2.md, approved 4 Nov 2026). Migration 0043.
+  - Bond paid once on Stripe's page (one open page per rental, an hour
+    each, recorded as soon as the Renter comes back); bond still clearing
+    by bank debit shown and never taken again in cash; no Correct on Stripe
+    entries; cancelled bookings holding bond listed as Bond to refund.
+  - Direct debits: the newest the Renter accepted wins, the old one is
+    cancelled at Stripe once the new one works; Stripe's news is never
+    lost or failed for days.
+  - Refunds and disputes made in Stripe reach the bond; Stripe gets a
+    Renter's new name or email; disconnected Stripe accounts show as such.
+  - Small items: the old QR code goes on Send again, override reasons kept
+    only when needed, payments email after the save and naming the car,
+    live site refuses Stripe test keys, per-link hourly limits.
+  - Not done: older test rentals still ask for a direct debit (their
+    settings can't change, rule 14); fixing how snapshots are made is its
+    own small plan. Stripe sandbox checks moved to before slice 5.
+  - Deep review: 10 findings, each checked twice; one disproved, the rest
+    fixed with tests. Checklist O-364 to O-369 new; O-343, O-348 to O-352
+    and O-355 updated.
+
 ## Next
 
 Abhi: add OPS_ALERT_EMAIL in Vercel (fleetapp-web) before this branch is
-merged (still to do, 4 Nov). Review batch 2 (bond and direct debit): plan written, docs/plans/review-fixes-batch-2.md, awaiting approval. Abhi: add the second Stripe event destination (connected
+merged (still to do, 4 Nov). Abhi: add batch 2's new Stripe event types to both event destinations (list in docs/launch-checklist.md). Then review batch 3 (logins and server safety), plan first. Abhi: add the second Stripe event destination (connected
 accounts) and its secret, then try slice 4 on the dev site. Then Phase 4
 slice 5 (weekly debits).
 Open idea: trim the phone rules to Australia only with libphonenumber's

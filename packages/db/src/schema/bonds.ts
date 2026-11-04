@@ -55,6 +55,8 @@ export const bondMovements = pgTable(
     paymentId: uuid("payment_id"),
     /** The Stripe refund or dispute an entry came from, so a repeated message adds nothing (rule 20). */
     stripeObjectId: text("stripe_object_id"),
+    /** Whether that was a refund or a dispute, as the event said (never guessed from the ID). */
+    stripeObjectKind: text("stripe_object_kind"),
     createdByUserId: uuid("created_by_user_id").references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -89,9 +91,15 @@ export const bondMovements = pgTable(
       "bond_movements_payment_kind",
       sql`${table.paymentId} is null or ${table.kind} in ('received', 'refunded')`,
     ),
+    // Stripe's IDs are a prefix and letters and digits; which prefix is Stripe's business.
     check(
       "bond_movements_stripe_object_shape",
-      sql`${table.stripeObjectId} is null or ${table.stripeObjectId} ~ '^(re|pyr|du)_[A-Za-z0-9]+$'`,
+      sql`${table.stripeObjectId} is null or ${table.stripeObjectId} ~ '^[a-z]+_[A-Za-z0-9]+$'`,
+    ),
+    check(
+      "bond_movements_stripe_object_kind",
+      sql`(${table.stripeObjectId} is null) = (${table.stripeObjectKind} is null)
+        and (${table.stripeObjectKind} is null or ${table.stripeObjectKind} in ('refund', 'dispute'))`,
     ),
     index("bond_movements_rental_idx").on(table.operatorId, table.rentalId),
     check("bond_movements_amount", sql`${table.amountCents} > 0`),

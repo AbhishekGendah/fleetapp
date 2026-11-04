@@ -25,7 +25,11 @@ import {
 import { loadBondAccount } from "../src/lib/bonds/bond-account";
 import { recordBondReceived, reverseBondMovement } from "../src/lib/bonds/bond-records";
 import { loadBondsToRefund } from "../src/lib/dashboard/bonds-to-refund";
-import { recordReturnFromStripe, startRenterCheckout } from "../src/lib/payments/renter-checkout";
+import {
+  recordReturnFromStripe,
+  startRenterCheckout,
+  stopBondPageAfterHandEntry,
+} from "../src/lib/payments/renter-checkout";
 import { runStripeTidyUp, tellStripeAboutRenter } from "../src/lib/payments/stripe-tidy-up";
 import { loadRentalPayments } from "../src/lib/payments/renter-payment-records";
 import {
@@ -598,6 +602,78 @@ describe("a Renter's direct debit and bond", () => {
     expect(
       (await startRenterCheckout(deps({ now: () => anHourOn }), visit, "direct_debit")).status,
     ).toBe("started");
+  });
+
+  it("keeps the working direct debit until a newer one is active (deep review of batch 2)", async () => {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    await deliver(stripe.finishCheckout(await visitStripe(visit, "direct_debit")));
+    const newer = await visitStripe(visit, "direct_debit");
+    await deliver(stripe.finishCheckout(newer, undefined, { mandateStatus: "pending" }));
+
+    const whileChecked = await mandatesOf(actor, rental.renterId);
+    expect(whileChecked.map((mandate) => mandate.status)).toEqual(["active", "waiting"]);
+    expect(whileChecked[0]?.isDetached).toBe(false);
+
+    await deliver(stripe.setMandateStatus(newer, "active"));
+    const [old, current] = await mandatesOf(actor, rental.renterId);
+    expect(old).toMatchObject({ status: "inactive", endReason: "replaced", isDetached: true });
+    expect(current?.status).toBe("active");
+  });
+
+  it("leaves news about a direct debit that was never ours, instead of failing for days", async () => {
+    const accountId = (
+      await withTenant(web.db, actor.operatorId, (tx) =>
+        tx.select({ id: stripeAccounts.stripeAccountId }).from(stripeAccounts),
+      )
+    )[0]!.id;
+    const old = stripe.signedEvent({
+      id: `evt_old_${Date.now()}`,
+      type: "v1.mandate.updated",
+      accountId,
+      objectId: "mandate_madeinthedashboard",
+      occurredAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+    });
+    expect(await deliver(old)).toBe("handled");
+  });
+
+  it("waits for the bond payment before taking a refund off it (deep review of batch 2)", async () => {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    const sessionId = await visitStripe(visit, "bond");
+    const paid = stripe.finishCheckout(sessionId, "card");
+    const { event: refund } = stripe.takeBack(sessionId, { kind: "refund", amountCents: 100_00 });
+
+    expect(await deliver(refund)).toBe("not_ready");
+    await deliver(paid);
+    expect(await deliver(refund)).toBe("handled");
+    expect((await paymentsOf(actor, rental)).bond.heldCents).toBe(400_00);
+  });
+
+  it("stops the open Stripe bond page once bond is recorded by hand (deep review of batch 2)", async () => {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    const sessionId = await visitStripe(visit, "bond");
+    await cashBond(actor, rental.rentalId, BOND_CENTS);
+
+    expect(await stopBondPageAfterHandEntry(deps(), actor.operatorId, rental.rentalId)).toBe(
+      "expired",
+    );
+    expect(stripe.checkout(sessionId)?.outcome.isExpired).toBe(true);
+    expect(() => stripe.finishCheckout(sessionId)).toThrow();
+  });
+
+  it("says so when the Renter paid on Stripe's page just before the cash was recorded", async () => {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    const sessionId = await visitStripe(visit, "bond");
+    stripe.finishCheckout(sessionId, "card");
+    await cashBond(actor, rental.rentalId, BOND_CENTS);
+
+    expect(await stopBondPageAfterHandEntry(deps(), actor.operatorId, rental.rentalId)).toBe(
+      "just_paid",
+    );
+    expect((await paymentsOf(actor, rental)).bond.heldCents).toBe(2 * BOND_CENTS);
   });
 
   it("counts a bank debit bond only once it clears; a bounced one is asked for again", async () => {

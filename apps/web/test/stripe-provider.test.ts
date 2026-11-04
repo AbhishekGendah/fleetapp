@@ -173,6 +173,8 @@ describe("a Stripe account's status", () => {
 
 /** 4 Nov 2026, 01:00 UTC, in seconds as Stripe gives times. */
 const SET_UP_SECONDS = 1_793_754_000;
+/** Twenty minutes after the page opened, the Renter accepted the Direct Debit Request. */
+const ACCEPTED_SECONDS = SET_UP_SECONDS + 20 * 60;
 
 const REFERENCE = {
   purpose: "bond",
@@ -241,14 +243,15 @@ describe("what came of a visit to Stripe's page", () => {
           mandate: "mandate_1",
         },
       }),
-      "active",
+      { status: "active", acceptedAtSeconds: ACCEPTED_SECONDS },
     );
     expect(setUp.setup).toEqual({
       setupIntentId: "seti_1",
       paymentMethodId: "pm_1",
       mandateId: "mandate_1",
       mandateStatus: "active",
-      setUpAt: new Date(SET_UP_SECONDS * 1000),
+      // When the Renter accepted it, not when the page was opened.
+      setUpAt: new Date(ACCEPTED_SECONDS * 1000),
     });
     expect(
       checkoutOutcomeOf(session({ metadata: { purpose: "bond" } }), null).reference,

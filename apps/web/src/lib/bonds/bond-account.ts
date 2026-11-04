@@ -36,6 +36,8 @@ export interface BondMovementRow {
   paymentId: string | null;
   /** The Stripe refund or dispute it came from. */
   stripeObjectId: string | null;
+  /** Whether that was a refund or a dispute. */
+  stripeObjectKind: string | null;
   createdAt: Date;
 }
 
@@ -69,6 +71,7 @@ export async function selectBondMovements(
       isFromStripe: sql<boolean>`(${bondMovements.paymentId} is not null or ${bondMovements.stripeObjectId} is not null)`,
       paymentId: bondMovements.paymentId,
       stripeObjectId: bondMovements.stripeObjectId,
+      stripeObjectKind: bondMovements.stripeObjectKind,
       createdAt: bondMovements.createdAt,
     })
     .from(bondMovements)

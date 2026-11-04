@@ -346,6 +346,7 @@ describe("Renter payments", () => {
           occurredOn: "2026-12-02",
           paymentId,
           stripeObjectId,
+          stripeObjectKind: stripeObjectId ? "refund" : null,
         }),
       );
     const refundId = stripeId("re");
@@ -354,7 +355,7 @@ describe("Renter payments", () => {
       await postgresErrorCodeOf(takeBack(refundId, 100_00)),
       await postgresErrorCodeOf(takeBack(stripeId("re"), BOND_CENTS + 1)),
       await postgresErrorCodeOf(takeBack(null, 100_00)),
-      await postgresErrorCodeOf(takeBack("a bank account", 100_00)),
+      await postgresErrorCodeOf(takeBack("not a Stripe ID", 100_00)),
     ];
     expect(codes).toEqual([
       undefined,

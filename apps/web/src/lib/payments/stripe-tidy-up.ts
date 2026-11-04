@@ -27,7 +27,8 @@ export async function detachReplacedMandates(
   operatorId: string,
 ): Promise<number> {
   const account = await loadPaymentAccount(deps.database, operatorId);
-  if (!account) {
+  // Stripe no longer lets us reach a disconnected account (deep review of batch 2).
+  if (!account || account.state === "disconnected") {
     return 0;
   }
   const replaced = await withTenant(deps.database, operatorId, (tx) =>

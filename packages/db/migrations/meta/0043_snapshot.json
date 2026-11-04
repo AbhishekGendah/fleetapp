@@ -1,5 +1,5 @@
 {
-  "id": "c0ac7ca9-ef50-42cc-96b3-0b58b49f3825",
+  "id": "eacb1f19-1f51-45d1-aa90-8106a43a9efc",
   "prevId": "6b5bbca3-5529-4516-a059-0ea0886640e2",
   "version": "7",
   "dialect": "postgresql",
@@ -6949,6 +6949,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "stripe_object_kind": {
+          "name": "stripe_object_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_by_user_id": {
           "name": "created_by_user_id",
           "type": "uuid",
@@ -7114,7 +7120,11 @@
         },
         "bond_movements_stripe_object_shape": {
           "name": "bond_movements_stripe_object_shape",
-          "value": "\"bond_movements\".\"stripe_object_id\" is null or \"bond_movements\".\"stripe_object_id\" ~ '^(re|pyr|du)_[A-Za-z0-9]+$'"
+          "value": "\"bond_movements\".\"stripe_object_id\" is null or \"bond_movements\".\"stripe_object_id\" ~ '^[a-z]+_[A-Za-z0-9]+$'"
+        },
+        "bond_movements_stripe_object_kind": {
+          "name": "bond_movements_stripe_object_kind",
+          "value": "(\"bond_movements\".\"stripe_object_id\" is null) = (\"bond_movements\".\"stripe_object_kind\" is null)\n        and (\"bond_movements\".\"stripe_object_kind\" is null or \"bond_movements\".\"stripe_object_kind\" in ('refund', 'dispute'))"
         },
         "bond_movements_amount": {
           "name": "bond_movements_amount",

@@ -20,7 +20,7 @@ import {
   rentals,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, asc, eq, ne, sql } from "drizzle-orm";
+import { and, asc, eq, lte, ne, sql } from "drizzle-orm";
 
 import { bondAccountIn, type BondMovementRow } from "../bonds/bond-account";
 import type { CheckoutOutcome } from "./payments-provider";
@@ -62,9 +62,6 @@ export function selectMandates(
     .where(and(eq(paymentMandates.operatorId, operatorId), eq(paymentMandates.renterId, renterId)));
 }
 
-/** Stripe's dispute IDs start so (a refund's start "re_" or "pyr_"). */
-const DISPUTE_ID_PREFIX = "du_";
-
 /** What refunds and disputes took back from one payment, from the bond entries Stripe's news made. */
 function takenBackFrom(
   paymentId: string,
@@ -84,9 +81,7 @@ function takenBackFrom(
   return {
     takenBackCents: Math.max(total(out) - total(back), 0),
     isDisputed: out.some(
-      (movement) =>
-        movement.stripeObjectId?.startsWith(DISPUTE_ID_PREFIX) &&
-        !wonIds.has(movement.stripeObjectId),
+      (movement) => movement.stripeObjectKind === "dispute" && !wonIds.has(movement.stripeObjectId),
     ),
   };
 }
@@ -153,14 +148,16 @@ export async function rentalPaymentsIn(
 }
 
 /**
- * Ends every direct debit of the Renter's still waiting or active, as
- * replaced by the one about to be kept (review KS-2): only one can be debited (rule
- * 16's one method). Each is then detached at Stripe after the save.
+ * Ends, as replaced, the Renter's direct debits set up before the one now
+ * working (review KS-2): only one can be debited (rule 16's one method).
+ * Called only once the new one is active, so a Renter whose new bank
+ * account fails its checks keeps the old one (deep review of batch 2).
+ * Each ended one is then detached at Stripe after the save.
  */
-async function endOtherMandates(
+async function endOlderMandates(
   tx: AnyTransaction,
   operatorId: string,
-  renterId: string,
+  current: { renterId: string; setUpAt: Date; id?: string },
   now: Date,
 ): Promise<void> {
   const ended = await tx
@@ -169,8 +166,10 @@ async function endOtherMandates(
     .where(
       and(
         eq(paymentMandates.operatorId, operatorId),
-        eq(paymentMandates.renterId, renterId),
+        eq(paymentMandates.renterId, current.renterId),
         ne(paymentMandates.status, "inactive"),
+        lte(paymentMandates.setUpAt, current.setUpAt),
+        current.id ? ne(paymentMandates.id, current.id) : undefined,
       ),
     )
     .returning({ id: paymentMandates.id });
@@ -243,8 +242,13 @@ async function recordMandate(
   }
   const isOvertaken = isOvertakenMandate(setup.setUpAt, others);
   const status = isOvertaken ? "inactive" : mandateStatusOf(setup.mandateStatus);
-  if (status !== "inactive") {
-    await endOtherMandates(tx, operatorId, reference.renterId, now);
+  if (status === "active") {
+    await endOlderMandates(
+      tx,
+      operatorId,
+      { renterId: reference.renterId, setUpAt: setup.setUpAt },
+      now,
+    );
   }
   const [added] = await tx
     .insert(paymentMandates)
@@ -471,6 +475,7 @@ export async function applyMandateStatus(
       id: paymentMandates.id,
       renterId: paymentMandates.renterId,
       status: paymentMandates.status,
+      setUpAt: paymentMandates.setUpAt,
     })
     .from(paymentMandates)
     .where(eq(paymentMandates.stripeMandateId, update.mandateId))
@@ -478,6 +483,10 @@ export async function applyMandateStatus(
   const status = mandateStatusOf(update.stripeStatus);
   if (!mandate || mandate.status === "inactive" || mandate.status === status) {
     return;
+  }
+  if (status === "active") {
+    // Now working: the ones set up before it are replaced (the one-active rule needs them gone first).
+    await endOlderMandates(tx, operatorId, mandate, now);
   }
   await tx
     .update(paymentMandates)

@@ -21,10 +21,11 @@ const OPEN_CHECKOUT_COLUMNS = {
 } as const;
 
 /**
- * The rental's open bond page, locked, so two presses at once can't both
- * decide there is none (review KS-1).
+ * The rental's open bond page, if any. Two presses at once may both find
+ * none: the one-open-page index then keeps one of the pages they open, and
+ * the other is expired at Stripe (saveCheckout, review KS-1).
  */
-export async function lockOpenBondCheckout(
+export async function findOpenBondCheckout(
   tx: AnyTransaction,
   operatorId: string,
   rentalId: string,
@@ -39,8 +40,7 @@ export async function lockOpenBondCheckout(
         eq(stripeCheckouts.purpose, "bond"),
         eq(stripeCheckouts.status, "open"),
       ),
-    )
-    .for("update");
+    );
   return open ?? null;
 }
 
