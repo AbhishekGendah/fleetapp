@@ -1,4 +1,4 @@
-import { formatCents, formatKilometres, type HandoverGap } from "@fleetapp/core";
+import { bondOnItsWayText, formatCents, formatKilometres, type HandoverGap } from "@fleetapp/core";
 
 import type { CompleteHandoverResult } from "../../../../lib/handover/complete-handover";
 import { bookingProblemMessage } from "../../../../lib/rentals/rental-messages";
@@ -37,7 +37,13 @@ export function completionMessage(
     case "blocked":
       return result.problems.map(bookingProblemMessage).join(" ");
     case "bond_short":
-      return `The bond is ${formatCents(result.owingCents)} short. Record it on the rental, or say why the car goes before it is paid.`;
+      return [
+        `The bond is ${formatCents(result.owingCents)} short.`,
+        bondOnItsWayText(result.onItsWayCents),
+        "Record it on the rental, or say why the car goes before it is in.",
+      ]
+        .filter(Boolean)
+        .join(" ");
     case "direct_debit_missing":
       return "The Renter's direct debit is not set up yet. Set it up on the spot from the rental's page, or say why the car goes without it.";
     case "lower":

@@ -1,4 +1,5 @@
 import type { PaymentMethod } from "./bonds";
+import { formatCents } from "./money";
 
 /**
  * A Renter's direct debit and the payments they make through Stripe
@@ -107,6 +108,16 @@ export function bondToCollectCents(input: {
   pendingCents: number;
 }): number {
   return Math.max(input.requiredCents - input.heldCents - input.pendingCents, 0);
+}
+
+/** How long a bank debit takes to clear (Stripe: BECS), for the words shown about one on its way. */
+export const BANK_DEBIT_CLEARING_TEXT = "up to 3 business days";
+
+/** Bond paid by bank debit still clearing, in words; empty when there is none (review A5-2). */
+export function bondOnItsWayText(onItsWayCents: number): string {
+  return onItsWayCents > 0
+    ? `${formatCents(onItsWayCents)} is on its way by bank debit (it clears in ${BANK_DEBIT_CLEARING_TEXT}).`
+    : "";
 }
 
 /** Stripe takes no payment under 50 cents (AUD), so a smaller bond remainder is left to the business. */

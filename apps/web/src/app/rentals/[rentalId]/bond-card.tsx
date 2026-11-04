@@ -1,6 +1,7 @@
 import {
   BOND_MOVEMENT_KIND_LABELS,
   bondHeldUntil,
+  bondOnItsWayText,
   formatCalendarDate,
   formatCents,
   operatorSettingsSchema,
@@ -109,7 +110,9 @@ export async function BondCard({
     return null;
   }
   const today = todayInTimeZone(clock.now, clock.timeZone);
-  const canReceive = BOND_OPEN_STATUSES.has(rental.status) && account.owingCents > 0;
+  const canReceive = BOND_OPEN_STATUSES.has(rental.status) && account.toReceiveByHandCents > 0;
+  // Money that arrived on a booking since cancelled is owed back (review A5-8).
+  const toRefundCents = rental.status === "cancelled" ? account.heldCents : 0;
   return (
     <Card>
       <CardHeader>
@@ -125,6 +128,9 @@ export async function BondCard({
             ["Required", formatCents(rental.bondCents)],
             ["Held now", formatCents(account.heldCents)],
             ["Still to receive", formatCents(account.owingCents)],
+            ...(account.onItsWayCents > 0
+              ? ([["On its way by bank debit", formatCents(account.onItsWayCents)]] as const)
+              : []),
             ...(rental.returnedAt
               ? ([
                   [
@@ -135,8 +141,27 @@ export async function BondCard({
               : []),
           ]}
         />
+        {account.onItsWayCents > 0 ? (
+          <p className="text-sm">
+            {bondOnItsWayText(account.onItsWayCents)} It counts as held once it clears. If it
+            bounces, you can record the bond then.
+          </p>
+        ) : null}
+        {toRefundCents > 0 ? (
+          <p role="status" className="text-attention text-sm font-medium">
+            Bond to refund: {formatCents(toRefundCents)}. This booking was cancelled, so the bond is
+            owed back. Refund a Stripe payment from your Stripe dashboard: the refund then shows
+            here by itself.
+          </p>
+        ) : null}
         {account.movements.length > 0 ? (
           <BondEntries rentalId={rental.id} account={account} />
+        ) : null}
+        {account.movements.some((movement) => movement.isFromStripe) ? (
+          <p className="text-muted-foreground text-sm">
+            Entries from Stripe are put right only in your Stripe dashboard (a refund there), which
+            shows here by itself.
+          </p>
         ) : null}
         {canReceive ? (
           <FormDialog
@@ -148,7 +173,7 @@ export async function BondCard({
             <ManualPaymentForm
               action={recordBondReceivedAction.bind(null, rental.id)}
               today={today}
-              initialValues={bondReceivedStart(account.owingCents, today)}
+              initialValues={bondReceivedStart(account.toReceiveByHandCents, today)}
               submitLabel="Record bond"
             />
           </FormDialog>

@@ -52,6 +52,11 @@ export interface BondMovementAmount {
   amountCents: number;
   /** The entry a reversal undoes; null for every other kind. */
   reversesId: string | null;
+  /**
+   * Money that came in or went back through Stripe: put right only through
+   * Stripe (a refund there), never by a correction here (review A5-3).
+   */
+  isFromStripe?: boolean;
 }
 
 const DIRECTIONS: Readonly<Record<Exclude<BondMovementKind, "reversal">, 1 | -1>> = {
@@ -96,12 +101,15 @@ export function bondHeldCents(movements: readonly BondMovementAmount[]): number 
   }, 0);
 }
 
-/** The entries that can still be corrected: not reversals, and not already reversed. */
+/** The entries that can still be corrected: not reversals, not from Stripe, and not already reversed. */
 export function reversibleBondMovementIds(movements: readonly BondMovementAmount[]): Set<string> {
   const reversed = new Set(movements.map((movement) => movement.reversesId).filter(Boolean));
   return new Set(
     movements
-      .filter((movement) => movement.kind !== "reversal" && !reversed.has(movement.id))
+      .filter(
+        (movement) =>
+          movement.kind !== "reversal" && !movement.isFromStripe && !reversed.has(movement.id),
+      )
       .map((movement) => movement.id),
   );
 }

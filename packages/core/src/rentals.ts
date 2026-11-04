@@ -103,7 +103,13 @@ export type BookingProblem =
   | { code: "licence_expired_by_start"; level: "handover"; expiresOn: string }
   | { code: "under_minimum_age"; level: "handover"; minimumAge: number }
   | { code: "provisional_licence"; level: "handover" }
-  | { code: "bond_short"; level: "handover"; owingCents: number }
+  | {
+      code: "bond_short";
+      level: "handover";
+      owingCents: number;
+      /** Bond paid by bank debit that hasn't cleared: named, never counted as held (review A5-2). */
+      onItsWayCents: number;
+    }
   | { code: "direct_debit_missing"; level: "handover"; state: DirectDebitState }
   | { code: "licence_expires_during"; level: "notice"; expiresOn: string };
 

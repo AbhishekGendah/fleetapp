@@ -22,7 +22,10 @@ export interface StandInPayments extends PaymentsProvider {
   setStatus(accountId: string, status: PaymentAccountStatus): void;
   /** A test's event, signed as the endpoint expects. */
   signedEvent(
-    event: Omit<PaymentEventNotice, "objectId"> & { objectId?: string | null },
+    event: Omit<PaymentEventNotice, "objectId" | "occurredAt"> & {
+      objectId?: string | null;
+      occurredAt?: Date;
+    },
   ): SignedEvent;
   /** A visit to "Stripe's page" as it was started, for its page and the tests. */
   checkout(sessionId: string): StandInCheckout | null;
@@ -36,8 +39,8 @@ export interface StandInPayments extends PaymentsProvider {
     method?: StripePaymentMethod,
     directDebit?: { setUpAt?: Date; mandateStatus?: string },
   ): SignedEvent;
-  /** A bank debit clears or bounces, days later. */
-  settlePayment(sessionId: string, isPaid: boolean): SignedEvent;
+  /** A bank debit clears or bounces, days later (at Stripe, at `occurredAt`). */
+  settlePayment(sessionId: string, isPaid: boolean, occurredAt?: Date): SignedEvent;
   /** The Renter's bank cancels a direct debit. */
   cancelMandate(sessionId: string): SignedEvent;
   /** Stripe moves a direct debit on (checked and active, or cancelled), with its message. */
@@ -80,6 +83,7 @@ const standInEventSchema = z.object({
   type: z.string(),
   accountId: z.string().nullable(),
   objectId: z.string().nullable().default(null),
+  occurredAt: z.coerce.date(),
 });
 
 /** A made-up ID in Stripe's shape. */
@@ -99,8 +103,17 @@ export function createStandInPayments(webhookSecret: string): StandInPayments {
   const detached = new Set<string>();
   let failingDetaches = 0;
 
-  function signed(event: Omit<PaymentEventNotice, "objectId"> & { objectId?: string | null }) {
-    const payload = JSON.stringify({ ...event, objectId: event.objectId ?? null });
+  function signed(
+    event: Omit<PaymentEventNotice, "objectId" | "occurredAt"> & {
+      objectId?: string | null;
+      occurredAt?: Date;
+    },
+  ) {
+    const payload = JSON.stringify({
+      ...event,
+      objectId: event.objectId ?? null,
+      occurredAt: (event.occurredAt ?? new Date()).toISOString(),
+    });
     return { payload, signature: signatureOf(webhookSecret, payload) };
   }
 
@@ -114,8 +127,19 @@ export function createStandInPayments(webhookSecret: string): StandInPayments {
     return changed;
   }
 
-  function eventFor(checkout: StandInCheckout, type: string, objectId: string): SignedEvent {
-    return signed({ id: standInId("evt"), type, accountId: checkout.accountId, objectId });
+  function eventFor(
+    checkout: StandInCheckout,
+    type: string,
+    objectId: string,
+    occurredAt?: Date,
+  ): SignedEvent {
+    return signed({
+      id: standInId("evt"),
+      type,
+      accountId: checkout.accountId,
+      objectId,
+      ...(occurredAt ? { occurredAt } : {}),
+    });
   }
 
   return {
@@ -254,7 +278,7 @@ export function createStandInPayments(webhookSecret: string): StandInPayments {
       });
       return eventFor(finished, "v1.checkout.session.completed", sessionId);
     },
-    settlePayment(sessionId, isPaid) {
+    settlePayment(sessionId, isPaid, occurredAt) {
       const settled = update(sessionId, (checkout) => {
         const { payment } = checkout.outcome;
         if (!payment) {
@@ -275,7 +299,7 @@ export function createStandInPayments(webhookSecret: string): StandInPayments {
       const type = isPaid
         ? "v1.checkout.session.async_payment_succeeded"
         : "v1.checkout.session.async_payment_failed";
-      return eventFor(settled, type, sessionId);
+      return eventFor(settled, type, sessionId, occurredAt);
     },
     cancelMandate(sessionId) {
       return this.setMandateStatus(sessionId, "inactive");

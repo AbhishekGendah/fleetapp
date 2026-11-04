@@ -2,6 +2,7 @@ import {
   CLAIM_STATUS_LABELS,
   expiryStatus,
   formatCalendarDate,
+  formatCents,
   formatDateTimeInTimeZone,
   VEHICLE_STATUS_LABELS,
   type RentalMoment,
@@ -187,6 +188,7 @@ function hasAttention(data: DashboardData): boolean {
     urgentRentals ||
     data.notReady.length > 0 ||
     data.reviewsWaiting.total > 0 ||
+    data.bondsToRefund.total > 0 ||
     data.paperworkDue.total > 0 ||
     data.licencesDue.total > 0 ||
     data.workshopLate.total > 0 ||
@@ -216,6 +218,15 @@ export function NeedsAttentionCard({ data, timeZone }: { data: DashboardData; ti
             key: renter.id,
             href: renterReviewPath(renter.id),
             title: renter.fullName,
+          }))}
+        />
+        <AttentionGroup
+          heading="Bond to refund on a cancelled booking"
+          total={data.bondsToRefund.total}
+          items={data.bondsToRefund.items.map((rental) => ({
+            key: rental.rentalId,
+            href: rentalPath(rental.rentalId),
+            title: `${rental.rego} · ${rental.renterName}: ${formatCents(rental.heldCents)}`,
           }))}
         />
         <PaperworkGroups data={data} />

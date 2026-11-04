@@ -305,6 +305,7 @@ export function createStripeProvider(
         type: notice.type,
         accountId: contextAccount ?? accountOfEvent,
         objectId: relatedId ?? null,
+        occurredAt: new Date(notice.created),
       };
     },
 

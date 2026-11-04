@@ -10,13 +10,15 @@ const SECRET = "whsec_test_signing_secret";
 const CONNECT_SECRET = "whsec_test_connected_accounts";
 const ACCOUNT_ID = "acct_1TestConnected";
 
+const EVENT_CREATED = "2026-11-04T01:00:00.000Z";
+
 function thinEvent(changes: Record<string, unknown>): string {
   return JSON.stringify({
     id: "evt_test_thin",
     object: "v2.core.event",
     type: "v2.core.account[requirements].updated",
     livemode: false,
-    created: new Date().toISOString(),
+    created: EVENT_CREATED,
     related_object: {
       id: ACCOUNT_ID,
       type: "v2.core.account",
@@ -41,6 +43,7 @@ describe("Stripe's events", () => {
       type: "v2.core.account[requirements].updated",
       accountId: ACCOUNT_ID,
       objectId: ACCOUNT_ID,
+      occurredAt: new Date(EVENT_CREATED),
     });
   });
 

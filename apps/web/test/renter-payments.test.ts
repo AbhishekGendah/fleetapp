@@ -16,7 +16,9 @@ import {
   sendPaymentsLink,
   type PaymentsLinkDependencies,
 } from "../src/lib/payments/payments-links";
-import { recordBondReceived } from "../src/lib/bonds/bond-records";
+import { loadBondAccount } from "../src/lib/bonds/bond-account";
+import { recordBondReceived, reverseBondMovement } from "../src/lib/bonds/bond-records";
+import { loadBondsToRefund } from "../src/lib/dashboard/bonds-to-refund";
 import { recordReturnFromStripe, startRenterCheckout } from "../src/lib/payments/renter-checkout";
 import { runStripeTidyUp } from "../src/lib/payments/stripe-tidy-up";
 import { loadRentalPayments } from "../src/lib/payments/renter-payment-records";
@@ -26,6 +28,7 @@ import {
   type SignedEvent,
 } from "../src/lib/payments/stand-in-provider";
 import { loadRentalProblems } from "../src/lib/rentals/booking-checks";
+import { cancelRental } from "../src/lib/rentals/rental-records";
 import { emptyRenterForm, parseRenterForm } from "../src/lib/renters/renter-input";
 import { createRenter } from "../src/lib/renters/renter-records";
 import { openLink, type LinkVisit } from "../src/lib/renter-links/link-visits";
@@ -324,6 +327,28 @@ describe("a Renter's direct debit and bond", () => {
     expect(entries[0]?.paymentId).toBe(after.payments[0]?.id);
   });
 
+  async function problemsOf(
+    owner: ActingUser,
+    rental: { rentalId: string; renterId: string; vehicleId: string },
+  ) {
+    const problems = await loadRentalProblems(
+      web.db,
+      owner.operatorId,
+      {
+        id: rental.rentalId,
+        renterId: rental.renterId,
+        vehicleId: rental.vehicleId,
+        plannedStart: new Date("2027-06-01T01:00:00Z"),
+        plannedEnd: new Date("2027-06-29T01:00:00Z"),
+        bondCents: BOND_CENTS,
+        settingsSnapshot: {},
+      },
+      { timeZone: TEST_TIME_ZONE, now: new Date() },
+      { canHearRenterPayments: true },
+    );
+    return Array.isArray(problems) ? problems : [];
+  }
+
   function cashBond(owner: ActingUser, rentalId: string, amountCents: number) {
     return recordBondReceived(web.db, owner, rentalId, {
       amountCents,
@@ -395,6 +420,85 @@ describe("a Renter's direct debit and bond", () => {
     await cashBond(actor, rental.rentalId, BOND_CENTS - 25);
     expect((await paymentsOf(actor, rental)).bond.toCollectCents).toBe(25);
     expect((await startRenterCheckout(deps(), visit, "bond")).status).toBe("nothing_owing");
+  });
+
+  it("names a bank debit bond still clearing at handover and on the bond, never as held (review A5-2)", async () => {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    await deliver(stripe.finishCheckout(await visitStripe(visit, "bond"), "becs_debit"));
+
+    const account = await loadBondAccount(web.db, actor.operatorId, {
+      id: rental.rentalId,
+      bondCents: BOND_CENTS,
+    });
+    expect(account).toMatchObject({
+      heldCents: 0,
+      owingCents: BOND_CENTS,
+      onItsWayCents: BOND_CENTS,
+      toReceiveByHandCents: 0,
+    });
+    // Cash taken again while it clears is refused: the business would hold it twice.
+    expect(await cashBond(actor, rental.rentalId, 100_00)).toMatchObject({
+      status: "on_its_way",
+      onItsWayCents: BOND_CENTS,
+    });
+    const problems = await problemsOf(actor, rental);
+    expect(problems).toContainEqual(
+      expect.objectContaining({ code: "bond_short", onItsWayCents: BOND_CENTS }),
+    );
+  });
+
+  it("dates a bond paid through Stripe by when Stripe says it cleared (review A11-10)", async () => {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    const sessionId = await visitStripe(visit, "bond");
+    await deliver(stripe.finishCheckout(sessionId, "becs_debit"));
+    // 11:30 pm in Perth on 2 Nov, told to us later.
+    await deliver(stripe.settlePayment(sessionId, true, new Date("2026-11-02T15:30:00Z")));
+
+    const [entry] = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx.select().from(bondMovements).where(eq(bondMovements.rentalId, rental.rentalId)),
+    );
+    expect(entry?.occurredOn).toBe("2026-11-02");
+  });
+
+  it("lets no Stripe bond entry be corrected here (review A5-3)", async () => {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    await deliver(stripe.finishCheckout(await visitStripe(visit, "bond"), "card"));
+    const [entry] = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx.select().from(bondMovements).where(eq(bondMovements.rentalId, rental.rentalId)),
+    );
+    const result = await reverseBondMovement(
+      web.db,
+      actor,
+      { rentalId: rental.rentalId, movementId: entry!.id },
+      { note: "Paid twice" },
+      "2026-11-04",
+    );
+    expect(result.status).toBe("not_reversible");
+  });
+
+  it("lists a cancelled booking still holding bond to refund (review A5-8)", async () => {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    const sessionId = await visitStripe(visit, "bond");
+    await deliver(stripe.finishCheckout(sessionId, "becs_debit"));
+    await cancelRental(
+      web.db,
+      actor,
+      rental.rentalId,
+      { reason: "Changed their mind" },
+      new Date(),
+    );
+    // The bank debit clears after the booking was cancelled: still recorded, and flagged.
+    await deliver(stripe.settlePayment(sessionId, true));
+
+    const toRefund = await loadBondsToRefund(web.db, actor.operatorId);
+    expect(toRefund.items).toContainEqual(
+      expect.objectContaining({ rentalId: rental.rentalId, heldCents: BOND_CENTS }),
+    );
+    expect((await loadBondsToRefund(web.db, otherBusiness.operatorId)).total).toBe(0);
   });
 
   it("counts a bank debit bond only once it clears; a bounced one is asked for again", async () => {

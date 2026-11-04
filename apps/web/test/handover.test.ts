@@ -118,7 +118,7 @@ describe("handing a car over", () => {
     const bondShort = await completeHandover(handoverDeps(), actor, inspectionId, input, clock());
 
     expect(withGap).toEqual({ status: "gaps", gaps: [{ kind: "damage_photo" }] });
-    expect(bondShort).toEqual({ status: "bond_short", owingCents: 500_00 });
+    expect(bondShort).toEqual({ status: "bond_short", owingCents: 500_00, onItsWayCents: 0 });
   });
 
   it("hands the car over on acceptance: report fixed, rental active, possession, Rented, kilometres, copies", async () => {

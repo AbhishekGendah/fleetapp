@@ -3,6 +3,7 @@ import { dashboardWindow, type DashboardWindow, type VehicleStatus } from "@flee
 import { appDb } from "../app-db";
 import { canHearRenterPayments } from "../payments/app-payments";
 import { loadDamageAttention, type DamageAttention } from "../damage/damage-queries";
+import { loadBondsToRefund, type BondToRefund } from "./bonds-to-refund";
 import type { SignedInUser } from "../require-user";
 import { loadOperatorSettings } from "../settings/operator-settings";
 import {
@@ -37,6 +38,7 @@ export interface DashboardData {
   licencesDue: FewOfMany<RenterLicenceDue>;
   reviewsWaiting: FewOfMany<RenterOnList>;
   damage: DamageAttention;
+  bondsToRefund: FewOfMany<BondToRefund>;
   vehicleWarningDays: number;
 }
 
@@ -63,9 +65,10 @@ export async function loadDashboard(user: SignedInUser): Promise<DashboardData> 
       }),
       loadReviewsWaiting(appDb, operatorId),
     ]);
-  const [notReady, damage] = await Promise.all([
+  const [notReady, damage, bondsToRefund] = await Promise.all([
     loadBookingReadiness(appDb, operatorId, rentals, clock, { canHearRenterPayments }),
     loadDamageAttention(appDb, operatorId),
+    loadBondsToRefund(appDb, operatorId),
   ]);
   return {
     window,
@@ -78,6 +81,7 @@ export async function loadDashboard(user: SignedInUser): Promise<DashboardData> 
     licencesDue,
     reviewsWaiting,
     damage,
+    bondsToRefund,
     vehicleWarningDays: settings.vehicleExpiryWarningDays,
   };
 }

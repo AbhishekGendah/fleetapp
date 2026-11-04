@@ -24,9 +24,9 @@ import {
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, asc, eq, ne, sql } from "drizzle-orm";
 
-import { bondAccountOf, selectBondMovements } from "../bonds/bond-account";
+import { bondAccountIn } from "../bonds/bond-account";
 import type { CheckoutOutcome } from "./payments-provider";
-import { settleCheckout, unrecordedBondCents } from "./stripe-checkouts";
+import { settleCheckout } from "./stripe-checkouts";
 
 const SYSTEM_ACTOR = { type: "system", id: null } as const;
 
@@ -95,17 +95,14 @@ export async function rentalPaymentsIn(
   operatorId: string,
   rental: { id: string; renterId: string; bondCents: number },
 ): Promise<RentalPayments> {
-  const [mandates, rows, movements, unrecordedCents] = await Promise.all([
+  const [mandates, rows, bond] = await Promise.all([
     selectMandates(tx, operatorId, rental.renterId),
     selectRentalPayments(tx, operatorId, rental.id),
-    selectBondMovements(tx, operatorId, rental.id),
-    unrecordedBondCents(tx, operatorId, rental.id),
+    bondAccountIn(tx, operatorId, rental),
   ]);
-  const { heldCents } = bondAccountOf(movements, rental.bondCents);
+  const { heldCents } = bond;
   // A finished Stripe page whose payment isn't recorded yet is on its way too (review KS-1).
-  const pendingCents =
-    unrecordedCents +
-    rows.filter((row) => row.status === "pending").reduce((sum, row) => sum + row.amountCents, 0);
+  const pendingCents = bond.onItsWayCents;
   return {
     directDebit: directDebitState(mandates),
     payments: rows,
@@ -260,7 +257,12 @@ const PAYMENT_STATUS_OF: Readonly<
   failed: "failed",
 };
 
-async function businessToday(tx: AnyTransaction, operatorId: string, now: Date): Promise<string> {
+/** The business's own day a moment fell on (rule 10). */
+async function businessDayOf(
+  tx: AnyTransaction,
+  operatorId: string,
+  moment: Date,
+): Promise<string> {
   const [operator] = await tx
     .select({ timeZone: operators.timezone })
     .from(operators)
@@ -268,7 +270,7 @@ async function businessToday(tx: AnyTransaction, operatorId: string, now: Date):
   if (!operator) {
     throw new Error("The payment's business was not found.");
   }
-  return todayInTimeZone(now, operator.timeZone);
+  return todayInTimeZone(moment, operator.timeZone);
 }
 
 /** The bond entry for a payment Stripe says succeeded (decision 2): once, for exactly its amount. */
@@ -276,7 +278,7 @@ async function addBondReceived(
   tx: AnyTransaction,
   operatorId: string,
   payment: { id: string; rentalId: string; method: StripePaymentMethod; amountCents: number },
-  now: Date,
+  occurredAt: Date,
 ): Promise<void> {
   const [movement] = await tx
     .insert(bondMovements)
@@ -286,7 +288,7 @@ async function addBondReceived(
       kind: "received",
       amountCents: payment.amountCents,
       method: payment.method,
-      occurredOn: await businessToday(tx, operatorId, now),
+      occurredOn: await businessDayOf(tx, operatorId, occurredAt),
       paymentId: payment.id,
     })
     .onConflictDoNothing({
@@ -322,8 +324,9 @@ async function recordBondPayment(
   tx: AnyTransaction,
   operatorId: string,
   outcome: CheckoutOutcome,
-  now: Date,
+  times: { now: Date; occurredAt: Date },
 ): Promise<void> {
+  const { now } = times;
   const { reference, payment } = outcome;
   if (!reference || !payment) {
     return;
@@ -385,7 +388,7 @@ async function recordBondPayment(
         method: payment.method,
         amountCents: payment.amountCents,
       },
-      now,
+      times.occurredAt,
     );
   }
 }
@@ -396,6 +399,8 @@ export async function applyCheckoutOutcome(
   operatorId: string,
   outcome: CheckoutOutcome,
   now: Date,
+  /** When Stripe says it happened, if known: a bond paid is dated by it (review A11-10). */
+  occurredAt: Date = now,
 ): Promise<void> {
   await settleCheckout(tx, operatorId, outcome, now);
   const { reference } = outcome;
@@ -421,7 +426,7 @@ export async function applyCheckoutOutcome(
     await recordMandate(tx, operatorId, outcome, now);
     return;
   }
-  await recordBondPayment(tx, operatorId, outcome, now);
+  await recordBondPayment(tx, operatorId, outcome, { now, occurredAt });
 }
 
 /** Whether we have recorded a direct debit yet: Stripe's news about one we haven't is sent again later. */

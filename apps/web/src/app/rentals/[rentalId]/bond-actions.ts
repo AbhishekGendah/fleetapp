@@ -49,6 +49,15 @@ export async function recordBondReceivedAction(
             : `That is more than the ${formatCents(result.owingCents)} still to receive.`,
         );
       }
+      if (result.status === "on_its_way") {
+        return failedState(
+          `A bank debit of ${formatCents(result.onItsWayCents)} for the bond is on its way. ${
+            result.toReceiveByHandCents > 0
+              ? `Record no more than ${formatCents(result.toReceiveByHandCents)} now. `
+              : ""
+          }If it bounces, you can record the bond then.`,
+        );
+      }
       if (result.status === "not_open") {
         return failedState("This rental is closed or cancelled, so no bond can be added.");
       }

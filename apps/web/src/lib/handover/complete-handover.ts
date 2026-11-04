@@ -45,7 +45,7 @@ export type CompleteHandoverResult =
   | { status: "completed"; documentId: string }
   | { status: "gaps"; gaps: HandoverGap[] }
   | { status: "blocked"; problems: BookingProblem[] }
-  | { status: "bond_short"; owingCents: number }
+  | { status: "bond_short"; owingCents: number; onItsWayCents: number }
   | { status: "direct_debit_missing" }
   | { status: "lower"; lastKilometres: number }
   | {
@@ -91,7 +91,11 @@ async function acceptanceRefusal(
   }
   const bondShort = problems.find((problem) => problem.code === "bond_short");
   if (bondShort?.code === "bond_short" && !input.bondOverrideReason) {
-    return { status: "bond_short", owingCents: bondShort.owingCents };
+    return {
+      status: "bond_short",
+      owingCents: bondShort.owingCents,
+      onItsWayCents: bondShort.onItsWayCents,
+    };
   }
   const isDirectDebitMissing = problems.some((problem) => problem.code === "direct_debit_missing");
   if (isDirectDebitMissing && !input.directDebitOverrideReason) {

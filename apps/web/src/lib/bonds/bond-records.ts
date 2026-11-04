@@ -12,6 +12,7 @@ import { and, eq } from "drizzle-orm";
 import { recordUserChange, type ActingUser } from "../acting-user";
 import {
   BOND_OPEN_STATUSES,
+  bondAccountIn,
   bondAccountOf,
   selectBondMovements,
   type BondAccount,
@@ -21,6 +22,7 @@ import type { BondReceivedInput, BondReversalInput } from "./bond-input";
 export type BondReceivedResult =
   | { status: "saved"; account: BondAccount }
   | { status: "more_than_owing"; owingCents: number }
+  | { status: "on_its_way"; onItsWayCents: number; toReceiveByHandCents: number }
   | { status: "not_found" | "not_open" };
 
 export type BondReversalResult =
@@ -77,12 +79,17 @@ export async function recordBondReceived(
     if (!BOND_OPEN_STATUSES.has(rental.status)) {
       return { status: "not_open" as const };
     }
-    const before = bondAccountOf(
-      await selectBondMovements(tx, actor.operatorId, rentalId),
-      rental.bondCents,
-    );
+    const before = await bondAccountIn(tx, actor.operatorId, rental);
     if (input.amountCents > before.owingCents) {
       return { status: "more_than_owing" as const, owingCents: before.owingCents };
+    }
+    if (input.amountCents > before.toReceiveByHandCents) {
+      // A bank debit for it is still clearing: taking it again would hold it twice (review A5-2).
+      return {
+        status: "on_its_way" as const,
+        onItsWayCents: before.onItsWayCents,
+        toReceiveByHandCents: before.toReceiveByHandCents,
+      };
     }
     const [movement] = await tx
       .insert(bondMovements)

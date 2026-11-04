@@ -23,6 +23,8 @@ export interface PaymentEventNotice {
   accountId: string | null;
   /** The ID of the thing it is about (a Checkout session, a mandate), if any. */
   objectId: string | null;
+  /** When it happened at Stripe: what a bond paid is dated by (review A11-10). */
+  occurredAt: Date;
 }
 
 /** A Renter as a customer on the business's account: a name and email, nothing more. */

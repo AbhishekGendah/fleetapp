@@ -244,12 +244,13 @@ async function applyEventDetails(
   tx: AnyTransaction,
   operatorId: string,
   details: EventDetails,
-  now: Date,
+  times: { now: Date; occurredAt: Date },
 ): Promise<void> {
+  const { now } = times;
   if (details.kind === "account") {
     await saveStatus(tx, operatorId, details.status, now);
   } else if (details.kind === "checkout") {
-    await applyCheckoutOutcome(tx, operatorId, details.outcome, now);
+    await applyCheckoutOutcome(tx, operatorId, details.outcome, now, times.occurredAt);
   } else if (details.kind === "mandate") {
     await applyMandateStatus(tx, operatorId, details, now);
   } else if (details.kind === "disconnected") {
@@ -312,7 +313,10 @@ export async function handlePaymentEvent(
     if (!isNew) {
       return "repeat";
     }
-    await applyEventDetails(tx, operatorId, details, deps.now());
+    await applyEventDetails(tx, operatorId, details, {
+      now: deps.now(),
+      occurredAt: notice.occurredAt,
+    });
     return "handled" as const;
   });
   if (result === "handled" && (details.kind === "checkout" || details.kind === "mandate")) {

@@ -76,7 +76,12 @@ describe("bonds", () => {
       bondCents: BOND_CENTS,
     });
 
-    expect(before).toEqual({ code: "bond_short", level: "handover", owingCents: BOND_CENTS });
+    expect(before).toEqual({
+      code: "bond_short",
+      level: "handover",
+      owingCents: BOND_CENTS,
+      onItsWayCents: 0,
+    });
     expect(first.status).toBe("saved");
     expect([account.heldCents, account.owingCents]).toEqual([200_00, 300_00]);
     expect(await bondProblem(rentalId)).toMatchObject({ owingCents: 300_00 });

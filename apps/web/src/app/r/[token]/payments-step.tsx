@@ -1,4 +1,9 @@
-import { bondPayableOnlineCents, formatCents, type DirectDebitState } from "@fleetapp/core";
+import {
+  BANK_DEBIT_CLEARING_TEXT,
+  bondPayableOnlineCents,
+  formatCents,
+  type DirectDebitState,
+} from "@fleetapp/core";
 import { CardDescription } from "@fleetapp/ui/card";
 import { CircleCheck } from "lucide-react";
 
@@ -14,9 +19,6 @@ import { CheckoutButton } from "./checkout-button";
 import { RefreshWhileWaiting } from "./refresh-while-waiting";
 import { RememberLink } from "./remember-link";
 
-/** Bank debits take this long to clear (Stripe: BECS), so a bond paid that way waits. */
-const BANK_DEBIT_DAYS_TEXT = "up to 3 business days";
-
 function Done(props: { children: React.ReactNode }) {
   return (
     <p className="text-teal flex items-start gap-2 text-sm font-medium">
@@ -30,18 +32,25 @@ function StepHeading(props: { children: React.ReactNode }) {
   return <h2 className="text-base font-semibold">{props.children}</h2>;
 }
 
-function DirectDebitStep(props: { token: string; state: DirectDebitState; operatorName: string }) {
+function DirectDebitStep(props: {
+  token: string;
+  state: DirectDebitState;
+  operatorName: string;
+  canPay: boolean;
+}) {
   if (props.state === "active") {
     return (
       <section className="flex flex-col gap-2">
         <StepHeading>1. Direct debit</StepHeading>
         <Done>Your direct debit is set up.</Done>
-        <CheckoutButton
-          token={props.token}
-          purpose="direct_debit"
-          label="Change bank account"
-          variant="outline"
-        />
+        {props.canPay ? (
+          <CheckoutButton
+            token={props.token}
+            purpose="direct_debit"
+            label="Change bank account"
+            variant="outline"
+          />
+        ) : null}
       </section>
     );
   }
@@ -59,7 +68,9 @@ function DirectDebitStep(props: { token: string; state: DirectDebitState; operat
           page.
         </p>
       )}
-      <CheckoutButton token={props.token} purpose="direct_debit" label="Set up direct debit" />
+      {props.canPay ? (
+        <CheckoutButton token={props.token} purpose="direct_debit" label="Set up direct debit" />
+      ) : null}
     </section>
   );
 }
@@ -67,6 +78,7 @@ function DirectDebitStep(props: { token: string; state: DirectDebitState; operat
 function BondStep(props: {
   token: string;
   operatorName: string;
+  canPay: boolean;
   bond: { requiredCents: number; heldCents: number; pendingCents: number; toCollectCents: number };
 }) {
   const { bond } = props;
@@ -82,7 +94,7 @@ function BondStep(props: {
       {bond.pendingCents > 0 ? (
         <p className="text-sm">
           {formatCents(bond.pendingCents)} is on its way from your bank. It can take{" "}
-          {BANK_DEBIT_DAYS_TEXT} to clear.
+          {BANK_DEBIT_CLEARING_TEXT} to clear.
         </p>
       ) : null}
       {bond.toCollectCents > 0 && bondPayableOnlineCents(bond.toCollectCents) === 0 ? (
@@ -91,11 +103,11 @@ function BondStep(props: {
           {props.operatorName} will sort it out with you.
         </p>
       ) : null}
-      {bondPayableOnlineCents(bond.toCollectCents) > 0 ? (
+      {props.canPay && bondPayableOnlineCents(bond.toCollectCents) > 0 ? (
         <>
           <p className="text-sm">
             Still to pay: {formatCents(bond.toCollectCents)}. Pay by card, or from your bank account
-            (that takes {BANK_DEBIT_DAYS_TEXT} to clear).
+            (that takes {BANK_DEBIT_CLEARING_TEXT} to clear).
           </p>
           <CheckoutButton
             token={props.token}
@@ -124,7 +136,7 @@ export async function PaymentsStep(props: {
     // Recorded now, so this page never offers to pay what was just paid (review KS-1).
     await recordReturnFromStripe(deps, visit);
   }
-  const [isOffered, payments] = await Promise.all([
+  const [stripe, payments] = await Promise.all([
     isStripeOfferedToRenters(deps, visit.operatorId),
     loadPaymentsStep(appDb, visit),
   ]);
@@ -136,14 +148,7 @@ export async function PaymentsStep(props: {
       </CardDescription>
     );
   }
-  if (!isOffered) {
-    return (
-      <CardDescription>
-        Payments are not being taken online right now. {visit.operatorName} will tell you how to
-        pay.
-      </CardDescription>
-    );
-  }
+  const isOffered = stripe !== null;
   const isWaiting = payments.directDebit === "waiting" || payments.bond.pendingCents > 0;
   return (
     <div className="flex flex-col gap-6">
@@ -154,12 +159,24 @@ export async function PaymentsStep(props: {
           Thanks. Stripe is confirming it with us; this page updates in a few seconds.
         </p>
       ) : null}
+      {isOffered ? null : (
+        <CardDescription>
+          Payments are not being taken online right now. {visit.operatorName} will tell you how to
+          pay.
+        </CardDescription>
+      )}
       <DirectDebitStep
         token={props.token}
         state={payments.directDebit}
         operatorName={visit.operatorName}
+        canPay={isOffered}
       />
-      <BondStep token={props.token} operatorName={visit.operatorName} bond={payments.bond} />
+      <BondStep
+        token={props.token}
+        operatorName={visit.operatorName}
+        bond={payments.bond}
+        canPay={isOffered}
+      />
       <p className="text-muted-foreground text-xs">
         Your bank and card details go to Stripe, the payment company {visit.operatorName} uses,
         which keeps them in Australia and overseas. {visit.operatorName} can see only the last

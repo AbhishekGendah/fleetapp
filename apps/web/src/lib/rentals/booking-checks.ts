@@ -181,7 +181,7 @@ export async function loadRentalProblems(
       requiredCents: rental.bondCents,
       heldCents: bond.heldCents,
     });
-    const { directDebit } = await rentalPaymentsIn(tx, operatorId, rental);
+    const { directDebit, bond: stripeBond } = await rentalPaymentsIn(tx, operatorId, rental);
     const isDirectDebitMissing = isDirectDebitMissingForHandover({
       isRequiredBeforeHandover: settings.isDirectDebitRequiredBeforeHandover,
       canTakeStripePayments: await isStripeOffered(tx, operatorId, reach),
@@ -190,7 +190,14 @@ export async function loadRentalProblems(
     return [
       ...problems,
       ...(isBondShort
-        ? [{ code: "bond_short", level: "handover", owingCents: bond.owingCents } as const]
+        ? [
+            {
+              code: "bond_short",
+              level: "handover",
+              owingCents: bond.owingCents,
+              onItsWayCents: stripeBond.pendingCents,
+            } as const,
+          ]
         : []),
       ...(isDirectDebitMissing
         ? [{ code: "direct_debit_missing", level: "handover", state: directDebit } as const]

@@ -82,3 +82,19 @@ describe("how long the bond is kept after the return", () => {
     );
   });
 });
+
+describe("a bond entry that came through Stripe", () => {
+  it("can't be corrected here: only a refund in Stripe puts it right (review A5-3)", () => {
+    const movements = [
+      { id: "cash", kind: "received" as const, amountCents: 100_00, reversesId: null },
+      {
+        id: "card",
+        kind: "received" as const,
+        amountCents: 400_00,
+        reversesId: null,
+        isFromStripe: true,
+      },
+    ];
+    expect([...reversibleBondMovementIds(movements)]).toEqual(["cash"]);
+  });
+});
