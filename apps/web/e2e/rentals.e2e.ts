@@ -189,19 +189,20 @@ test.describe.serial("bookings", () => {
     await expectAccessible(page);
   });
 
-  test("a fixed charge day in Settings is offered on the next New rental form", async ({
+  test("the long-term minimum in Settings is used on the next New rental form", async ({
     page,
   }) => {
     await page.goto("/settings", { waitUntil: "networkidle" });
-    await page.getByLabel(/^Rent is charged each week on/).selectOption({ label: "Monday" });
-    const form = page
-      .locator("form")
-      .filter({ has: page.getByLabel(/^Rent is charged each week on/) });
+    const minimum = page.getByRole("textbox", { name: /^Rentals booked for at least/ });
+    await minimum.fill("14");
+    const form = page.locator("form").filter({ has: minimum });
     await form.getByRole("button", { name: "Save" }).click();
     await expect(form.getByText(/^Saved\./)).toBeVisible();
 
     await page.goto("/rentals/new", { waitUntil: "networkidle" });
-    await expect(page.getByLabel(/^Rent is charged each/)).toContainText("Monday (your usual day)");
+    await expect(
+      page.getByText(/Booked for 14 days or more, a rental gets the long-term price/),
+    ).toBeVisible();
   });
 });
 

@@ -109,11 +109,36 @@ function rentalFields(
     rentalStart: onClock(rental.plannedStart),
     rentalEnd: rental.plannedEnd ? onClock(rental.plannedEnd) : ONGOING_END_TEXT,
     weeklyRate: rentalRateText(rental),
+    ...blockTermFields(rental),
     bond: formatCents(rental.bondCents),
     chargeDay: rentTimingText(rental),
     noticeDays: `${ongoingNoticeDays} ${ongoingNoticeDays === 1 ? "day" : "days"}`,
     insuranceExcess: excessCents === null ? null : formatCents(excessCents),
     issuedOn: formatCalendarDate(todayInTimeZone(clock.now, clock.timeZone)),
+  };
+}
+
+/**
+ * The block terms the Renter agrees to (docs/legal-notes.md): the daily rate,
+ * the long-term price, when a rental counts as long-term, and the grace
+ * period. None for a rental from before rent in blocks.
+ */
+function blockTermFields(
+  rental: RentalDetail,
+): Pick<ContractData, "dailyRate" | "longTermWeeklyRate" | "longTermMinimum" | "gracePeriod"> {
+  if (rental.isLongTerm === null) {
+    return { dailyRate: null, longTermWeeklyRate: null, longTermMinimum: null, gracePeriod: null };
+  }
+  const days = rental.longTermMinimumDays ?? 0;
+  const minutes = rental.graceMinutes ?? 0;
+  return {
+    dailyRate: rental.dailyRateCents === null ? null : formatCents(rental.dailyRateCents),
+    longTermWeeklyRate:
+      rental.weeklyRateCents === null
+        ? "7 days at the daily rate"
+        : formatCents(rental.weeklyRateCents),
+    longTermMinimum: `${days} ${days === 1 ? "day" : "days"} or more, or ongoing, is long-term`,
+    gracePeriod: `${minutes} ${minutes === 1 ? "minute" : "minutes"}`,
   };
 }
 

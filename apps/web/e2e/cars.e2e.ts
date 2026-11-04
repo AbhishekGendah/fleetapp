@@ -29,6 +29,9 @@ test("adds a car, then a photo, and opens it full screen", async ({ page }) => {
   const odometer = page.getByRole("textbox", { name: /^Odometer/ });
   await odometer.pressSequentially("45678");
   await expect(odometer).toHaveValue("45,678");
+  const dailyRate = page.getByRole("textbox", { name: /^Daily rate/ });
+  await dailyRate.pressSequentially("1250");
+  await expect(dailyRate).toHaveValue("$1,250");
 
   await page.getByRole("button", { name: "Add car" }).click();
   await expect(page.getByRole("heading", { name: CAR.rego })).toBeVisible();

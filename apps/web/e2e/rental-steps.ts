@@ -34,7 +34,11 @@ async function pickRecord(page: Page, label: RegExp, typed: string): Promise<voi
   await page.keyboard.press("Enter");
 }
 
-/** Fills the New rental form, fixed term, between two moments, at $350 a week and $500 bond. */
+/**
+ * Fills the New rental form, fixed term, between two moments, at $70 a day or
+ * $350 a week long-term, and $500 bond. The prices replace whatever the car's
+ * own prices filled in.
+ */
 export async function fillRental(
   page: Page,
   parties: RentalParties,
@@ -46,7 +50,8 @@ export async function fillRental(
   await pickRecord(page, /^Car/, parties.carRego);
   await typeMoment(page, /^Starts/, start);
   await typeMoment(page, /^Ends/, end);
-  await page.getByRole("textbox", { name: /^Weekly rate/ }).pressSequentially("350");
+  await page.getByRole("textbox", { name: /^Daily rate/ }).fill("70");
+  await page.getByRole("textbox", { name: /^Long-term price per week/ }).fill("350");
   await page.getByRole("textbox", { name: /^Bond/ }).pressSequentially("500");
 }
 
@@ -61,6 +66,7 @@ export async function addCarToBook(page: Page, rego: string): Promise<void> {
   await page.getByRole("listbox").getByRole("option", { name: "Corolla", exact: true }).click();
   await page.getByRole("textbox", { name: /^Year/ }).fill("2024");
   await page.getByRole("textbox", { name: /^Odometer/ }).pressSequentially("1000");
+  await page.getByRole("textbox", { name: /^Daily rate/ }).pressSequentially("70");
   await page.getByRole("button", { name: "Add car" }).click();
   await expect(page.getByRole("heading", { name: rego })).toBeVisible();
 }

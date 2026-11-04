@@ -609,6 +609,31 @@ of service) and the countries.
   ledger (never deleted by retention jobs). Admin cannot read any of it
   (rule 5).
 
+## Rent in 24-hour blocks (review fixes batch 1, 4 Nov 2026, built)
+
+- **Price terms the Renter agrees to:** rent is counted in 24-hour blocks from
+  the signed handover, with a grace period (default 60 minutes) before another
+  day is charged. A long-term rental (booked for the minimum, default 7 days,
+  or ongoing) that ends sooner is re-priced at the daily rate unless the
+  business waives it. Consumer law: a price rule the Renter has not agreed to
+  is not enforceable and could be unfair, so these must be stated in the
+  contract they sign. To do with the contracts fields (batch 1, still open):
+  merge fields for the daily rate, long-term price, minimum and grace period,
+  and wording in the default contract and the template notes.
+- **Rate changes** start at a rent week's start and can't be signed after it
+  has begun, so a signed form always matches what is charged (no backdating).
+  Phase 4 decision 3 (30 days' notice of a new debit amount for direct-debit
+  Renters) is still to confirm with Stripe before slice 5.
+- **Record keeping and GST:** every correction to rent already invoiced gets
+  its own tax invoice or adjustment note. An adjustment note follows the tax
+  status of the invoice it corrects, names what it takes back and prints
+  reductions as minus amounts. Taking back a credit gets a tax invoice.
+- **The daily-rate waiver's reason** is the business's own note: kept on the
+  rental, shown to the business only, never printed for the Renter, and
+  logged only as "waived" (it may say something personal).
+- **AGS alert email** (`OPS_ALERT_EMAIL`) carries counts and business IDs only,
+  never Renter details (rule 7).
+
 ## Fleet timeline (3 Nov 2026)
 
 - **No new data or third party:** it shows the rentals already on the

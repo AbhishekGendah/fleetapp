@@ -222,6 +222,23 @@ tidy-up after batch 2.
   Settings → Rentals, Money, Invoices and Changes cards, Renter signing
   page, contract templates, the nightly run.
 
+## As built (4 Nov 2026)
+
+- **Waive the daily rate** is on the rental's Money card, shown once a
+  returned long-term rental has been re-priced, not on the return checklist:
+  the checklist works offline and is signed on the spot, and the business
+  can decide after seeing the corrected charge. It asks for a reason (kept
+  for the business only) and credits the difference with its adjustment note.
+- **Rate changes** are for long-term rentals only (a short hire is paid up
+  front). The form offers the next eight rent weeks.
+- **Moved to the money tidy-up after batch 2:** retrying invoice emails that
+  failed, with "Not emailed" and Email again on the Invoices card (A4-10's
+  email part, and part of G3-2). It needs a record of whether each email
+  went, so it gets its own small plan.
+- **Still to do in batch 1:** the contract fields for the block terms (daily
+  rate, long-term price, minimum, grace period, the re-pricing rule) and the
+  default contract wording.
+
 ## Senior review of this plan
 
 - Tenancy: the run still goes one business at a time in its own context

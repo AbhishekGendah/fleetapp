@@ -105,6 +105,9 @@ Add to this list whenever something is relaxed or put off "until launch".
       there (CLAUDE.md, Development environment).
 - [ ] Switch from pushing to main to branches and pull requests (CLAUDE.md).
 - [ ] Admin password reset built (progress.md, Open items).
+- [ ] `OPS_ALERT_EMAIL` set in the production Vercel project to an AGS inbox
+      someone reads (the nightly run's failure alert). Required: the app will
+      not start without it.
 
 ## Documents
 
