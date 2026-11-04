@@ -10,7 +10,7 @@ import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { recordActivity } from "@fleetapp/db/activity";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, stripeAccounts } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import type { ActingUser } from "../acting-user";
@@ -157,6 +157,10 @@ export async function refreshPaymentAccount(
   if (!account) {
     return "not_connected";
   }
+  if (account.state === "disconnected") {
+    // Stripe no longer lets us read it, and it stays disconnected (review A5-5).
+    return account.state;
+  }
   const status = await deps.payments.accountStatus(account.stripeAccountId);
   await withTenant(deps.database, operatorId, (tx) =>
     saveStatus(tx, operatorId, status, deps.now()),
@@ -192,6 +196,15 @@ const CHECKOUT_EVENTS: ReadonlySet<string> = new Set([
   "v1.checkout.session.async_payment_failed",
 ]);
 const MANDATE_EVENT = "v1.mandate.updated";
+/**
+ * The business closed its Stripe account, or disconnected it from AGS's
+ * platform (review A5-5). Stripe no longer lets us read it, so these are
+ * acted on without asking Stripe.
+ */
+const DISCONNECT_EVENTS: ReadonlySet<string> = new Set([
+  "v2.core.account.closed",
+  "v1.account.application.deauthorized",
+]);
 const recordedSchema = z.object({ rows: z.array(z.object({ is_new: z.boolean() })) });
 
 /** What Stripe says now about the thing an event is about, read from Stripe, never from the event. */
@@ -199,6 +212,7 @@ type EventDetails =
   | { kind: "account"; status: PaymentAccountStatus }
   | { kind: "checkout"; outcome: CheckoutOutcome }
   | { kind: "mandate"; mandateId: string; stripeStatus: string }
+  | { kind: "disconnected" }
   | { kind: "other" };
 
 async function readEventDetails(
@@ -206,6 +220,9 @@ async function readEventDetails(
   notice: PaymentEventNotice,
   accountId: string,
 ): Promise<EventDetails> {
+  if (DISCONNECT_EVENTS.has(notice.type)) {
+    return { kind: "disconnected" };
+  }
   if (ACCOUNT_EVENT.test(notice.type)) {
     return { kind: "account", status: await payments.accountStatus(accountId) };
   }
@@ -234,6 +251,27 @@ async function applyEventDetails(
     await applyCheckoutOutcome(tx, operatorId, details.outcome, now);
   } else if (details.kind === "mandate") {
     await applyMandateStatus(tx, operatorId, details, now);
+  } else if (details.kind === "disconnected") {
+    await markDisconnected(tx, operatorId, now);
+  }
+}
+
+/** The account can no longer take payments: Renters stop being offered Stripe's page. */
+async function markDisconnected(tx: AnyTransaction, operatorId: string, now: Date): Promise<void> {
+  const [marked] = await tx
+    .update(stripeAccounts)
+    .set({ disconnectedAt: now, updatedAt: now })
+    .where(and(eq(stripeAccounts.operatorId, operatorId), isNull(stripeAccounts.disconnectedAt)))
+    .returning({ operatorId: stripeAccounts.operatorId });
+  if (marked) {
+    await recordActivity(tx, {
+      operatorId,
+      actor: SYSTEM_ACTOR,
+      entityType: ACTIVITY_ENTITY_TYPES.stripeAccount,
+      entityId: operatorId,
+      action: ACTIVITY_ACTIONS.updated,
+      valuesAfter: { state: "disconnected" },
+    });
   }
 }
 
@@ -276,7 +314,7 @@ export async function handlePaymentEvent(
     await applyEventDetails(tx, operatorId, details, deps.now());
     return "handled" as const;
   });
-  if (result === "handled" && details.kind !== "other" && details.kind !== "account") {
+  if (result === "handled" && (details.kind === "checkout" || details.kind === "mandate")) {
     // A newer direct debit may have replaced one: cancel it at Stripe now, not only overnight.
     try {
       await detachReplacedMandates(deps, operatorId);

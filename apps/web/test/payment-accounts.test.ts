@@ -127,4 +127,40 @@ describe("connecting Stripe", () => {
     expect((await loadPaymentAccount(web.db, otherOperator.operatorId))?.state).toBe("restricted");
     expect((await loadPaymentAccount(web.db, actor.operatorId))?.state).toBe("ready");
   });
+
+  it("marks an account closed or disconnected at Stripe, and keeps it so (review A5-5)", async () => {
+    const theirs = (await loadPaymentAccount(web.db, otherOperator.operatorId))!;
+    stripe.setStatus(theirs.stripeAccountId, {
+      cardPayments: "active",
+      becsDebitPayments: "active",
+      requirementsDue: 0,
+      requirementsLater: 0,
+      isDisconnected: false,
+    });
+    await refreshPaymentAccount(deps(), otherOperator.operatorId);
+    expect((await loadPaymentAccount(web.db, otherOperator.operatorId))?.state).toBe("ready");
+
+    expect(
+      await sendEvent(theirs.stripeAccountId, "v1.account.application.deauthorized").handled,
+    ).toBe("handled");
+    expect((await loadPaymentAccount(web.db, otherOperator.operatorId))?.state).toBe(
+      "disconnected",
+    );
+    // Stripe's last word about what it could do never brings it back.
+    expect(await refreshPaymentAccount(deps(), otherOperator.operatorId)).toBe("disconnected");
+    expect((await loadPaymentAccount(web.db, actor.operatorId))?.state).toBe("ready");
+  });
+
+  it("keeps an account ready when Stripe only wants more details later (review A5-1)", async () => {
+    const ours = (await loadPaymentAccount(web.db, actor.operatorId))!;
+    stripe.setStatus(ours.stripeAccountId, {
+      cardPayments: "active",
+      becsDebitPayments: "active",
+      requirementsDue: 0,
+      requirementsLater: 2,
+      isDisconnected: false,
+    });
+    expect(await refreshPaymentAccount(deps(), actor.operatorId)).toBe("ready");
+    expect((await loadPaymentAccount(web.db, actor.operatorId))?.status.requirementsLater).toBe(2);
+  });
 });

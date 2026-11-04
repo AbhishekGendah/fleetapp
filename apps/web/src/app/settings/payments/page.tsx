@@ -12,7 +12,11 @@ import { ExternalLink, Landmark } from "lucide-react";
 
 import { appDb } from "../../../lib/app-db";
 import { appPayments } from "../../../lib/payments/app-payments";
-import { loadPaymentAccount, refreshPaymentAccount } from "../../../lib/payments/payment-accounts";
+import {
+  loadPaymentAccount,
+  refreshPaymentAccount,
+  type PaymentAccountView,
+} from "../../../lib/payments/payment-accounts";
 import { SETTINGS_PATH } from "../../../lib/paths";
 import { requireUser } from "../../../lib/require-user";
 import { AppShell } from "../../app-shell";
@@ -47,28 +51,40 @@ const STATE_HELP: Readonly<Record<PaymentAccountState, string>> = {
     "This Stripe account was closed or disconnected from us, so Renters are not offered Stripe's page. Contact us to connect a different account.",
 };
 
-/** Asks Stripe for the account's latest state on each visit; if Stripe can't be reached, what it last said. */
-async function currentState(operatorId: string): Promise<PaymentAccountState> {
+/**
+ * Asks Stripe for the account's latest state on each visit; if Stripe
+ * can't be reached, what it last said. A disconnected account is not asked:
+ * Stripe no longer lets us read it.
+ */
+async function currentAccount(operatorId: string): Promise<PaymentAccountView | null> {
   const account = await loadPaymentAccount(appDb, operatorId);
-  if (!account || !appPayments) {
-    return account?.state ?? "not_connected";
+  if (!account || !appPayments || account.state === "disconnected") {
+    return account;
   }
   try {
-    return await refreshPaymentAccount(
+    await refreshPaymentAccount(
       { database: appDb, payments: appPayments, now: () => new Date() },
       operatorId,
     );
+    return await loadPaymentAccount(appDb, operatorId);
   } catch (error) {
     console.error("Reading a Stripe account's state failed", describeErrorForLog(error));
-    return account.state;
+    return account;
   }
+}
+
+/** What Stripe will want only once the business grows: noted, never switching payments off (review A5-1). */
+function laterRequirementsText(count: number): string {
+  return `Stripe will want ${count === 1 ? "one more detail" : `${count} more details`} from you later, once your business takes more. Payments keep working until then; Stripe will email you.`;
 }
 
 /** The business's own Stripe account: connecting it, and what Stripe says it can do. */
 export default async function PaymentSettingsPage() {
   const user = await requireUser();
-  const state = await currentState(user.operatorId);
+  const account = await currentAccount(user.operatorId);
+  const state = account?.state ?? "not_connected";
   const isConnected = state !== "not_connected";
+  const laterCount = state === "ready" ? (account?.status.requirementsLater ?? 0) : 0;
 
   return (
     <AppShell user={user}>
@@ -89,8 +105,11 @@ export default async function PaymentSettingsPage() {
                 <Badge tone={STATE_TONES[state]}>{PAYMENT_ACCOUNT_STATE_LABELS[state]}</Badge>
               </div>
               <p className="text-sm">{STATE_HELP[state]}</p>
+              {laterCount > 0 ? (
+                <p className="text-muted-foreground text-sm">{laterRequirementsText(laterCount)}</p>
+              ) : null}
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                {state === "ready" ? null : (
+                {state === "ready" || state === "disconnected" ? null : (
                   <ActionButton
                     action={connectStripeAction}
                     label={isConnected ? "Continue with Stripe" : "Connect Stripe"}
