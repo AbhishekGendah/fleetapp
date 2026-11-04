@@ -50,6 +50,7 @@ export * from "./vehicle-return";
 export * from "./vehicles";
 export * from "./licence-retention";
 export * from "./content-disposition";
+export * from "./rent-blocks";
 export * from "./rentals";
 export * from "./bonds";
 export * from "./handover";

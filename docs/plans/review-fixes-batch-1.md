@@ -1,6 +1,6 @@
 # Review fixes, batch 1: rent in 24-hour blocks
 
-Status: waiting for Abhi's approval (money and schema: plan first).
+Status: approved by Abhi on 4 Nov 2026 (rent from the handover time, not midnight).
 From: docs/reviews/2026-11-04-full-code-review.md, and Abhi's direction on
 4 Nov 2026: every car has a daily rate and a cheaper long-term rate, rent
 is counted in 24-hour blocks from the handover, and a long-term rental
