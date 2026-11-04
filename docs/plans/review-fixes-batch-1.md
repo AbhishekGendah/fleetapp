@@ -235,9 +235,21 @@ tidy-up after batch 2.
   failed, with "Not emailed" and Email again on the Invoices card (A4-10's
   email part, and part of G3-2). It needs a record of whether each email
   went, so it gets its own small plan.
-- **Still to do in batch 1:** the contract fields for the block terms (daily
-  rate, long-term price, minimum, grace period, the re-pricing rule) and the
-  default contract wording.
+- **Contract fields** for the block terms (daily rate, long-term price,
+  minimum, grace period) and the default contract wording are built. A
+  contract template missing any of them shows a warning on its page.
+- **Changing the end** before the handover works out the rental's terms
+  again (short hire or long-term, booked days). After the handover, a short
+  hire can't be made ongoing: it would turn a paid-up-front hire into a
+  long-term one mid-way. Shortening a booking no longer checks for clashes,
+  as it only frees time (review A6-2).
+- **Fixed after this slice's own deep review:** booked days count the grace
+  period; the waiver is refused outside the run's 60-day lookback or once
+  rent has been reversed by hand; picking a car on the booking form always
+  replaces both prices; rent charged after the return shows the right end;
+  corrections are dated the day they are made.
+- **Browser tests:** waiving the daily rate (daily-rate-waiver.e2e.ts) and
+  the contract warning (contracts.e2e.ts).
 
 ## Senior review of this plan
 

@@ -1,5 +1,6 @@
 import {
   blockAt,
+  blocksBetween,
   blockRateChangeProblem,
   blockStartsAt,
   canChangeEnd,
@@ -7,6 +8,7 @@ import {
   DAYS_PER_WEEK,
   endChangeProblem,
   isBlockRateChangeSignable,
+  isLongTermBooking,
   rateForBlock,
   formatCalendarDate,
   formatCents,
@@ -19,6 +21,7 @@ import {
   type BlockRentTerms,
   type EndChangeProblem,
   type RentalStatus,
+  type RentModel,
   type RentalType,
 } from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
@@ -50,6 +53,11 @@ interface LockedRental {
   plannedStart: Date;
   plannedEnd: Date | null;
   settingsSnapshot: Record<string, unknown>;
+  handedOverAt: Date | null;
+  rentModel: RentModel;
+  isLongTerm: boolean | null;
+  graceMinutes: number | null;
+  longTermMinimumDays: number | null;
 }
 
 /** The rental, locked for a change; null if it is not this business's. */
@@ -67,6 +75,11 @@ async function lockRental(
       plannedStart: rentals.plannedStart,
       plannedEnd: rentals.plannedEnd,
       settingsSnapshot: rentals.settingsSnapshot,
+      handedOverAt: rentals.handedOverAt,
+      rentModel: rentals.rentModel,
+      isLongTerm: rentals.isLongTerm,
+      graceMinutes: rentals.graceMinutes,
+      longTermMinimumDays: rentals.longTermMinimumDays,
     })
     .from(rentals)
     .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, operatorId)))
@@ -83,7 +96,14 @@ export type EndChangeResult =
   | { status: "changed"; changeId: string; noticeDaysShort: number }
   /** The booking in the way, or null when the database refused a booking made at the same moment. */
   | { status: "clash"; clash: BookingClash | null }
-  | { status: EndChangeProblem | "not_found" | "not_changeable" | "return_under_way" };
+  | {
+      status:
+        | EndChangeProblem
+        | "not_found"
+        | "not_changeable"
+        | "return_under_way"
+        | "short_hire_ongoing";
+    };
 
 /** Thrown inside the transaction when the database's no-overlap rule refuses the longer hold. */
 class HoldClashError extends Error {
@@ -123,13 +143,17 @@ async function moveHoldEnd(
   rental: LockedRental,
   newEnd: Date | null,
 ): Promise<void> {
-  const clash = await findBookingClash(
-    tx,
-    operatorId,
-    rental.vehicleId,
-    { start: rental.plannedEnd ?? rental.plannedStart, end: newEnd },
-    rental.id,
-  );
+  // A shorter hold frees time, so only a longer one can clash (review A6-2).
+  const isGrowing = newEnd === null || rental.plannedEnd === null || newEnd > rental.plannedEnd;
+  const clash = isGrowing
+    ? await findBookingClash(
+        tx,
+        operatorId,
+        rental.vehicleId,
+        { start: rental.plannedEnd ?? rental.plannedStart, end: newEnd },
+        rental.id,
+      )
+    : null;
   if (clash) {
     throw new HoldClashError(clash);
   }
@@ -155,6 +179,43 @@ async function moveHoldEnd(
  * rental given an end with less notice than its settings ask is allowed,
  * marked short notice and logged.
  */
+/**
+ * A block rental's rent terms after a new end (review of batch 1). Before
+ * the handover nothing is charged yet, so the booked days and long-term or
+ * short hire follow the new end. Once the car is out they stay as booked,
+ * since rent is already charged on them; a short hire then can't be made
+ * ongoing (it would be charged by the day for good), so that is refused.
+ */
+export function rentTermsAfterEndChange(
+  rental: Pick<
+    LockedRental,
+    | "rentModel"
+    | "handedOverAt"
+    | "plannedStart"
+    | "isLongTerm"
+    | "graceMinutes"
+    | "longTermMinimumDays"
+  >,
+  newEnd: Date | null,
+):
+  | { bookedBlocks: number | null; isLongTerm: boolean }
+  | Record<string, never>
+  | "short_hire_ongoing" {
+  if (rental.rentModel !== "blocks") {
+    return {};
+  }
+  if (rental.handedOverAt === null) {
+    const bookedBlocks = newEnd
+      ? blocksBetween(rental.plannedStart, newEnd, rental.graceMinutes ?? 0)
+      : null;
+    return {
+      bookedBlocks,
+      isLongTerm: isLongTermBooking(bookedBlocks, rental.longTermMinimumDays ?? DAYS_PER_WEEK),
+    };
+  }
+  return newEnd === null && rental.isLongTerm === false ? "short_hire_ongoing" : {};
+}
+
 export async function changeRentalEnd(
   database: AnyDatabase,
   actor: ActingUser,
@@ -167,6 +228,10 @@ export async function changeRentalEnd(
     const refusal = await endRefusal(tx, actor.operatorId, rental, request.newEnd, clock.now);
     if (refusal || !rental) {
       return refusal ?? { status: "not_found" };
+    }
+    const terms = rentTermsAfterEndChange(rental, request.newEnd);
+    if (terms === "short_hire_ongoing") {
+      return { status: terms };
     }
     const { ongoingNoticeDays } = readSettings(operatorSettingsSchema, rental.settingsSnapshot);
     const daysShort = request.newEnd
@@ -188,7 +253,7 @@ export async function changeRentalEnd(
     const typeAfter: RentalType = request.newEnd ? "fixed_term" : "ongoing";
     await tx
       .update(rentals)
-      .set({ plannedEnd: request.newEnd, type: typeAfter, updatedAt: clock.now })
+      .set({ plannedEnd: request.newEnd, type: typeAfter, ...terms, updatedAt: clock.now })
       .where(eq(rentals.id, rental.id));
     const [change] = await tx
       .insert(rentalChanges)

@@ -1,4 +1,4 @@
-import { centsForEditing, isCalendarDate, isRecordId } from "@fleetapp/core";
+import { isCalendarDate, isRecordId } from "@fleetapp/core";
 import { Card, CardContent } from "@fleetapp/ui/card";
 import { PageHeader } from "@fleetapp/ui/page-header";
 
@@ -9,8 +9,7 @@ import {
   listPickableCars,
   listPickableRenters,
 } from "../../../lib/rentals/pickable-records";
-import type { CarPrices } from "../../../lib/rentals/pickable-records";
-import { emptyRentalForm } from "../../../lib/rentals/rental-input";
+import { carPriceFields, emptyRentalForm, type CarPrices } from "../../../lib/rentals/rental-input";
 import { requireUser } from "../../../lib/require-user";
 import { loadOperatorSettings } from "../../../lib/settings/operator-settings";
 import { AppShell } from "../../app-shell";
@@ -47,14 +46,9 @@ function withCarPrices(
   presets: ReturnType<typeof presetsFrom>,
   carPrices: Readonly<Record<string, CarPrices>>,
 ): Parameters<typeof emptyRentalForm>[0] {
-  const prices = presets.vehicleId ? carPrices[presets.vehicleId] : undefined;
-  return {
-    ...presets,
-    ...(prices?.dailyRateCents ? { dailyRateCents: centsForEditing(prices.dailyRateCents) } : {}),
-    ...(prices?.longTermWeeklyCents
-      ? { longTermWeeklyCents: centsForEditing(prices.longTermWeeklyCents) }
-      : {}),
-  };
+  return presets.vehicleId
+    ? { ...presets, ...carPriceFields(carPrices[presets.vehicleId]) }
+    : presets;
 }
 
 export default async function NewRentalPage(props: {
@@ -81,6 +75,7 @@ export default async function NewRentalPage(props: {
             timeZone={user.operatorTimezone}
             carPrices={carPrices}
             longTermMinimumDays={settings.longTermMinimumDays}
+            graceMinutes={settings.graceMinutes}
             action={createRentalAction}
             cancelHref={RENTALS_PATH}
           />

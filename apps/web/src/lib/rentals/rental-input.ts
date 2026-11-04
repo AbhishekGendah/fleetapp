@@ -1,4 +1,5 @@
 import {
+  centsForEditing,
   emptyForm,
   isRecordId,
   optionalDollars,
@@ -110,3 +111,23 @@ export function emptyRentalForm(
 /** Why a booking was cancelled: kept with the rental, never shown in the log. */
 export const cancelRentalInputSchema = z.object({ reason: requiredLine });
 export type CancelRentalInput = z.infer<typeof cancelRentalInputSchema>;
+
+/** A car's prices as the booking form fills them in: daily rate and long-term weekly price. */
+export interface CarPrices {
+  dailyRateCents: number | null;
+  longTermWeeklyCents: number | null;
+}
+
+/**
+ * The booking form's price boxes for a car: both always set, empty where the
+ * car has no price, so a price from a car picked before never stays behind.
+ */
+export function carPriceFields(
+  prices: CarPrices | undefined,
+): Pick<RentalFormValues, "dailyRateCents" | "longTermWeeklyCents"> {
+  const shown = (cents: number | null | undefined) => (cents ? centsForEditing(cents) : "");
+  return {
+    dailyRateCents: shown(prices?.dailyRateCents),
+    longTermWeeklyCents: shown(prices?.longTermWeeklyCents),
+  };
+}

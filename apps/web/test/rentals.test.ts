@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import type { ActingUser } from "../src/lib/acting-user";
 import {
+  carPriceFields,
   emptyRentalForm,
   parseRentalForm,
   type RentalFormValues,
@@ -107,6 +108,18 @@ describe("the New rental form's rules", () => {
       "vehicleId",
       "dailyRateCents",
     ]);
+  });
+
+  it("fills both price boxes from a car, empty where it has none (review of batch 1)", () => {
+    expect(carPriceFields({ dailyRateCents: 70_00, longTermWeeklyCents: 350_00 })).toEqual({
+      dailyRateCents: "$70.00",
+      longTermWeeklyCents: "$350.00",
+    });
+    expect(carPriceFields({ dailyRateCents: 80_00, longTermWeeklyCents: null })).toEqual({
+      dailyRateCents: "$80.00",
+      longTermWeeklyCents: "",
+    });
+    expect(carPriceFields(undefined)).toEqual({ dailyRateCents: "", longTermWeeklyCents: "" });
   });
 
   it("takes no long-term price (seven daily rates), but never $0", () => {
@@ -246,6 +259,14 @@ describe("rentals in the Operator app", () => {
       });
     });
 
+    it("counts booked days with the grace period, so 6 days and 30 minutes is a short hire", async () => {
+      const vehicleId = await addTestCar(web, actor);
+      const rentalId = savedId(await book(vehicleId, { plannedEnd: "2026-12-07T09:30" }));
+
+      const detail = await loadRental(web.db, actor.operatorId, rentalId, CLOCK);
+      expect(detail).toMatchObject({ isLongTerm: false });
+    });
+
     it("books a short hire below the business's minimum, with the minimum it had then", async () => {
       const owner = await seedOperatorWithUser(admin, "Short Hire Pty Ltd");
       await saveOperatorSettings(web.db, owner, { longTermMinimumDays: 14, graceMinutes: 30 });
@@ -260,7 +281,7 @@ describe("rentals in the Operator app", () => {
         isLongTerm: false,
         graceMinutes: 30,
         longTermMinimumDays: 14,
-        weeklyRateCents: null,
+        weeklyRateCents: 35_000,
         dailyRateCents: 7_000,
         settingsVersion: 1,
       });

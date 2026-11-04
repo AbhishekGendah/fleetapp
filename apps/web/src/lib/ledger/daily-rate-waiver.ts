@@ -1,10 +1,12 @@
-import { blocksBetween } from "@fleetapp/core";
-import type { AnyDatabase } from "@fleetapp/db/client";
-import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, rentals } from "@fleetapp/db/schema";
+import { blocksBetween, MILLISECONDS_PER_DAY } from "@fleetapp/core";
+import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
+import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, ledgerLines, rentals } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
+import { RETURNED_LOOKBACK_DAYS } from "./rent-job";
 
 export type DailyRateWaiverResult = "waived" | "not_found" | "not_repriced";
 
@@ -23,7 +25,7 @@ export interface WaivableRental {
  * Whether a returned long-term rental came back sooner than its minimum, so
  * it was re-priced at the daily rate, and the business has not waived it yet.
  */
-export function isDailyRateWaivable(rental: WaivableRental): boolean {
+export function isDailyRateWaivable(rental: WaivableRental, now: Date): boolean {
   if (
     rental.rentModel !== "blocks" ||
     !rental.isLongTerm ||
@@ -33,12 +35,47 @@ export function isDailyRateWaivable(rental: WaivableRental): boolean {
   ) {
     return false;
   }
+  // The rent run stops correcting a rental this long after its return, so a
+  // later waiver would credit nothing.
+  const lookbackStart = now.getTime() - RETURNED_LOOKBACK_DAYS * MILLISECONDS_PER_DAY;
+  if (rental.returnedAt.getTime() < lookbackStart) {
+    return false;
+  }
   const blocksUsed = blocksBetween(
     rental.handedOverAt,
     rental.returnedAt,
     rental.graceMinutes ?? 0,
   );
   return blocksUsed < (rental.longTermMinimumDays ?? 0);
+}
+
+/**
+ * Whether the business has reversed any of the rental's rent by hand: the run
+ * then leaves those weeks as they are, so a waiver would credit nothing.
+ */
+async function hasReversedRent(
+  tx: AnyTransaction,
+  operatorId: string,
+  rentalId: string,
+): Promise<boolean> {
+  const reversed = alias(ledgerLines, "reversed");
+  const [found] = await tx
+    .select({ id: ledgerLines.id })
+    .from(ledgerLines)
+    .innerJoin(
+      reversed,
+      and(eq(reversed.id, ledgerLines.reversesId), eq(reversed.operatorId, ledgerLines.operatorId)),
+    )
+    .where(
+      and(
+        eq(ledgerLines.operatorId, operatorId),
+        eq(ledgerLines.rentalId, rentalId),
+        inArray(reversed.kind, ["charge", "credit"]),
+        isNotNull(reversed.periodStartsAt),
+      ),
+    )
+    .limit(1);
+  return found !== undefined;
 }
 
 /**
@@ -62,7 +99,10 @@ export async function waiveDailyRate(
     if (!rental) {
       return "not_found";
     }
-    if (!isDailyRateWaivable(rental)) {
+    if (
+      !isDailyRateWaivable(rental, new Date()) ||
+      (await hasReversedRent(tx, actor.operatorId, rental.id))
+    ) {
       return "not_repriced";
     }
     await tx

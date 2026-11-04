@@ -16,7 +16,7 @@ import {
   sendChangeForSigning,
   withdrawChange,
 } from "../src/lib/rentals/change-signing";
-import { changeRentalEnd } from "../src/lib/rentals/rental-changes";
+import { changeRentalEnd, rentTermsAfterEndChange } from "../src/lib/rentals/rental-changes";
 import { emptyRentalForm, parseRentalForm } from "../src/lib/rentals/rental-input";
 import { createRental } from "../src/lib/rentals/rental-records";
 import { openLink } from "../src/lib/renter-links/link-visits";
@@ -376,6 +376,38 @@ describe("changes of terms during a rental", () => {
       tx.select().from(rentalChanges).where(eq(rentalChanges.id, changeId)),
     );
     expect(change?.status).toBe("withdrawn");
+  });
+
+  it("moves a booking between short hire and long-term as its end moves, before the handover", async () => {
+    const renterId = await addTestRenter(web, actor);
+    const { rentalId } = await bookTestRental(web, actor, renterId);
+    expect((await rentalOf(rentalId)).isLongTerm).toBe(true);
+
+    const shortened = await changeRentalEnd(
+      web.db,
+      actor,
+      rentalId,
+      { newEnd: new Date("2027-06-04T01:00:00Z"), reason: REASON },
+      clock(),
+    );
+
+    expect(shortened.status).toBe("changed");
+    expect(await rentalOf(rentalId)).toMatchObject({ isLongTerm: false, bookedBlocks: 3 });
+  });
+
+  it("keeps a car that is out on its booked terms, and won't make a short hire ongoing", () => {
+    const out = {
+      rentModel: "blocks" as const,
+      handedOverAt: new Date("2027-06-01T01:00:00Z"),
+      plannedStart: new Date("2027-06-01T01:00:00Z"),
+      graceMinutes: 60,
+      longTermMinimumDays: 7,
+    };
+    expect(rentTermsAfterEndChange({ ...out, isLongTerm: false }, null)).toBe("short_hire_ongoing");
+    expect(
+      rentTermsAfterEndChange({ ...out, isLongTerm: false }, new Date("2027-06-20T01:00:00Z")),
+    ).toEqual({});
+    expect(rentTermsAfterEndChange({ ...out, isLongTerm: true }, null)).toEqual({});
   });
 
   it("keeps each business's rentals and changes to itself", async () => {

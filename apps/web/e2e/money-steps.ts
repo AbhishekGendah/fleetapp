@@ -38,11 +38,16 @@ export async function rentalOutAndCharged(
   const rentalId = await bookedRental(page, renter, parties);
   await recordSignedContract(rentalId);
   await recordHandover(rentalId);
+  await runNightly(page);
+  return rentalId;
+}
+
+/** The daily run, as Vercel's scheduler calls it: rent charged or corrected, then documents issued. */
+export async function runNightly(page: Page): Promise<void> {
   const run = await page.request.get("/api/cron/rent", {
     headers: { authorization: `Bearer ${E2E_CRON_SECRET}` },
   });
   expect(run.ok()).toBe(true);
-  return rentalId;
 }
 
 /** Opens the rental's page and waits for it to be the rental asked for. */

@@ -131,8 +131,10 @@ function blockTermsFor(
   input: Pick<RentalInput, "plannedStart" | "plannedEnd">,
   settings: Pick<OperatorSettings, "graceMinutes" | "longTermMinimumDays">,
 ) {
+  // Counted as the return will be, with the grace period, so an on-time return
+  // is never under the minimum it was booked over.
   const bookedBlocks = input.plannedEnd
-    ? blocksBetween(input.plannedStart, input.plannedEnd, 0)
+    ? blocksBetween(input.plannedStart, input.plannedEnd, settings.graceMinutes)
     : null;
   return {
     rentModel: "blocks" as const,
@@ -194,7 +196,8 @@ export async function createRental(
     if (!created) {
       throw new Error("The rental was not saved.");
     }
-    const weeklyRateCents = terms.isLongTerm ? longTermWeeklyCents : null;
+    // Kept on a short hire too: if its end moves before the handover it may become long-term.
+    const weeklyRateCents = longTermWeeklyCents;
     await tx.insert(rentalRates).values({
       operatorId: actor.operatorId,
       rentalId: created.id,

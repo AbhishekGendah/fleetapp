@@ -75,4 +75,23 @@ test.describe.serial("contract templates", () => {
       await expectNoSidewaysScroll(page);
     });
   });
+
+  test("warns when a contract no longer states how rent is charged", async ({ page }) => {
+    await page.goto("/settings/contracts", { waitUntil: "networkidle" });
+    await page.getByRole("link", { name: TEMPLATE_NAME }).click();
+    await expect(page.getByText(/does not state how rent is charged/)).toHaveCount(0);
+
+    const editor = page.getByRole("textbox", { name: /^Contract text/ });
+    await editor.click();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.type("Rent is whatever we say.");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText(/^Saved as a new version/)).toBeVisible();
+
+    await page.reload({ waitUntil: "networkidle" });
+    const warning = page.getByRole("status").filter({ hasText: "does not state how rent" });
+    await expect(warning).toContainText("Grace period at the return");
+    await expect(warning).toContainText("Long-term minimum");
+    await expectAccessible(page);
+  });
 });

@@ -5,6 +5,8 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import type { PickableRecord } from "@fleetapp/ui/record-picker";
 import { and, asc, eq, isNull, notInArray } from "drizzle-orm";
 
+import type { CarPrices } from "./rental-input";
+
 /** Cars that have left the fleet can never be booked, so they are not offered. */
 const CARS_GONE = ["sold", "written_off"] as const;
 
@@ -70,12 +72,6 @@ export async function listPickableCars(
     label: row.rego,
     description: `${row.make} ${row.model} · ${VEHICLE_STATUS_LABELS[row.status]}`,
   }));
-}
-
-/** A car's prices as the booking form fills them in: daily rate and long-term weekly price. */
-export interface CarPrices {
-  dailyRateCents: number | null;
-  longTermWeeklyCents: number | null;
 }
 
 /** Each bookable car's prices, so choosing a car fills the booking form's price boxes. */

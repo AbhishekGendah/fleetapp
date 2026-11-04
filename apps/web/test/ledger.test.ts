@@ -202,6 +202,22 @@ describe("the ledger", () => {
     expect(await balanceOf(rentalId)).toBe(150_00);
   });
 
+  it("won't take a waiver it could not credit: rent reversed by hand (review of batch 1)", async () => {
+    const { rentalId } = await kit.rentalOut(HANDOVER);
+    await chargeRentFor(web.db, actor.operatorId, afterHandover(0, 60_000), [rentalId]);
+    const [week] = (await loadRentalLedger(web.db, actor.operatorId, rentalId)).lines;
+    await reverseLine(
+      web.db,
+      actor,
+      { rentalId, lineId: week!.id },
+      { note: "Charged wrongly" },
+      "2030-03-07",
+    );
+    await returnAt(rentalId, afterHandover(3));
+
+    expect(await waiveDailyRate(web.db, actor, rentalId, "Kind")).toBe("not_repriced");
+  });
+
   it("takes GST from each type, adds payments, and corrects only by reversing a line once", async () => {
     const { rentalId } = await kit.rentalOut(HANDOVER);
     const tollTypeId = await addChargeType(web.db, actor, {

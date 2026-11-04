@@ -617,9 +617,11 @@ of service) and the countries.
   or ongoing) that ends sooner is re-priced at the daily rate unless the
   business waives it. Consumer law: a price rule the Renter has not agreed to
   is not enforceable and could be unfair, so these must be stated in the
-  contract they sign. To do with the contracts fields (batch 1, still open):
-  merge fields for the daily rate, long-term price, minimum and grace period,
-  and wording in the default contract and the template notes.
+  contract they sign. Built: merge fields for the daily rate, long-term
+  weekly price, minimum and grace period, and wording in the default
+  contract. A business's own contract that leaves any of them out shows a
+  warning on its template page, as Renters on it have not agreed to them.
+  Older templates still print the weekly rate and charge day correctly.
 - **Rate changes** start at a rent week's start and can't be signed after it
   has begun, so a signed form always matches what is charged (no backdating).
   Phase 4 decision 3 (30 days' notice of a new debit amount for direct-debit

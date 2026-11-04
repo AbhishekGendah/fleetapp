@@ -127,7 +127,7 @@ export async function MoneyCard(props: {
               </FormDialog>
             </>
           ) : null}
-          {isDailyRateWaivable(rental) ? (
+          {isDailyRateWaivable(rental, clock.now) ? (
             <FormDialog
               triggerLabel="Waive the daily rate"
               title="Waive the daily rate"

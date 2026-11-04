@@ -46,11 +46,12 @@ ALTER TABLE "ledger_lines" ADD CONSTRAINT "ledger_lines_block_period" CHECK (("l
           and "ledger_lines"."period_start" is null and "ledger_lines"."period_ends_at" > "ledger_lines"."period_starts_at"))
         and (not "ledger_lines"."is_correction" or "ledger_lines"."period_starts_at" is not null));--> statement-breakpoint
 
--- The Operator app sets a car's prices, and the reason it waived the daily-rate
--- re-pricing at a return. Every other new rental column is fixed at booking
--- (rule 14), so it gets no update grant.
+-- The Operator app sets a car's prices, the reason it waived the daily-rate
+-- re-pricing at a return, and (only before the handover, when a booking's end
+-- moves) the booked days and whether it is long-term. The grace period and the
+-- long-term minimum are fixed at booking (rule 14), so they get no update grant.
 GRANT UPDATE ("daily_rate_cents", "long_term_weekly_cents") ON "vehicles" TO "web_app_role";--> statement-breakpoint
-GRANT UPDATE ("daily_rate_waived_reason") ON "rentals" TO "web_app_role";--> statement-breakpoint
+GRANT UPDATE ("daily_rate_waived_reason", "booked_blocks", "is_long_term") ON "rentals" TO "web_app_role";--> statement-breakpoint
 
 -- Backs up the rent run (rule 20): an original block rent charge may not
 -- overlap another original charge of the same rental, whatever the code does.

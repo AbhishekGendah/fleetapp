@@ -75,13 +75,13 @@ export const MERGE_FIELDS = [
   { key: "rentalKind", label: "Kind of rental", group: "rental" },
   { key: "rentalStart", label: "Start", group: "rental" },
   { key: "rentalEnd", label: "End", group: "rental" },
-  { key: "weeklyRate", label: "Rate", group: "rental" },
+  { key: "weeklyRate", label: "Weekly rate", group: "rental" },
   { key: "dailyRate", label: "Daily rate", group: "rental" },
   { key: "longTermWeeklyRate", label: "Long-term price per week", group: "rental" },
   { key: "longTermMinimum", label: "Long-term minimum", group: "rental" },
   { key: "gracePeriod", label: "Grace period at the return", group: "rental" },
   { key: "bond", label: "Bond", group: "rental" },
-  { key: "chargeDay", label: "When rent is charged", group: "rental" },
+  { key: "chargeDay", label: "Rent charged each", group: "rental" },
   { key: "noticeDays", label: "Notice to end an ongoing rental", group: "rental" },
   { key: "issuedOn", label: "Date of issue", group: "rental" },
   { key: "changeSummary", label: "What is changing", group: "change" },
@@ -332,10 +332,9 @@ export const STARTER_CONTRACT: TemplateDocument = {
         ["Kind of rental: ", "rentalKind"],
         ["Starts: ", "rentalStart"],
         ["Ends: ", "rentalEnd"],
-        ["Rate: ", "weeklyRate"],
         ["Daily rate: ", "dailyRate"],
-        ["Long-term price per week: ", "longTermWeeklyRate"],
-        ["Rent is charged: ", "chargeDay"],
+        ["Weekly rate (long-term): ", "weeklyRate"],
+        ["Rent is charged in advance each ", "chargeDay"],
         ["A rental of ", "longTermMinimum"],
         ["Grace period before another day is charged at the return: ", "gracePeriod"],
         ["Notice to end an ongoing rental: ", "noticeDays"],
@@ -454,3 +453,20 @@ export const STARTER_TEMPLATES: Readonly<Record<ContractTemplateKind, TemplateDo
   swap_form: STARTER_SWAP_FORM,
   change_of_terms: STARTER_CHANGE_OF_TERMS,
 };
+
+/**
+ * The fields a contract needs so the Renter agrees to how rent in 24-hour
+ * blocks is charged (docs/legal-notes.md): without them the re-pricing and
+ * grace terms are not in what they sign.
+ */
+export const BLOCK_RENT_TERM_FIELDS: readonly MergeFieldKey[] = [
+  "dailyRate",
+  "longTermMinimum",
+  "gracePeriod",
+];
+
+/** The block rent terms a contract template leaves out (none for other kinds of form). */
+export function missingRentTermFields(document: TemplateDocument): MergeFieldKey[] {
+  const used = new Set(mergeFieldsUsed(document));
+  return BLOCK_RENT_TERM_FIELDS.filter((key) => !used.has(key));
+}

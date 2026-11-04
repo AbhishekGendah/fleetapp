@@ -52,6 +52,8 @@ const END_REFUSALS: Record<Exclude<EndChangeResult["status"], "changed" | "clash
   in_past: "The new end must be in the future. If the car is back, do the return instead.",
   before_start: "The new end must be after the start.",
   unchanged: "That is the end it has already.",
+  short_hire_ongoing:
+    "A short hire can't become ongoing once the car is out. Give it an end date, or book a long-term rental.",
 };
 
 const RATE_REFUSALS: Record<

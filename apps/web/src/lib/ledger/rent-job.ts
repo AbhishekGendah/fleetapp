@@ -35,7 +35,7 @@ const SYSTEM_ACTOR = { type: "system", id: null } as const;
  * A returned rental is looked at for this long after the return, so its
  * correction is added even if the run missed days around it.
  */
-const RETURNED_LOOKBACK_DAYS = 60;
+export const RETURNED_LOOKBACK_DAYS = 60;
 
 export interface RentAdded {
   charged: number;
@@ -165,6 +165,19 @@ function progressOf(rental: BlockRental, now: Date): RentProgress {
   };
 }
 
+/**
+ * The last block (exclusive) a line is for: its period's end, or the return
+ * when an original is first charged after the car is back and so covers only
+ * the days used (review of batch 1).
+ */
+function chargedEndBlock(line: RentLineToAdd, rental: BlockRental): number {
+  if (line.isCorrection || !rental.returnedAt) {
+    return line.period.endBlock;
+  }
+  const blocksUsed = blocksBetween(rental.handedOverAt, rental.returnedAt, rental.graceMinutes);
+  return Math.min(line.period.endBlock, Math.max(blocksUsed, line.period.firstBlock + 1));
+}
+
 /** What a line says on the ledger, the invoice and the Renter's statement. */
 function lineDescription(
   line: RentLineToAdd,
@@ -174,7 +187,7 @@ function lineDescription(
 ): string {
   const at = (block: number) =>
     formatDateTimeInTimeZone(blockStartsAt(rental.handedOverAt, block), timeZone);
-  const span = `${at(line.period.firstBlock)} to ${at(line.period.endBlock)}`;
+  const span = `${at(line.period.firstBlock)} to ${at(chargedEndBlock(line, rental))}`;
   if (!line.isCorrection) {
     return `Rent ${span}`;
   }
@@ -219,11 +232,11 @@ async function addRentLine(
       amountCents: line.amountCents,
       gstCents,
       description: values.description,
-      effectiveOn: line.isCorrection
-        ? todayInTimeZone(rental.returnedAt ?? context.now, timeZone)
-        : periodDay,
+      // A correction counts from the day it is made, not backdated into an
+      // earlier period (its adjustment note's date and GST timing).
+      effectiveOn: line.isCorrection ? todayInTimeZone(context.now, timeZone) : periodDay,
       periodStartsAt,
-      periodEndsAt: blockStartsAt(rental.handedOverAt, line.period.endBlock),
+      periodEndsAt: blockStartsAt(rental.handedOverAt, chargedEndBlock(line, rental)),
       isCorrection: line.isCorrection,
     })
     .returning({ id: ledgerLines.id });

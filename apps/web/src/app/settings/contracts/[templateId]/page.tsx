@@ -2,6 +2,10 @@ import {
   CONTRACT_TEMPLATE_KIND_LABELS,
   formatDateTimeInTimeZone,
   isRecordId,
+  mergeFieldLabel,
+  missingRentTermFields,
+  type ContractTemplateKind,
+  type TemplateDocument,
 } from "@fleetapp/core";
 import { ACTIVITY_ENTITY_TYPES } from "@fleetapp/db/schema";
 import { ActionButton } from "@fleetapp/ui/action-button";
@@ -31,6 +35,24 @@ const TEMPLATE_FIELD_LABELS: Readonly<Record<string, string>> = {
   isDefault: "Used for new rentals",
 };
 
+/**
+ * A contract that leaves out the rent terms Renters agree to: rent in
+ * 24-hour blocks, the grace period and re-pricing below the long-term
+ * minimum are only enforceable if the contract states them.
+ */
+function RentTermsWarning(props: { kind: ContractTemplateKind; content: TemplateDocument }) {
+  const missing = props.kind === "contract" ? missingRentTermFields(props.content) : [];
+  if (missing.length === 0) {
+    return null;
+  }
+  return (
+    <p role="status" className="text-attention text-sm font-medium">
+      This contract does not state how rent is charged. Add these fields to Term and rent, so
+      Renters agree to them: {missing.map((key) => mergeFieldLabel(key)).join(", ")}.
+    </p>
+  );
+}
+
 /** One template: its editor, a PDF preview, its versions, and its Log. */
 export default async function ContractTemplatePage(props: {
   params: Promise<{ templateId: string }>;
@@ -55,6 +77,7 @@ export default async function ContractTemplatePage(props: {
       <p className="text-muted-foreground -mt-2 text-sm">
         {CONTRACT_TEMPLATE_KIND_LABELS[template.kind]} · version {template.latestVersion}
       </p>
+      <RentTermsWarning kind={template.kind} content={template.content} />
       <Card>
         <CardContent className="pt-6">
           <TemplateEditorForm

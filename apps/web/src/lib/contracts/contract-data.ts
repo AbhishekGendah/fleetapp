@@ -9,13 +9,15 @@ import {
   renterDisplayName,
   todayInTimeZone,
   type ContractData,
+  DAYS_PER_WEEK,
+  WEEKDAY_LABELS,
+  type Weekday,
 } from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { insurancePolicies, insurancePolicyVehicles } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, desc, gt, isNull, lte } from "drizzle-orm";
 
-import { rentalRateText, rentTimingText } from "../rentals/rental-labels";
 import { loadRental, type RentalDetail } from "../rentals/rental-queries";
 import type { RentalClock } from "../rentals/rental-records";
 import { loadRenter, type RenterDetail } from "../renters/renter-queries";
@@ -108,14 +110,40 @@ function rentalFields(
     rentalKind: RENTAL_TYPE_LABELS[rental.type],
     rentalStart: onClock(rental.plannedStart),
     rentalEnd: rental.plannedEnd ? onClock(rental.plannedEnd) : ONGOING_END_TEXT,
-    weeklyRate: rentalRateText(rental),
+    weeklyRate: contractWeeklyRateText(rental),
     ...blockTermFields(rental),
     bond: formatCents(rental.bondCents),
-    chargeDay: rentTimingText(rental),
+    chargeDay: contractChargeText(rental),
     noticeDays: `${ongoingNoticeDays} ${ongoingNoticeDays === 1 ? "day" : "days"}`,
     insuranceExcess: excessCents === null ? null : formatCents(excessCents),
     issuedOn: formatCalendarDate(todayInTimeZone(clock.now, clock.timeZone)),
   };
+}
+
+/**
+ * The weekly rate as a contract prints it after "Weekly rate": the long-term
+ * weekly price (seven daily rates without one), so templates written before
+ * rent in blocks still read correctly.
+ */
+function contractWeeklyRateText(rental: RentalDetail): string {
+  const weekly =
+    rental.weeklyRateCents ??
+    (rental.dailyRateCents === null ? null : rental.dailyRateCents * DAYS_PER_WEEK);
+  return weekly === null ? "" : formatCents(weekly);
+}
+
+/**
+ * What follows "Rent is charged in advance each": the weekday for a rental
+ * from before rent in blocks; else a week, or a day for a short hire,
+ * counted from the time of the handover.
+ */
+function contractChargeText(rental: RentalDetail): string {
+  if (rental.isLongTerm === null) {
+    return WEEKDAY_LABELS[rental.chargeWeekday as Weekday];
+  }
+  return rental.isLongTerm
+    ? "week, counted from the time of the handover"
+    : "day, counted from the time of the handover";
 }
 
 /**

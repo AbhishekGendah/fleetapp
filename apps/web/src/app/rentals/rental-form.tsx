@@ -2,7 +2,6 @@
 
 import {
   blocksBetween,
-  centsForEditing,
   fieldErrorsOf,
   isLongTermBooking,
   localDateTimeToUtc,
@@ -23,11 +22,12 @@ import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import Link from "next/link";
 import { useActionState } from "react";
 
-import type { CarPrices } from "../../lib/rentals/pickable-records";
 import {
+  carPriceFields,
   isRequiredRentalField,
   parseRentalForm,
   RENTAL_FORM_FIELDS,
+  type CarPrices,
   type RentalFormValues,
 } from "../../lib/rentals/rental-input";
 import { BOOK_INTENT, DRAFT_INTENT, INTENT_FIELD, type RentalFormState } from "./rental-form-state";
@@ -43,6 +43,8 @@ interface RentalFormProps {
   timeZone: string;
   /** Booked for at least this many days, a rental is long-term (Settings → Rentals). */
   longTermMinimumDays: number;
+  /** Minutes past a whole day that are free; booked days are counted the same way. */
+  graceMinutes: number;
   action: (state: RentalFormState, formData: FormData) => Promise<RentalFormState>;
   cancelHref: string;
 }
@@ -51,14 +53,19 @@ interface RentalFormProps {
  * Whether the rental as typed is long-term, in words, or null until the
  * dates are in. Ongoing rentals always are; others when booked for the minimum.
  */
-function rentKindText(values: RentalFormValues, timeZone: string, minimumDays: number): string {
+function rentKindText(
+  values: RentalFormValues,
+  timeZone: string,
+  terms: { minimumDays: number; graceMinutes: number },
+): string {
+  const minimumDays = terms.minimumDays;
   const start = localDateTimeToUtc(values.plannedStart, timeZone);
   const end = localDateTimeToUtc(values.plannedEnd, timeZone);
   const bookedBlocks =
     values.type === "ongoing"
       ? null
       : start && end && end > start
-        ? blocksBetween(start, end, 0)
+        ? blocksBetween(start, end, terms.graceMinutes)
         : 0;
   if (bookedBlocks === 0) {
     return `Rent is counted in 24-hour blocks from the handover. Booked for ${minimumDays} days or more, a rental gets the long-term price.`;
@@ -121,13 +128,9 @@ export function RentalForm(props: RentalFormProps) {
           records={props.cars}
           onValueChange={(value) => {
             form.setValue("vehicleId", value);
-            const prices = props.carPrices[value];
-            if (prices?.dailyRateCents) {
-              form.setValue("dailyRateCents", centsForEditing(prices.dailyRateCents));
-            }
-            if (prices?.longTermWeeklyCents) {
-              form.setValue("longTermWeeklyCents", centsForEditing(prices.longTermWeeklyCents));
-            }
+            const prices = carPriceFields(props.carPrices[value]);
+            form.setValue("dailyRateCents", prices.dailyRateCents);
+            form.setValue("longTermWeeklyCents", prices.longTermWeeklyCents);
           }}
           placeholder="Type a rego, make or model"
           emptyMessage="No car matches that."
@@ -188,7 +191,10 @@ export function RentalForm(props: RentalFormProps) {
         </FormField>
       </div>
       <p className="text-muted-foreground text-sm" aria-live="polite">
-        {rentKindText(form.values, props.timeZone, props.longTermMinimumDays)}
+        {rentKindText(form.values, props.timeZone, {
+          minimumDays: props.longTermMinimumDays,
+          graceMinutes: props.graceMinutes,
+        })}
       </p>
       <FormField label="Bond" {...field("bondCents")} hint="Enter $0 if there is none.">
         <MoneyInput
