@@ -7,6 +7,7 @@ import { STAND_IN_CHECKOUT_PATH } from "../paths";
 import type {
   CheckoutOutcome,
   CheckoutRequest,
+  MoneyTakenBack,
   PaymentEventNotice,
   PaymentsProvider,
 } from "./payments-provider";
@@ -45,6 +46,20 @@ export interface StandInPayments extends PaymentsProvider {
   cancelMandate(sessionId: string): SignedEvent;
   /** Stripe moves a direct debit on (checked and active, or cancelled), with its message. */
   setMandateStatus(sessionId: string, mandateStatus: string): SignedEvent;
+  /**
+   * The business refunds a bond payment in its "Stripe dashboard", or the
+   * Renter's bank disputes it: gives the event Stripe would send.
+   */
+  takeBack(
+    sessionId: string,
+    change: { kind: "refund" | "dispute"; amountCents: number; status?: MoneyTakenBack["status"] },
+  ): { event: SignedEvent; objectId: string };
+  /** A refund later fails, or a dispute is won and its money returned. */
+  settleTakeBack(objectId: string, status: MoneyTakenBack["status"]): SignedEvent;
+  /** The name and email "Stripe" has for a customer. */
+  customer(customerId: string): { name: string; email: string | null } | null;
+  /** The next customer updates fail, as if Stripe were down. */
+  failNextCustomerUpdates(count: number): void;
   /** Whether a bank account was detached at "Stripe" (a replaced direct debit cancelled). */
   isDetached(paymentMethodId: string): boolean;
   /** The next detaches fail, as if Stripe were down, so a test can prove the retry. */
@@ -102,6 +117,12 @@ export function createStandInPayments(webhookSecret: string): StandInPayments {
   const checkouts = new Map<string, StandInCheckout>();
   const detached = new Set<string>();
   let failingDetaches = 0;
+  const takenBack = new Map<
+    string,
+    MoneyTakenBack & { accountId: string; kind: "refund" | "dispute" }
+  >();
+  const customerDetails = new Map<string, { name: string; email: string | null }>();
+  let failingCustomerUpdates = 0;
 
   function signed(
     event: Omit<PaymentEventNotice, "objectId" | "occurredAt"> & {
@@ -172,7 +193,64 @@ export function createStandInPayments(webhookSecret: string): StandInPayments {
       const key = `${accountId}:${customer.renterId}`;
       const existing = customers.get(key) ?? standInId("cus");
       customers.set(key, existing);
+      customerDetails.set(existing, { name: customer.name, email: customer.email });
       return existing;
+    },
+    async updateCustomer(_accountId, customerId, customer) {
+      if (failingCustomerUpdates > 0) {
+        failingCustomerUpdates -= 1;
+        throw new Error("The stand-in's Stripe is down.");
+      }
+      customerDetails.set(customerId, customer);
+    },
+    async readRefund(_accountId, refundId) {
+      const refund = takenBack.get(refundId);
+      if (!refund) {
+        throw new Error("No such stand-in refund.");
+      }
+      return refund;
+    },
+    async readDispute(_accountId, disputeId) {
+      const dispute = takenBack.get(disputeId);
+      if (!dispute) {
+        throw new Error("No such stand-in dispute.");
+      }
+      return dispute;
+    },
+    takeBack(sessionId, change) {
+      const checkout = checkouts.get(sessionId);
+      const paymentIntentId = checkout?.outcome.payment?.paymentIntentId;
+      if (!checkout || !paymentIntentId) {
+        throw new Error("That stand-in checkout took no payment.");
+      }
+      const objectId = standInId(change.kind === "refund" ? "re" : "du");
+      takenBack.set(objectId, {
+        objectId,
+        paymentIntentId,
+        amountCents: change.amountCents,
+        status: change.status ?? "taken",
+        accountId: checkout.accountId,
+        kind: change.kind,
+      });
+      const type =
+        change.kind === "refund" ? "v1.refund.created" : "v1.charge.dispute.funds_withdrawn";
+      return { event: eventFor(checkout, type, objectId), objectId };
+    },
+    settleTakeBack(objectId, status) {
+      const existing = takenBack.get(objectId);
+      if (!existing) {
+        throw new Error("No such stand-in refund or dispute.");
+      }
+      takenBack.set(objectId, { ...existing, status });
+      const type =
+        existing.kind === "refund" ? "v1.refund.updated" : "v1.charge.dispute.funds_reinstated";
+      return signed({ id: standInId("evt"), type, accountId: existing.accountId, objectId });
+    },
+    customer(customerId) {
+      return customerDetails.get(customerId) ?? null;
+    },
+    failNextCustomerUpdates(count) {
+      failingCustomerUpdates = count;
     },
     async startCheckout(accountId, request) {
       const sessionId = standInId("cs_test");

@@ -83,6 +83,24 @@ export interface CheckoutOutcome {
 }
 
 /**
+ * Money going back to the Renter through Stripe: a refund the business
+ * made in its Stripe dashboard, or a dispute with the Renter's bank.
+ */
+export interface MoneyTakenBack {
+  /** Stripe's refund (re_… or pyr_…) or dispute (du_…) ID. */
+  objectId: string;
+  /** The payment it takes back from. */
+  paymentIntentId: string;
+  amountCents: number;
+  /**
+   * For a refund: "taken" while it is on its way or done, "failed" if Stripe
+   * could not make it. For a dispute: "taken" once the bank withdrew the
+   * money, "returned" once it was given back to the business.
+   */
+  status: "taken" | "failed" | "returned";
+}
+
+/**
  * Everything the app asks of Stripe, so every test runs against a
  * stand-in and nothing but this interface knows Stripe's shapes.
  */
@@ -118,4 +136,18 @@ export interface PaymentsProvider {
    * counts as done.
    */
   detachPaymentMethod(accountId: string, paymentMethodId: string): Promise<void>;
+  /** A refund as Stripe has it now (review A5-4). */
+  readRefund(accountId: string, refundId: string): Promise<MoneyTakenBack>;
+  /** A dispute as Stripe has it now, with what the latest event says happened to its money. */
+  readDispute(
+    accountId: string,
+    disputeId: string,
+    moneyMoved: "withdrawn" | "reinstated",
+  ): Promise<MoneyTakenBack>;
+  /** Tells Stripe the Renter's current name and email (review A5-6). */
+  updateCustomer(
+    accountId: string,
+    customerId: string,
+    customer: { name: string; email: string | null },
+  ): Promise<void>;
 }

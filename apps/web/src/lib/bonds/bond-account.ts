@@ -32,6 +32,10 @@ export interface BondMovementRow {
   reversesId: string | null;
   /** It came in or went back through Stripe, so only Stripe can put it right (review A5-3). */
   isFromStripe: boolean;
+  /** The Stripe payment it came in by, or went back out of. */
+  paymentId: string | null;
+  /** The Stripe refund or dispute it came from. */
+  stripeObjectId: string | null;
   createdAt: Date;
 }
 
@@ -63,6 +67,8 @@ export async function selectBondMovements(
       note: bondMovements.note,
       reversesId: bondMovements.reversesId,
       isFromStripe: sql<boolean>`(${bondMovements.paymentId} is not null or ${bondMovements.stripeObjectId} is not null)`,
+      paymentId: bondMovements.paymentId,
+      stripeObjectId: bondMovements.stripeObjectId,
       createdAt: bondMovements.createdAt,
     })
     .from(bondMovements)

@@ -1,8 +1,14 @@
 import { describeErrorForLog } from "@fleetapp/core";
 import { recordActivity } from "@fleetapp/db/activity";
-import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, paymentMandates } from "@fleetapp/db/schema";
+import {
+  ACTIVITY_ACTIONS,
+  ACTIVITY_ENTITY_TYPES,
+  paymentMandates,
+  renterStripeCustomers,
+  renters,
+} from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, exists, isNull, sql } from "drizzle-orm";
 
 import { findDueOperators, forEachOperator, type OperatorRun } from "../jobs/due-operators";
 import { loadPaymentAccount, type PaymentDependencies } from "./payment-accounts";
@@ -75,14 +81,110 @@ async function markDetached(
   });
 }
 
-/** One business's Stripe tidying up: replaced direct debits cancelled there. */
+/**
+ * Tells Stripe the current name and email of each of the business's
+ * Renters whose details changed since (review A5-6), so Stripe's
+ * direct-debit notices reach the Renter. Only a Renter still holding the
+ * details sent is marked done, so a change made meanwhile is sent next
+ * time. Gives how many were updated.
+ */
+export async function syncRenterCustomers(
+  deps: PaymentDependencies,
+  operatorId: string,
+  onlyRenterId?: string,
+): Promise<number> {
+  const account = await loadPaymentAccount(deps.database, operatorId);
+  if (!account || account.state === "disconnected") {
+    return 0;
+  }
+  const waiting = await withTenant(deps.database, operatorId, (tx) =>
+    tx
+      .select({
+        id: renterStripeCustomers.id,
+        customerId: renterStripeCustomers.stripeCustomerId,
+        renterId: renters.id,
+        name: renters.fullName,
+        email: renters.email,
+      })
+      .from(renterStripeCustomers)
+      .innerJoin(renters, eq(renters.id, renterStripeCustomers.renterId))
+      .where(
+        and(
+          eq(renterStripeCustomers.operatorId, operatorId),
+          eq(renterStripeCustomers.needsUpdate, true),
+          onlyRenterId ? eq(renterStripeCustomers.renterId, onlyRenterId) : undefined,
+        ),
+      ),
+  );
+  let updated = 0;
+  for (const customer of waiting) {
+    try {
+      await deps.payments.updateCustomer(account.stripeAccountId, customer.customerId, {
+        name: customer.name,
+        email: customer.email,
+      });
+    } catch (error) {
+      console.error("Updating a Renter at Stripe failed", describeErrorForLog(error));
+      continue;
+    }
+    await withTenant(deps.database, operatorId, (tx) =>
+      tx
+        .update(renterStripeCustomers)
+        .set({ needsUpdate: false })
+        .where(
+          and(
+            eq(renterStripeCustomers.id, customer.id),
+            exists(
+              tx
+                .select({ id: renters.id })
+                .from(renters)
+                .where(
+                  and(
+                    eq(renters.id, customer.renterId),
+                    eq(renters.fullName, customer.name),
+                    customer.email === null
+                      ? isNull(renters.email)
+                      : eq(renters.email, customer.email),
+                  ),
+                ),
+            ),
+          ),
+        ),
+    );
+    updated += 1;
+  }
+  return updated;
+}
+
+/** One business's Stripe tidying up: replaced direct debits cancelled, Renters' details sent. */
 async function tidyUpOperator(deps: PaymentDependencies, operatorId: string): Promise<number> {
-  return detachReplacedMandates(deps, operatorId);
+  return (
+    (await detachReplacedMandates(deps, operatorId)) + (await syncRenterCustomers(deps, operatorId))
+  );
+}
+
+/**
+ * Straight after a Renter's details are saved: Stripe is told now, not
+ * only overnight. A failure is logged, never thrown; the nightly run tries again.
+ */
+export async function tellStripeAboutRenter(
+  deps: PaymentDependencies | null,
+  operatorId: string,
+  renterId: string,
+): Promise<void> {
+  if (!deps) {
+    return;
+  }
+  try {
+    await syncRenterCustomers(deps, operatorId, renterId);
+  } catch (error) {
+    console.error("Telling Stripe about a Renter failed", describeErrorForLog(error));
+  }
 }
 
 /**
  * The nightly part that finishes what could not be done at Stripe when it
- * happened, one business at a time. Safe to run again (rule 20).
+ * happened (detaching, Renters' new details), one business at a time. Safe to run again (rule 20).
  */
 export async function runStripeTidyUp(
   deps: PaymentDependencies,

@@ -87,6 +87,8 @@ export const ACTIVITY_ENTITY_TYPES = {
   stripeAccount: "stripe_account",
   paymentMandate: "payment_mandate",
   payment: "payment",
+  /** The Renter as a customer on the business's own Stripe account (review KL-7). */
+  stripeCustomer: "stripe_customer",
 } as const;
 
 /** What happened to it. No free text at call sites. */

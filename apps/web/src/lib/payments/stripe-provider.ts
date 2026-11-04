@@ -190,6 +190,23 @@ const sessionSchema = z.object({
     .nullable(),
 });
 
+/** The parts of a refund the app reads. */
+const refundSchema = z.object({
+  id: z.string(),
+  amount: z.number().int().positive(),
+  status: z.string().nullable(),
+  payment_intent: z.string(),
+});
+/** A refund in these states never reached the Renter: the money stays with the business. */
+const FAILED_REFUND_STATUSES: ReadonlySet<string | null> = new Set(["failed", "canceled"]);
+
+/** The parts of a dispute the app reads. */
+const disputeSchema = z.object({
+  id: z.string(),
+  amount: z.number().int().positive(),
+  payment_intent: z.string(),
+});
+
 /** A payment's method, amount and whether the money is in, or null if it is not one we take. */
 function paymentOf(
   intent: z.infer<typeof sessionSchema>["payment_intent"],
@@ -397,6 +414,38 @@ export function createStripeProvider(
     async readMandateStatus(accountId, mandateId) {
       const mandate = await stripe.mandates.retrieve(mandateId, {}, { stripeAccount: accountId });
       return mandate.status;
+    },
+
+    async readRefund(accountId, refundId) {
+      const refund = refundSchema.parse(
+        await stripe.refunds.retrieve(refundId, {}, { stripeAccount: accountId }),
+      );
+      return {
+        objectId: refund.id,
+        paymentIntentId: refund.payment_intent,
+        amountCents: refund.amount,
+        status: FAILED_REFUND_STATUSES.has(refund.status) ? "failed" : "taken",
+      };
+    },
+
+    async readDispute(accountId, disputeId, moneyMoved) {
+      const dispute = disputeSchema.parse(
+        await stripe.disputes.retrieve(disputeId, {}, { stripeAccount: accountId }),
+      );
+      return {
+        objectId: dispute.id,
+        paymentIntentId: dispute.payment_intent,
+        amountCents: dispute.amount,
+        status: moneyMoved === "reinstated" ? "returned" : "taken",
+      };
+    },
+
+    async updateCustomer(accountId, customerId, customer) {
+      await stripe.customers.update(
+        customerId,
+        { name: customer.name, ...(customer.email ? { email: customer.email } : {}) },
+        { stripeAccount: accountId },
+      );
     },
 
     async detachPaymentMethod(accountId, paymentMethodId) {

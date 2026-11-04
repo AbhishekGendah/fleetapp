@@ -1,6 +1,8 @@
 import "server-only";
 
 import { env } from "../../env";
+import { appDb } from "../app-db";
+import type { PaymentDependencies } from "./payment-accounts";
 import type { PaymentsProvider } from "./payments-provider";
 import { createStandInPayments, type StandInPayments } from "./stand-in-provider";
 import { createStripeProvider } from "./stripe-provider";
@@ -35,4 +37,9 @@ export const canHearRenterPayments: boolean =
 /** The browser tests' stand-in, when this site runs on it. */
 export function standInPayments(): StandInPayments | null {
   return env.PAYMENTS_TRANSPORT === "stand_in" ? (appPayments as StandInPayments) : null;
+}
+
+/** What the payments code needs on this site; null while payments by Stripe are not set up. */
+export function appPaymentDependencies(): PaymentDependencies | null {
+  return appPayments ? { database: appDb, payments: appPayments, now: () => new Date() } : null;
 }

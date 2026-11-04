@@ -6,6 +6,8 @@ import { redirect } from "next/navigation";
 
 import type { ActingUser } from "../../lib/acting-user";
 import { appDb } from "../../lib/app-db";
+import { appPaymentDependencies } from "../../lib/payments/app-payments";
+import { tellStripeAboutRenter } from "../../lib/payments/stripe-tidy-up";
 import { renterPath, RENTERS_PATH } from "../../lib/paths";
 import { requireUser } from "../../lib/require-user";
 import {
@@ -69,6 +71,10 @@ export async function editRenterAction(
   }
   return saveRenterForm(formData, async (actor, input) => {
     const result = await updateRenter(appDb, actor, renterId, input);
-    return result === "not_found" ? null : renterId;
+    if (result === "not_found") {
+      return null;
+    }
+    await tellStripeAboutRenter(appPaymentDependencies(), actor.operatorId, renterId);
+    return renterId;
   });
 }

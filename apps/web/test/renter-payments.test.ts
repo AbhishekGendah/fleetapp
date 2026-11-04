@@ -1,4 +1,10 @@
-import { bondMovements, paymentMandates, payments, stripeAccounts } from "@fleetapp/db/schema";
+import {
+  bondMovements,
+  paymentMandates,
+  payments,
+  renterStripeCustomers,
+  stripeAccounts,
+} from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import type { EmailMessage } from "@fleetapp/email";
@@ -20,7 +26,7 @@ import { loadBondAccount } from "../src/lib/bonds/bond-account";
 import { recordBondReceived, reverseBondMovement } from "../src/lib/bonds/bond-records";
 import { loadBondsToRefund } from "../src/lib/dashboard/bonds-to-refund";
 import { recordReturnFromStripe, startRenterCheckout } from "../src/lib/payments/renter-checkout";
-import { runStripeTidyUp } from "../src/lib/payments/stripe-tidy-up";
+import { runStripeTidyUp, tellStripeAboutRenter } from "../src/lib/payments/stripe-tidy-up";
 import { loadRentalPayments } from "../src/lib/payments/renter-payment-records";
 import {
   createStandInPayments,
@@ -30,7 +36,7 @@ import {
 import { loadRentalProblems } from "../src/lib/rentals/booking-checks";
 import { cancelRental } from "../src/lib/rentals/rental-records";
 import { emptyRenterForm, parseRenterForm } from "../src/lib/renters/renter-input";
-import { createRenter } from "../src/lib/renters/renter-records";
+import { createRenter, updateRenter } from "../src/lib/renters/renter-records";
 import { openLink, type LinkVisit } from "../src/lib/renter-links/link-visits";
 import { seedOperatorWithUser } from "./car-fixtures";
 import { bookTestRental, TEST_TIME_ZONE } from "./rental-fixtures";
@@ -499,6 +505,82 @@ describe("a Renter's direct debit and bond", () => {
       expect.objectContaining({ rentalId: rental.rentalId, heldCents: BOND_CENTS }),
     );
     expect((await loadBondsToRefund(web.db, otherBusiness.operatorId)).total).toBe(0);
+  });
+
+  /** A rental whose $500 bond the Renter paid by card on Stripe's page. Gives its Stripe page. */
+  async function paidByCard() {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    const sessionId = await visitStripe(visit, "bond");
+    await deliver(stripe.finishCheckout(sessionId, "card"));
+    return { rental, visit, sessionId };
+  }
+
+  it("takes a refund made in Stripe off the bond, once, and shows it on the payment (review A5-4)", async () => {
+    const { rental, sessionId } = await paidByCard();
+    const { event, objectId } = stripe.takeBack(sessionId, { kind: "refund", amountCents: 200_00 });
+    expect(await deliver(event)).toBe("handled");
+    expect(await deliver(stripe.settleTakeBack(objectId, "taken"))).toBe("handled");
+
+    const after = await paymentsOf(actor, rental);
+    expect(after.bond.heldCents).toBe(300_00);
+    expect(after.payments[0]).toMatchObject({ takenBackCents: 200_00, isDisputed: false });
+
+    // Stripe couldn't make it after all: the bond is held in full again.
+    await deliver(stripe.settleTakeBack(objectId, "failed"));
+    await deliver(stripe.settleTakeBack(objectId, "failed"));
+    const failed = await paymentsOf(actor, rental);
+    expect(failed.bond.heldCents).toBe(BOND_CENTS);
+    expect(failed.payments[0]?.takenBackCents).toBe(0);
+  });
+
+  it("takes disputed bond off the bond, and puts it back once the dispute is won (review A5-4)", async () => {
+    const { rental, sessionId } = await paidByCard();
+    const { event, objectId } = stripe.takeBack(sessionId, {
+      kind: "dispute",
+      amountCents: BOND_CENTS,
+    });
+    await deliver(event);
+    const disputed = await paymentsOf(actor, rental);
+    expect(disputed.bond.heldCents).toBe(0);
+    expect(disputed.payments[0]).toMatchObject({ takenBackCents: BOND_CENTS, isDisputed: true });
+
+    await deliver(stripe.settleTakeBack(objectId, "returned"));
+    const won = await paymentsOf(actor, rental);
+    expect(won.bond.heldCents).toBe(BOND_CENTS);
+    expect(won.payments[0]).toMatchObject({ takenBackCents: 0, isDisputed: false });
+  });
+
+  it("tells Stripe a Renter's new email straight after the save, and overnight if that fails (review A5-6)", async () => {
+    const { rental } = await paidByCard();
+    const [customer] = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx
+        .select({ id: renterStripeCustomers.stripeCustomerId })
+        .from(renterStripeCustomers)
+        .where(eq(renterStripeCustomers.renterId, rental.renterId)),
+    );
+    const paymentDeps = { database: web.db, payments: stripe, now: () => new Date() };
+    const edit = (email: string) =>
+      updateRenter(
+        web.db,
+        actor,
+        rental.renterId,
+        parseRenterForm(
+          { ...emptyRenterForm(), fullName: "Pat Payer", email, phone: "0412345678" },
+          "2026-10-30",
+        ).data!,
+      );
+
+    await edit("pat.new@example.test");
+    await tellStripeAboutRenter(paymentDeps, actor.operatorId, rental.renterId);
+    expect(stripe.customer(customer!.id)?.email).toBe("pat.new@example.test");
+
+    stripe.failNextCustomerUpdates(1);
+    await edit("pat.newer@example.test");
+    await tellStripeAboutRenter(paymentDeps, actor.operatorId, rental.renterId);
+    expect(stripe.customer(customer!.id)?.email).toBe("pat.new@example.test");
+    await runStripeTidyUp(paymentDeps, () => false);
+    expect(stripe.customer(customer!.id)?.email).toBe("pat.newer@example.test");
   });
 
   it("counts a bank debit bond only once it clears; a bounced one is asked for again", async () => {

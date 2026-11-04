@@ -29,6 +29,7 @@ import {
   type RentalPayments,
 } from "./renter-payment-records";
 import { lockOpenBondCheckout, openCheckoutsOfLink, saveCheckout } from "./stripe-checkouts";
+import { tellStripeAboutRenter } from "./stripe-tidy-up";
 
 /** What the Renter's payment steps need: the database, Stripe (if set up here) and this site's address. */
 export interface RenterCheckoutDependencies {
@@ -133,6 +134,12 @@ async function customerFor(
       .where(eq(renterStripeCustomers.renterId, visit.renterId)),
   );
   if (existing) {
+    // Stripe's copy of a name or email changed since is brought up to date first (review A5-6).
+    await tellStripeAboutRenter(
+      { database: deps.database, payments: stripe.payments, now: deps.now },
+      visit.operatorId,
+      visit.renterId,
+    );
     return existing.id;
   }
   const customerId = await stripe.payments.createCustomer(stripe.accountId, {
@@ -140,16 +147,28 @@ async function customerFor(
     name: renter.name,
     email: renter.email,
   });
-  await withTenant(deps.database, visit.operatorId, (tx) =>
-    tx
+  await withTenant(deps.database, visit.operatorId, async (tx) => {
+    const [added] = await tx
       .insert(renterStripeCustomers)
       .values({
         operatorId: visit.operatorId,
         renterId: visit.renterId,
         stripeCustomerId: customerId,
       })
-      .onConflictDoNothing(),
-  );
+      .onConflictDoNothing()
+      .returning({ id: renterStripeCustomers.id });
+    if (added) {
+      // Stripe's ID only: the name and email it was given stay with the Renter's record (rule 7).
+      await recordActivity(tx, {
+        operatorId: visit.operatorId,
+        actor: { type: "renter_link", id: visit.linkId },
+        entityType: ACTIVITY_ENTITY_TYPES.stripeCustomer,
+        entityId: added.id,
+        action: ACTIVITY_ACTIONS.created,
+        valuesAfter: { renterId: visit.renterId },
+      });
+    }
+  });
   return customerId;
 }
 

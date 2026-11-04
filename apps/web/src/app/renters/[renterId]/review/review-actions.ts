@@ -9,6 +9,8 @@ import { appEmailSender } from "../../../../lib/email-sender";
 import { fileDependencies } from "../../../../lib/files/file-action-support";
 import { renterPath, renterReviewPath, RENTERS_PATH } from "../../../../lib/paths";
 import { SEND_BACK_FIELDS, sendBackInputSchema } from "../../../../lib/renter-links/review-input";
+import { appPaymentDependencies } from "../../../../lib/payments/app-payments";
+import { tellStripeAboutRenter } from "../../../../lib/payments/stripe-tidy-up";
 import { approveSubmission, sendBackSubmission } from "../../../../lib/renter-links/reviews";
 import { licenceOnFileState } from "../../../../lib/renters/licence-on-file";
 import { runUserChange } from "../../../../lib/run-change";
@@ -39,7 +41,11 @@ export async function approveSubmissionAction(
       if (typeof result === "object") {
         return licenceOnFileState(result);
       }
-      return result === "approved" ? savedState("Approved.") : failedState(GONE_MESSAGE);
+      if (result !== "approved") {
+        return failedState(GONE_MESSAGE);
+      }
+      await tellStripeAboutRenter(appPaymentDependencies(), actor.operatorId, renterId);
+      return savedState("Approved.");
     },
   });
   // Outside runUserChange: Next carries out a redirect by throwing.

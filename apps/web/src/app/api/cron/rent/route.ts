@@ -9,7 +9,7 @@ import { appEmailSender } from "../../../../lib/email-sender";
 import { isScheduledJobRequest } from "../../../../lib/cron-auth";
 import type { OperatorRun } from "../../../../lib/jobs/due-operators";
 import { runRentJob } from "../../../../lib/ledger/rent-job";
-import { appPayments } from "../../../../lib/payments/app-payments";
+import { appPaymentDependencies } from "../../../../lib/payments/app-payments";
 import { runStripeTidyUp } from "../../../../lib/payments/stripe-tidy-up";
 import { appFileStorage } from "../../../../lib/storage/app-file-storage";
 
@@ -96,11 +96,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       isOutOfTime,
     ),
   );
-  const payments = appPayments;
-  const stripe = payments
-    ? await runPart("Stripe tidy-up", () =>
-        runStripeTidyUp({ database: appDb, payments, now: () => new Date() }, isOutOfTime),
-      )
+  const paymentDeps = appPaymentDependencies();
+  const stripe = paymentDeps
+    ? await runPart("Stripe tidy-up", () => runStripeTidyUp(paymentDeps, isOutOfTime))
     : null;
   const outcomes = stripe ? [rent, documents, stripe] : [rent, documents];
   const problems = outcomes.flatMap((outcome) => problemOf(outcome) ?? []);

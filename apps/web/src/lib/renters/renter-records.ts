@@ -3,6 +3,7 @@ import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import {
   ACTIVITY_ACTIONS,
   ACTIVITY_ENTITY_TYPES,
+  renterStripeCustomers,
   renters,
   type ActivityAction,
 } from "@fleetapp/db/schema";
@@ -88,6 +89,9 @@ export async function createRenter(
   });
 }
 
+/** The Renter's details Stripe keeps its own copy of. */
+const STRIPE_CUSTOMER_FIELDS = ["fullName", "email"] as const;
+
 /**
  * Writes a Renter's details onto the locked record `before`, logging which
  * changed but never their values. Shared by the edit form and approving
@@ -113,6 +117,18 @@ export async function applyRenterDetails(
   // leave a link open to the old (perhaps someone else's) inbox.
   if (Object.hasOwn(changes.valuesAfter, "email")) {
     await cancelLiveLinks(tx, actor, before.id, new Date());
+  }
+  // Stripe sends direct-debit notices to its own copy: it is told after the save (review A5-6).
+  if (STRIPE_CUSTOMER_FIELDS.some((field) => Object.hasOwn(changes.valuesAfter, field))) {
+    await tx
+      .update(renterStripeCustomers)
+      .set({ needsUpdate: true })
+      .where(
+        and(
+          eq(renterStripeCustomers.operatorId, actor.operatorId),
+          eq(renterStripeCustomers.renterId, before.id),
+        ),
+      );
   }
   await logRenterActivity(
     tx,

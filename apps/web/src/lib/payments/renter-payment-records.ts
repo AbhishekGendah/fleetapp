@@ -3,7 +3,6 @@ import {
   directDebitState,
   isOvertakenMandate,
   mandateStatusOf,
-  todayInTimeZone,
   type DirectDebitState,
   type MandateEndReason,
   type MandateStatus,
@@ -16,7 +15,6 @@ import {
   ACTIVITY_ACTIONS,
   ACTIVITY_ENTITY_TYPES,
   bondMovements,
-  operators,
   paymentMandates,
   payments,
   rentals,
@@ -24,8 +22,9 @@ import {
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, asc, eq, ne, sql } from "drizzle-orm";
 
-import { bondAccountIn } from "../bonds/bond-account";
+import { bondAccountIn, type BondMovementRow } from "../bonds/bond-account";
 import type { CheckoutOutcome } from "./payments-provider";
+import { businessDayOf } from "./business-day";
 import { settleCheckout } from "./stripe-checkouts";
 
 const SYSTEM_ACTOR = { type: "system", id: null } as const;
@@ -39,6 +38,10 @@ export interface RentalPaymentRow {
   failureCode: string | null;
   createdAt: Date;
   settledAt: Date | null;
+  /** Refunded in Stripe or taken back by the Renter's bank, less any dispute won (review A5-4). */
+  takenBackCents: number;
+  /** A dispute with the Renter's bank took money back and it hasn't been given back. */
+  isDisputed: boolean;
 }
 
 /** A rental's payments by Stripe: the Renter's direct debit, its payments, and the bond still to ask for. */
@@ -59,11 +62,40 @@ export function selectMandates(
     .where(and(eq(paymentMandates.operatorId, operatorId), eq(paymentMandates.renterId, renterId)));
 }
 
+/** Stripe's dispute IDs start so (a refund's start "re_" or "pyr_"). */
+const DISPUTE_ID_PREFIX = "du_";
+
+/** What refunds and disputes took back from one payment, from the bond entries Stripe's news made. */
+function takenBackFrom(
+  paymentId: string,
+  movements: readonly BondMovementRow[],
+): Pick<RentalPaymentRow, "takenBackCents" | "isDisputed"> {
+  const undone = new Set(movements.map((movement) => movement.reversesId).filter(Boolean));
+  const ofPayment = movements.filter(
+    (movement) => movement.paymentId === paymentId && movement.stripeObjectId !== null,
+  );
+  const out = ofPayment.filter(
+    (movement) => movement.kind === "refunded" && !undone.has(movement.id),
+  );
+  const back = ofPayment.filter((movement) => movement.kind === "received");
+  const total = (entries: readonly BondMovementRow[]) =>
+    entries.reduce((sum, entry) => sum + entry.amountCents, 0);
+  const wonIds = new Set(back.map((movement) => movement.stripeObjectId));
+  return {
+    takenBackCents: Math.max(total(out) - total(back), 0),
+    isDisputed: out.some(
+      (movement) =>
+        movement.stripeObjectId?.startsWith(DISPUTE_ID_PREFIX) &&
+        !wonIds.has(movement.stripeObjectId),
+    ),
+  };
+}
+
 async function selectRentalPayments(
   tx: AnyTransaction,
   operatorId: string,
   rentalId: string,
-): Promise<RentalPaymentRow[]> {
+): Promise<Omit<RentalPaymentRow, "takenBackCents" | "isDisputed">[]> {
   const rows = await tx
     .select({
       id: payments.id,
@@ -101,11 +133,12 @@ export async function rentalPaymentsIn(
     bondAccountIn(tx, operatorId, rental),
   ]);
   const { heldCents } = bond;
+  const paymentRows = rows.map((row) => ({ ...row, ...takenBackFrom(row.id, bond.movements) }));
   // A finished Stripe page whose payment isn't recorded yet is on its way too (review KS-1).
   const pendingCents = bond.onItsWayCents;
   return {
     directDebit: directDebitState(mandates),
-    payments: rows,
+    payments: paymentRows,
     bond: {
       requiredCents: rental.bondCents,
       heldCents,
@@ -256,22 +289,6 @@ const PAYMENT_STATUS_OF: Readonly<
   processing: "pending",
   failed: "failed",
 };
-
-/** The business's own day a moment fell on (rule 10). */
-async function businessDayOf(
-  tx: AnyTransaction,
-  operatorId: string,
-  moment: Date,
-): Promise<string> {
-  const [operator] = await tx
-    .select({ timeZone: operators.timezone })
-    .from(operators)
-    .where(eq(operators.id, operatorId));
-  if (!operator) {
-    throw new Error("The payment's business was not found.");
-  }
-  return todayInTimeZone(moment, operator.timeZone);
-}
 
 /** The bond entry for a payment Stripe says succeeded (decision 2): once, for exactly its amount. */
 async function addBondReceived(

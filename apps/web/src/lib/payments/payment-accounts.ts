@@ -16,8 +16,10 @@ import { z } from "zod";
 import type { ActingUser } from "../acting-user";
 import { loadBusinessDetails } from "../settings/business-details";
 import { detachReplacedMandates } from "./stripe-tidy-up";
+import { applyMoneyTakenBack } from "./stripe-money-back";
 import type {
   CheckoutOutcome,
+  MoneyTakenBack,
   OnboardingUrls,
   PaymentEventNotice,
   PaymentsProvider,
@@ -197,6 +199,17 @@ const CHECKOUT_EVENTS: ReadonlySet<string> = new Set([
   "v1.checkout.session.async_payment_failed",
 ]);
 const MANDATE_EVENT = "v1.mandate.updated";
+/** A refund the business made in Stripe was made, moved on or failed (review A5-4). */
+const REFUND_EVENTS: ReadonlySet<string> = new Set([
+  "v1.refund.created",
+  "v1.refund.updated",
+  "v1.refund.failed",
+]);
+/** The Renter's bank took disputed money back, or gave it back once the business won. */
+const DISPUTE_EVENTS: Readonly<Record<string, "withdrawn" | "reinstated">> = {
+  "v1.charge.dispute.funds_withdrawn": "withdrawn",
+  "v1.charge.dispute.funds_reinstated": "reinstated",
+};
 /**
  * The business closed its Stripe account, or disconnected it from AGS's
  * platform (review A5-5). Stripe no longer lets us read it, so these are
@@ -214,6 +227,7 @@ type EventDetails =
   | { kind: "checkout"; outcome: CheckoutOutcome }
   | { kind: "mandate"; mandateId: string; stripeStatus: string }
   | { kind: "disconnected" }
+  | { kind: "taken_back"; takenBack: MoneyTakenBack }
   | { kind: "other" };
 
 async function readEventDetails(
@@ -229,6 +243,16 @@ async function readEventDetails(
   }
   if (CHECKOUT_EVENTS.has(notice.type) && notice.objectId) {
     return { kind: "checkout", outcome: await payments.readCheckout(accountId, notice.objectId) };
+  }
+  if (REFUND_EVENTS.has(notice.type) && notice.objectId) {
+    return { kind: "taken_back", takenBack: await payments.readRefund(accountId, notice.objectId) };
+  }
+  const disputeMoney = DISPUTE_EVENTS[notice.type];
+  if (disputeMoney && notice.objectId) {
+    return {
+      kind: "taken_back",
+      takenBack: await payments.readDispute(accountId, notice.objectId, disputeMoney),
+    };
   }
   if (notice.type === MANDATE_EVENT && notice.objectId) {
     return {
@@ -255,6 +279,8 @@ async function applyEventDetails(
     await applyMandateStatus(tx, operatorId, details, now);
   } else if (details.kind === "disconnected") {
     await markDisconnected(tx, operatorId, now);
+  } else if (details.kind === "taken_back") {
+    await applyMoneyTakenBack(tx, operatorId, details.takenBack, times.occurredAt);
   }
 }
 

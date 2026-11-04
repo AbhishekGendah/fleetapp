@@ -76,6 +76,7 @@ const ACTIVITY_ENTITY_LABELS = {
   [ACTIVITY_ENTITY_TYPES.stripeAccount]: "Stripe account",
   [ACTIVITY_ENTITY_TYPES.paymentMandate]: "Direct debit",
   [ACTIVITY_ENTITY_TYPES.payment]: "Payment",
+  [ACTIVITY_ENTITY_TYPES.stripeCustomer]: "Renter at Stripe",
 } satisfies Record<ActivityEntityType, string>;
 
 /** What each action reads as after the record's name: "Car archived". */

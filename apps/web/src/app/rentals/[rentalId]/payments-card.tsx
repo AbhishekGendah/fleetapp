@@ -85,6 +85,12 @@ function PaymentRecords(props: { payments: RentalPayments; timeZone: string }) {
                 <>
                   <span>{PAYMENT_STATUS_LABELS[payment.status]}</span>
                   <span>{formatDateTimeInTimeZone(payment.createdAt, timeZone)}</span>
+                  {payment.takenBackCents > 0 ? (
+                    <span>
+                      {payment.isDisputed ? "Disputed by the Renter's bank: " : "Refunded: "}
+                      {formatCents(payment.takenBackCents)}
+                    </span>
+                  ) : null}
                 </>
               }
             />
