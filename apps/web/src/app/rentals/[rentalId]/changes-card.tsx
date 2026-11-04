@@ -1,8 +1,9 @@
 import {
   canChangeEnd,
   canChangeRate,
-  earliestRateDay,
-  formatCalendarDate,
+  blockAt,
+  blockStartsAt,
+  upcomingWeekStarts,
   formatCents,
   formatDateTimeInTimeZone,
   operatorSettingsSchema,
@@ -27,6 +28,7 @@ import { appDb } from "../../../lib/app-db";
 import { loadDefaultTemplate } from "../../../lib/contracts/templates";
 import { CONTRACTS_PATH, rentalDocumentPath } from "../../../lib/paths";
 import { listRentalChanges, type RentalChangeRow } from "../../../lib/rentals/change-signing";
+import { rateChangeStartText } from "../../../lib/rentals/rental-changes";
 import type { RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { RentalClock } from "../../../lib/rentals/rental-records";
 import type { SignedInUser } from "../../../lib/require-user";
@@ -45,12 +47,15 @@ const STATUS_TONES: Readonly<Record<RentalChangeStatus, BadgeTone>> = {
   withdrawn: "neutral",
 };
 
+/** How many rent weeks ahead a new rate can be set to start. */
+const RATE_CHANGE_WEEKS_OFFERED = 8;
+
 /** "Ends 6 Jul 2027, 9:00 am (was 29 Jun 2027, 9:00 am)": what the change did, in a line. */
-function changeTitle(change: RentalChangeRow, timeZone: string): string {
+function changeTitle(change: RentalChangeRow, timeZone: string, handedOverAt: Date | null): string {
   const moment = (date: Date | null) =>
     date ? formatDateTimeInTimeZone(date, timeZone) : "no end (ongoing)";
   if (change.kind === "weekly_rate") {
-    const from = change.appliesFrom ? formatCalendarDate(change.appliesFrom) : "";
+    const from = rateChangeStartText(change, handedOverAt, timeZone) ?? "";
     return `${formatCents(change.rateAfterCents ?? 0)} a week from ${from} (was ${formatCents(change.rateBeforeCents ?? 0)})`;
   }
   if (change.kind === "make_ongoing") {
@@ -60,13 +65,18 @@ function changeTitle(change: RentalChangeRow, timeZone: string): string {
 }
 
 /** One change: what, why, its state, and sending, withdrawing or opening its form. */
-function ChangeItem(props: { change: RentalChangeRow; rentalId: string; timeZone: string }) {
+function ChangeItem(props: {
+  change: RentalChangeRow;
+  rentalId: string;
+  timeZone: string;
+  handedOverAt: Date | null;
+}) {
   const { change, rentalId, timeZone } = props;
   const isWaiting = change.status === "waiting_for_signature";
   const canSend = change.status !== "withdrawn" && change.documentId === null;
   return (
     <RecordItem
-      title={`${RENTAL_CHANGE_KIND_LABELS[change.kind]}: ${changeTitle(change, timeZone)}`}
+      title={`${RENTAL_CHANGE_KIND_LABELS[change.kind]}: ${changeTitle(change, timeZone, props.handedOverAt)}`}
       aside={
         <span className="flex flex-wrap gap-1">
           <Badge tone={STATUS_TONES[change.status]}>
@@ -120,6 +130,16 @@ function ChangeItem(props: { change: RentalChangeRow; rentalId: string; timeZone
   );
 }
 
+/** The rent weeks a new rate can start with: after the week now running, on the business's clock. */
+function weekStartOptions(handedOverAt: Date, clock: RentalClock) {
+  return upcomingWeekStarts(blockAt(handedOverAt, clock.now), RATE_CHANGE_WEEKS_OFFERED).map(
+    (block) => ({
+      block,
+      label: formatDateTimeInTimeZone(blockStartsAt(handedOverAt, block), clock.timeZone),
+    }),
+  );
+}
+
 /** The buttons that start a change, as the rental's state allows. */
 function ChangeButtons(props: {
   rental: RentalDetail;
@@ -157,7 +177,10 @@ function ChangeButtons(props: {
           <LazyOngoingChangeForm action={makeOngoingAction.bind(null, rental.id)} />
         </FormDialog>
       )}
-      {canChangeRate(rental.status) && props.hasChangeTemplate ? (
+      {canChangeRate(rental.status) &&
+      props.hasChangeTemplate &&
+      rental.isLongTerm &&
+      rental.handedOverAt ? (
         <FormDialog
           triggerLabel="Change weekly rate"
           triggerIcon={<Wallet aria-hidden />}
@@ -165,7 +188,7 @@ function ChangeButtons(props: {
         >
           <LazyRateChangeForm
             action={changeRateAction.bind(null, rental.id)}
-            earliestDay={earliestRateDay(clock.now, clock.timeZone)}
+            weekStarts={weekStartOptions(rental.handedOverAt, clock)}
           />
         </FormDialog>
       ) : null}
@@ -228,6 +251,7 @@ export async function ChangesCard(props: {
                 change={change}
                 rentalId={rental.id}
                 timeZone={user.operatorTimezone}
+                handedOverAt={rental.handedOverAt}
               />
             ))}
           </RecordList>

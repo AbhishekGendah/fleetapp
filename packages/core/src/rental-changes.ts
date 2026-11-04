@@ -1,4 +1,3 @@
-import { addDays, todayInTimeZone } from "./calendar-dates";
 import { MILLISECONDS_PER_DAY } from "./time-units";
 import type { RentalStatus, RentalType } from "./rentals";
 
@@ -75,22 +74,4 @@ export function noticeDaysShort(
   }
   const daysGiven = Math.floor((newEnd.getTime() - now.getTime()) / MILLISECONDS_PER_DAY);
   return Math.max(noticeDays - daysGiven, 0);
-}
-
-/** The first day a new weekly rate can apply from: tomorrow on the business's calendar. */
-export function earliestRateDay(now: Date, timeZone: string): string {
-  return addDays(todayInTimeZone(now, timeZone), 1);
-}
-
-export type RateChangeProblem = "too_soon" | "unchanged";
-
-export function rateChangeProblem(
-  change: { weeklyRateCents: number; appliesFrom: string },
-  current: { weeklyRateCents: number },
-  earliestDay: string,
-): RateChangeProblem | null {
-  if (change.appliesFrom < earliestDay) {
-    return "too_soon";
-  }
-  return change.weeklyRateCents === current.weeklyRateCents ? "unchanged" : null;
 }

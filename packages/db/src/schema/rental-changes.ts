@@ -49,6 +49,8 @@ export const rentalChanges = pgTable(
     rateBeforeCents: integer("rate_before_cents"),
     rateAfterCents: integer("rate_after_cents"),
     appliesFrom: date("applies_from"),
+    /** For a block rental: the rent week (its first block) the new rate starts with. */
+    appliesFromBlock: integer("applies_from_block"),
     reason: text("reason").notNull(),
     /**
      * The signed change-of-terms form, once signed. Its link to
@@ -84,7 +86,9 @@ export const rentalChanges = pgTable(
       "rental_changes_rate_values",
       sql`(${table.kind} = 'weekly_rate') = (${table.rateAfterCents} is not null)
         and (${table.rateAfterCents} is null or (${table.rateAfterCents} > 0
-          and ${table.rateBeforeCents} > 0 and ${table.appliesFrom} is not null))`,
+          and ${table.rateBeforeCents} > 0
+          and (${table.appliesFrom} is null) <> (${table.appliesFromBlock} is null)))
+        and (${table.appliesFromBlock} is null or ${table.appliesFromBlock} > 0)`,
     ),
     check(
       "rental_changes_status_times",

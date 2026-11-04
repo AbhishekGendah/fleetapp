@@ -174,7 +174,9 @@ function renderDrafted(
     parties,
     header,
     lines: drafted.chosen,
+    allLines,
     isTaxDocument: drafted.isTaxDocument,
+    isReduction: drafted.planned.kind === "credit_note",
     howToPay: drafted.planned.kind === "invoice" ? context.howToPay : "",
   });
 }
@@ -230,6 +232,37 @@ async function recordBillingDocument(
   return { id: document.id, totalCents: totals.amountCents, gstCents: totals.gstCents };
 }
 
+/**
+ * Whether a document is a tax one. A credit note follows the invoice it
+ * corrects (review G8-1): an adjustment note for a tax invoice, a plain
+ * credit note otherwise, whatever the business's GST is today.
+ */
+async function isTaxDocumentFor(
+  tx: AnyTransaction,
+  operatorId: string,
+  context: BillingContext,
+  planned: PlannedDocument,
+): Promise<boolean> {
+  if (planned.kind === "receipt") {
+    return false;
+  }
+  if (planned.kind === "credit_note" && planned.relatesToId) {
+    const [corrected] = await tx
+      .select({ isTaxDocument: billingDocuments.isTaxDocument })
+      .from(billingDocuments)
+      .where(
+        and(
+          eq(billingDocuments.operatorId, operatorId),
+          eq(billingDocuments.id, planned.relatesToId),
+        ),
+      );
+    if (corrected) {
+      return corrected.isTaxDocument;
+    }
+  }
+  return isTaxDocumentOn(context.gstRegisteredFrom, context.today);
+}
+
 /** Takes the number and works out the document's title and lines, inside the issuing transaction. */
 async function draftDocument(
   tx: AnyTransaction,
@@ -239,8 +272,7 @@ async function draftDocument(
   lines: readonly LedgerLineView[],
 ): Promise<Drafted & { number: number }> {
   const taken = await takeDocumentNumber(tx, operatorId, SERIES_OF_KIND[planned.kind]);
-  const isTaxDocument =
-    planned.kind !== "receipt" && isTaxDocumentOn(context.gstRegisteredFrom, context.today);
+  const isTaxDocument = await isTaxDocumentFor(tx, operatorId, context, planned);
   return {
     planned,
     number: taken.number,

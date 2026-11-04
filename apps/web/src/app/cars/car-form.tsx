@@ -27,6 +27,7 @@ import { FormField } from "@fleetapp/ui/form-field";
 import { FormattedInput } from "@fleetapp/ui/formatted-input";
 import { FormSection } from "@fleetapp/ui/form-section";
 import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
+import { MoneyInput } from "@fleetapp/ui/money-input";
 import { Select } from "@fleetapp/ui/select";
 import { AustralianStateOptions } from "@fleetapp/ui/state-options";
 import { useFormFields } from "@fleetapp/ui/use-form-fields";
@@ -261,6 +262,29 @@ export function CarForm(props: CarFormProps) {
             autoCapitalize="characters"
           />
         </FormField>
+      </FormSection>
+
+      <FormSection title="Prices">
+        <p className="text-muted-foreground text-sm">
+          Filled in on each new rental of this car, where you can change them for that Renter.
+        </p>
+        <div className="grid gap-6 sm:grid-cols-2">
+          <FormField {...fieldProps("dailyRateCents")} hint="Including GST. One 24-hour block.">
+            <MoneyInput
+              {...boxProps("dailyRateCents")}
+              onValueChange={(value) => form.setValue("dailyRateCents", value)}
+            />
+          </FormField>
+          <FormField
+            {...fieldProps("longTermWeeklyCents")}
+            hint="Including GST. For long-term rentals; empty means 7 days at the daily rate."
+          >
+            <MoneyInput
+              {...boxProps("longTermWeeklyCents")}
+              onValueChange={(value) => form.setValue("longTermWeeklyCents", value)}
+            />
+          </FormField>
+        </div>
       </FormSection>
 
       {shownState.status === "failed" ? <FormError message={shownState.formError} /> : null}

@@ -32,10 +32,22 @@ export interface S3FileStorageConfig {
   endpoint?: string | undefined;
 }
 
+/**
+ * How long one storage call may take before it gives up (review G3-7): a
+ * hung call would otherwise hold the nightly run, and the invoice numbers it
+ * has locked, until Vercel cuts the whole run off.
+ */
+const STORAGE_CONNECTION_TIMEOUT_MS = 5_000;
+const STORAGE_REQUEST_TIMEOUT_MS = 30_000;
+
 /** File storage on Amazon S3, in Sydney. Both buckets block all public access. */
 export function createS3FileStorage(config: S3FileStorageConfig): FileStorage {
   const client = new S3Client({
     region: config.region,
+    requestHandler: {
+      connectionTimeout: STORAGE_CONNECTION_TIMEOUT_MS,
+      requestTimeout: STORAGE_REQUEST_TIMEOUT_MS,
+    },
     credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey },
     // A stand-in serves buckets as paths (host/bucket), not as their own hosts.
     ...(config.endpoint ? { endpoint: config.endpoint, forcePathStyle: true } : {}),

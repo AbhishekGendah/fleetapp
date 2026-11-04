@@ -29,6 +29,8 @@ import {
 import { carDamagePath, rentalPath } from "../../../lib/paths";
 import { runUserChange } from "../../../lib/run-change";
 import { balanceText } from "../../../lib/ledger/balance-text";
+import { waiveDailyRate, type DailyRateWaiverResult } from "../../../lib/ledger/daily-rate-waiver";
+import { chargeRentNow } from "../../../lib/ledger/rent-job";
 
 const NOT_FOUND_MESSAGE = "That rental could not be found.";
 const CHECK_MESSAGE = "Check the boxes marked in red, then try again.";
@@ -151,5 +153,37 @@ export async function reverseLineAction(
         ),
         "Reversed.",
       ),
+  });
+}
+
+const WAIVER_MESSAGES: Readonly<Record<Exclude<DailyRateWaiverResult, "waived">, string>> = {
+  not_found: NOT_FOUND_MESSAGE,
+  not_repriced: "This rental was not re-priced at the daily rate, or it is already waived.",
+};
+
+/**
+ * Waives the daily-rate re-pricing of a long-term rental back before its
+ * minimum: the difference is credited at once with its adjustment note.
+ */
+export async function waiveDailyRateAction(
+  rentalId: string,
+  _previous: ChangeFormState,
+  formData: FormData,
+): Promise<ChangeFormState> {
+  const parsed = reversalInputSchema.safeParse(formTextValues(formData, REVERSAL_FIELDS));
+  if (!isRecordId(rentalId) || !parsed.success) {
+    return failedState("Say why the daily rate is waived, then try again.");
+  }
+  return runUserChange({
+    description: "Waiving the daily rate",
+    pagesToRefresh: [rentalPath(rentalId)],
+    change: async (actor) => {
+      const result = await waiveDailyRate(appDb, actor, rentalId, parsed.data.note);
+      if (result !== "waived") {
+        return failedState(WAIVER_MESSAGES[result]);
+      }
+      await chargeRentNow(billingDependencies(), actor.operatorId, rentalId);
+      return savedState("Daily rate waived: the difference is credited.");
+    },
   });
 }

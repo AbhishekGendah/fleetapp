@@ -91,6 +91,11 @@ const envSchema = z
      * it as a bearer token. Random, at least 32 characters.
      */
     CRON_SECRET: z.string().min(32, "CRON_SECRET must be at least 32 characters"),
+    /**
+     * Where AGS is emailed when the nightly run fails or runs out of time
+     * (review G3-4). The email carries counts only, never Renter details.
+     */
+    OPS_ALERT_EMAIL: z.email("OPS_ALERT_EMAIL must be an email address"),
 
     /**
      * How the app reaches Stripe: "off" until the AGS Stripe account is set
@@ -131,6 +136,7 @@ export const env = envSchema.parse({
   FILE_STORAGE_SECRET_ACCESS_KEY: process.env.FILE_STORAGE_SECRET_ACCESS_KEY,
   FILE_STORAGE_ENDPOINT: process.env.FILE_STORAGE_ENDPOINT,
   CRON_SECRET: process.env.CRON_SECRET,
+  OPS_ALERT_EMAIL: process.env.OPS_ALERT_EMAIL,
   PAYMENTS_TRANSPORT: process.env.PAYMENTS_TRANSPORT,
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
   STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,

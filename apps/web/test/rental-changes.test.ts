@@ -32,6 +32,8 @@ const TOKEN_PATTERN = /\/r\/([A-Za-z0-9_-]+)/;
 const META = { ipAddress: "203.0.113.9", userAgent: "Mozilla/5.0 (iPhone)" };
 const DAY_MS = 24 * 60 * 60 * 1000;
 const REASON = "Agreed with the Renter";
+/** The first block of a rental's second rent week: the earliest a new rate can start. */
+const NEXT_WEEK = 7;
 /** The test booking (bookTestRental) runs 1 to 29 June 2027, 9am Perth time. */
 const BOOKED_END = new Date("2027-06-29T01:00:00Z");
 
@@ -75,7 +77,8 @@ describe("changes of terms during a rental", () => {
         ...emptyRentalForm({ renterId, vehicleId }),
         plannedStart: start,
         plannedEnd: end,
-        weeklyRateCents: "350",
+        dailyRateCents: "70",
+        longTermWeeklyCents: "350",
         bondCents: "500",
       },
       TEST_TIME_ZONE,
@@ -172,7 +175,8 @@ describe("changes of terms during a rental", () => {
         ...emptyRentalForm({ renterId, vehicleId }),
         plannedStart: utcToLocalDateTime(soon, TEST_TIME_ZONE),
         plannedEnd: utcToLocalDateTime(new Date(soon.getTime() + 28 * DAY_MS), TEST_TIME_ZONE),
-        weeklyRateCents: "350",
+        dailyRateCents: "70",
+        longTermWeeklyCents: "350",
         bondCents: "500",
       },
       TEST_TIME_ZONE,
@@ -230,8 +234,8 @@ describe("changes of terms during a rental", () => {
       linkDeps(),
       owner,
       rentalId,
-      { weeklyRateCents: 380_00, appliesFrom: "2027-06-15", reason: REASON },
-      { ...clock(), currentRateCents: 350_00 },
+      { weeklyRateCents: 380_00, fromBlock: NEXT_WEEK, reason: REASON },
+      clock(),
     );
 
     expect(result).toEqual({ status: "no_template" });
@@ -245,9 +249,8 @@ describe("changes of terms during a rental", () => {
     });
     await saveTemplate(web.db, actor, templateId, { name: "Change form", content: CHANGE_FORM });
     const { rentalId } = await kit.rentalOut(new Date(Date.now() - 2 * DAY_MS));
-    const rateDay = "2027-06-15";
-    const request = { weeklyRateCents: 380_00, appliesFrom: rateDay, reason: "Yearly review" };
-    const rateClock = { ...clock(), currentRateCents: 350_00 };
+    const request = { weeklyRateCents: 380_00, fromBlock: NEXT_WEEK, reason: "Yearly review" };
+    const rateClock = clock();
     sentEmails.length = 0;
 
     const sent = await changeWeeklyRate(linkDeps(), actor, rentalId, request, rateClock);
@@ -295,14 +298,61 @@ describe("changes of terms during a rental", () => {
     const rates = await withTenant(web.db, actor.operatorId, (tx) =>
       tx.select().from(rentalRates).where(eq(rentalRates.rentalId, rentalId)),
     );
-    expect(rates.map((rate) => [rate.weeklyRateCents, rate.appliesFrom])).toContainEqual([
-      380_00,
-      rateDay,
-    ]);
+    expect(
+      rates.map((rate) => [rate.weeklyRateCents, rate.dailyRateCents, rate.appliesFromBlock]),
+    ).toContainEqual([380_00, 70_00, NEXT_WEEK]);
+    // A week that already has a signed rate can't be given another (review A3-1, A4-6).
+    expect(await changeWeeklyRate(linkDeps(), actor, rentalId, request, rateClock)).toEqual({
+      status: "already_has_rate",
+    });
     expect(sentEmails.at(-1)?.subject).toMatch(/Change of terms signed|signed change of terms/);
     expect(await sendChangeForSigning(linkDeps(), actor, change!.id, clock())).toEqual({
       status: "already_signed",
     });
+  });
+
+  it("refuses a rate change mid-week, and signing once its rent week has begun (review A3-1)", async () => {
+    const { rentalId } = await kit.rentalOut(new Date(Date.now() - 2 * DAY_MS));
+    const midWeek = await changeWeeklyRate(
+      linkDeps(),
+      actor,
+      rentalId,
+      { weeklyRateCents: 390_00, fromBlock: NEXT_WEEK + 3, reason: REASON },
+      clock(),
+    );
+    expect(midWeek).toEqual({ status: "not_week_start" });
+
+    sentEmails.length = 0;
+    const sent = await changeWeeklyRate(
+      linkDeps(),
+      actor,
+      rentalId,
+      { weeklyRateCents: 390_00, fromBlock: NEXT_WEEK, reason: REASON },
+      clock(),
+    );
+    expect(sent).toMatchObject({ status: "sent" });
+    const token = TOKEN_PATTERN.exec(sentEmails[0]?.html ?? "")?.[1] ?? "";
+    const visit = await openLink(web.db, token);
+    const lateDeps = { ...linkDeps(), now: () => new Date(Date.now() + 6 * DAY_MS) };
+
+    const signed = await signContract(
+      lateDeps,
+      visit!,
+      {
+        areDetailsConfirmed: "on",
+        hasConsented: "on",
+        method: "typed",
+        typedName: "Rory Ready",
+        drawnSignature: "",
+        contractFingerprint: visit!.signing!.contractFingerprint,
+      },
+      META,
+    );
+    expect(signed.status).toBe("not_signable");
+    const rates = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx.select().from(rentalRates).where(eq(rentalRates.rentalId, rentalId)),
+    );
+    expect(rates).toHaveLength(1);
   });
 
   it("withdraws a waiting rate change and stops its link", async () => {
@@ -312,8 +362,8 @@ describe("changes of terms during a rental", () => {
       linkDeps(),
       actor,
       rentalId,
-      { weeklyRateCents: 400_00, appliesFrom: "2027-06-15", reason: "Higher insurance" },
-      { ...clock(), currentRateCents: 350_00 },
+      { weeklyRateCents: 400_00, fromBlock: NEXT_WEEK, reason: "Higher insurance" },
+      clock(),
     );
     const changeId = sent.status === "sent" ? sent.changeId : "";
     const token = TOKEN_PATTERN.exec(sentEmails[0]?.html ?? "")?.[1] ?? "";

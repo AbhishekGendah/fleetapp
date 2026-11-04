@@ -146,6 +146,49 @@ describe("what still needs a document", () => {
     expect(hasPendingDocuments(pending)).toBe(false);
   });
 
+  it("invoices a block-rent correction at once and credits against its period's invoice", () => {
+    const weekStart = "2026-11-26T23:00:00.000Z";
+    const pending = pendingDocuments(
+      [
+        billable("week", "charge", { periodStart: weekStart, documentId: "inv-4" }),
+        billable("repriced", "charge", { periodStart: weekStart, isCorrection: true }),
+        billable("unused", "credit", { periodStart: weekStart, isCorrection: true }),
+      ],
+      WAITING,
+    );
+    expect(pending.invoiceLineIds).toEqual(["repriced"]);
+    expect(pending.creditNotes).toEqual([{ relatesToDocumentId: "inv-4", lineIds: ["unused"] }]);
+  });
+
+  it("puts taking back a credit already on a credit note on an invoice (review A4-7)", () => {
+    const credited = billable("unused", "credit", {
+      periodStart: "2026-11-03",
+      documentId: "cn-1",
+    });
+    const pending = pendingDocuments(
+      [
+        { ...RENT, documentId: "inv-1" },
+        credited,
+        billable("undo", "reversal", { reversesId: "unused" }),
+      ],
+      WAITING,
+    );
+    expect(pending.invoiceLineIds).toEqual(["undo"]);
+    expect(pending.creditNotes).toEqual([]);
+  });
+
+  it("gives no document for a credit reversed before its credit note", () => {
+    const pending = pendingDocuments(
+      [
+        { ...RENT, documentId: "inv-1" },
+        billable("unused", "credit", { periodStart: "2026-11-03" }),
+        billable("undo", "reversal", { reversesId: "unused" }),
+      ],
+      NOT_WAITING,
+    );
+    expect(hasPendingDocuments(pending)).toBe(false);
+  });
+
   it("gives no receipt for a payment reversed before its receipt", () => {
     const pending = pendingDocuments(
       [PAYMENT, billable("undo", "reversal", { reversesId: "payment" })],

@@ -1,6 +1,6 @@
 import {
+  DAYS_PER_WEEK,
   BOND_MOVEMENT_KIND_LABELS,
-  formatCalendarDate,
   formatCents,
   formatDateTimeInTimeZone,
   RENTAL_STATUS_LABELS,
@@ -10,6 +10,7 @@ import {
   WEEKDAYS,
   WITHHELD_VALUE,
   type BookingProblem,
+  type Weekday,
 } from "@fleetapp/core";
 
 /** What each rental field is called on the rental's page and in its Log. */
@@ -107,6 +108,38 @@ export function describeRentalValue(field: string, value: unknown, timeZone: str
 }
 
 /** A rate's start date, as the rental page lists them. */
-export function describeRateStart(appliesFrom: string): string {
-  return `From ${formatCalendarDate(appliesFrom)}`;
+
+/**
+ * A rental's rate in words: "$70.00 a day" for a short hire, "$350.00 a
+ * week" for a long-term rental (seven daily rates when it has no weekly
+ * price) or one from before rent in blocks.
+ */
+export function rentalRateText(rate: {
+  weeklyRateCents: number | null;
+  dailyRateCents: number | null;
+  isLongTerm: boolean | null;
+}): string {
+  if (rate.isLongTerm === false && rate.dailyRateCents !== null) {
+    return `${formatCents(rate.dailyRateCents)} a day`;
+  }
+  const weekly =
+    rate.weeklyRateCents ??
+    (rate.dailyRateCents === null ? null : rate.dailyRateCents * DAYS_PER_WEEK);
+  return weekly === null ? "No rate" : `${formatCents(weekly)} a week`;
+}
+
+/**
+ * When rent is charged, in words, for the rental page and contract. Rentals
+ * from before rent in blocks were charged on a weekday.
+ */
+export function rentTimingText(rental: {
+  isLongTerm: boolean | null;
+  chargeWeekday: number;
+}): string {
+  if (rental.isLongTerm === null) {
+    return `Weekly, each ${WEEKDAY_LABELS[rental.chargeWeekday as Weekday]}`;
+  }
+  return rental.isLongTerm
+    ? "A week at a time in advance, in 24-hour blocks from the handover"
+    : "The booked days at the handover, then each extra 24 hours as it starts";
 }

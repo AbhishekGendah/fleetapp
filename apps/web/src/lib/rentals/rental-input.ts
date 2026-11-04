@@ -1,12 +1,12 @@
 import {
   emptyForm,
   isRecordId,
+  optionalDollars,
   optionalText,
   RENTAL_TYPES,
   REQUIRED_MESSAGE,
   requiredDollars,
   requiredLine,
-  WEEKDAYS,
   type RentalType,
 } from "@fleetapp/core";
 import { z } from "zod";
@@ -17,26 +17,10 @@ const PICK_RENTER_MESSAGE = "Choose a Renter.";
 const PICK_CAR_MESSAGE = "Choose a car.";
 const END_NEEDED_MESSAGE = "Enter when the rental ends, or choose Ongoing.";
 const END_AFTER_START_MESSAGE = "The end must be after the start.";
-const RATE_ABOVE_ZERO_MESSAGE = "Enter the weekly rate.";
-/** The charge-day box's "use the start's weekday, or the business's fixed day" choice. */
-export const AUTOMATIC_CHARGE_DAY = "";
+const DAILY_RATE_MESSAGE = "Enter the daily rate.";
+const WEEKLY_PRICE_ABOVE_ZERO_MESSAGE = "Enter a weekly price above $0, or leave it empty.";
 
 const recordIdOf = (message: string) => z.string().trim().refine(isRecordId, message);
-
-const chargeWeekdayChoice = z
-  .string()
-  .trim()
-  .transform((value, context) => {
-    if (value === AUTOMATIC_CHARGE_DAY) {
-      return null;
-    }
-    const weekday = WEEKDAYS.find((day) => String(day) === value);
-    if (weekday === undefined) {
-      context.addIssue({ code: "custom", message: REQUIRED_MESSAGE });
-      return z.NEVER;
-    }
-    return weekday;
-  });
 
 /**
  * A new rental, as on the New rental form. Times are typed on the
@@ -51,9 +35,12 @@ function rentalInputSchemaIn(timeZone: string) {
       type: z.enum(RENTAL_TYPES, REQUIRED_MESSAGE),
       plannedStart: requiredLocalMoment(timeZone),
       plannedEnd: optionalLocalMoment(timeZone),
-      weeklyRateCents: requiredDollars.refine((cents) => cents > 0, RATE_ABOVE_ZERO_MESSAGE),
+      dailyRateCents: requiredDollars.refine((cents) => cents > 0, DAILY_RATE_MESSAGE),
+      longTermWeeklyCents: optionalDollars.refine(
+        (cents) => cents === null || cents > 0,
+        WEEKLY_PRICE_ABOVE_ZERO_MESSAGE,
+      ),
       bondCents: requiredDollars,
-      chargeWeekday: chargeWeekdayChoice,
       notes: optionalText,
     })
     .transform((input) => ({
@@ -84,9 +71,9 @@ export const RENTAL_FORM_FIELDS = [
   "type",
   "plannedStart",
   "plannedEnd",
-  "weeklyRateCents",
+  "dailyRateCents",
+  "longTermWeeklyCents",
   "bondCents",
-  "chargeWeekday",
   "notes",
 ] as const;
 export type RentalFormField = (typeof RENTAL_FORM_FIELDS)[number];
@@ -97,7 +84,7 @@ export function isRequiredRentalField(field: RentalFormField, type: string): boo
   if (field === "plannedEnd") {
     return type === "fixed_term";
   }
-  return field !== "notes" && field !== "chargeWeekday";
+  return field !== "notes" && field !== "longTermWeeklyCents";
 }
 
 export function parseRentalForm(
@@ -107,9 +94,14 @@ export function parseRentalForm(
   return rentalInputSchemaIn(timeZone).safeParse(values);
 }
 
-/** A blank form, with the Renter or car filled in when it was opened from their page. */
+/** A blank form, with the Renter or car (and its prices) filled in when opened from their page. */
 export function emptyRentalForm(
-  preset: Partial<Pick<RentalFormValues, "renterId" | "vehicleId" | "plannedStart">> = {},
+  preset: Partial<
+    Pick<
+      RentalFormValues,
+      "renterId" | "vehicleId" | "plannedStart" | "dailyRateCents" | "longTermWeeklyCents"
+    >
+  > = {},
 ): RentalFormValues {
   const type: RentalType = "fixed_term";
   return { ...emptyForm(RENTAL_FORM_FIELDS), type, ...preset };

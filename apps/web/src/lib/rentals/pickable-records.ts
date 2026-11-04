@@ -71,3 +71,27 @@ export async function listPickableCars(
     description: `${row.make} ${row.model} · ${VEHICLE_STATUS_LABELS[row.status]}`,
   }));
 }
+
+/** A car's prices as the booking form fills them in: daily rate and long-term weekly price. */
+export interface CarPrices {
+  dailyRateCents: number | null;
+  longTermWeeklyCents: number | null;
+}
+
+/** Each bookable car's prices, so choosing a car fills the booking form's price boxes. */
+export async function listCarPrices(
+  database: AnyDatabase,
+  operatorId: string,
+): Promise<Record<string, CarPrices>> {
+  const rows = await withTenant(database, operatorId, (tx) =>
+    tx
+      .select({
+        id: vehicles.id,
+        dailyRateCents: vehicles.dailyRateCents,
+        longTermWeeklyCents: vehicles.longTermWeeklyCents,
+      })
+      .from(vehicles)
+      .where(and(eq(vehicles.operatorId, operatorId), isNull(vehicles.archivedAt))),
+  );
+  return Object.fromEntries(rows.map(({ id, ...prices }) => [id, prices]));
+}

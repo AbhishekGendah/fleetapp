@@ -1,4 +1,9 @@
-import { formatCalendarDate, formatDateTimeInTimeZone, formatKilometres } from "@fleetapp/core";
+import {
+  formatCalendarDate,
+  formatCents,
+  formatDateTimeInTimeZone,
+  formatKilometres,
+} from "@fleetapp/core";
 import { ACTIVITY_ENTITY_TYPES } from "@fleetapp/db/schema";
 import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
@@ -85,6 +90,36 @@ const DETAIL_FIELDS = [
   "vin",
 ] as const;
 
+/** The car's prices, or a nudge to add the daily rate every new rental needs. */
+function PricesCard({ vehicle }: { vehicle: VehicleDetail }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Prices</CardTitle>
+        <CardDescription>Filled in on each new rental of this car.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {vehicle.dailyRateCents === null ? (
+          <p className="text-attention text-sm" role="status">
+            Add a daily rate: choose Edit. Until then, type the rate on each new rental.
+          </p>
+        ) : (
+          <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2 text-sm">
+            <dt className="text-muted-foreground">{VEHICLE_FIELD_LABELS.dailyRateCents}</dt>
+            <dd>{formatCents(vehicle.dailyRateCents)}</dd>
+            <dt className="text-muted-foreground">{VEHICLE_FIELD_LABELS.longTermWeeklyCents}</dt>
+            <dd>
+              {vehicle.longTermWeeklyCents === null
+                ? "7 days at the daily rate"
+                : formatCents(vehicle.longTermWeeklyCents)}
+            </dd>
+          </dl>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function DetailsTab({ vehicle }: { vehicle: VehicleDetail }) {
   const isArchived = vehicle.archivedAt !== null;
   return (
@@ -112,6 +147,8 @@ function DetailsTab({ vehicle }: { vehicle: VehicleDetail }) {
           </dl>
         </CardContent>
       </Card>
+
+      <PricesCard vehicle={vehicle} />
 
       {isArchived ? null : (
         <Card>

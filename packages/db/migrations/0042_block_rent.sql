@@ -1,5 +1,7 @@
 CREATE TYPE "public"."rent_model" AS ENUM('weekday', 'blocks');--> statement-breakpoint
+ALTER TYPE "public"."built_in_charge_type" ADD VALUE 'daily_rent' BEFORE 'part_week_rent';--> statement-breakpoint
 ALTER TABLE "rental_rates" DROP CONSTRAINT "rental_rates_amount";--> statement-breakpoint
+ALTER TABLE "rental_changes" DROP CONSTRAINT "rental_changes_rate_values";--> statement-breakpoint
 ALTER TABLE "rental_rates" ALTER COLUMN "weekly_rate_cents" DROP NOT NULL;--> statement-breakpoint
 ALTER TABLE "rental_rates" ALTER COLUMN "applies_from" DROP NOT NULL;--> statement-breakpoint
 ALTER TABLE "vehicles" ADD COLUMN "daily_rate_cents" integer;--> statement-breakpoint
@@ -12,6 +14,7 @@ ALTER TABLE "rentals" ADD COLUMN "grace_minutes" smallint;--> statement-breakpoi
 ALTER TABLE "rentals" ADD COLUMN "long_term_minimum_days" smallint;--> statement-breakpoint
 ALTER TABLE "rentals" ADD COLUMN "booked_blocks" integer;--> statement-breakpoint
 ALTER TABLE "rentals" ADD COLUMN "daily_rate_waived_reason" text;--> statement-breakpoint
+ALTER TABLE "rental_changes" ADD COLUMN "applies_from_block" integer;--> statement-breakpoint
 ALTER TABLE "ledger_lines" ADD COLUMN "period_starts_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "ledger_lines" ADD COLUMN "period_ends_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "ledger_lines" ADD COLUMN "is_correction" boolean DEFAULT false NOT NULL;--> statement-breakpoint
@@ -33,6 +36,11 @@ ALTER TABLE "rentals" ADD CONSTRAINT "rentals_block_terms" CHECK (("rentals"."re
         and ("rentals"."rent_model" = 'weekday' or "rentals"."is_long_term" or "rentals"."booked_blocks" is not null)
         and ("rentals"."daily_rate_waived_reason" is null
           or ("rentals"."is_long_term" and length(trim("rentals"."daily_rate_waived_reason")) > 0)));--> statement-breakpoint
+ALTER TABLE "rental_changes" ADD CONSTRAINT "rental_changes_rate_values" CHECK (("rental_changes"."kind" = 'weekly_rate') = ("rental_changes"."rate_after_cents" is not null)
+        and ("rental_changes"."rate_after_cents" is null or ("rental_changes"."rate_after_cents" > 0
+          and "rental_changes"."rate_before_cents" > 0
+          and ("rental_changes"."applies_from" is null) <> ("rental_changes"."applies_from_block" is null)))
+        and ("rental_changes"."applies_from_block" is null or "rental_changes"."applies_from_block" > 0));--> statement-breakpoint
 ALTER TABLE "ledger_lines" ADD CONSTRAINT "ledger_lines_block_period" CHECK (("ledger_lines"."period_starts_at" is null) = ("ledger_lines"."period_ends_at" is null)
         and ("ledger_lines"."period_starts_at" is null or ("ledger_lines"."kind" in ('charge', 'credit')
           and "ledger_lines"."period_start" is null and "ledger_lines"."period_ends_at" > "ledger_lines"."period_starts_at"))

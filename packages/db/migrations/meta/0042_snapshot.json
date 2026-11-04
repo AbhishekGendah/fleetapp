@@ -1,5 +1,5 @@
 {
-  "id": "ae721eb0-1671-400e-8f24-aad0ec3984b7",
+  "id": "6b5bbca3-5529-4516-a059-0ea0886640e2",
   "prevId": "b9518bd7-f586-4317-bc5a-a51c7ab447f8",
   "version": "7",
   "dialect": "postgresql",
@@ -8332,6 +8332,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "applies_from_block": {
+          "name": "applies_from_block",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "reason": {
           "name": "reason",
           "type": "text",
@@ -8490,7 +8496,7 @@
         },
         "rental_changes_rate_values": {
           "name": "rental_changes_rate_values",
-          "value": "(\"rental_changes\".\"kind\" = 'weekly_rate') = (\"rental_changes\".\"rate_after_cents\" is not null)\n        and (\"rental_changes\".\"rate_after_cents\" is null or (\"rental_changes\".\"rate_after_cents\" > 0\n          and \"rental_changes\".\"rate_before_cents\" > 0 and \"rental_changes\".\"applies_from\" is not null))"
+          "value": "(\"rental_changes\".\"kind\" = 'weekly_rate') = (\"rental_changes\".\"rate_after_cents\" is not null)\n        and (\"rental_changes\".\"rate_after_cents\" is null or (\"rental_changes\".\"rate_after_cents\" > 0\n          and \"rental_changes\".\"rate_before_cents\" > 0\n          and (\"rental_changes\".\"applies_from\" is null) <> (\"rental_changes\".\"applies_from_block\" is null)))\n        and (\"rental_changes\".\"applies_from_block\" is null or \"rental_changes\".\"applies_from_block\" > 0)"
         },
         "rental_changes_status_times": {
           "name": "rental_changes_status_times",
@@ -10707,6 +10713,7 @@
       "schema": "public",
       "values": [
         "weekly_rent",
+        "daily_rent",
         "part_week_rent",
         "late_fee",
         "damage",

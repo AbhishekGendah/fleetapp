@@ -1,18 +1,23 @@
 import {
+  blockAt,
+  blockRateChangeProblem,
+  blockStartsAt,
   canChangeEnd,
   canChangeRate,
-  earliestRateDay,
+  DAYS_PER_WEEK,
   endChangeProblem,
+  isBlockRateChangeSignable,
+  rateForBlock,
   formatCalendarDate,
   formatCents,
   formatDateTimeInTimeZone,
   noticeDaysShort,
   operatorSettingsSchema,
-  rateChangeProblem,
   readSettings,
   RENTAL_TYPE_LABELS,
+  type BlockRateChangeProblem,
+  type BlockRentTerms,
   type EndChangeProblem,
-  type RateChangeProblem,
   type RentalStatus,
   type RentalType,
 } from "@fleetapp/core";
@@ -31,6 +36,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { recordUserChange, type ActingUser } from "../acting-user";
 import { isChecklistUnderWay } from "../handover/handover-records";
 import type { ChangeFields } from "../contracts/contract-data";
+import { loadBlockRates } from "./block-rates";
 import { findBookingClash, isCarAlreadyHeld, type BookingClash } from "./car-holds";
 import type { RentalClock } from "./rental-records";
 
@@ -238,20 +244,61 @@ export type RateChangeResult =
   | { status: "waiting"; changeId: string }
   | {
       status:
-        RateChangeProblem | "not_found" | "not_changeable" | "one_waiting" | "return_under_way";
+        | BlockRateChangeProblem
+        | "not_found"
+        | "not_changeable"
+        | "one_waiting"
+        | "return_under_way";
     };
 
+/** A long-term block rental's terms as far as a rate change goes, or null if it is not one. */
+async function rateTermsOf(
+  tx: AnyTransaction,
+  operatorId: string,
+  rentalId: string,
+): Promise<{ terms: BlockRentTerms; handedOverAt: Date } | null> {
+  const [row] = await tx
+    .select({
+      handedOverAt: rentals.handedOverAt,
+      isLongTerm: rentals.isLongTerm,
+      bookedBlocks: rentals.bookedBlocks,
+    })
+    .from(rentals)
+    .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, operatorId)));
+  if (!row?.handedOverAt || row.isLongTerm === null) {
+    return null;
+  }
+  const rates = await loadBlockRates(tx, operatorId, rentalId);
+  const terms: BlockRentTerms = {
+    isLongTerm: row.isLongTerm,
+    graceMinutes: 0,
+    longTermMinimumDays: DAYS_PER_WEEK,
+    bookedBlocks: row.bookedBlocks ?? 0,
+    rates,
+    isDailyRateWaived: false,
+  };
+  return { terms, handedOverAt: row.handedOverAt };
+}
+
+/** A rate's weekly price, or seven of its daily rate when it has none. */
+function weeklyPriceOf(rate: { weeklyRateCents: number | null; dailyRateCents: number }): number {
+  return rate.weeklyRateCents ?? rate.dailyRateCents * DAYS_PER_WEEK;
+}
+
 /**
- * A new weekly rate from a day on, waiting for the Renter's signature on
- * the change-of-terms form: it is not a rate until they sign (consumer law:
- * the price is not changed by one side alone). One can wait at a time.
+ * A new weekly price from a rent week's start (docs/plans/review-fixes-batch-1.md),
+ * waiting for the Renter's signature on the change-of-terms form: it is not
+ * a rate until they sign (consumer law: the price is not changed by one side
+ * alone). Long-term rentals only, from a week after the one running, never a
+ * week that already has a signed rate, and compared with the rate that week
+ * would have (review G2-5). One can wait at a time.
  */
 export async function proposeRateChange(
   database: AnyDatabase,
   actor: ActingUser,
   rentalId: string,
-  request: { weeklyRateCents: number; appliesFrom: string; reason: string },
-  clock: RentalClock & { currentRateCents: number },
+  request: { weeklyRateCents: number; fromBlock: number; reason: string },
+  clock: RentalClock,
 ): Promise<RateChangeResult> {
   return withTenant(database, actor.operatorId, async (tx): Promise<RateChangeResult> => {
     const rental = await lockRental(tx, actor.operatorId, rentalId);
@@ -264,14 +311,19 @@ export async function proposeRateChange(
     if (await isReturnUnderWay(tx, actor.operatorId, rental.id)) {
       return { status: "return_under_way" };
     }
-    const problem = rateChangeProblem(
+    const rate = await rateTermsOf(tx, actor.operatorId, rental.id);
+    if (!rate) {
+      return { status: "not_long_term" };
+    }
+    const problem = blockRateChangeProblem(
+      rate.terms,
       request,
-      { weeklyRateCents: clock.currentRateCents },
-      earliestRateDay(clock.now, clock.timeZone),
+      blockAt(rate.handedOverAt, clock.now),
     );
     if (problem) {
       return { status: problem };
     }
+    const rateBeforeCents = weeklyPriceOf(rateForBlock(rate.terms.rates, request.fromBlock));
     const [change] = await tx
       .insert(rentalChanges)
       .values({
@@ -279,9 +331,9 @@ export async function proposeRateChange(
         rentalId: rental.id,
         kind: "weekly_rate",
         status: "waiting_for_signature",
-        rateBeforeCents: clock.currentRateCents,
+        rateBeforeCents,
         rateAfterCents: request.weeklyRateCents,
-        appliesFrom: request.appliesFrom,
+        appliesFromBlock: request.fromBlock,
         reason: request.reason,
         createdByUserId: actor.userId,
         createdAt: clock.now,
@@ -295,7 +347,7 @@ export async function proposeRateChange(
       rentalId: rental.id,
       kind: "weekly_rate",
       rateAfterCents: request.weeklyRateCents,
-      appliesFrom: request.appliesFrom,
+      appliesFromBlock: request.fromBlock,
     });
     return { status: "waiting", changeId: change.id };
   });
@@ -352,25 +404,83 @@ export async function recordChangeSigned(
       ...(isWaiting ? { status: "applied" as const, appliedAt: signed.at } : {}),
     })
     .where(eq(rentalChanges.id, change.id));
-  if (isWaiting && change.kind === "weekly_rate" && change.rateAfterCents && change.appliesFrom) {
-    await tx.insert(rentalRates).values({
-      operatorId,
-      rentalId: change.rentalId,
-      weeklyRateCents: change.rateAfterCents,
-      appliesFrom: change.appliesFrom,
-    });
+  if (isWaiting && change.kind === "weekly_rate" && change.rateAfterCents) {
+    await addSignedRate(tx, operatorId, change, change.rateAfterCents);
   }
 }
 
-/** Whether the change can still be signed: not withdrawn, not signed, its rental not finished. */
-export function isChangeSignable(change: RentalChange, rentalStatus: RentalStatus): boolean {
-  return change.status !== "withdrawn" && change.documentId === null && canChangeEnd(rentalStatus);
+/**
+ * The signed rate as a new rate row: from its rent week, keeping the daily
+ * rate in force then; a weekday-era change keeps its date.
+ */
+async function addSignedRate(
+  tx: AnyTransaction,
+  operatorId: string,
+  change: RentalChange,
+  weeklyRateCents: number,
+): Promise<void> {
+  if (change.appliesFromBlock === null) {
+    await tx.insert(rentalRates).values({
+      operatorId,
+      rentalId: change.rentalId,
+      weeklyRateCents,
+      appliesFrom: change.appliesFrom,
+    });
+    return;
+  }
+  const rates = await loadBlockRates(tx, operatorId, change.rentalId);
+  await tx.insert(rentalRates).values({
+    operatorId,
+    rentalId: change.rentalId,
+    weeklyRateCents,
+    dailyRateCents: rateForBlock(rates, change.appliesFromBlock).dailyRateCents,
+    appliesFromBlock: change.appliesFromBlock,
+  });
+}
+
+/**
+ * Whether the change can still be signed: not withdrawn, not signed, its
+ * rental not finished, and a rate change's rent week not yet begun (no
+ * backdating, review A3-1).
+ */
+export function isChangeSignable(
+  change: RentalChange,
+  rental: { status: RentalStatus; handedOverAt: Date | null },
+  now: Date,
+): boolean {
+  const isWeekStillAhead =
+    change.appliesFromBlock === null ||
+    rental.handedOverAt === null ||
+    change.status !== "waiting_for_signature" ||
+    isBlockRateChangeSignable(rental.handedOverAt, change.appliesFromBlock, now);
+  return (
+    change.status !== "withdrawn" &&
+    change.documentId === null &&
+    canChangeEnd(rental.status) &&
+    isWeekStillAhead
+  );
+}
+
+/** When a rate change starts, in words: its rent week's start on the business's clock, or its date. */
+export function rateChangeStartText(
+  change: Pick<RentalChange, "appliesFrom" | "appliesFromBlock">,
+  handedOverAt: Date | null,
+  timeZone: string,
+): string | null {
+  if (change.appliesFromBlock !== null && handedOverAt) {
+    return formatDateTimeInTimeZone(blockStartsAt(handedOverAt, change.appliesFromBlock), timeZone);
+  }
+  return change.appliesFrom ? formatCalendarDate(change.appliesFrom) : null;
 }
 
 /** What the change-of-terms form's own fields say, on the business's clock (rule 10). */
-export function changeFieldsOf(change: RentalChange, timeZone: string): ChangeFields {
+export function changeFieldsOf(
+  change: RentalChange,
+  timeZone: string,
+  handedOverAt: Date | null,
+): ChangeFields {
   const rate = change.rateAfterCents === null ? null : formatCents(change.rateAfterCents);
-  const rateFrom = change.appliesFrom ? formatCalendarDate(change.appliesFrom) : null;
+  const rateFrom = rateChangeStartText(change, handedOverAt, timeZone);
   const newEnd = change.endAfter ? formatDateTimeInTimeZone(change.endAfter, timeZone) : null;
   return {
     changeSummary: changeSummaryText(change, { rate, rateFrom, newEnd }),

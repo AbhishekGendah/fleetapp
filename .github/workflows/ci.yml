@@ -58,6 +58,7 @@ jobs:
           FILE_STORAGE_ACCESS_KEY_ID: placeholder
           FILE_STORAGE_SECRET_ACCESS_KEY: placeholder
           CRON_SECRET: placeholder-placeholder-placeholder-32
+          OPS_ALERT_EMAIL: ops@example.test
 
   # Each app used in a real browser: keyboard, screen-reader names and phone
   # width. Runs against a throwaway Postgres (and, for the Operator app, a

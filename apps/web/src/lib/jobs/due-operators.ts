@@ -21,19 +21,35 @@ export interface OperatorRun {
   done: number;
   /** Operators skipped because something failed; the next run tries again. */
   failedOperators: number;
+  /** Operators not reached before the run's time ran out; the next run carries on. */
+  unreachedOperators: number;
 }
 
 /**
  * Runs a nightly job one Operator at a time. One Operator's failure is
  * logged (never its details) and skipped, so it cannot stop the others.
+ * When `isOutOfTime` says the run's budget is spent, it stops cleanly before
+ * the next Operator (review G3-7); the next run carries on, since every job
+ * is safe to re-run (rule 20).
  */
 export async function forEachOperator(
   operatorIds: readonly string[],
   description: string,
   work: (operatorId: string) => Promise<number>,
+  isOutOfTime: () => boolean = () => false,
 ): Promise<OperatorRun> {
-  const run: OperatorRun = { operators: operatorIds.length, done: 0, failedOperators: 0 };
-  for (const operatorId of operatorIds) {
+  const run: OperatorRun = {
+    operators: operatorIds.length,
+    done: 0,
+    failedOperators: 0,
+    unreachedOperators: 0,
+  };
+  for (const [index, operatorId] of operatorIds.entries()) {
+    if (isOutOfTime()) {
+      run.unreachedOperators = operatorIds.length - index;
+      console.error(`${description} ran out of time`, { unreached: run.unreachedOperators });
+      break;
+    }
     try {
       run.done += await work(operatorId);
     } catch (error) {

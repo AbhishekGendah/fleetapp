@@ -1,5 +1,4 @@
 import {
-  formatCents,
   formatDateTimeInTimeZone,
   RENTAL_STATUS_LABELS,
   RENTAL_STATUSES,
@@ -7,6 +6,7 @@ import {
 } from "@fleetapp/core";
 import type { DataListDefinition } from "@fleetapp/ui/data-list";
 
+import { rentalRateText } from "../../lib/rentals/rental-labels";
 import { STATUS_FILTER_KEY, type RentalSummary } from "../../lib/rentals/rental-queries";
 import { RentalBadges } from "./rental-status-badge";
 
@@ -53,8 +53,8 @@ export function rentalList(timeZone: string): DataListDefinition<RentalSummary> 
       },
       {
         key: "weeklyRate",
-        label: "Weekly rate",
-        exportValue: (rental) => formatCents(rental.weeklyRateCents),
+        label: "Rate",
+        exportValue: (rental) => rentalRateText(rental),
       },
       {
         key: "status",

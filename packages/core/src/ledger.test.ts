@@ -3,22 +3,16 @@ import { describe, expect, it } from "vitest";
 import { weekdayOfDate } from "./calendar-dates";
 import {
   dailyShares,
-  dueRentPeriods,
   gstForLine,
   isGstRegisteredOn,
   ledgerBalanceCents,
   owingCharges,
-  rentForDays,
-  rentForPeriod,
   reversibleLineIds,
   statementFigures,
-  unusedDaysCredit,
   type DatedLedgerLine,
-  type RateFromDate,
 } from "./ledger";
 
 const TUESDAY = 2;
-const RATE_350: RateFromDate[] = [{ appliesFrom: "2026-01-01", weeklyRateCents: 350_00 }];
 
 function line(
   id: string,
@@ -64,75 +58,6 @@ describe("a weekly rate by the day", () => {
     for (const rate of [1, 6, 7, 99_99, 333_33, 480_00, 1_000_003]) {
       expect(dailyShares(rate).reduce((sum, share) => sum + share, 0)).toBe(rate);
     }
-  });
-
-  it("charges each day at the rate in force on it", () => {
-    const rising: RateFromDate[] = [
-      ...RATE_350,
-      { appliesFrom: "2026-11-06", weeklyRateCents: 420_00 },
-    ];
-    // Tue 3 to Mon 9 Nov: three days at $50, four at $60.
-    expect(rentForDays(rising, "2026-11-03", 7)).toBe(3 * 50_00 + 4 * 60_00);
-    expect(rentForDays(RATE_350, "2026-11-03", 7)).toBe(350_00);
-    expect(rentForDays(RATE_350, "2026-11-03", 3)).toBe(150_00);
-    // Handed over a day before the first rate: that day is at the first rate.
-    expect(rentForDays(RATE_350, "2025-12-31", 1)).toBe(50_00);
-    expect(() => rentForDays([], "2026-11-03", 1)).toThrow(RangeError);
-  });
-});
-
-describe("rent periods", () => {
-  it("starts at the handover with a part week up to the first charge day", () => {
-    // Handover Thursday 5 Nov; rent charged on Tuesdays.
-    expect(
-      dueRentPeriods({
-        handoverDate: "2026-11-05",
-        chargeWeekday: TUESDAY,
-        today: "2026-11-17",
-        returnDate: null,
-      }),
-    ).toEqual([
-      { start: "2026-11-05", end: "2026-11-10", isPartWeek: true },
-      { start: "2026-11-10", end: "2026-11-17", isPartWeek: false },
-      { start: "2026-11-17", end: "2026-11-24", isPartWeek: false },
-    ]);
-  });
-
-  it("has no part week when the handover is on the charge day, and nothing due before it", () => {
-    const fromTuesday = { handoverDate: "2026-11-03", chargeWeekday: TUESDAY as 2 };
-    expect(dueRentPeriods({ ...fromTuesday, today: "2026-11-09", returnDate: null })).toEqual([
-      { start: "2026-11-03", end: "2026-11-10", isPartWeek: false },
-    ]);
-    expect(dueRentPeriods({ ...fromTuesday, today: "2026-11-02", returnDate: null })).toEqual([]);
-  });
-
-  it("starts no period on or after the return, and keeps going while overdue", () => {
-    const base = { handoverDate: "2026-11-03", chargeWeekday: TUESDAY as 2, today: "2027-01-05" };
-    expect(dueRentPeriods({ ...base, returnDate: "2026-11-10" })).toHaveLength(1);
-    expect(dueRentPeriods({ ...base, returnDate: "2026-11-11" })).toHaveLength(2);
-    expect(dueRentPeriods({ ...base, returnDate: null })).toHaveLength(10);
-  });
-
-  it("charges a part week by the day, or as a full week, as the rental says", () => {
-    const part = { start: "2026-11-05", end: "2026-11-10", isPartWeek: true };
-    expect(rentForPeriod(RATE_350, part, "daily_pro_rata")).toBe(250_00);
-    expect(rentForPeriod(RATE_350, part, "full_week")).toBe(350_00);
-    const week = { start: "2026-11-10", end: "2026-11-17", isPartWeek: false };
-    expect(rentForPeriod(RATE_350, week, "daily_pro_rata")).toBe(350_00);
-  });
-
-  it("credits the days after an early return, the return day counting as used", () => {
-    const week = { start: "2026-11-10", end: "2026-11-17", isPartWeek: false };
-    // Back Thursday 12 Nov: three days used, four credited.
-    expect(unusedDaysCredit(RATE_350, week, "2026-11-12", "daily_pro_rata")).toBe(200_00);
-    expect(unusedDaysCredit(RATE_350, week, "2026-11-16", "daily_pro_rata")).toBe(0);
-    expect(unusedDaysCredit(RATE_350, week, "2026-11-12", "full_week")).toBe(0);
-    expect(unusedDaysCredit(RATE_350, week, "2026-11-20", "daily_pro_rata")).toBe(0);
-    // The odd cents: what is charged minus what is credited is what the used days cost.
-    const odd: RateFromDate[] = [{ appliesFrom: "2026-01-01", weeklyRateCents: 333_33 }];
-    const charged = rentForPeriod(odd, week, "daily_pro_rata");
-    const credited = unusedDaysCredit(odd, week, "2026-11-12", "daily_pro_rata");
-    expect(charged - credited).toBe(rentForDays(odd, week.start, 3));
   });
 });
 

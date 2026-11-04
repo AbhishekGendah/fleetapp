@@ -44,6 +44,10 @@ interface DemoModel {
   priceCents: number;
 }
 
+/** Every demo car's prices: a short hire by the day, and the cheaper long-term week. */
+export const DEMO_DAILY_RATE_CENTS = 70_00;
+export const DEMO_LONG_TERM_WEEKLY_CENTS = 350_00;
+
 /** Cars a rideshare and weekly-rental fleet runs, all in AGS's make and model list. */
 const DEMO_MODELS: readonly DemoModel[] = [
   model("Toyota", "Camry", "Ascent Hybrid", "sedan", "hybrid", 5, 32_000_00),
@@ -173,6 +177,8 @@ async function createDemoCar(context: DemoContext, car: DemoCar): Promise<string
         seats: String(car.model.seats),
         vin: car.vin ?? "",
         kilometres: String(car.kilometres),
+        dailyRateCents: centsForEditing(DEMO_DAILY_RATE_CENTS),
+        longTermWeeklyCents: centsForEditing(DEMO_LONG_TERM_WEEKLY_CENTS),
       },
       new Date(),
       context.catalogue,

@@ -10,6 +10,8 @@ import {
   MINIMUM_LICENCE_SCAN_KEPT_MONTHS,
   MINIMUM_RENTER_LINK_DAYS,
   REQUIRED_MESSAGE,
+  MAXIMUM_GRACE_MINUTES,
+  MAXIMUM_LONG_TERM_MINIMUM_DAYS,
 } from "@fleetapp/core";
 import { z } from "zod";
 
@@ -47,6 +49,10 @@ const NUMBER_SETTING_RANGES = {
   },
   /** How long the bond is kept after the car comes back. */
   bondHoldDaysAfterReturn: { min: 0, max: MAXIMUM_BOND_HOLD_DAYS, unit: "days" },
+  /** Minutes past a whole 24-hour block that are free at the return. */
+  graceMinutes: { min: 0, max: MAXIMUM_GRACE_MINUTES, unit: "minutes" },
+  /** Booked for at least this many days, a rental is long-term. */
+  longTermMinimumDays: { min: 1, max: MAXIMUM_LONG_TERM_MINIMUM_DAYS, unit: "days" },
   /** The notice a Renter on an ongoing rental gives before returning the car. */
   ongoingNoticeDays: { min: 0, max: MAXIMUM_ONGOING_NOTICE_DAYS, unit: "days" },
 } as const;

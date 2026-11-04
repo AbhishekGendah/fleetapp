@@ -19,6 +19,9 @@ import { loadBusinessDetails } from "../settings/business-details";
 import { loadContractData } from "./contract-data";
 import { renderDocumentPdf, type DocumentPdfInput, type PdfImage } from "./document-pdf";
 
+/** A logo or photo that takes longer than this is left out of the PDF (review G3-7). */
+const PDF_IMAGE_TIMEOUT_MS = 15_000;
+
 /** react-pdf prints PNG and JPEG images; a WebP one is left off the PDF. */
 const PDF_IMAGE_FORMATS: Readonly<Record<string, PdfImage["format"]>> = {
   "image/png": "png",
@@ -67,7 +70,9 @@ export async function loadPdfImage(
     return undefined;
   }
   try {
-    const response = await fetch(await storage.createViewUrl(image.storageArea, image.objectKey));
+    const response = await fetch(await storage.createViewUrl(image.storageArea, image.objectKey), {
+      signal: AbortSignal.timeout(PDF_IMAGE_TIMEOUT_MS),
+    });
     if (!response.ok) {
       // Logged without details: the address holds the file's key.
       console.error(`Loading the ${describedAs} for a PDF failed`, { status: response.status });

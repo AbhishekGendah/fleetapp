@@ -90,8 +90,13 @@ export interface BillableLine {
   id: string;
   kind: LedgerLineKind;
   reversesId: string | null;
-  /** Rent and its unused-days credit carry the period they cover. */
+  /**
+   * Rent and its corrections carry the period they cover: its first day, or
+   * for block rent the exact moment it starts.
+   */
   periodStart: string | null;
+  /** A correction to a block period already charged. */
+  isCorrection?: boolean;
   /** The invoice, credit note or receipt it is on. */
   documentId: string | null;
 }
@@ -119,8 +124,14 @@ export interface PendingOptions {
   isInvoicedNow?: boolean;
 }
 
+/** Rent, or a correction to it: invoiced at once, never held for the next weekly invoice. */
 function isRentLine(line: BillableLine): boolean {
   return line.kind === "charge" && line.periodStart !== null;
+}
+
+/** A period's own rent charge, which its corrections and credits point back to. */
+function isOriginalRentLine(line: BillableLine): boolean {
+  return isRentLine(line) && line.isCorrection !== true;
 }
 
 function invoiceLineIdsOf(waiting: readonly BillableLine[], options: PendingOptions): string[] {
@@ -145,7 +156,7 @@ function correctedDocumentId(
 function creditNotesOf(lines: readonly BillableLine[], reversedIds: ReadonlySet<string>) {
   const linesById = new Map(lines.map((line) => [line.id, line]));
   const rentByPeriod = new Map(
-    lines.filter(isRentLine).map((line) => [line.periodStart as string, line]),
+    lines.filter(isOriginalRentLine).map((line) => [line.periodStart as string, line]),
   );
   const notes = new Map<string | null, string[]>();
   for (const line of lines) {
@@ -166,6 +177,29 @@ function creditNotesOf(lines: readonly BillableLine[], reversedIds: ReadonlySet<
 }
 
 /**
+ * Taking back a credit that is already on a credit note raises what the
+ * Renter owes, so it goes on an invoice at once (review A4-7). One reversed
+ * before it was on a document needs none, like any other.
+ */
+function creditReversalIdsOf(
+  lines: readonly BillableLine[],
+  isWaiting: (line: BillableLine) => boolean,
+): string[] {
+  const linesById = new Map(lines.map((line) => [line.id, line]));
+  return lines
+    .filter((line) => {
+      const reversed = line.reversesId ? linesById.get(line.reversesId) : undefined;
+      return (
+        line.kind === "reversal" &&
+        isWaiting(line) &&
+        reversed?.kind === "credit" &&
+        reversed.documentId !== null
+      );
+    })
+    .map((line) => line.id);
+}
+
+/**
  * The documents a rental's lines still need, in the order to issue them
  * (invoices before the credit notes that correct them). A line reversed
  * before it was on a document needs none, and neither does its reversal;
@@ -178,10 +212,13 @@ export function pendingDocuments(
   const reversedIds = new Set(lines.flatMap((line) => (line.reversesId ? [line.reversesId] : [])));
   const isWaiting = (line: BillableLine) => line.documentId === null && !reversedIds.has(line.id);
   return {
-    invoiceLineIds: invoiceLineIdsOf(
-      lines.filter((line) => line.kind === "charge" && isWaiting(line)),
-      options,
-    ),
+    invoiceLineIds: [
+      ...invoiceLineIdsOf(
+        lines.filter((line) => line.kind === "charge" && isWaiting(line)),
+        options,
+      ),
+      ...creditReversalIdsOf(lines, isWaiting),
+    ],
     creditNotes: creditNotesOf(lines, reversedIds),
     receiptLineIds: lines
       .filter((line) => line.kind === "payment" && isWaiting(line))

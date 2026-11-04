@@ -6,6 +6,10 @@ import {
   NewDeviceSignInEmail,
   type NewDeviceSignInEmailProps,
 } from "./templates/new-device-sign-in";
+import {
+  NightlyRunAlertEmail,
+  type NightlyRunAlertEmailProps,
+} from "./templates/nightly-run-alert";
 import { OperatorInviteEmail, type OperatorInviteEmailProps } from "./templates/operator-invite";
 import { PasswordResetEmail, type PasswordResetEmailProps } from "./templates/password-reset";
 import {
@@ -75,6 +79,18 @@ export function renderNewDeviceSignInEmail(
 ): Promise<EmailMessage> {
   const { to, ...props } = input;
   return renderEmail(to, "New sign-in to your account", createElement(NewDeviceSignInEmail, props));
+}
+
+/** To AGS, when the nightly run did not finish cleanly (review G3-4). */
+export function renderNightlyRunAlertEmail(
+  input: WithRecipient<NightlyRunAlertEmailProps>,
+): Promise<EmailMessage> {
+  const { to, ...props } = input;
+  return renderEmail(
+    to,
+    "The nightly run had a problem",
+    createElement(NightlyRunAlertEmail, props),
+  );
 }
 
 /** From the Operator's business, replies to the Operator: the Renter deals with them, not with AGS. */

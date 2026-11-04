@@ -1,12 +1,14 @@
 "use client";
 
 import {
+  blocksBetween,
+  centsForEditing,
   fieldErrorsOf,
+  isLongTermBooking,
+  localDateTimeToUtc,
   MAXIMUM_NOTE_LENGTH,
   RENTAL_TYPE_LABELS,
   RENTAL_TYPES,
-  WEEKDAY_LABELS,
-  WEEKDAYS,
 } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { DateTimePicker } from "@fleetapp/ui/date-time-picker";
@@ -21,8 +23,8 @@ import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import Link from "next/link";
 import { useActionState } from "react";
 
+import type { CarPrices } from "../../lib/rentals/pickable-records";
 import {
-  AUTOMATIC_CHARGE_DAY,
   isRequiredRentalField,
   parseRentalForm,
   RENTAL_FORM_FIELDS,
@@ -36,11 +38,35 @@ interface RentalFormProps {
   initialValues: RentalFormValues;
   renters: readonly PickableRecord[];
   cars: readonly PickableRecord[];
+  /** Each car's prices: choosing a car fills the price boxes, which stay editable. */
+  carPrices: Readonly<Record<string, CarPrices>>;
   timeZone: string;
-  /** "Tuesday" when the business charges everyone on one day; null for each start's weekday. */
-  fixedChargeDayLabel: string | null;
+  /** Booked for at least this many days, a rental is long-term (Settings → Rentals). */
+  longTermMinimumDays: number;
   action: (state: RentalFormState, formData: FormData) => Promise<RentalFormState>;
   cancelHref: string;
+}
+
+/**
+ * Whether the rental as typed is long-term, in words, or null until the
+ * dates are in. Ongoing rentals always are; others when booked for the minimum.
+ */
+function rentKindText(values: RentalFormValues, timeZone: string, minimumDays: number): string {
+  const start = localDateTimeToUtc(values.plannedStart, timeZone);
+  const end = localDateTimeToUtc(values.plannedEnd, timeZone);
+  const bookedBlocks =
+    values.type === "ongoing"
+      ? null
+      : start && end && end > start
+        ? blocksBetween(start, end, 0)
+        : 0;
+  if (bookedBlocks === 0) {
+    return `Rent is counted in 24-hour blocks from the handover. Booked for ${minimumDays} days or more, a rental gets the long-term price.`;
+  }
+  return isLongTermBooking(bookedBlocks, minimumDays)
+    ? "Long-term: charged a week at a time at the long-term price. Back sooner than " +
+        `${minimumDays} days, it is re-priced at the daily rate unless you waive it.`
+    : `Short hire: ${bookedBlocks} ${bookedBlocks === 1 ? "day" : "days"} at the daily rate, charged at the handover.`;
 }
 
 /**
@@ -93,7 +119,16 @@ export function RentalForm(props: RentalFormProps) {
         <RecordPicker
           {...form.boxProps("vehicleId")}
           records={props.cars}
-          onValueChange={(value) => form.setValue("vehicleId", value)}
+          onValueChange={(value) => {
+            form.setValue("vehicleId", value);
+            const prices = props.carPrices[value];
+            if (prices?.dailyRateCents) {
+              form.setValue("dailyRateCents", centsForEditing(prices.dailyRateCents));
+            }
+            if (prices?.longTermWeeklyCents) {
+              form.setValue("longTermWeeklyCents", centsForEditing(prices.longTermWeeklyCents));
+            }
+          }}
           placeholder="Type a rego, make or model"
           emptyMessage="No car matches that."
         />
@@ -131,39 +166,35 @@ export function RentalForm(props: RentalFormProps) {
         ) : null}
       </div>
       <div className="grid gap-6 sm:grid-cols-2">
-        <FormField label="Weekly rate" {...field("weeklyRateCents")} hint="Including GST.">
+        <FormField
+          label="Daily rate"
+          {...field("dailyRateCents")}
+          hint="Including GST. One 24-hour block."
+        >
           <MoneyInput
-            {...form.boxProps("weeklyRateCents")}
-            onValueChange={(value) => form.setValue("weeklyRateCents", value)}
+            {...form.boxProps("dailyRateCents")}
+            onValueChange={(value) => form.setValue("dailyRateCents", value)}
           />
         </FormField>
-        <FormField label="Bond" {...field("bondCents")} hint="Enter $0 if there is none.">
+        <FormField
+          label="Long-term price per week"
+          {...field("longTermWeeklyCents")}
+          hint="Including GST. Empty: 7 days at the daily rate."
+        >
           <MoneyInput
-            {...form.boxProps("bondCents")}
-            onValueChange={(value) => form.setValue("bondCents", value)}
+            {...form.boxProps("longTermWeeklyCents")}
+            onValueChange={(value) => form.setValue("longTermWeeklyCents", value)}
           />
         </FormField>
       </div>
-      <FormField
-        label="Rent is charged each"
-        {...field("chargeWeekday")}
-        hint="Rent is charged weekly in advance."
-      >
-        <Select
-          {...form.boxProps("chargeWeekday")}
-          onChange={(event) => form.setValue("chargeWeekday", event.target.value)}
-        >
-          <option value={AUTOMATIC_CHARGE_DAY}>
-            {props.fixedChargeDayLabel
-              ? `${props.fixedChargeDayLabel} (your usual day)`
-              : "Weekday the rental starts on"}
-          </option>
-          {WEEKDAYS.map((day) => (
-            <option key={day} value={String(day)}>
-              {WEEKDAY_LABELS[day]}
-            </option>
-          ))}
-        </Select>
+      <p className="text-muted-foreground text-sm" aria-live="polite">
+        {rentKindText(form.values, props.timeZone, props.longTermMinimumDays)}
+      </p>
+      <FormField label="Bond" {...field("bondCents")} hint="Enter $0 if there is none.">
+        <MoneyInput
+          {...form.boxProps("bondCents")}
+          onValueChange={(value) => form.setValue("bondCents", value)}
+        />
       </FormField>
       <FormField label="Notes" {...field("notes")} hint="For you only. Not shown to the Renter.">
         <Textarea

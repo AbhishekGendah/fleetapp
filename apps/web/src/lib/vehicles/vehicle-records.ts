@@ -29,6 +29,8 @@ const VEHICLE_FIELDS = [
   "transmission",
   "fuelType",
   "seats",
+  "dailyRateCents",
+  "longTermWeeklyCents",
 ] as const satisfies readonly (keyof VehicleInput)[];
 
 const STATUS_FIELDS = ["status", "statusReason", "statusExpectedBack"] as const;

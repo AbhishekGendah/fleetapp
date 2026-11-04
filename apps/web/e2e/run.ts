@@ -92,6 +92,7 @@ async function main(): Promise<void> {
       FILE_STORAGE_SECRET_ACCESS_KEY: s3.secretAccessKey,
       FILE_STORAGE_ENDPOINT: s3.endpoint,
       CRON_SECRET: E2E_CRON_SECRET,
+      OPS_ALERT_EMAIL: "ops@example.test",
       // Stripe's stand-in (decision 6): the browser tests never talk to Stripe.
       PAYMENTS_TRANSPORT: "stand_in",
       STRIPE_WEBHOOK_SECRET: E2E_STRIPE_WEBHOOK_SECRET,

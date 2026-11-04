@@ -10,6 +10,7 @@ import { sendSigningLink } from "../contracts/signing-links";
 import { createTemplate, loadDefaultTemplate, type TemplateDetail } from "../contracts/templates";
 import { emptyRentalForm, parseRentalForm } from "../rentals/rental-input";
 import { cancelRental, createRental, type RentalClock } from "../rentals/rental-records";
+import { DEMO_DAILY_RATE_CENTS } from "./demo-cars";
 import { findCarId } from "./demo-cars";
 import {
   checkedInput,
@@ -97,7 +98,8 @@ async function createDemoRental(context: DemoContext, plan: DemoRentalPlan): Pro
                 dayFrom(context, plan.startDays + plan.weeks * DAYS_PER_WEEK),
                 plan.startTime,
               ),
-        weeklyRateCents: centsForEditing(plan.weeklyRateCents),
+        dailyRateCents: centsForEditing(DEMO_DAILY_RATE_CENTS),
+        longTermWeeklyCents: centsForEditing(plan.weeklyRateCents),
         bondCents: centsForEditing(plan.bondCents),
         notes: `${plan.note} ${codeMarker(plan.code)}`,
       },

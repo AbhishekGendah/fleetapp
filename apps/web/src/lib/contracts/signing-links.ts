@@ -262,11 +262,17 @@ export async function sendChangeSigningLink(
   change: RentalChange,
   clock: RentalClock,
 ): Promise<SendSigningLinkResult> {
+  const [rental] = await withTenant(deps.database, actor.operatorId, (tx) =>
+    tx
+      .select({ handedOverAt: rentals.handedOverAt })
+      .from(rentals)
+      .where(and(eq(rentals.id, change.rentalId), eq(rentals.operatorId, actor.operatorId))),
+  );
   const ready = await filledFor(deps, actor, {
     kind: "change_of_terms",
     rentalId: change.rentalId,
     clock,
-    change: changeFieldsOf(change, clock.timeZone),
+    change: changeFieldsOf(change, clock.timeZone, rental?.handedOverAt ?? null),
   });
   if (ready.status !== "ready") {
     return ready;

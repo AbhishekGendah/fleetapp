@@ -189,14 +189,20 @@ async function rentalsWithUnbilledLines(
  * (rule 3). Lines that need no document (a payment reversed before its
  * receipt) are looked at and left.
  */
-export async function runBillingCatchUp(deps: BillingDependencies): Promise<OperatorRun> {
+export async function runBillingCatchUp(
+  deps: BillingDependencies,
+  isOutOfTime: () => boolean = () => false,
+): Promise<OperatorRun> {
   const since = new Date(deps.now().getTime() - CATCH_UP_LOOKBACK_DAYS * MILLISECONDS_PER_DAY);
   const operatorIds = await findDueOperators(
     deps.database,
     sql`SELECT operator_id FROM app.operators_with_unbilled_lines(${since.toISOString()}::timestamptz) AS operator_id`,
   );
-  return forEachOperator(operatorIds, "Issuing documents", (operatorId) =>
-    catchUpOperator(deps, operatorId, since),
+  return forEachOperator(
+    operatorIds,
+    "Issuing documents",
+    (operatorId) => catchUpOperator(deps, operatorId, since),
+    isOutOfTime,
   );
 }
 

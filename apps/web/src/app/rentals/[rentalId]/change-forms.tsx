@@ -6,6 +6,7 @@ import { DateTimePicker } from "@fleetapp/ui/date-time-picker";
 import { FormField } from "@fleetapp/ui/form-field";
 import { Input } from "@fleetapp/ui/input";
 import { MoneyInput } from "@fleetapp/ui/money-input";
+import { Select } from "@fleetapp/ui/select";
 import type { FormFields } from "@fleetapp/ui/use-form-fields";
 import { useMemo } from "react";
 
@@ -93,13 +94,25 @@ export function OngoingChangeForm({ action }: { action: ChangeAction }) {
   );
 }
 
-/** A new weekly rate from a day on, sent to the Renter to sign. */
-export function RateChangeForm(props: { action: ChangeAction; earliestDay: string }) {
-  const schema = useMemo(() => rateChangeFormSchema(props.earliestDay), [props.earliestDay]);
+/** A rent week a new rate can start with, worded on the business's clock. */
+export interface WeekStartOption {
+  block: number;
+  label: string;
+}
+
+/** A new weekly rate from a rent week's start, sent to the Renter to sign. */
+export function RateChangeForm(props: {
+  action: ChangeAction;
+  weekStarts: readonly WeekStartOption[];
+}) {
+  const schema = useMemo(
+    () => rateChangeFormSchema(props.weekStarts.map((option) => option.block)),
+    [props.weekStarts],
+  );
   const form = useChangeForm({
     action: props.action,
     fields: RATE_CHANGE_FIELDS,
-    initialValues: emptyRateChangeForm(props.earliestDay),
+    initialValues: emptyRateChangeForm(props.weekStarts[0]?.block),
     validate: (values) => fieldErrorsOf(schema.safeParse(values)),
     isRequired: alwaysRequired,
   });
@@ -119,12 +132,22 @@ export function RateChangeForm(props: { action: ChangeAction; earliestDay: strin
           />
         </FormField>
         <FormField
-          htmlFor={fields.idFor("appliesFrom")}
-          label="Applies from"
+          htmlFor={fields.idFor("fromBlock")}
+          label="Starts with the rent week from"
           isRequired
-          error={fields.errorFor("appliesFrom")}
+          error={fields.errorFor("fromBlock")}
+          hint="The Renter must sign before then."
         >
-          <Input {...fields.textBoxProps("appliesFrom")} type="date" min={props.earliestDay} />
+          <Select
+            {...fields.boxProps("fromBlock")}
+            onChange={(event) => fields.setValue("fromBlock", event.target.value)}
+          >
+            {props.weekStarts.map((option) => (
+              <option key={option.block} value={String(option.block)}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
         </FormField>
       </div>
       <ReasonField fields={fields} />

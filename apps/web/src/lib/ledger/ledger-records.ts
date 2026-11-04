@@ -17,8 +17,17 @@ import type { ChargeInput, ReversalInput } from "./ledger-input";
 import { ledgerViewOf, selectRentalLedger, type LedgerView } from "./ledger-queries";
 import { loadOperatorGst } from "./operator-gst";
 
-/** A rental can take charges and payments once booked, until it is closed. */
-export const OPEN_FOR_MONEY: ReadonlySet<RentalStatus> = new Set(["booked", "active", "returned"]);
+/**
+ * A rental can take charges and payments once booked, until it is closed. A
+ * cancelled booking stays open too, so money already on it can be refunded,
+ * reversed or charged (a cancellation fee) and is never stranded (review A4-5).
+ */
+export const OPEN_FOR_MONEY: ReadonlySet<RentalStatus> = new Set([
+  "booked",
+  "active",
+  "returned",
+  "cancelled",
+]);
 
 export type LedgerChangeResult =
   | { status: "saved"; ledger: LedgerView }

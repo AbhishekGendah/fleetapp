@@ -1,6 +1,4 @@
-import { addDays, daysBetween, weekdayOfDate } from "./calendar-dates";
 import { gstIncludedIn } from "./money";
-import type { PartWeekCharging, Weekday } from "./rentals";
 
 /**
  * The ledger (docs/design/06): one per Renter, every line tied to a
@@ -40,6 +38,7 @@ export const GST_TREATMENT_LABELS: Readonly<Record<GstTreatment, string>> = {
 /** The charge types every Operator has; Operators add their own beside them. */
 export const BUILT_IN_CHARGE_TYPES = [
   "weekly_rent",
+  "daily_rent",
   "part_week_rent",
   "late_fee",
   "damage",
@@ -51,6 +50,7 @@ export type BuiltInChargeType = (typeof BUILT_IN_CHARGE_TYPES)[number];
 
 export const BUILT_IN_CHARGE_TYPE_LABELS: Readonly<Record<BuiltInChargeType, string>> = {
   weekly_rent: "Weekly rent",
+  daily_rent: "Daily rent",
   part_week_rent: "Part-week rent",
   late_fee: "Late fee",
   damage: "Damage",
@@ -66,9 +66,10 @@ export const BUILT_IN_CHARGE_TYPE_LABELS: Readonly<Record<BuiltInChargeType, str
  */
 export const DEFAULT_GST_TREATMENT: GstTreatment = "taxable";
 
-/** The two built-in types the daily rent job charges. */
+/** The built-in types the rent run charges. */
 export const RENT_CHARGE_TYPES: ReadonlySet<BuiltInChargeType> = new Set([
   "weekly_rent",
+  "daily_rent",
   "part_week_rent",
 ]);
 
@@ -210,121 +211,4 @@ export function dailyShares(weeklyRateCents: number): number[] {
   const base = Math.floor(weeklyRateCents / DAYS_PER_WEEK);
   const left = weeklyRateCents - base * DAYS_PER_WEEK;
   return Array.from({ length: DAYS_PER_WEEK }, (_, day) => base + (day < left ? 1 : 0));
-}
-
-/** A weekly rate and the day it applies from (the rental's rate history). */
-export interface RateFromDate {
-  appliesFrom: string;
-  weeklyRateCents: number;
-}
-
-/**
- * The rate in force on a day. A day before the first rate (a car handed
- * over ahead of the planned start) is at the first rate.
- */
-function rateOn(rates: readonly RateFromDate[], isoDate: string): number {
-  const byDate = [...rates].sort((first, second) =>
-    first.appliesFrom.localeCompare(second.appliesFrom),
-  );
-  const inForce = byDate.filter((rate) => rate.appliesFrom <= isoDate).at(-1) ?? byDate[0];
-  if (!inForce) {
-    throw new RangeError("A rental always has a weekly rate.");
-  }
-  return inForce.weeklyRateCents;
-}
-
-/**
- * The rent for the first `dayCount` days of a period, each day at the rate
- * in force on it (decision 4), so a full week at one rate is exactly that
- * rate and a change part-way through is charged from its own day.
- */
-export function rentForDays(
-  rates: readonly RateFromDate[],
-  periodStart: string,
-  dayCount: number,
-): number {
-  let total = 0;
-  for (let day = 0; day < dayCount; day += 1) {
-    const share = dailyShares(rateOn(rates, addDays(periodStart, day)))[day % DAYS_PER_WEEK];
-    total += share ?? 0;
-  }
-  return total;
-}
-
-/** One period rent is charged for, in advance, on its first day. */
-export interface RentPeriod {
-  /** First day, "2026-11-03". */
-  start: string;
-  /** The day after the last. */
-  end: string;
-  /** Shorter than a week: the first period, when the handover is not on the charge day. */
-  isPartWeek: boolean;
-}
-
-export interface RentScheduleInput {
-  /** The handover's date on the Operator's clock: rent starts with the car (rule 15). */
-  handoverDate: string;
-  chargeWeekday: Weekday;
-  /** The Operator's today: periods that have started by then are due. */
-  today: string;
-  /** The return's date, if the car is back: no period starts on or after it. */
-  returnDate: string | null;
-}
-
-/** The first charge day on or after a date. */
-function nextChargeDay(isoDate: string, chargeWeekday: Weekday): string {
-  const ahead = (chargeWeekday - weekdayOfDate(isoDate) + DAYS_PER_WEEK) % DAYS_PER_WEEK;
-  return addDays(isoDate, ahead);
-}
-
-/**
- * Every rent period due by today: a part week from the handover to the
- * first charge day (if they differ), then a week from each charge day,
- * while the car is out (overdue too: rent runs until it is back).
- */
-export function dueRentPeriods(input: RentScheduleInput): RentPeriod[] {
-  const firstChargeDay = nextChargeDay(input.handoverDate, input.chargeWeekday);
-  const periods: RentPeriod[] = [];
-  const isStillDue = (start: string) =>
-    start <= input.today && (input.returnDate === null || start < input.returnDate);
-  if (firstChargeDay !== input.handoverDate && isStillDue(input.handoverDate)) {
-    periods.push({ start: input.handoverDate, end: firstChargeDay, isPartWeek: true });
-  }
-  for (let start = firstChargeDay; isStillDue(start); start = addDays(start, DAYS_PER_WEEK)) {
-    periods.push({ start, end: addDays(start, DAYS_PER_WEEK), isPartWeek: false });
-  }
-  return periods;
-}
-
-/** A period's rent: by the day for a part week, or the full week, as the rental's setting says. */
-export function rentForPeriod(
-  rates: readonly RateFromDate[],
-  period: RentPeriod,
-  partWeekCharging: PartWeekCharging,
-): number {
-  const dayCount =
-    period.isPartWeek && partWeekCharging === "full_week"
-      ? DAYS_PER_WEEK
-      : daysBetween(period.start, period.end);
-  return rentForDays(rates, period.start, dayCount);
-}
-
-/**
- * The credit for the days of a charged period after the car came back
- * (the return day counts as used). None when part weeks are charged as a
- * full week, or the return is not inside the period.
- */
-export function unusedDaysCredit(
-  rates: readonly RateFromDate[],
-  period: RentPeriod,
-  returnDate: string,
-  partWeekCharging: PartWeekCharging,
-): number {
-  if (partWeekCharging === "full_week" || returnDate < period.start || returnDate >= period.end) {
-    return 0;
-  }
-  const usedDays = daysBetween(period.start, returnDate) + 1;
-  return (
-    rentForPeriod(rates, period, partWeekCharging) - rentForDays(rates, period.start, usedDays)
-  );
 }

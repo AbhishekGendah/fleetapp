@@ -1,10 +1,14 @@
 import {
+  blockStartsAt,
+  formatCalendarDate,
+  formatDateTimeInTimeZone,
   MILLISECONDS_PER_DAY,
   RENTAL_STATUSES,
   todayInTimeZone,
   type ListPage,
   type ListQuery,
   type RentalStatus,
+  type RentModel,
   type RentalType,
 } from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
@@ -16,6 +20,7 @@ import {
 } from "@fleetapp/db/list-query";
 import { carHolds, rentalRates, rentals, renters, vehicles } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { rentalRateText } from "./rental-labels";
 import type { RentalClock } from "./rental-records";
 import { and, asc, count, desc, eq, isNull, sql, type SQL } from "drizzle-orm";
 
@@ -57,14 +62,25 @@ function isAtRiskAt(now: Date): SQL<boolean> {
   ))`;
 }
 
-/** The weekly rate in force on the Operator's today: the latest that has started, else the first. */
-function weeklyRateOn(today: string): SQL<number> {
-  return sql<number>`(
-    select "rate"."weekly_rate_cents" from "rental_rates" "rate"
+/**
+ * A rate column in force now: the latest rate that has started (by block for
+ * block rentals, by date for weekday ones), else the first.
+ */
+function rateInForce(
+  column: "weekly_rate_cents" | "daily_rate_cents",
+  now: Date,
+  today: string,
+): SQL<number | null> {
+  return sql<number | null>`(
+    select "rate".${sql.identifier(column)} from "rental_rates" "rate"
     where "rate"."rental_id" = "rentals"."id" and "rate"."operator_id" = "rentals"."operator_id"
-    order by ("rate"."applies_from" <= ${today}::date) desc, "rate"."applies_from" desc
+    order by (case when "rentals"."rent_model" = 'blocks'
+        then "rate"."applies_from_block" <= floor(extract(epoch from (${now.toISOString()}::timestamptz
+          - coalesce("rentals"."handed_over_at", ${now.toISOString()}::timestamptz))) / 86400)
+        else "rate"."applies_from" <= ${today}::date end) desc,
+      "rate"."applies_from_block" desc nulls last, "rate"."applies_from" desc nulls last
     limit 1
-  )`.mapWith(Number);
+  )`.mapWith((value) => (value === null ? null : Number(value)));
 }
 
 function summaryColumnsAt({ now, timeZone }: RentalClock) {
@@ -81,7 +97,9 @@ function summaryColumnsAt({ now, timeZone }: RentalClock) {
     rego: vehicles.rego,
     make: vehicles.make,
     model: vehicles.model,
-    weeklyRateCents: weeklyRateOn(todayInTimeZone(now, timeZone)),
+    weeklyRateCents: rateInForce("weekly_rate_cents", now, todayInTimeZone(now, timeZone)),
+    dailyRateCents: rateInForce("daily_rate_cents", now, todayInTimeZone(now, timeZone)),
+    isLongTerm: rentals.isLongTerm,
     isOverdue: isOverdueAt(now),
     isStartingSoon: isStartingSoonAt(now),
     isAtRisk: isAtRiskAt(now),
@@ -101,7 +119,12 @@ export interface RentalSummary {
   rego: string;
   make: string;
   model: string;
-  weeklyRateCents: number;
+  /** The weekly price in force now; none on a short hire. */
+  weeklyRateCents: number | null;
+  /** The daily rate in force now; none on a rental from before rent in blocks. */
+  dailyRateCents: number | null;
+  /** Long-term or a short hire; none on a rental from before rent in blocks. */
+  isLongTerm: boolean | null;
   isOverdue: boolean;
   isStartingSoon: boolean;
   isAtRisk: boolean;
@@ -191,6 +214,11 @@ export async function listRentalPage(
 }
 
 export interface RentalDetail extends RentalSummary {
+  rentModel: RentModel;
+  graceMinutes: number | null;
+  longTermMinimumDays: number | null;
+  /** Set once the business waived the daily-rate re-pricing at the return. */
+  dailyRateWaivedReason: string | null;
   chargeWeekday: number;
   bondCents: number;
   notes: string | null;
@@ -202,7 +230,23 @@ export interface RentalDetail extends RentalSummary {
   /** The Operator's settings when it was made (rule 14). */
   settingsSnapshot: Record<string, unknown>;
   createdAt: Date;
-  rates: { weeklyRateCents: number; appliesFrom: string }[];
+  /** The rate history, newest first, worded for the rental page. */
+  rates: { key: string; startsText: string; rateText: string }[];
+}
+
+/** When a rate starts, in words: a date, the handover, or a rent week's start on the business's clock. */
+function rateStartText(
+  rate: { appliesFrom: string | null; appliesFromBlock: number | null },
+  handedOverAt: Date | null,
+  timeZone: string,
+): string {
+  if (rate.appliesFrom !== null) {
+    return `From ${formatCalendarDate(rate.appliesFrom)}`;
+  }
+  if (!rate.appliesFromBlock || !handedOverAt) {
+    return "From the handover";
+  }
+  return `From ${formatDateTimeInTimeZone(blockStartsAt(handedOverAt, rate.appliesFromBlock), timeZone)}`;
 }
 
 /** One of the Operator's rentals with its rate history, or null if it is not theirs. */
@@ -222,6 +266,10 @@ export async function loadRental(
     const [details] = await tx
       .select({
         chargeWeekday: rentals.chargeWeekday,
+        rentModel: rentals.rentModel,
+        graceMinutes: rentals.graceMinutes,
+        longTermMinimumDays: rentals.longTermMinimumDays,
+        dailyRateWaivedReason: rentals.dailyRateWaivedReason,
         bondCents: rentals.bondCents,
         notes: rentals.notes,
         handedOverAt: rentals.handedOverAt,
@@ -236,17 +284,24 @@ export async function loadRental(
       .where(eq(rentals.id, rentalId));
     const rateRows = await tx
       .select({
+        id: rentalRates.id,
         weeklyRateCents: rentalRates.weeklyRateCents,
+        dailyRateCents: rentalRates.dailyRateCents,
         appliesFrom: rentalRates.appliesFrom,
+        appliesFromBlock: rentalRates.appliesFromBlock,
       })
       .from(rentalRates)
       .where(and(eq(rentalRates.operatorId, operatorId), eq(rentalRates.rentalId, rentalId)))
-      .orderBy(desc(rentalRates.appliesFrom));
-    // TODO(batch 1): block rentals' rates are shown once the rental page moves to block rent.
-    const rates = rateRows.flatMap(({ appliesFrom, weeklyRateCents }) =>
-      appliesFrom !== null && weeklyRateCents !== null ? [{ appliesFrom, weeklyRateCents }] : [],
-    );
-    return details ? { ...summary, ...details, rates } : null;
+      .orderBy(desc(rentalRates.appliesFromBlock), desc(rentalRates.appliesFrom));
+    if (!details) {
+      return null;
+    }
+    const rates = rateRows.map((row) => ({
+      key: row.id,
+      startsText: rateStartText(row, details.handedOverAt, clock.timeZone),
+      rateText: rentalRateText({ ...row, isLongTerm: summary.isLongTerm }),
+    }));
+    return { ...summary, ...details, rates };
   });
 }
 

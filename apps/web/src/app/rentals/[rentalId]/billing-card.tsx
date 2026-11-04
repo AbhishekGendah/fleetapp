@@ -32,12 +32,16 @@ import {
 } from "./billing-actions";
 import { StatementForm } from "./statement-form";
 
-/** A draft or a cancelled rental has no money, so nothing to invoice. */
+/**
+ * A draft has no money, so nothing to invoice. A cancelled booking keeps its
+ * documents in view, so its money is never stranded (review A4-5).
+ */
 const HAS_DOCUMENTS: ReadonlySet<RentalStatus> = new Set([
   "booked",
   "active",
   "returned",
   "closed",
+  "cancelled",
 ]);
 
 function titleOf(document: BillingDocumentSummary): string {

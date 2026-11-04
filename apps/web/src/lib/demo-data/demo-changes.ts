@@ -1,6 +1,6 @@
 import {
-  addDays,
-  earliestRateDay,
+  blockAt,
+  upcomingWeekStarts,
   type ContractTemplateKind,
   type TemplateDocument,
 } from "@fleetapp/core";
@@ -106,18 +106,18 @@ export async function addDemoChanges(context: DemoContext): Promise<number> {
     added += 1;
   }
   const raised = await demoRental(context, RATE_CHANGE_RENTAL);
-  if (!raised.hasChanges) {
-    const appliesFrom = addDays(earliestRateDay(raised.clock.now, context.timeZone), 1);
+  if (!raised.hasChanges && raised.rental.handedOverAt && raised.rental.weeklyRateCents) {
+    const [nextWeek] = upcomingWeekStarts(blockAt(raised.rental.handedOverAt, raised.clock.now), 1);
     const result = await changeWeeklyRate(
       context.links,
       context.actor,
       raised.rental.id,
       {
         weeklyRateCents: raised.rental.weeklyRateCents + RATE_RISE_CENTS,
-        appliesFrom,
+        fromBlock: nextWeek ?? 0,
         reason: "Insurance went up",
       },
-      { ...raised.clock, currentRateCents: raised.rental.weeklyRateCents },
+      raised.clock,
     );
     expectSaved(result.status, ["sent"], `rate change on ${RATE_CHANGE_RENTAL}`);
     added += 1;

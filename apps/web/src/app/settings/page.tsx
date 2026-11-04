@@ -164,15 +164,17 @@ export default async function SettingsPage() {
             )}
             hint="Check what your insurance allows."
           />
-          <ChoiceSettingForm
-            setting="fixedChargeWeekday"
-            label="Rent is charged each week on"
-            value={choiceSettingValue("fixedChargeWeekday", settings.fixedChargeWeekday)}
+          <NumberSettingForm
+            setting="longTermMinimumDays"
+            label="Rentals booked for at least this many days get the long-term price (days)"
+            hint="Ongoing rentals always do. One that comes back sooner is re-priced at the daily rate, unless you waive it at the return."
+            value={settings.longTermMinimumDays}
           />
-          <ChoiceSettingForm
-            setting="partWeekCharging"
-            label="A part week (at the start, or after an early return) is charged"
-            value={choiceSettingValue("partWeekCharging", settings.partWeekCharging)}
+          <NumberSettingForm
+            setting="graceMinutes"
+            label="Minutes a car can be late back before another day is charged"
+            hint="Rent is counted in 24-hour blocks from the handover."
+            value={settings.graceMinutes}
           />
           <ChoiceSettingForm
             setting="isBondRequiredBeforeHandover"

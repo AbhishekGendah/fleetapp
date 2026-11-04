@@ -2,9 +2,7 @@ import { emptyForm, requiredDollars, requiredLine } from "@fleetapp/core";
 import { z } from "zod";
 
 import { requiredLocalMoment } from "../local-moment-input";
-import { requiredDate } from "../vehicles/amount-input";
 
-const TOO_SOON_MESSAGE = "A new rate can start tomorrow at the earliest.";
 const RATE_NEEDED_MESSAGE = "Enter the new weekly rate.";
 
 /**
@@ -29,25 +27,37 @@ export function endChangeFormSchema(
 export const ONGOING_CHANGE_FIELDS = ["reason"] as const;
 export const ongoingChangeFormSchema = z.object({ reason: requiredLine });
 
-export const RATE_CHANGE_FIELDS = ["weeklyRateCents", "appliesFrom", "reason"] as const;
+export const RATE_CHANGE_FIELDS = ["weeklyRateCents", "fromBlock", "reason"] as const;
 export type RateChangeFormValues = Record<(typeof RATE_CHANGE_FIELDS)[number], string>;
 export interface RateChangeInput {
   weeklyRateCents: number;
-  appliesFrom: string;
+  fromBlock: number;
   reason: string;
 }
 
-/** A new rate in whole cents (rule 9), from `earliestDay` (tomorrow) on. */
+const WEEK_START_MESSAGE = "Choose the rent week the new rate starts with.";
+
+/**
+ * A new weekly price in whole cents (rule 9), from one of the rent weeks
+ * offered (`weekStarts`, each a week's first block), never mid-week.
+ */
 export function rateChangeFormSchema(
-  earliestDay: string,
+  weekStarts: readonly number[],
 ): z.ZodType<RateChangeInput, RateChangeFormValues> {
   return z.object({
     weeklyRateCents: requiredDollars.refine((cents) => cents > 0, RATE_NEEDED_MESSAGE),
-    appliesFrom: requiredDate.refine((day) => day >= earliestDay, TOO_SOON_MESSAGE),
+    fromBlock: z
+      .string()
+      .trim()
+      .transform(Number)
+      .refine((block) => weekStarts.includes(block), WEEK_START_MESSAGE),
     reason: requiredLine,
   });
 }
 
-export function emptyRateChangeForm(earliestDay: string): RateChangeFormValues {
-  return { ...emptyForm(RATE_CHANGE_FIELDS), appliesFrom: earliestDay };
+export function emptyRateChangeForm(firstWeekStart: number | undefined): RateChangeFormValues {
+  return {
+    ...emptyForm(RATE_CHANGE_FIELDS),
+    fromBlock: firstWeekStart === undefined ? "" : String(firstWeekStart),
+  };
 }

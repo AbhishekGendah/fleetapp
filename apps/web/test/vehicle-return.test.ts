@@ -128,11 +128,15 @@ describe("taking a car back", () => {
       expect(liveHolds).toEqual([]);
       expect(reports).toHaveLength(1);
     });
-    // The test business has no email on file, so only the Renter's copy goes.
-    expect(sentEmails.map((email) => email.subject)).toEqual([
+    // The test business has no email on file, so only the Renter's copy goes. The
+    // long-term booking came back after two days, so its rent is re-priced at the
+    // daily rate and the difference credited with its own note.
+    expect(sentEmails.map((email) => email.subject).sort()).toEqual([
+      expect.stringMatching(/^Credit note /),
       expect.stringMatching(/^Your car return report from /),
     ]);
-    expect(sentEmails[0]?.attachments?.[0]?.fileName).toMatch(/^Return report .*\.pdf$/);
+    const reportEmail = sentEmails.find((email) => email.subject.startsWith("Your car return"));
+    expect(reportEmail?.attachments?.[0]?.fileName).toMatch(/^Return report .*\.pdf$/);
   });
 
   it("records the Renter as not there, unless the rental's settings need their signature", async () => {

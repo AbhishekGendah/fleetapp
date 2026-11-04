@@ -2,7 +2,8 @@
 
 import {
   describeErrorForLog,
-  earliestRateDay,
+  blockAt,
+  upcomingWeekStarts,
   formatCents,
   formTextValues,
   isRecordId,
@@ -64,8 +65,11 @@ const RATE_REFUSALS: Record<
   not_changeable: "The weekly rate can change once the car is out.",
   return_under_way: "A return is under way. Finish or cancel it first.",
   one_waiting: "A rate change is already waiting for the Renter. Withdraw it first.",
-  too_soon: "A new rate can start tomorrow at the earliest.",
-  unchanged: "That is the weekly rate already.",
+  too_soon: "That rent week has started. Choose a later one.",
+  unchanged: "That week already has that weekly rate.",
+  not_long_term: "Only a long-term rental's weekly rate can change.",
+  not_week_start: "A new rate starts at the beginning of a rent week.",
+  already_has_rate: "That week already has a signed rate. Choose a later week.",
 };
 
 function changeRental(
@@ -154,6 +158,13 @@ function rateChangeState(result: RateChangeSendResult, rateText: string): Change
   return failedState(notSent.status === "failed" ? notSent.message : SEND_FAILED_MESSAGE);
 }
 
+/**
+ * The rent weeks a posted rate change may start with. Wider than the form
+ * offers, so a form opened just before a week began still passes; the
+ * change's own rules refuse a week already under way.
+ */
+const RATE_CHANGE_WEEKS_CHECKED = 9;
+
 export async function changeRateAction(
   rentalId: string,
   _previous: ChangeFormState,
@@ -162,19 +173,24 @@ export async function changeRateAction(
   const values = formTextValues(formData, RATE_CHANGE_FIELDS);
   return changeRental(rentalId, "Changing a rental's weekly rate", async (actor, user) => {
     const clock = { timeZone: user.operatorTimezone, now: new Date() };
-    const parsed = rateChangeFormSchema(earliestRateDay(clock.now, clock.timeZone)).safeParse(
-      values,
-    );
     const rental = await loadRental(appDb, actor.operatorId, rentalId, clock);
-    if (!parsed.success || !rental) {
-      return failedState(parsed.success ? NOT_FOUND_MESSAGE : INVALID_MESSAGE);
+    if (!rental?.handedOverAt) {
+      return failedState(NOT_FOUND_MESSAGE);
+    }
+    const weekStarts = upcomingWeekStarts(
+      blockAt(rental.handedOverAt, clock.now),
+      RATE_CHANGE_WEEKS_CHECKED,
+    );
+    const parsed = rateChangeFormSchema(weekStarts).safeParse(values);
+    if (!parsed.success) {
+      return failedState(INVALID_MESSAGE);
     }
     const result = await changeWeeklyRate(
       appLinkDependencies(user.operatorTimezone),
       actor,
       rentalId,
       parsed.data,
-      { ...clock, currentRateCents: rental.weeklyRateCents },
+      clock,
     );
     return rateChangeState(result, formatCents(parsed.data.weeklyRateCents));
   });

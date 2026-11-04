@@ -113,31 +113,40 @@ interface SigningState {
   kind: SignedDocumentKind;
   status: "open" | "signed" | "not_signable";
   change: RentalChange | null;
+  /** When the car went out: a rate change's rent week is counted from it. */
+  handedOverAt: Date | null;
 }
 
 async function signingStateOf(
   tx: AnyTransaction,
   operatorId: string,
   signing: NonNullable<LinkVisit["signing"]>,
+  now: Date,
 ): Promise<SigningState> {
   const [rental] = await tx
-    .select({ status: rentals.status })
+    .select({ status: rentals.status, handedOverAt: rentals.handedOverAt })
     .from(rentals)
     .where(and(eq(rentals.id, signing.rentalId), eq(rentals.operatorId, operatorId)));
+  const handedOverAt = rental?.handedOverAt ?? null;
   if (signing.rentalChangeId) {
     const change = await lockChange(tx, operatorId, signing.rentalChangeId);
     if (change?.documentId) {
-      return { kind: "change_of_terms", status: "signed", change };
+      return { kind: "change_of_terms", status: "signed", change, handedOverAt };
     }
-    const isOpen =
-      change !== null && rental !== undefined && isChangeSignable(change, rental.status);
-    return { kind: "change_of_terms", status: isOpen ? "open" : "not_signable", change };
+    const isOpen = change !== null && rental !== undefined && isChangeSignable(change, rental, now);
+    const status = isOpen ? "open" : "not_signable";
+    return { kind: "change_of_terms", status, change, handedOverAt };
   }
   if (await isSigned(tx, operatorId, signing.rentalId)) {
-    return { kind: "contract", status: "signed", change: null };
+    return { kind: "contract", status: "signed", change: null, handedOverAt };
   }
   const isOpen = rental !== undefined && SIGNABLE_STATUSES.has(rental.status);
-  return { kind: "contract", status: isOpen ? "open" : "not_signable", change: null };
+  return {
+    kind: "contract",
+    status: isOpen ? "open" : "not_signable",
+    change: null,
+    handedOverAt,
+  };
 }
 
 /**
@@ -150,13 +159,14 @@ async function signingStateOf(
 export async function loadSigningView(
   database: AnyDatabase,
   visit: LinkVisit,
+  now: Date = new Date(),
 ): Promise<SigningView> {
   const { signing } = visit;
   if (!signing) {
     return { status: "not_signable" };
   }
   const state = await withTenant(database, visit.operatorId, (tx) =>
-    signingStateOf(tx, visit.operatorId, signing),
+    signingStateOf(tx, visit.operatorId, signing, now),
   );
   if (state.status !== "open") {
     return { status: state.status };
@@ -169,7 +179,7 @@ export async function loadSigningView(
         signing.rentalId,
         version.content,
         { timeZone: visit.timeZone, now: visit.sentAt },
-        state.change ? changeFieldsOf(state.change, visit.timeZone) : undefined,
+        state.change ? changeFieldsOf(state.change, visit.timeZone, state.handedOverAt) : undefined,
       )
     : null;
   if (
@@ -320,7 +330,7 @@ export async function signContract(
   values: Record<string, string>,
   meta: RequestMeta,
 ): Promise<SignContractResult> {
-  const view = await loadSigningView(deps.database, visit);
+  const view = await loadSigningView(deps.database, visit, deps.now());
   if (view.status === "signed") {
     return { status: "signed_already" };
   }

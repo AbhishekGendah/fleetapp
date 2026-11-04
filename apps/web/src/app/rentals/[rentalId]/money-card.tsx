@@ -2,12 +2,13 @@ import { todayInTimeZone, type RentalStatus } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
-import { Plus, ReceiptText, Undo2 } from "lucide-react";
+import { BadgePercent, Plus, ReceiptText, Undo2 } from "lucide-react";
 import Link from "next/link";
 
 import { CorrectionForm, ManualPaymentForm } from "../../../components/money-forms";
 import { appDb } from "../../../lib/app-db";
 import { listChargeTypes } from "../../../lib/ledger/charge-types";
+import { isDailyRateWaivable } from "../../../lib/ledger/daily-rate-waiver";
 import { chargeStart } from "../../../lib/ledger/ledger-input";
 import { loadRentalLedger, type LedgerLineView } from "../../../lib/ledger/ledger-queries";
 import { OPEN_FOR_MONEY } from "../../../lib/ledger/ledger-records";
@@ -18,9 +19,18 @@ import type { RentalClock } from "../../../lib/rentals/rental-records";
 import type { SignedInUser } from "../../../lib/require-user";
 import { LedgerSummary } from "../ledger-line-list";
 import { ChargeForm } from "./charge-form";
-import { addChargeAction, recordPaymentAction, reverseLineAction } from "./money-actions";
+import {
+  addChargeAction,
+  recordPaymentAction,
+  reverseLineAction,
+  waiveDailyRateAction,
+} from "./money-actions";
 
-/** A draft or a cancelled rental has no money; a closed one is shown but not added to. */
+/**
+ * A draft has no money; a closed one is shown but not added to. A cancelled
+ * booking is shown while it has lines, so its money is never stranded
+ * (review A4-5): a payment can still be refunded and a charge reversed.
+ */
 const HAS_MONEY: ReadonlySet<RentalStatus> = new Set(["booked", "active", "returned", "closed"]);
 /** The newest lines shown here; the Renter's Money tab has them all. */
 const LINES_SHOWN = 8;
@@ -54,13 +64,17 @@ export async function MoneyCard(props: {
   clock: RentalClock;
 }) {
   const { rental, user, clock } = props;
-  if (!HAS_MONEY.has(rental.status)) {
+  const isCancelled = rental.status === "cancelled";
+  if (!HAS_MONEY.has(rental.status) && !isCancelled) {
     return null;
   }
   const [ledger, chargeTypes] = await Promise.all([
     loadRentalLedger(appDb, user.operatorId, rental.id),
     listChargeTypes(appDb, user.operatorId),
   ]);
+  if (isCancelled && ledger.lines.length === 0) {
+    return null;
+  }
   const today = todayInTimeZone(clock.now, clock.timeZone);
   const isOpen = OPEN_FOR_MONEY.has(rental.status);
   const usable = chargeTypes.filter((type) => !type.isArchived);
@@ -112,6 +126,20 @@ export async function MoneyCard(props: {
                 />
               </FormDialog>
             </>
+          ) : null}
+          {isDailyRateWaivable(rental) ? (
+            <FormDialog
+              triggerLabel="Waive the daily rate"
+              title="Waive the daily rate"
+              triggerIcon={<BadgePercent aria-hidden />}
+            >
+              <CorrectionForm
+                action={waiveDailyRateAction.bind(null, rental.id)}
+                label="Why is the daily rate waived?"
+                hint="It came back before the long-term minimum, so it was re-priced at the daily rate. Waiving credits the difference. Kept for you; not shown to the Renter."
+                submitLabel="Waive the daily rate"
+              />
+            </FormDialog>
           ) : null}
           {ledger.lines.length > LINES_SHOWN ? (
             <Button asChild variant="ghost">

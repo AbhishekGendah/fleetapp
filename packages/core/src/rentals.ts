@@ -81,18 +81,6 @@ export function weekdayIn(moment: Date, timeZone: string): Weekday {
   return getISODay(new TZDate(moment, timeZone)) as Weekday;
 }
 
-/**
- * The day rent is charged each week: the start's weekday, or the one fixed
- * day the Operator charges everyone on.
- */
-export function chargeWeekdayFor(
-  plannedStart: Date,
-  timeZone: string,
-  fixedChargeWeekday: Weekday | null,
-): Weekday {
-  return fixedChargeWeekday ?? weekdayIn(plannedStart, timeZone);
-}
-
 /** A fixed-term rental ends after it starts; an ongoing one has no end until notice is given. */
 export function isValidRentalPeriod(type: RentalType, start: Date, end: Date | null): boolean {
   return type === "ongoing" ? end === null : end !== null && end.getTime() > start.getTime();
@@ -207,11 +195,6 @@ export const MAXIMUM_MINIMUM_RENTER_AGE_YEARS = 30;
 /** How a week that is not whole is charged (the first one, or after an early return). */
 export const PART_WEEK_CHARGING = ["daily_pro_rata", "full_week"] as const;
 export type PartWeekCharging = (typeof PART_WEEK_CHARGING)[number];
-
-export const PART_WEEK_CHARGING_LABELS: Readonly<Record<PartWeekCharging, string>> = {
-  daily_pro_rata: "By the day (a seventh of the weekly rate per day)",
-  full_week: "As a full week",
-};
 
 export const DEFAULT_BOND_HOLD_DAYS = 28;
 export const MAXIMUM_BOND_HOLD_DAYS = 90;

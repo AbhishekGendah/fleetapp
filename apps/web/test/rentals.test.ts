@@ -33,12 +33,10 @@ import { addTestCar, seedOperatorWithUser } from "./car-fixtures";
 const TIME_ZONE = "Australia/Perth";
 /** Two days before the first test booking, so it is "starting soon". */
 const CLOCK: RentalClock = { timeZone: TIME_ZONE, now: new Date("2026-11-29T00:00:00Z") };
-const TUESDAY = 2;
 /** The whole list, soonest first, as the Rentals page opens. */
 function rentalQuery(search = ""): ListQuery {
   return { search, sort: { column: "start", direction: "asc" }, filters: {}, page: 1 };
 }
-const MONDAY = 1;
 
 function rentalForm(
   ids: { renterId: string; vehicleId: string },
@@ -48,7 +46,8 @@ function rentalForm(
     ...emptyRentalForm(ids),
     plannedStart: "2026-12-01T09:00",
     plannedEnd: "2026-12-29T09:00",
-    weeklyRateCents: "350.00",
+    dailyRateCents: "70.00",
+    longTermWeeklyCents: "350.00",
     bondCents: "500",
     ...changes,
   };
@@ -79,9 +78,9 @@ describe("the New rental form's rules", () => {
     expect(parsed(rentalForm(ids))).toMatchObject({
       plannedStart: new Date("2026-12-01T01:00:00Z"),
       plannedEnd: new Date("2026-12-29T01:00:00Z"),
-      weeklyRateCents: 35_000,
+      dailyRateCents: 7_000,
+      longTermWeeklyCents: 35_000,
       bondCents: 50_000,
-      chargeWeekday: null,
       notes: null,
     });
   });
@@ -98,21 +97,23 @@ describe("the New rental form's rules", () => {
     expect(parsed(rentalForm(ids, { type: "ongoing" })).plannedEnd).toBeNull();
   });
 
-  it("needs a Renter, a car and a weekly rate above nothing", () => {
+  it("needs a Renter, a car and a daily rate above nothing", () => {
     const result = parseRentalForm(
-      rentalForm({ renterId: "", vehicleId: "not-an-id" }, { weeklyRateCents: "0" }),
+      rentalForm({ renterId: "", vehicleId: "not-an-id" }, { dailyRateCents: "0" }),
       TIME_ZONE,
     );
     expect(result.success ? [] : result.error.issues.map((issue) => issue.path[0])).toEqual([
       "renterId",
       "vehicleId",
-      "weeklyRateCents",
+      "dailyRateCents",
     ]);
   });
 
-  it("takes a chosen charge day, or none to work it out", () => {
-    expect(parsed(rentalForm(ids, { chargeWeekday: "5" })).chargeWeekday).toBe(5);
-    expect(parseRentalForm(rentalForm(ids, { chargeWeekday: "8" }), TIME_ZONE).success).toBe(false);
+  it("takes no long-term price (seven daily rates), but never $0", () => {
+    expect(parsed(rentalForm(ids, { longTermWeeklyCents: "" })).longTermWeeklyCents).toBeNull();
+    expect(parseRentalForm(rentalForm(ids, { longTermWeeklyCents: "0" }), TIME_ZONE).success).toBe(
+      false,
+    );
   });
 });
 
@@ -186,7 +187,7 @@ describe("rentals in the Operator app", () => {
   });
 
   describe("making one", () => {
-    it("saves a draft without holding the car, with the settings and first rate", async () => {
+    it("saves a draft on block terms, without holding the car, with the settings and first rate", async () => {
       const vehicleId = await addTestCar(web, actor);
       const input = parsed(rentalForm({ renterId, vehicleId }, { notes: "Pays in cash" }));
 
@@ -197,18 +198,26 @@ describe("rentals in the Operator app", () => {
       );
       expect(rental).toMatchObject({
         status: "draft",
-        chargeWeekday: TUESDAY,
+        rentModel: "blocks",
+        isLongTerm: true,
+        bookedBlocks: 28,
+        graceMinutes: 60,
+        longTermMinimumDays: 7,
         settingsVersion: 0,
         settingsSnapshot: expect.objectContaining({ minimumRenterAgeYears: 21 }),
       });
       expect(await liveHoldsOf(rentalId)).toEqual([]);
       const rates = await withTenant(web.db, actor.operatorId, (tx) =>
         tx
-          .select({ cents: rentalRates.weeklyRateCents, from: rentalRates.appliesFrom })
+          .select({
+            weekly: rentalRates.weeklyRateCents,
+            daily: rentalRates.dailyRateCents,
+            fromBlock: rentalRates.appliesFromBlock,
+          })
           .from(rentalRates)
           .where(eq(rentalRates.rentalId, rentalId)),
       );
-      expect(rates).toEqual([{ cents: 35_000, from: "2026-12-01" }]);
+      expect(rates).toEqual([{ weekly: 35_000, daily: 7_000, fromBlock: 0 }]);
     });
 
     it("logs it with the warnings it was booked with, never the notes", async () => {
@@ -230,21 +239,32 @@ describe("rentals in the Operator app", () => {
         after: expect.objectContaining({
           status: "booked",
           notes: WITHHELD_VALUE,
+          dailyRateCents: 7_000,
           weeklyRateCents: 35_000,
           warnings: ["details_missing"],
         }),
       });
     });
 
-    it("charges on the business's fixed day when it has one", async () => {
-      const owner = await seedOperatorWithUser(admin, "Fixed Day Pty Ltd");
-      await saveOperatorSettings(web.db, owner, { fixedChargeWeekday: MONDAY });
+    it("books a short hire below the business's minimum, with the minimum it had then", async () => {
+      const owner = await seedOperatorWithUser(admin, "Short Hire Pty Ltd");
+      await saveOperatorSettings(web.db, owner, { longTermMinimumDays: 14, graceMinutes: 30 });
       const vehicleId = await addTestCar(web, owner);
 
-      const rentalId = savedId(await book(vehicleId, {}, owner, await addRenter(owner)));
+      const rentalId = savedId(
+        await book(vehicleId, { plannedEnd: "2026-12-11T09:00" }, owner, await addRenter(owner)),
+      );
 
       const detail = await loadRental(web.db, owner.operatorId, rentalId, CLOCK);
-      expect(detail).toMatchObject({ chargeWeekday: MONDAY, settingsVersion: 1 });
+      expect(detail).toMatchObject({
+        isLongTerm: false,
+        graceMinutes: 30,
+        longTermMinimumDays: 14,
+        weeklyRateCents: null,
+        dailyRateCents: 7_000,
+        settingsVersion: 1,
+      });
+      expect(detail?.rates.map((rate) => rate.rateText)).toEqual(["$70.00 a day"]);
     });
 
     it("refuses a Renter marked Do not rent, and a car that has left the fleet", async () => {
@@ -407,6 +427,8 @@ describe("rentals in the Operator app", () => {
           id: rentalId,
           rego: "RENT01",
           weeklyRateCents: 35_000,
+          dailyRateCents: 7_000,
+          isLongTerm: true,
           isStartingSoon: true,
           isOverdue: false,
           isAtRisk: false,

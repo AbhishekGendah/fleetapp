@@ -8,15 +8,14 @@ import {
   RENTAL_TYPE_LABELS,
   renterDisplayName,
   todayInTimeZone,
-  WEEKDAY_LABELS,
   type ContractData,
-  type Weekday,
 } from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { insurancePolicies, insurancePolicyVehicles } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, desc, gt, isNull, lte } from "drizzle-orm";
 
+import { rentalRateText, rentTimingText } from "../rentals/rental-labels";
 import { loadRental, type RentalDetail } from "../rentals/rental-queries";
 import type { RentalClock } from "../rentals/rental-records";
 import { loadRenter, type RenterDetail } from "../renters/renter-queries";
@@ -109,9 +108,9 @@ function rentalFields(
     rentalKind: RENTAL_TYPE_LABELS[rental.type],
     rentalStart: onClock(rental.plannedStart),
     rentalEnd: rental.plannedEnd ? onClock(rental.plannedEnd) : ONGOING_END_TEXT,
-    weeklyRate: formatCents(rental.weeklyRateCents),
+    weeklyRate: rentalRateText(rental),
     bond: formatCents(rental.bondCents),
-    chargeDay: WEEKDAY_LABELS[rental.chargeWeekday as Weekday],
+    chargeDay: rentTimingText(rental),
     noticeDays: `${ongoingNoticeDays} ${ongoingNoticeDays === 1 ? "day" : "days"}`,
     insuranceExcess: excessCents === null ? null : formatCents(excessCents),
     issuedOn: formatCalendarDate(todayInTimeZone(clock.now, clock.timeZone)),

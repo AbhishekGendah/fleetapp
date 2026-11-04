@@ -41,6 +41,8 @@ export const VEHICLE_FIELD_LABELS: Readonly<Record<VehicleLabelledField, string>
   transmission: "Transmission",
   fuelType: "Fuel",
   seats: "Seats",
+  dailyRateCents: "Daily rate",
+  longTermWeeklyCents: "Long-term price per week",
   vin: "VIN",
   kilometres: "Odometer (km)",
   status: "Status",

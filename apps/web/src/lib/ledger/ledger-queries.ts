@@ -33,8 +33,14 @@ export interface LedgerLineView {
   method: PaymentMethod | null;
   reference: string | null;
   reversesId: string | null;
-  /** Rent and its unused-days credit: the first day they cover. */
+  /**
+   * Rent and its corrections: the first day they cover, or for block rent
+   * the exact start of the period (as an ISO moment), so documents can match
+   * a correction to its period's invoice.
+   */
   periodStart: string | null;
+  /** A correction to a block period already charged. */
+  isCorrection: boolean;
   /** The charge type's GST treatment now, for marking a line with no GST on a tax invoice. */
   gstTreatment: GstTreatment | null;
   /** The invoice, credit note or receipt the line is on, if any. */
@@ -113,7 +119,8 @@ async function selectLedgerLines(
     method: line.method,
     reference: line.reference,
     reversesId: line.reversesId,
-    periodStart: line.periodStart,
+    periodStart: line.periodStart ?? line.periodStartsAt?.toISOString() ?? null,
+    isCorrection: line.isCorrection,
     gstTreatment: billing.gstTreatment,
     documentId: billing.documentId,
     documentNumberText: billing.documentNumberText,

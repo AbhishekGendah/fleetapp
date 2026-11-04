@@ -23,6 +23,12 @@ import {
   WEEKDAYS,
 } from "./rentals";
 import { MINIMUM_DRIVER_AGE_YEARS } from "./renters";
+import {
+  DEFAULT_GRACE_MINUTES,
+  DEFAULT_LONG_TERM_MINIMUM_DAYS,
+  MAXIMUM_GRACE_MINUTES,
+  MAXIMUM_LONG_TERM_MINIMUM_DAYS,
+} from "./rent-blocks";
 import { DEFAULT_HANDOVER_PHOTOS, handoverPhotoListSchema } from "./handover";
 import {
   DEFAULT_EXPIRY_WARNING_DAYS,
@@ -81,9 +87,25 @@ export const operatorSettingsSchema = z.object({
     .default(DEFAULT_MINIMUM_RENTER_AGE_YEARS),
   /** Whether a provisional (P plate) licence may rent. */
   isProvisionalLicenceAllowed: z.boolean().default(false),
-  /** Rent is charged weekly in advance: on the start's weekday (null) or one fixed day for all. */
+  /**
+   * Minutes past a whole 24-hour block that are free at the return
+   * (docs/plans/review-fixes-batch-1.md). Copied onto each rental.
+   */
+  graceMinutes: z.number().int().min(0).max(MAXIMUM_GRACE_MINUTES).default(DEFAULT_GRACE_MINUTES),
+  /**
+   * Rentals booked for at least this many days (and ongoing ones) are
+   * long-term: the cheaper weekly price, re-priced at the daily rate if they
+   * end sooner. Copied onto each rental.
+   */
+  longTermMinimumDays: z
+    .number()
+    .int()
+    .min(1)
+    .max(MAXIMUM_LONG_TERM_MINIMUM_DAYS)
+    .default(DEFAULT_LONG_TERM_MINIMUM_DAYS),
+  /** Weekday-model rentals only (made before rent in blocks); no longer offered. */
   fixedChargeWeekday: z.union([z.literal(WEEKDAYS), z.null()]).default(null),
-  /** How a part week is charged: the first one, and the last after an early return. */
+  /** Weekday-model rentals only (made before rent in blocks); no longer offered. */
   partWeekCharging: z.enum(PART_WEEK_CHARGING).default("daily_pro_rata"),
   /** Whether the full bond must be held before the car is handed over. */
   isBondRequiredBeforeHandover: z.boolean().default(true),

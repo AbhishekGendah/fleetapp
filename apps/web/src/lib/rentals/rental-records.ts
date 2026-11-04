@@ -1,11 +1,13 @@
 import {
-  chargeWeekdayFor,
+  blocksBetween,
+  isLongTermBooking,
+  weekdayIn,
   isBookingRefused,
   operatorSettingsSchema,
   readSettings,
-  todayInTimeZone,
   withholdFields,
   type BookingProblem,
+  type OperatorSettings,
   type RentalStatus,
 } from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
@@ -121,6 +123,27 @@ async function bookingTransaction(
 }
 
 /**
+ * How a new rental's rent works, fixed at booking (rule 14): blocks booked
+ * (none when ongoing), long-term or a short hire, and the grace period and
+ * long-term minimum from the business's settings now.
+ */
+function blockTermsFor(
+  input: Pick<RentalInput, "plannedStart" | "plannedEnd">,
+  settings: Pick<OperatorSettings, "graceMinutes" | "longTermMinimumDays">,
+) {
+  const bookedBlocks = input.plannedEnd
+    ? blocksBetween(input.plannedStart, input.plannedEnd, 0)
+    : null;
+  return {
+    rentModel: "blocks" as const,
+    bookedBlocks,
+    isLongTerm: isLongTermBooking(bookedBlocks, settings.longTermMinimumDays),
+    graceMinutes: settings.graceMinutes,
+    longTermMinimumDays: settings.longTermMinimumDays,
+  };
+}
+
+/**
  * Adds a rental to the signed-in User's Operator, as a draft (car not
  * held) or a booking (car held for its planned dates). The Operator's
  * settings are copied on (rule 14) and the first weekly rate recorded from
@@ -150,13 +173,14 @@ export async function createRental(
     if (isBookingRefused(problems)) {
       return { status: "refused", problems };
     }
-    const { weeklyRateCents, chargeWeekday, ...details } = input;
+    const { dailyRateCents, longTermWeeklyCents, ...details } = input;
+    const terms = blockTermsFor(input, snapshot.settings);
     const values = {
       ...details,
+      ...terms,
       status,
-      chargeWeekday:
-        chargeWeekday ??
-        chargeWeekdayFor(input.plannedStart, clock.timeZone, snapshot.settings.fixedChargeWeekday),
+      // Kept for the database's weekday-era column; block rent does not use it.
+      chargeWeekday: weekdayIn(input.plannedStart, clock.timeZone),
     };
     const [created] = await tx
       .insert(rentals)
@@ -170,11 +194,13 @@ export async function createRental(
     if (!created) {
       throw new Error("The rental was not saved.");
     }
+    const weeklyRateCents = terms.isLongTerm ? longTermWeeklyCents : null;
     await tx.insert(rentalRates).values({
       operatorId: actor.operatorId,
       rentalId: created.id,
+      dailyRateCents,
       weeklyRateCents,
-      appliesFrom: todayInTimeZone(input.plannedStart, clock.timeZone),
+      appliesFromBlock: 0,
     });
     if (status === "booked") {
       const clash = await holdCarIfFree(tx, actor.operatorId, created);
@@ -185,6 +211,7 @@ export async function createRental(
     await logRentalActivity(tx, actor, created.id, ACTIVITY_ACTIONS.created, {
       valuesAfter: {
         ...withholdFields<Rental>(values, PRIVATE_RENTAL_FIELDS),
+        dailyRateCents,
         weeklyRateCents,
         settingsVersion: snapshot.version,
         warnings: problemCodes(problems),

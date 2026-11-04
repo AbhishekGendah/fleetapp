@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   bookingProblems,
   canMoveRental,
-  chargeWeekdayFor,
   isBookingRefused,
   isHandoverAllowed,
   isValidRentalPeriod,
@@ -64,12 +63,6 @@ describe("weekdays on the Operator's clock", () => {
     const moment = new Date("2026-11-08T22:30:00Z");
     expect(weekdayIn(moment, "Australia/Sydney")).toBe(1);
     expect(weekdayIn(moment, "UTC")).toBe(7);
-  });
-
-  it("charges on the start's weekday unless one day is fixed", () => {
-    const tuesdayInPerth = new Date("2026-11-10T01:00:00Z");
-    expect(chargeWeekdayFor(tuesdayInPerth, "Australia/Perth", null)).toBe(2);
-    expect(chargeWeekdayFor(tuesdayInPerth, "Australia/Perth", 5)).toBe(5);
   });
 
   it("keeps the right day across the daylight-saving change", () => {

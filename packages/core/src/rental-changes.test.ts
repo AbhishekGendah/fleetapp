@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  canChangeEnd,
-  canChangeRate,
-  earliestRateDay,
-  endChangeProblem,
-  noticeDaysShort,
-  rateChangeProblem,
-} from "./rental-changes";
+import { canChangeEnd, canChangeRate, endChangeProblem, noticeDaysShort } from "./rental-changes";
 
 const NOW = new Date("2026-11-02T02:00:00Z");
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -39,35 +32,5 @@ describe("changes of terms", () => {
     expect(noticeDaysShort(daysFromNow(3), { type: "ongoing" }, NOW, 7)).toBe(4);
     expect(noticeDaysShort(daysFromNow(7), { type: "ongoing" }, NOW, 7)).toBe(0);
     expect(noticeDaysShort(daysFromNow(3), { type: "fixed_term" }, NOW, 7)).toBe(0);
-  });
-
-  it("lets a new rate apply from tomorrow on the business's calendar at the earliest", () => {
-    // 2am UTC is 1pm in Sydney (summer time) and 10am in Perth: both still 2 November.
-    expect(earliestRateDay(NOW, "Australia/Sydney")).toBe("2026-11-03");
-    expect(earliestRateDay(new Date("2026-11-02T14:00:00Z"), "Australia/Sydney")).toBe(
-      "2026-11-04",
-    );
-    const current = { weeklyRateCents: 350_00 };
-    expect(
-      rateChangeProblem(
-        { weeklyRateCents: 380_00, appliesFrom: "2026-11-02" },
-        current,
-        "2026-11-03",
-      ),
-    ).toBe("too_soon");
-    expect(
-      rateChangeProblem(
-        { weeklyRateCents: 350_00, appliesFrom: "2026-11-09" },
-        current,
-        "2026-11-03",
-      ),
-    ).toBe("unchanged");
-    expect(
-      rateChangeProblem(
-        { weeklyRateCents: 380_00, appliesFrom: "2026-11-03" },
-        current,
-        "2026-11-03",
-      ),
-    ).toBeNull();
   });
 });

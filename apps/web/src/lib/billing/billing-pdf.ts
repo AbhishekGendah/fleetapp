@@ -86,13 +86,35 @@ function howToPayDocument(howToPay: string): TemplateDocument | undefined {
 }
 
 /**
+ * What a line says on a document. A reversal names what it takes back, and
+ * the document that was on, so the Renter can see what is corrected.
+ */
+function lineText(item: LedgerLineView, allLines: readonly LedgerLineView[]): string {
+  const text = item.chargeTypeLabel
+    ? `${item.chargeTypeLabel}: ${item.description}`
+    : item.description;
+  const reversed = item.reversesId
+    ? allLines.find((line) => line.id === item.reversesId)
+    : undefined;
+  if (!reversed) {
+    return text;
+  }
+  const onDocument = reversed.documentNumberText ? ` on ${reversed.documentNumberText}` : "";
+  return `${text} (takes back "${reversed.description}"${onDocument})`;
+}
+
+/**
  * An invoice's or credit note's lines. A tax document shows how far each
  * line is taxable and the GST in it, and the GST total; otherwise no GST is
  * shown at all.
  */
-function itemTable(lines: readonly LedgerLineView[], isTaxDocument: boolean): PdfTable {
+function itemTable(input: ItemDocumentPdf): PdfTable {
+  const { lines, isTaxDocument } = input;
   const totalCents = lines.reduce((total, item) => total + item.amountCents, 0);
   const gstCents = lines.reduce((total, item) => total + item.gstCents, 0);
+  // A credit note takes amounts off: shown as minus figures (review G8-1).
+  const shown = (cents: number) =>
+    input.isReduction ? `-${formatCents(cents)}` : formatCents(cents);
   const gstColumn = isTaxDocument ? [{ label: "GST", widthPercent: WIDTHS.gst }] : [];
   return {
     columns: [
@@ -106,19 +128,15 @@ function itemTable(lines: readonly LedgerLineView[], isTaxDocument: boolean): Pd
     ],
     rows: lines.map((item) => [
       formatCalendarDate(item.effectiveOn),
-      item.chargeTypeLabel ? `${item.chargeTypeLabel}: ${item.description}` : item.description,
+      lineText(item, input.allLines),
       ...(isTaxDocument
-        ? [
-            item.gstCents > 0
-              ? `${formatCents(item.gstCents)}`
-              : gstMarking(0, item.gstTreatment ?? "no_gst"),
-          ]
+        ? [item.gstCents > 0 ? shown(item.gstCents) : gstMarking(0, item.gstTreatment ?? "no_gst")]
         : []),
-      formatCents(item.amountCents),
+      shown(item.amountCents),
     ]),
     totals: [
-      ...(isTaxDocument ? ([["GST included", formatCents(gstCents)]] as const) : []),
-      ["Total", formatCents(totalCents)],
+      ...(isTaxDocument ? ([["GST included", shown(gstCents)]] as const) : []),
+      ["Total", shown(totalCents)],
     ],
   };
 }
@@ -127,7 +145,11 @@ export interface ItemDocumentPdf {
   parties: BillingPdfParties;
   header: BillingPdfHeader;
   lines: readonly LedgerLineView[];
+  /** Every line of the rental, so a reversal can name what it takes back. */
+  allLines: readonly LedgerLineView[];
   isTaxDocument: boolean;
+  /** A credit note: its amounts take money off what is owed. */
+  isReduction: boolean;
   /** Printed under an invoice; none on a credit note. */
   howToPay: string;
 }
@@ -138,7 +160,7 @@ export function renderItemDocumentPdf(input: ItemDocumentPdf): Promise<Uint8Arra
     ...input.parties.branding,
     title: `${input.header.title} ${input.header.numberText ?? ""}`.trim(),
     document: headerDocument(input.parties, input.header),
-    table: itemTable(input.lines, input.isTaxDocument),
+    table: itemTable(input),
     closing: howToPayDocument(input.howToPay),
   });
 }

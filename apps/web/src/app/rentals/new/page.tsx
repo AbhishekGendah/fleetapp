@@ -1,10 +1,15 @@
-import { isCalendarDate, isRecordId, WEEKDAY_LABELS } from "@fleetapp/core";
+import { centsForEditing, isCalendarDate, isRecordId } from "@fleetapp/core";
 import { Card, CardContent } from "@fleetapp/ui/card";
 import { PageHeader } from "@fleetapp/ui/page-header";
 
 import { appDb } from "../../../lib/app-db";
 import { NEW_RENTAL_PRESETS, NEW_RENTAL_STARTS_ON, RENTALS_PATH } from "../../../lib/paths";
-import { listPickableCars, listPickableRenters } from "../../../lib/rentals/pickable-records";
+import {
+  listCarPrices,
+  listPickableCars,
+  listPickableRenters,
+} from "../../../lib/rentals/pickable-records";
+import type { CarPrices } from "../../../lib/rentals/pickable-records";
 import { emptyRentalForm } from "../../../lib/rentals/rental-input";
 import { requireUser } from "../../../lib/require-user";
 import { loadOperatorSettings } from "../../../lib/settings/operator-settings";
@@ -37,13 +42,29 @@ function presetsFrom(
   return Object.fromEntries([...ids, ...start]);
 }
 
+/** A car chosen by the page that opened the form brings its prices with it. */
+function withCarPrices(
+  presets: ReturnType<typeof presetsFrom>,
+  carPrices: Readonly<Record<string, CarPrices>>,
+): Parameters<typeof emptyRentalForm>[0] {
+  const prices = presets.vehicleId ? carPrices[presets.vehicleId] : undefined;
+  return {
+    ...presets,
+    ...(prices?.dailyRateCents ? { dailyRateCents: centsForEditing(prices.dailyRateCents) } : {}),
+    ...(prices?.longTermWeeklyCents
+      ? { longTermWeeklyCents: centsForEditing(prices.longTermWeeklyCents) }
+      : {}),
+  };
+}
+
 export default async function NewRentalPage(props: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const user = await requireUser();
-  const [renters, cars, settings, searchParams] = await Promise.all([
+  const [renters, cars, carPrices, settings, searchParams] = await Promise.all([
     listPickableRenters(appDb, user.operatorId),
     listPickableCars(appDb, user.operatorId),
+    listCarPrices(appDb, user.operatorId),
     loadOperatorSettings(appDb, user.operatorId),
     props.searchParams,
   ]);
@@ -54,13 +75,12 @@ export default async function NewRentalPage(props: {
       <Card>
         <CardContent className="pt-6">
           <RentalForm
-            initialValues={emptyRentalForm(presetsFrom(searchParams))}
+            initialValues={emptyRentalForm(withCarPrices(presetsFrom(searchParams), carPrices))}
             renters={renters}
             cars={cars}
             timeZone={user.operatorTimezone}
-            fixedChargeDayLabel={
-              settings.fixedChargeWeekday ? WEEKDAY_LABELS[settings.fixedChargeWeekday] : null
-            }
+            carPrices={carPrices}
+            longTermMinimumDays={settings.longTermMinimumDays}
             action={createRentalAction}
             cancelHref={RENTALS_PATH}
           />

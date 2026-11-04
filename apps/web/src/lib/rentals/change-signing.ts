@@ -35,8 +35,8 @@ export async function changeWeeklyRate(
   deps: LinkDependencies,
   actor: ActingUser,
   rentalId: string,
-  request: { weeklyRateCents: number; appliesFrom: string; reason: string },
-  clock: RentalClock & { currentRateCents: number },
+  request: { weeklyRateCents: number; fromBlock: number; reason: string },
+  clock: RentalClock,
 ): Promise<RateChangeSendResult> {
   if (!(await loadDefaultTemplate(deps.database, actor.operatorId, "change_of_terms"))) {
     return { status: "no_template" };

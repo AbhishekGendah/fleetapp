@@ -45,6 +45,8 @@ const CAMRY: VehicleFormValues = {
   model: "camry",
   year: "2022",
   kilometres: "12,000",
+  dailyRateCents: "$70.00",
+  longTermWeeklyCents: "",
 };
 const FIRST_READING_KM = 12_000;
 
@@ -90,8 +92,9 @@ describe("the car form's rules", () => {
     expect(car).toMatchObject({ make: "Trabant", model: "601" });
   });
 
-  it("requires rego, state, make, model, year and, for a new car, the odometer", () => {
+  it("requires rego, state, make, model, year, the daily rate and, for a new car, the odometer", () => {
     expect(errorFieldsFor(EMPTY_VEHICLE_FORM)).toEqual([
+      "dailyRateCents",
       "kilometres",
       "make",
       "model",

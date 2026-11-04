@@ -1,10 +1,11 @@
-import { formatCents, formatDateTimeInTimeZone, LIST_PAGE_SIZE } from "@fleetapp/core";
+import { formatDateTimeInTimeZone, LIST_PAGE_SIZE } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
 import { Plus } from "lucide-react";
 import Link from "next/link";
 
+import { rentalRateText } from "../../lib/rentals/rental-labels";
 import { appDb } from "../../lib/app-db";
 import { newRentalPath, rentalPath } from "../../lib/paths";
 import { listRentalPage, type RentalScope } from "../../lib/rentals/rental-queries";
@@ -67,7 +68,7 @@ export async function RentalsTab(props: {
                   </Link>
                 }
                 aside={<RentalBadges rental={rental} />}
-                amount={`${formatCents(rental.weeklyRateCents)} a week`}
+                amount={rentalRateText(rental)}
                 details={
                   <>
                     {formatDateTimeInTimeZone(rental.plannedStart, timeZone)} to{" "}

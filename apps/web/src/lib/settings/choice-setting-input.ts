@@ -1,11 +1,7 @@
 import {
   ONE_OFF_CHARGE_INVOICING,
   ONE_OFF_CHARGE_INVOICING_LABELS,
-  PART_WEEK_CHARGING,
-  PART_WEEK_CHARGING_LABELS,
   REQUIRED_MESSAGE,
-  WEEKDAY_LABELS,
-  WEEKDAYS,
   type OperatorSettings,
 } from "@fleetapp/core";
 import { z } from "zod";
@@ -22,9 +18,6 @@ const YES_NO = (yes: string, no: string): readonly ChoiceOption<boolean>[] => [
   { value: "no", label: no, stored: false },
 ];
 
-/** The value the "start's weekday" option sends: the box cannot send nothing. */
-const START_WEEKDAY_VALUE = "start";
-
 /**
  * The settings that are one of a few choices, each with its options. The
  * stored values are exactly what the settings schema in core takes.
@@ -34,15 +27,6 @@ const CHOICE_SETTING_OPTIONS = {
     "Yes, a provisional licence may rent",
     "No, a full or overseas licence only",
   ),
-  fixedChargeWeekday: [
-    { value: START_WEEKDAY_VALUE, label: "The weekday each rental starts on", stored: null },
-    ...WEEKDAYS.map((day) => ({ value: String(day), label: WEEKDAY_LABELS[day], stored: day })),
-  ],
-  partWeekCharging: PART_WEEK_CHARGING.map((choice) => ({
-    value: choice,
-    label: PART_WEEK_CHARGING_LABELS[choice],
-    stored: choice,
-  })),
   isBondRequiredBeforeHandover: YES_NO(
     "Yes, the full bond is held before handover",
     "No, the car can go before the bond is in",

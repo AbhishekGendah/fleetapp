@@ -63,6 +63,8 @@ export async function addTestCar(
       model: "Camry",
       year: "2022",
       kilometres: "12000",
+      dailyRateCents: "70",
+      longTermWeeklyCents: "350",
       ...changes,
     },
     new Date(),

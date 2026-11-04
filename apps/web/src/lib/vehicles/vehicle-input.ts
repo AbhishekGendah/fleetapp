@@ -14,8 +14,11 @@ import {
   MAXIMUM_SEATS,
   normaliseRego,
   normaliseVin,
+  centsForEditing,
+  optionalDollars,
   optionalLine,
   REQUIRED_MESSAGE,
+  requiredDollars,
   requiredLine,
   TRANSMISSIONS,
   OPERATOR_VEHICLE_STATUSES,
@@ -96,6 +99,11 @@ function vehicleFieldsShape(today: Date) {
         message: `Enter a number from 1 to ${MAXIMUM_SEATS}.`,
       }).nullable(),
     ),
+    dailyRateCents: requiredDollars.refine((cents) => cents > 0, "Enter the daily rate."),
+    longTermWeeklyCents: optionalDollars.refine(
+      (cents) => cents === null || cents > 0,
+      "Enter a weekly price above $0, or leave it empty.",
+    ),
   };
 }
 
@@ -138,6 +146,8 @@ export const VEHICLE_FORM_FIELDS = [
   "fuelType",
   "seats",
   "vin",
+  "dailyRateCents",
+  "longTermWeeklyCents",
 ] as const satisfies readonly (keyof VehicleInput)[];
 
 /** The add form also asks for the odometer; the edit form does not (readings have their own tab). */
@@ -153,6 +163,7 @@ const REQUIRED_VEHICLE_FIELDS: readonly VehicleFormField[] = [
   "model",
   "year",
   "kilometres",
+  "dailyRateCents",
 ];
 
 export function isRequiredVehicleField(field: VehicleFormField): boolean {
@@ -161,18 +172,28 @@ export function isRequiredVehicleField(field: VehicleFormField): boolean {
 
 export const EMPTY_VEHICLE_FORM: VehicleFormValues = emptyForm(NEW_VEHICLE_FORM_FIELDS);
 
+/** The car's price boxes, which show dollars, not the cents they are kept in (rule 9). */
+const MONEY_FIELDS: ReadonlySet<VehicleFormField> = new Set([
+  "dailyRateCents",
+  "longTermWeeklyCents",
+]);
+
 /** A saved car as the edit form's boxes show it. */
 export function vehicleFormValues(
   vehicle: Readonly<Record<(typeof VEHICLE_FORM_FIELDS)[number], string | number | null>>,
 ): VehicleFormValues {
+  const shown = (field: (typeof VEHICLE_FORM_FIELDS)[number]): string => {
+    const value = vehicle[field];
+    if (value === null) {
+      return "";
+    }
+    return MONEY_FIELDS.has(field) && typeof value === "number"
+      ? centsForEditing(value)
+      : String(value);
+  };
   return {
     ...EMPTY_VEHICLE_FORM,
-    ...Object.fromEntries(
-      VEHICLE_FORM_FIELDS.map((field) => [
-        field,
-        vehicle[field] === null ? "" : String(vehicle[field]),
-      ]),
-    ),
+    ...Object.fromEntries(VEHICLE_FORM_FIELDS.map((field) => [field, shown(field)])),
   };
 }
 

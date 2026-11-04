@@ -5,8 +5,6 @@ import {
   isRecordId,
   RENTAL_TYPE_LABELS,
   renterDisplayName,
-  WEEKDAY_LABELS,
-  type Weekday,
 } from "@fleetapp/core";
 import { ACTIVITY_ENTITY_TYPES } from "@fleetapp/db/schema";
 import { ActionButton } from "@fleetapp/ui/action-button";
@@ -29,9 +27,10 @@ import { canHearRenterPayments } from "../../../lib/payments/app-payments";
 import { loadRentalProblems } from "../../../lib/rentals/booking-checks";
 import { bookingProblemMessage } from "../../../lib/rentals/rental-messages";
 import {
-  describeRateStart,
   describeRentalValue,
   rentalFieldLabel,
+  rentalRateText,
+  rentTimingText,
 } from "../../../lib/rentals/rental-labels";
 import { loadRental, type RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { RentalClock } from "../../../lib/rentals/rental-records";
@@ -80,9 +79,9 @@ function SummaryCard({ rental, timeZone }: { rental: RentalDetail; timeZone: str
     ["Kind", RENTAL_TYPE_LABELS[rental.type]],
     ["Starts", onClock(rental.plannedStart)],
     ["Ends", rental.plannedEnd ? onClock(rental.plannedEnd) : "No end date yet (ongoing)"],
-    ["Weekly rate", formatCents(rental.weeklyRateCents)],
+    ["Rate", rentalRateText(rental)],
     ["Bond", formatCents(rental.bondCents)],
-    ["Rent charged each", WEEKDAY_LABELS[rental.chargeWeekday as Weekday]],
+    ["Rent", rentTimingText(rental)],
     ["Notes", rental.notes ?? "None"],
   ];
   if (rental.cancellationReason) {
@@ -170,19 +169,15 @@ function RatesCard({ rental }: { rental: RentalDetail }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Weekly rate</CardTitle>
+        <CardTitle>Rates</CardTitle>
         <CardDescription>
-          Each rate applies from its date; earlier weeks keep theirs.
+          Each rate applies from its start; earlier weeks keep theirs.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <RecordList label="Weekly rates">
+        <RecordList label="Rates">
           {rental.rates.map((rate) => (
-            <RecordItem
-              key={rate.appliesFrom}
-              title={describeRateStart(rate.appliesFrom)}
-              amount={formatCents(rate.weeklyRateCents)}
-            />
+            <RecordItem key={rate.key} title={rate.startsText} amount={rate.rateText} />
           ))}
         </RecordList>
       </CardContent>
