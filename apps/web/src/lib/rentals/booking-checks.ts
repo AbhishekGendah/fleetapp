@@ -4,6 +4,7 @@ import {
   isBondShortForHandover,
   isDirectDebitMissingForHandover,
   paymentAccountState,
+  storedAccountStatus,
   operatorSettingsSchema,
   readSettings,
   todayInTimeZone,
@@ -40,7 +41,10 @@ async function isStripeOffered(
     .select()
     .from(stripeAccounts)
     .where(eq(stripeAccounts.operatorId, operatorId));
-  return account !== undefined && canTakeStripePayments(paymentAccountState(account));
+  return (
+    account !== undefined &&
+    canTakeStripePayments(paymentAccountState(storedAccountStatus(account)))
+  );
 }
 
 /** Both sides of a licence: front and back. */

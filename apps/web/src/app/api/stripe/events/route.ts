@@ -11,6 +11,8 @@ export const dynamic = "force-dynamic";
 const BAD_REQUEST_STATUS = 400;
 const NOT_FOUND_STATUS = 404;
 const FAILED_STATUS = 500;
+/** Stripe sends any answer that is not a success again later, with a growing wait. */
+const NOT_READY_STATUS = 503;
 const SIGNATURE_HEADER = "stripe-signature";
 
 /**
@@ -31,8 +33,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       await request.text(),
       signature,
     );
-    return result === "refused"
-      ? NextResponse.json({ error: "bad_signature" }, { status: BAD_REQUEST_STATUS })
+    if (result === "refused") {
+      return NextResponse.json({ error: "bad_signature" }, { status: BAD_REQUEST_STATUS });
+    }
+    return result === "not_ready"
+      ? NextResponse.json({ error: "not_ready" }, { status: NOT_READY_STATUS })
       : NextResponse.json({ received: result });
   } catch (error) {
     console.error("Handling a Stripe event failed", describeErrorForLog(error));

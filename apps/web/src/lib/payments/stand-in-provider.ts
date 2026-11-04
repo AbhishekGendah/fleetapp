@@ -31,11 +31,21 @@ export interface StandInPayments extends PaymentsProvider {
    * payment by card (paid at once) or bank debit (processing until settled).
    * Gives the event Stripe would send.
    */
-  finishCheckout(sessionId: string, method?: StripePaymentMethod): SignedEvent;
+  finishCheckout(
+    sessionId: string,
+    method?: StripePaymentMethod,
+    directDebit?: { setUpAt?: Date; mandateStatus?: string },
+  ): SignedEvent;
   /** A bank debit clears or bounces, days later. */
   settlePayment(sessionId: string, isPaid: boolean): SignedEvent;
   /** The Renter's bank cancels a direct debit. */
   cancelMandate(sessionId: string): SignedEvent;
+  /** Stripe moves a direct debit on (checked and active, or cancelled), with its message. */
+  setMandateStatus(sessionId: string, mandateStatus: string): SignedEvent;
+  /** Whether a bank account was detached at "Stripe" (a replaced direct debit cancelled). */
+  isDetached(paymentMethodId: string): boolean;
+  /** The next detaches fail, as if Stripe were down, so a test can prove the retry. */
+  failNextDetaches(count: number): void;
 }
 
 export interface SignedEvent {
@@ -54,11 +64,15 @@ const READY: PaymentAccountStatus = {
   cardPayments: "active",
   becsDebitPayments: "active",
   requirementsDue: 0,
+  requirementsLater: 0,
+  isDisconnected: false,
 };
 const JUST_MADE: PaymentAccountStatus = {
   cardPayments: "pending",
   becsDebitPayments: "pending",
   requirementsDue: 1,
+  requirementsLater: 0,
+  isDisconnected: false,
 };
 
 const standInEventSchema = z.object({
@@ -82,6 +96,8 @@ export function createStandInPayments(webhookSecret: string): StandInPayments {
   const madeFor = new Map<string, string>();
   const customers = new Map<string, string>();
   const checkouts = new Map<string, StandInCheckout>();
+  const detached = new Set<string>();
+  let failingDetaches = 0;
 
   function signed(event: Omit<PaymentEventNotice, "objectId"> & { objectId?: string | null }) {
     const payload = JSON.stringify({ ...event, objectId: event.objectId ?? null });
@@ -165,6 +181,24 @@ export function createStandInPayments(webhookSecret: string): StandInPayments {
       );
       return checkout?.mandateStatus ?? "inactive";
     },
+    async detachPaymentMethod(_accountId, paymentMethodId) {
+      if (failingDetaches > 0) {
+        failingDetaches -= 1;
+        throw new Error("The stand-in's Stripe is down.");
+      }
+      detached.add(paymentMethodId);
+      for (const [sessionId, checkout] of checkouts) {
+        if (checkout.outcome.setup?.paymentMethodId === paymentMethodId) {
+          checkouts.set(sessionId, { ...checkout, mandateStatus: "inactive" });
+        }
+      }
+    },
+    isDetached(paymentMethodId) {
+      return detached.has(paymentMethodId);
+    },
+    failNextDetaches(count) {
+      failingDetaches = count;
+    },
     setStatus(accountId, status) {
       accounts.set(accountId, status);
     },
@@ -172,12 +206,13 @@ export function createStandInPayments(webhookSecret: string): StandInPayments {
     checkout(sessionId) {
       return checkouts.get(sessionId) ?? null;
     },
-    finishCheckout(sessionId, method = "card") {
+    finishCheckout(sessionId, method = "card", directDebit = {}) {
+      const mandateStatus = directDebit.mandateStatus ?? "active";
       const finished = update(sessionId, (checkout) => {
         const { payment } = checkout.request;
         return {
           ...checkout,
-          mandateStatus: payment ? null : "active",
+          mandateStatus: payment ? null : mandateStatus,
           outcome: {
             ...checkout.outcome,
             isComplete: true,
@@ -187,7 +222,8 @@ export function createStandInPayments(webhookSecret: string): StandInPayments {
                   setupIntentId: standInId("seti"),
                   paymentMethodId: standInId("pm"),
                   mandateId: standInId("mandate"),
-                  mandateStatus: "active",
+                  mandateStatus,
+                  setUpAt: directDebit.setUpAt ?? new Date(),
                 },
             payment: payment
               ? {
@@ -227,15 +263,15 @@ export function createStandInPayments(webhookSecret: string): StandInPayments {
       return eventFor(settled, type, sessionId);
     },
     cancelMandate(sessionId) {
-      const cancelled = update(sessionId, (checkout) => ({
-        ...checkout,
-        mandateStatus: "inactive",
-      }));
-      const mandateId = cancelled.outcome.setup?.mandateId;
+      return this.setMandateStatus(sessionId, "inactive");
+    },
+    setMandateStatus(sessionId, mandateStatus) {
+      const changed = update(sessionId, (checkout) => ({ ...checkout, mandateStatus }));
+      const mandateId = changed.outcome.setup?.mandateId;
       if (!mandateId) {
         throw new Error("That stand-in checkout set up no direct debit.");
       }
-      return eventFor(cancelled, "v1.mandate.updated", mandateId);
+      return eventFor(changed, "v1.mandate.updated", mandateId);
     },
   };
 }

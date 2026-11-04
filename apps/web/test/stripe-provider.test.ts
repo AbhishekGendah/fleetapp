@@ -82,7 +82,7 @@ describe("Stripe's events", () => {
 function stripeAccount(
   card: Record<string, unknown>,
   becs: Record<string, unknown>,
-  entries: { awaiting_action_from: string }[] = [],
+  entries: { awaiting_action_from: string; minimum_deadline?: { status: string } }[] = [],
 ) {
   return {
     id: ACCOUNT_ID,
@@ -106,7 +106,27 @@ describe("a Stripe account's status", () => {
       cardPayments: "active",
       becsDebitPayments: "active",
       requirementsDue: 1,
+      requirementsLater: 0,
+      isDisconnected: false,
     });
+  });
+
+  it("counts only what is due now or overdue as due; what Stripe wants later is noted (review A5-1)", () => {
+    const status = accountStatusOf(
+      stripeAccount({ status: "active" }, { status: "active" }, [
+        { awaiting_action_from: "user", minimum_deadline: { status: "eventually_due" } },
+        { awaiting_action_from: "user", minimum_deadline: { status: "currently_due" } },
+        { awaiting_action_from: "user", minimum_deadline: { status: "past_due" } },
+        { awaiting_action_from: "user", minimum_deadline: { status: "eventually_due" } },
+      ]),
+    );
+    expect([status.requirementsDue, status.requirementsLater]).toEqual([2, 2]);
+  });
+
+  it("reads a closed account as disconnected (review A5-5)", () => {
+    expect(accountStatusOf({ id: ACCOUNT_ID, livemode: false, closed: true }).isDisconnected).toBe(
+      true,
+    );
   });
 
   it("reads restricted while Stripe is still checking as waiting, and a real restriction as a limit", () => {
@@ -142,9 +162,14 @@ describe("a Stripe account's status", () => {
       cardPayments: "pending",
       becsDebitPayments: "pending",
       requirementsDue: 0,
+      requirementsLater: 0,
+      isDisconnected: false,
     });
   });
 });
+
+/** 4 Nov 2026, 01:00 UTC, in seconds as Stripe gives times. */
+const SET_UP_SECONDS = 1_793_754_000;
 
 const REFERENCE = {
   purpose: "bond",
@@ -205,7 +230,14 @@ describe("what came of a visit to Stripe's page", () => {
 
   it("reads a direct debit set up, and ignores a session whose metadata is not ours", () => {
     const setUp = checkoutOutcomeOf(
-      session({ setup_intent: { id: "seti_1", payment_method: "pm_1", mandate: "mandate_1" } }),
+      session({
+        setup_intent: {
+          id: "seti_1",
+          created: SET_UP_SECONDS,
+          payment_method: "pm_1",
+          mandate: "mandate_1",
+        },
+      }),
       "active",
     );
     expect(setUp.setup).toEqual({
@@ -213,6 +245,7 @@ describe("what came of a visit to Stripe's page", () => {
       paymentMethodId: "pm_1",
       mandateId: "mandate_1",
       mandateStatus: "active",
+      setUpAt: new Date(SET_UP_SECONDS * 1000),
     });
     expect(
       checkoutOutcomeOf(session({ metadata: { purpose: "bond" } }), null).reference,

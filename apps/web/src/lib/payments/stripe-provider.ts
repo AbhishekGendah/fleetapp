@@ -19,6 +19,12 @@ import type { CheckoutOutcome, CheckoutReference, PaymentsProvider } from "./pay
 export const STRIPE_API_VERSION = "2026-09-30.endive";
 /** The account country and currency: Australia only. */
 const COUNTRY = "au";
+const MILLISECONDS_PER_SECOND = 1000;
+/** What Stripe says when asked to detach a bank account that is no longer attached. */
+const ALREADY_DETACHED_CODES: ReadonlySet<string> = new Set([
+  "payment_method_unexpected_state",
+  "resource_missing",
+]);
 const CURRENCY = "aud";
 const ACCOUNT_DETAILS = ["configuration.merchant", "requirements"] as const;
 /** v2.core.account.updated, v2.core.account[requirements].updated…: not account_link or account_person. */
@@ -66,23 +72,42 @@ const accountSchema = z.object({
         .nullish(),
     })
     .nullish(),
+  /** Stripe closed the account (v2.core.account.closed). */
+  closed: z.boolean().nullish(),
   requirements: z
     .object({
-      entries: z.array(z.object({ awaiting_action_from: z.string() })).optional(),
+      entries: z
+        .array(
+          z.object({
+            awaiting_action_from: z.string(),
+            minimum_deadline: z.object({ status: z.string() }).nullish(),
+          }),
+        )
+        .optional(),
     })
     .nullish(),
 });
+
+/** Requirements that switch payments off if left: due now, or already overdue (review A5-1). */
+const DUE_NOW = new Set(["currently_due", "past_due"]);
 
 /** What a v2 account, as Stripe returns it, says the business can do. */
 export function accountStatusOf(raw: unknown): PaymentAccountStatus {
   const account = accountSchema.parse(raw);
   const capabilities = account.configuration?.merchant?.capabilities;
+  const forTheBusiness = (account.requirements?.entries ?? []).filter(
+    (entry) => entry.awaiting_action_from === "user",
+  );
+  // An entry with no deadline status is treated as due now: never as nothing to do.
+  const dueNow = forTheBusiness.filter(
+    (entry) => !entry.minimum_deadline || DUE_NOW.has(entry.minimum_deadline.status),
+  ).length;
   return {
     cardPayments: capabilities?.card_payments ?? "pending",
     becsDebitPayments: capabilities?.au_becs_debit_payments ?? "pending",
-    requirementsDue: (account.requirements?.entries ?? []).filter(
-      (entry) => entry.awaiting_action_from === "user",
-    ).length,
+    requirementsDue: dueNow,
+    requirementsLater: forTheBusiness.length - dueNow,
+    isDisconnected: account.closed === true,
   };
 }
 
@@ -148,6 +173,8 @@ const sessionSchema = z.object({
   setup_intent: z
     .object({
       id: z.string(),
+      /** Seconds since 1970, as Stripe gives times. */
+      created: z.number().int(),
       payment_method: z.string().nullable(),
       mandate: z.string().nullable(),
     })
@@ -200,6 +227,7 @@ export function checkoutOutcomeOf(raw: unknown, mandateStatus: string | null): C
             paymentMethodId: setupIntent.payment_method,
             mandateId: setupIntent.mandate,
             mandateStatus,
+            setUpAt: new Date(setupIntent.created * MILLISECONDS_PER_SECOND),
           }
         : null,
     payment: paymentOf(session.payment_intent),
@@ -355,6 +383,20 @@ export function createStripeProvider(
     async readMandateStatus(accountId, mandateId) {
       const mandate = await stripe.mandates.retrieve(mandateId, {}, { stripeAccount: accountId });
       return mandate.status;
+    },
+
+    async detachPaymentMethod(accountId, paymentMethodId) {
+      try {
+        await stripe.paymentMethods.detach(paymentMethodId, {}, { stripeAccount: accountId });
+      } catch (error) {
+        const isAlreadyDone =
+          error instanceof Stripe.errors.StripeInvalidRequestError &&
+          error.code !== undefined &&
+          ALREADY_DETACHED_CODES.has(error.code);
+        if (!isAlreadyDone) {
+          throw error;
+        }
+      }
     },
   };
 }

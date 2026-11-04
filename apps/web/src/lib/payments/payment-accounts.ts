@@ -1,6 +1,8 @@
 import {
+  describeErrorForLog,
   isStripeAccountId,
   paymentAccountState,
+  storedAccountStatus,
   type PaymentAccountState,
   type PaymentAccountStatus,
 } from "@fleetapp/core";
@@ -13,13 +15,14 @@ import { z } from "zod";
 
 import type { ActingUser } from "../acting-user";
 import { loadBusinessDetails } from "../settings/business-details";
+import { detachReplacedMandates } from "./stripe-tidy-up";
 import type {
   CheckoutOutcome,
   OnboardingUrls,
   PaymentEventNotice,
   PaymentsProvider,
 } from "./payments-provider";
-import { applyCheckoutOutcome, applyMandateStatus } from "./renter-payment-records";
+import { applyCheckoutOutcome, applyMandateStatus, isMandateKnown } from "./renter-payment-records";
 
 /** What the payments code needs: the database, Stripe (or its stand-in) and the clock. */
 export interface PaymentDependencies {
@@ -51,11 +54,7 @@ export async function loadPaymentAccount(
   if (!row) {
     return null;
   }
-  const status = {
-    cardPayments: row.cardPayments,
-    becsDebitPayments: row.becsDebitPayments,
-    requirementsDue: row.requirementsDue,
-  };
+  const status = storedAccountStatus(row);
   return {
     stripeAccountId: row.stripeAccountId,
     isLive: row.isLive,
@@ -76,12 +75,22 @@ async function saveStatus(
   if (!before) {
     return;
   }
+  // Once disconnected, an account stays so: a different one is connected instead (review A5-5).
+  const disconnectedAt = before.disconnectedAt ?? (status.isDisconnected ? now : null);
   await tx
     .update(stripeAccounts)
-    .set({ ...status, checkedAt: now, updatedAt: now })
+    .set({
+      cardPayments: status.cardPayments,
+      becsDebitPayments: status.becsDebitPayments,
+      requirementsDue: status.requirementsDue,
+      requirementsLater: status.requirementsLater,
+      disconnectedAt,
+      checkedAt: now,
+      updatedAt: now,
+    })
     .where(eq(stripeAccounts.operatorId, operatorId));
-  const stateBefore = paymentAccountState(before);
-  const stateAfter = paymentAccountState(status);
+  const stateBefore = paymentAccountState(storedAccountStatus(before));
+  const stateAfter = paymentAccountState(storedAccountStatus({ ...status, disconnectedAt }));
   if (stateBefore !== stateAfter) {
     await recordActivity(tx, {
       operatorId,
@@ -155,7 +164,8 @@ export async function refreshPaymentAccount(
   return paymentAccountState(status);
 }
 
-export type PaymentEventResult = "refused" | "ignored" | "repeat" | "handled";
+/** "not_ready": about something not recorded yet, so it is left for Stripe to send again (review KS-7). */
+export type PaymentEventResult = "refused" | "ignored" | "repeat" | "handled" | "not_ready";
 
 const operatorRowSchema = z.object({
   rows: z.array(z.object({ operator_id: z.uuid().nullable() })),
@@ -251,7 +261,11 @@ export async function handlePaymentEvent(
   }
   // Asked before the transaction: Stripe is never waited on while rows are locked.
   const details = await readEventDetails(deps.payments, notice, notice.accountId);
-  return withTenant(deps.database, operatorId, async (tx) => {
+  const result = await withTenant(deps.database, operatorId, async (tx) => {
+    if (details.kind === "mandate" && !(await isMandateKnown(tx, details.mandateId))) {
+      // Its Checkout message is still on its way: not marked handled, so Stripe sends this again.
+      return "not_ready" as const;
+    }
     const recorded = await tx.execute(
       sql`SELECT app.record_stripe_event(${notice.id}, ${notice.type}, ${operatorId}::uuid) AS is_new`,
     );
@@ -260,6 +274,16 @@ export async function handlePaymentEvent(
       return "repeat";
     }
     await applyEventDetails(tx, operatorId, details, deps.now());
-    return "handled";
+    return "handled" as const;
   });
+  if (result === "handled" && details.kind !== "other" && details.kind !== "account") {
+    // A newer direct debit may have replaced one: cancel it at Stripe now, not only overnight.
+    try {
+      await detachReplacedMandates(deps, operatorId);
+    } catch (error) {
+      // The event is saved; the nightly tidy-up tries again.
+      console.error("Detaching after a Stripe event failed", describeErrorForLog(error));
+    }
+  }
+  return result;
 }

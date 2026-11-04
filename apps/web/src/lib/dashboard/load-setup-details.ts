@@ -1,6 +1,7 @@
 import {
   canTakeStripePayments,
   paymentAccountState,
+  storedAccountStatus,
   type SetupChecklistInput,
 } from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
@@ -47,6 +48,8 @@ export async function loadSetupDetails(
         cardPayments: stripeAccounts.cardPayments,
         becsDebitPayments: stripeAccounts.becsDebitPayments,
         requirementsDue: stripeAccounts.requirementsDue,
+        requirementsLater: stripeAccounts.requirementsLater,
+        disconnectedAt: stripeAccounts.disconnectedAt,
         hasContractTemplate: exists(sql`select 1 from ${contractTemplates}
           where ${and(
             eq(contractTemplates.operatorId, operators.id),
@@ -65,11 +68,24 @@ export async function loadSetupDetails(
   if (!row) {
     return null;
   }
-  const { cardPayments, becsDebitPayments, requirementsDue, ...details } = row;
+  const {
+    cardPayments,
+    becsDebitPayments,
+    requirementsDue,
+    requirementsLater,
+    disconnectedAt,
+    ...details
+  } = row;
   // The business's Stripe account (slice 3), ready once Stripe says so.
   const state = paymentAccountState(
-    cardPayments && becsDebitPayments && requirementsDue !== null
-      ? { cardPayments, becsDebitPayments, requirementsDue }
+    cardPayments && becsDebitPayments && requirementsDue !== null && requirementsLater !== null
+      ? storedAccountStatus({
+          cardPayments,
+          becsDebitPayments,
+          requirementsDue,
+          requirementsLater,
+          disconnectedAt,
+        })
       : null,
   );
   return { ...details, stripeChargesEnabled: canTakeStripePayments(state) };

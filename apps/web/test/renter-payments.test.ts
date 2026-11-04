@@ -2,7 +2,7 @@ import { bondMovements, paymentMandates, payments, stripeAccounts } from "@fleet
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import type { EmailMessage } from "@fleetapp/email";
-import { eq } from "drizzle-orm";
+import { eq, isNotNull } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import type { ActingUser } from "../src/lib/acting-user";
@@ -17,6 +17,7 @@ import {
   type PaymentsLinkDependencies,
 } from "../src/lib/payments/payments-links";
 import { startRenterCheckout } from "../src/lib/payments/renter-checkout";
+import { runStripeTidyUp } from "../src/lib/payments/stripe-tidy-up";
 import { loadRentalPayments } from "../src/lib/payments/renter-payment-records";
 import {
   createStandInPayments,
@@ -39,6 +40,8 @@ const URLS = {
 };
 /** The test rental's bond: $500 (bookTestRental). */
 const BOND_CENTS = 500_00;
+const MONDAY = new Date("2026-11-02T01:00:00Z");
+const TUESDAY = new Date("2026-11-03T01:00:00Z");
 
 /**
  * A Renter's direct debit and bond through Stripe's page (slice 4): the
@@ -203,6 +206,74 @@ describe("a Renter's direct debit and bond", () => {
     // The Renter's bank cancels it: the rental shows it, and handover asks again.
     await deliver(stripe.cancelMandate(second));
     expect((await paymentsOf(actor, rental)).directDebit).toBe("cancelled");
+  });
+
+  function mandatesOf(owner: ActingUser, renterId: string) {
+    return withTenant(web.db, owner.operatorId, (tx) =>
+      tx
+        .select({
+          paymentMethodId: paymentMandates.stripePaymentMethodId,
+          status: paymentMandates.status,
+          endReason: paymentMandates.endReason,
+          isDetached: isNotNull(paymentMandates.detachedAt),
+        })
+        .from(paymentMandates)
+        .where(eq(paymentMandates.renterId, renterId))
+        .orderBy(paymentMandates.setUpAt),
+    );
+  }
+
+  it("keeps the direct debit set up last when Stripe tells of an older one late (review KS-2)", async () => {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    const older = await visitStripe(visit, "direct_debit");
+    const newer = await visitStripe(visit, "direct_debit");
+
+    await deliver(stripe.finishCheckout(newer, undefined, { setUpAt: TUESDAY }));
+    const lateEvent = stripe.finishCheckout(older, undefined, { setUpAt: MONDAY });
+    expect(await deliver(lateEvent)).toBe("handled");
+
+    const [first, second] = await mandatesOf(actor, rental.renterId);
+    expect(first).toMatchObject({ status: "inactive", endReason: "replaced", isDetached: true });
+    expect(stripe.isDetached(first!.paymentMethodId)).toBe(true);
+    expect(second).toMatchObject({ status: "active", endReason: null, isDetached: false });
+    expect((await paymentsOf(actor, rental)).directDebit).toBe("active");
+
+    // The older one becoming active at Stripe later never brings it back.
+    await deliver(stripe.setMandateStatus(older, "active"));
+    expect((await mandatesOf(actor, rental.renterId))[0]?.status).toBe("inactive");
+  });
+
+  it("cancels a replaced direct debit at Stripe, and the nightly tidy-up retries it (review KS-3)", async () => {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    await deliver(stripe.finishCheckout(await visitStripe(visit, "direct_debit")));
+    stripe.failNextDetaches(1);
+    await deliver(stripe.finishCheckout(await visitStripe(visit, "direct_debit")));
+    expect((await mandatesOf(actor, rental.renterId))[0]?.isDetached).toBe(false);
+
+    const paymentDeps = { database: web.db, payments: stripe, now: () => new Date() };
+    const run = await runStripeTidyUp(paymentDeps, () => false);
+    expect(run.failedOperators).toBe(0);
+    const [replaced] = await mandatesOf(actor, rental.renterId);
+    expect(replaced?.isDetached).toBe(true);
+    expect(stripe.isDetached(replaced!.paymentMethodId)).toBe(true);
+    expect((await runStripeTidyUp(paymentDeps, () => false)).done).toBe(0);
+  });
+
+  it("keeps Stripe's news about a direct debit that arrives before the direct debit itself (review KS-7)", async () => {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    const sessionId = await visitStripe(visit, "direct_debit");
+    const finished = stripe.finishCheckout(sessionId, undefined, { mandateStatus: "pending" });
+    const nowActive = stripe.setMandateStatus(sessionId, "active");
+
+    expect(await deliver(nowActive)).toBe("not_ready");
+    expect(await deliver(finished)).toBe("handled");
+    expect((await paymentsOf(actor, rental)).directDebit).toBe("waiting");
+    // Stripe sends it again, and this time it counts.
+    expect(await deliver(nowActive)).toBe("handled");
+    expect((await paymentsOf(actor, rental)).directDebit).toBe("active");
   });
 
   it("asks for the direct debit before handover, only when Stripe is offered", async () => {

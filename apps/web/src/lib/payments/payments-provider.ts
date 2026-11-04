@@ -63,6 +63,8 @@ export interface CheckoutOutcome {
     paymentMethodId: string;
     mandateId: string;
     mandateStatus: string;
+    /** When the Renter set it up: the newest one set up is the current one (review KS-2). */
+    setUpAt: Date;
   } | null;
   /** A payment: how, how much, and whether the money is in yet. */
   payment: {
@@ -95,4 +97,10 @@ export interface PaymentsProvider {
   readCheckout(accountId: string, sessionId: string): Promise<CheckoutOutcome>;
   /** A direct debit's status now, as Stripe words it. */
   readMandateStatus(accountId: string, mandateId: string): Promise<string>;
+  /**
+   * Cancels a replaced direct debit at Stripe by detaching its bank account
+   * from the Renter (Stripe's documented way; review KS-3). Done already
+   * counts as done.
+   */
+  detachPaymentMethod(accountId: string, paymentMethodId: string): Promise<void>;
 }

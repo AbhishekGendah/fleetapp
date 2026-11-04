@@ -76,6 +76,8 @@ describe("connecting Stripe", () => {
       cardPayments: "active",
       becsDebitPayments: "pending",
       requirementsDue: 0,
+      requirementsLater: 0,
+      isDisconnected: false,
     });
 
     expect(await refreshPaymentAccount(deps(), actor.operatorId)).toBe("in_review");
@@ -89,6 +91,8 @@ describe("connecting Stripe", () => {
       cardPayments: "active",
       becsDebitPayments: "active",
       requirementsDue: 0,
+      requirementsLater: 0,
+      isDisconnected: false,
     });
 
     const { event, handled } = sendEvent(account.stripeAccountId);
@@ -113,6 +117,8 @@ describe("connecting Stripe", () => {
       cardPayments: "rejected",
       becsDebitPayments: "rejected",
       requirementsDue: 0,
+      requirementsLater: 0,
+      isDisconnected: false,
     });
 
     // An event about the other business's account changes only theirs.

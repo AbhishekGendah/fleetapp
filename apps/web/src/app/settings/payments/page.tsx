@@ -30,6 +30,7 @@ const STATE_TONES: Readonly<Record<PaymentAccountState, BadgeTone>> = {
   in_review: "attention",
   ready: "good",
   restricted: "danger",
+  disconnected: "danger",
 };
 
 const STATE_HELP: Readonly<Record<PaymentAccountState, string>> = {
@@ -42,6 +43,8 @@ const STATE_HELP: Readonly<Record<PaymentAccountState, string>> = {
     "Stripe can take payments for you. Ask Stripe to raise your direct debit limits: new accounts start low.",
   restricted:
     "Stripe has limited what this account can do. Open your Stripe dashboard to see why and what it needs.",
+  disconnected:
+    "This Stripe account was closed or disconnected from us, so Renters are not offered Stripe's page. Contact us to connect a different account.",
 };
 
 /** Asks Stripe for the account's latest state on each visit; if Stripe can't be reached, what it last said. */

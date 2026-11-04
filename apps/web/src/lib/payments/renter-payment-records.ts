@@ -1,6 +1,7 @@
 import {
   bondToCollectCents,
   directDebitState,
+  isOvertakenMandate,
   mandateStatusOf,
   todayInTimeZone,
   type DirectDebitState,
@@ -21,7 +22,7 @@ import {
   rentals,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, ne, sql } from "drizzle-orm";
 
 import { bondAccountOf, selectBondMovements } from "../bonds/bond-account";
 import type { CheckoutOutcome } from "./payments-provider";
@@ -118,30 +119,43 @@ export async function rentalPaymentsIn(
   };
 }
 
-/** A newer direct debit replaces the Renter's active one: only one can be debited (rule 16's one method). */
-async function replaceActiveMandates(
+/**
+ * Ends every direct debit of the Renter's still waiting or active, as
+ * replaced by the one about to be kept (review KS-2): only one can be debited (rule
+ * 16's one method). Each is then detached at Stripe after the save.
+ */
+async function endOtherMandates(
   tx: AnyTransaction,
   operatorId: string,
   renterId: string,
   now: Date,
 ): Promise<void> {
-  const replaced = await tx
+  const ended = await tx
     .update(paymentMandates)
     .set({ status: "inactive", endReason: "replaced", endedAt: now, updatedAt: now })
     .where(
       and(
         eq(paymentMandates.operatorId, operatorId),
         eq(paymentMandates.renterId, renterId),
-        eq(paymentMandates.status, "active"),
+        ne(paymentMandates.status, "inactive"),
       ),
     )
     .returning({ id: paymentMandates.id });
-  for (const mandate of replaced) {
+  for (const mandate of ended) {
     await logSystem(tx, operatorId, ACTIVITY_ENTITY_TYPES.paymentMandate, mandate.id, {
       status: "inactive",
       endReason: "replaced",
     });
   }
+}
+
+/** The Renter's direct debits, locked, so two of Stripe's messages can't both pick the current one. */
+function lockRenterMandates(tx: AnyTransaction, operatorId: string, renterId: string) {
+  return tx
+    .select({ id: paymentMandates.id, setUpAt: paymentMandates.setUpAt })
+    .from(paymentMandates)
+    .where(and(eq(paymentMandates.operatorId, operatorId), eq(paymentMandates.renterId, renterId)))
+    .for("update");
 }
 
 function logSystem(
@@ -171,7 +185,11 @@ function mandateChange(status: MandateStatus, now: Date) {
   };
 }
 
-/** A direct debit the Renter set up on Stripe's page, kept once however often Stripe tells us. */
+/**
+ * A direct debit the Renter set up on Stripe's page, kept once however
+ * often Stripe tells us. The newest one set up is the current one: one
+ * set up earlier that Stripe tells us about late is kept as replaced.
+ */
 async function recordMandate(
   tx: AnyTransaction,
   operatorId: string,
@@ -182,6 +200,7 @@ async function recordMandate(
   if (!reference || !setup) {
     return;
   }
+  const others = await lockRenterMandates(tx, operatorId, reference.renterId);
   const [existing] = await tx
     .select({ id: paymentMandates.id })
     .from(paymentMandates)
@@ -189,9 +208,10 @@ async function recordMandate(
   if (existing) {
     return;
   }
-  const status = mandateStatusOf(setup.mandateStatus);
-  if (status === "active") {
-    await replaceActiveMandates(tx, operatorId, reference.renterId, now);
+  const isOvertaken = isOvertakenMandate(setup.setUpAt, others);
+  const status = isOvertaken ? "inactive" : mandateStatusOf(setup.mandateStatus);
+  if (status !== "inactive") {
+    await endOtherMandates(tx, operatorId, reference.renterId, now);
   }
   const [added] = await tx
     .insert(paymentMandates)
@@ -199,11 +219,15 @@ async function recordMandate(
       operatorId,
       renterId: reference.renterId,
       method: "becs_debit",
-      ...mandateChange(status, now),
+      status,
+      ...(status === "active" ? { activatedAt: now } : {}),
+      endReason: isOvertaken ? "replaced" : status === "inactive" ? "cancelled" : null,
+      endedAt: status === "inactive" ? now : null,
       stripeSetupIntentId: setup.setupIntentId,
       stripePaymentMethodId: setup.paymentMethodId,
       stripeMandateId: setup.mandateId,
       linkId: reference.linkId,
+      setUpAt: setup.setUpAt,
       createdAt: now,
       updatedAt: now,
     })
@@ -215,7 +239,12 @@ async function recordMandate(
       entityType: ACTIVITY_ENTITY_TYPES.paymentMandate,
       entityId: added.id,
       action: ACTIVITY_ACTIONS.created,
-      valuesAfter: { renterId: reference.renterId, method: "becs_debit", status },
+      valuesAfter: {
+        renterId: reference.renterId,
+        method: "becs_debit",
+        status,
+        ...(isOvertaken ? { endReason: "replaced" } : {}),
+      },
     });
   }
 }
@@ -257,7 +286,11 @@ async function addBondReceived(
       occurredOn: await businessToday(tx, operatorId, now),
       paymentId: payment.id,
     })
-    .onConflictDoNothing({ target: bondMovements.paymentId })
+    .onConflictDoNothing({
+      target: bondMovements.paymentId,
+      // The partial unique index bond_movements_one_per_payment.
+      where: sql`${bondMovements.kind} = 'received' and ${bondMovements.stripeObjectId} is null`,
+    })
     .returning({ id: bondMovements.id });
   if (movement) {
     await recordActivity(tx, {
@@ -387,9 +420,19 @@ export async function applyCheckoutOutcome(
   await recordBondPayment(tx, operatorId, outcome, now);
 }
 
+/** Whether we have recorded a direct debit yet: Stripe's news about one we haven't is sent again later. */
+export async function isMandateKnown(tx: AnyTransaction, mandateId: string): Promise<boolean> {
+  const [mandate] = await tx
+    .select({ id: paymentMandates.id })
+    .from(paymentMandates)
+    .where(eq(paymentMandates.stripeMandateId, mandateId));
+  return mandate !== undefined;
+}
+
 /**
  * A direct debit's status as Stripe now says (the Renter's bank cancelled
- * it, or it finished being checked). One already ended stays ended.
+ * it, or it finished being checked). One already ended stays ended, so an
+ * older one replaced can never come back (review KS-2).
  */
 export async function applyMandateStatus(
   tx: AnyTransaction,
@@ -409,9 +452,6 @@ export async function applyMandateStatus(
   const status = mandateStatusOf(update.stripeStatus);
   if (!mandate || mandate.status === "inactive" || mandate.status === status) {
     return;
-  }
-  if (status === "active") {
-    await replaceActiveMandates(tx, operatorId, mandate.renterId, now);
   }
   await tx
     .update(paymentMandates)

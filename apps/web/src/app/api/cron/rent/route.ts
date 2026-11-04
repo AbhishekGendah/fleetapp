@@ -9,6 +9,8 @@ import { appEmailSender } from "../../../../lib/email-sender";
 import { isScheduledJobRequest } from "../../../../lib/cron-auth";
 import type { OperatorRun } from "../../../../lib/jobs/due-operators";
 import { runRentJob } from "../../../../lib/ledger/rent-job";
+import { appPayments } from "../../../../lib/payments/app-payments";
+import { runStripeTidyUp } from "../../../../lib/payments/stripe-tidy-up";
 import { appFileStorage } from "../../../../lib/storage/app-file-storage";
 
 export const runtime = "nodejs";
@@ -76,7 +78,8 @@ async function sendAlert(startedAt: Date, problems: readonly NightlyRunProblem[]
  * The daily rent run, called by Vercel's scheduler (vercel.json) just after
  * midnight in every Australian timezone: rent is charged, then every line
  * still on no document gets its invoice, credit note or receipt. Invoicing
- * runs even if the rent part fails (review G3-3). Safe to call again:
+ * runs even if the rent part fails (review G3-3); then Stripe's tidying up
+ * (replaced direct debits cancelled there). Safe to call again:
  * nothing is charged or issued twice (rule 20). Answers 500 and emails AGS
  * when anything did not finish.
  */
@@ -93,12 +96,19 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       isOutOfTime,
     ),
   );
-  const problems = [rent, documents].flatMap((outcome) => problemOf(outcome) ?? []);
+  const payments = appPayments;
+  const stripe = payments
+    ? await runPart("Stripe tidy-up", () =>
+        runStripeTidyUp({ database: appDb, payments, now: () => new Date() }, isOutOfTime),
+      )
+    : null;
+  const outcomes = stripe ? [rent, documents, stripe] : [rent, documents];
+  const problems = outcomes.flatMap((outcome) => problemOf(outcome) ?? []);
   if (problems.length > 0) {
     await sendAlert(now, problems);
   }
   return NextResponse.json(
-    { rent: rent.result, documents: documents.result },
+    { rent: rent.result, documents: documents.result, stripe: stripe?.result ?? null },
     { status: problems.length > 0 ? FAILED_STATUS : undefined },
   );
 }
