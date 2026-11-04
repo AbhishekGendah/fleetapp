@@ -23,6 +23,8 @@ const NOT_STARTED_MESSAGES: Readonly<
     "Payments are not being taken online right now. The business will tell you how to pay.",
   not_found: "This link no longer works. Ask the business that sent it for a new one.",
   nothing_owing: "Nothing is owing on the bond now.",
+  just_paid:
+    "A bond payment you started has just gone through. Reload this page to see what is left.",
 };
 const FAILED_MESSAGE = "Stripe's page could not be opened. Try again in a moment.";
 

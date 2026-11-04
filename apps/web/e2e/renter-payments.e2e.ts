@@ -78,7 +78,7 @@ test.describe.serial("a Renter's direct debit and bond", () => {
       pageTitle: PAGE_TITLE,
     });
     await expect(phone.getByRole("heading", { name: "1. Set up your direct debit" })).toBeVisible();
-    await expect(phone.getByText(/never sees them/)).toBeVisible();
+    await expect(phone.getByText(/can see only the last digits/)).toBeVisible();
     expect(await scriptKilobytes(phone)).toBeLessThanOrEqual(PAYMENTS_PAGE_BUDGET_KB);
     await expectNoSidewaysScroll(phone);
     await expectAccessible(phone);
@@ -89,9 +89,20 @@ test.describe.serial("a Renter's direct debit and bond", () => {
     await expect(phone.getByText("Your direct debit is set up.")).toBeVisible();
     await expect(phone.getByRole("button", { name: "Change bank account" })).toBeVisible();
 
+    // The same link open twice (say, the email and the QR code): both go to the one Stripe page.
+    const otherTab = await phone.context().newPage();
+    await otherTab.goto(linkUrl, { waitUntil: "networkidle" });
+    await otherTab.getByRole("button", { name: "Pay $500.00 bond" }).click();
+    await expect(otherTab.getByText("Stand-in for Stripe")).toBeVisible();
+
     await phone.getByRole("button", { name: "Pay $500.00 bond" }).click();
+    await expect(phone).toHaveURL(otherTab.url());
     await phone.getByRole("button", { name: "Pay by card" }).click();
     await expect(phone.getByText("Your bond of $500.00 is paid.")).toBeVisible();
+    await expect(phone.getByRole("button", { name: /^Pay .* bond$/ })).toHaveCount(0);
+
+    await otherTab.reload();
+    await expect(otherTab.getByText("This page has already been paid.")).toBeVisible();
     await expectAccessible(phone);
     await phone.context().close();
   });

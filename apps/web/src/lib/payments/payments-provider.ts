@@ -39,6 +39,8 @@ export interface CheckoutRequest {
   reference: CheckoutReference;
   successUrl: string;
   cancelUrl: string;
+  /** When Stripe stops accepting the page (review KS-1). */
+  expiresAt: Date;
   /** For a bond: the amount, in cents, and the line Stripe shows. */
   payment: { amountCents: number; description: string } | null;
 }
@@ -57,6 +59,8 @@ export interface CheckoutOutcome {
   /** Null when the metadata is not ours: the session is then ignored. */
   reference: CheckoutReference | null;
   isComplete: boolean;
+  /** Stripe no longer accepts it: its time ran out, or we expired it. */
+  isExpired: boolean;
   /** A direct debit set up: Stripe's IDs and the mandate's status, as Stripe words it. */
   setup: {
     setupIntentId: string;
@@ -91,8 +95,17 @@ export interface PaymentsProvider {
   readEvent(payload: string, signature: string): Promise<PaymentEventNotice | null>;
   /** The Renter as a customer on the business's account; the same one each time for a Renter. */
   createCustomer(accountId: string, customer: NewCustomer): Promise<string>;
-  /** A visit to Stripe's own page, on the business's account; its address. */
-  startCheckout(accountId: string, request: CheckoutRequest): Promise<{ url: string }>;
+  /** A visit to Stripe's own page, on the business's account: its ID and address. */
+  startCheckout(
+    accountId: string,
+    request: CheckoutRequest,
+  ): Promise<{ sessionId: string; url: string }>;
+  /**
+   * Stops Stripe accepting a page we opened, so it can't be paid as well as
+   * a newer one (review KS-1). One already finished or expired is left as
+   * it is: read it to see which.
+   */
+  expireCheckout(accountId: string, sessionId: string): Promise<void>;
   /** What came of a visit, from Stripe. */
   readCheckout(accountId: string, sessionId: string): Promise<CheckoutOutcome>;
   /** A direct debit's status now, as Stripe words it. */

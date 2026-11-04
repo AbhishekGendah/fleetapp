@@ -1,10 +1,14 @@
-import { formatCents, type DirectDebitState } from "@fleetapp/core";
+import { bondPayableOnlineCents, formatCents, type DirectDebitState } from "@fleetapp/core";
 import { CardDescription } from "@fleetapp/ui/card";
 import { CircleCheck } from "lucide-react";
 
 import { appDb } from "../../../lib/app-db";
 import { appPaymentsLinkDependencies } from "../../../lib/payments/app-payments-links";
-import { isStripeOfferedToRenters, loadPaymentsStep } from "../../../lib/payments/renter-checkout";
+import {
+  isStripeOfferedToRenters,
+  loadPaymentsStep,
+  recordReturnFromStripe,
+} from "../../../lib/payments/renter-checkout";
 import type { LinkVisit } from "../../../lib/renter-links/link-visits";
 import { CheckoutButton } from "./checkout-button";
 import { RefreshWhileWaiting } from "./refresh-while-waiting";
@@ -62,6 +66,7 @@ function DirectDebitStep(props: { token: string; state: DirectDebitState; operat
 
 function BondStep(props: {
   token: string;
+  operatorName: string;
   bond: { requiredCents: number; heldCents: number; pendingCents: number; toCollectCents: number };
 }) {
   const { bond } = props;
@@ -80,7 +85,13 @@ function BondStep(props: {
           {BANK_DEBIT_DAYS_TEXT} to clear.
         </p>
       ) : null}
-      {bond.toCollectCents > 0 ? (
+      {bond.toCollectCents > 0 && bondPayableOnlineCents(bond.toCollectCents) === 0 ? (
+        <p className="text-sm">
+          {formatCents(bond.toCollectCents)} is still owing: too little to pay online.{" "}
+          {props.operatorName} will sort it out with you.
+        </p>
+      ) : null}
+      {bondPayableOnlineCents(bond.toCollectCents) > 0 ? (
         <>
           <p className="text-sm">
             Still to pay: {formatCents(bond.toCollectCents)}. Pay by card, or from your bank account
@@ -109,6 +120,10 @@ export async function PaymentsStep(props: {
 }) {
   const { visit } = props;
   const deps = appPaymentsLinkDependencies(visit.timeZone);
+  if (props.isBackFromStripe) {
+    // Recorded now, so this page never offers to pay what was just paid (review KS-1).
+    await recordReturnFromStripe(deps, visit);
+  }
   const [isOffered, payments] = await Promise.all([
     isStripeOfferedToRenters(deps, visit.operatorId),
     loadPaymentsStep(appDb, visit),
@@ -129,13 +144,12 @@ export async function PaymentsStep(props: {
       </CardDescription>
     );
   }
-  const isWaiting =
-    props.isBackFromStripe || payments.directDebit === "waiting" || payments.bond.pendingCents > 0;
+  const isWaiting = payments.directDebit === "waiting" || payments.bond.pendingCents > 0;
   return (
     <div className="flex flex-col gap-6">
       <RememberLink />
       {isWaiting ? <RefreshWhileWaiting /> : null}
-      {props.isBackFromStripe ? (
+      {props.isBackFromStripe && isWaiting ? (
         <p role="status" className="bg-muted rounded-md p-3 text-sm">
           Thanks. Stripe is confirming it with us; this page updates in a few seconds.
         </p>
@@ -145,11 +159,11 @@ export async function PaymentsStep(props: {
         state={payments.directDebit}
         operatorName={visit.operatorName}
       />
-      <BondStep token={props.token} bond={payments.bond} />
+      <BondStep token={props.token} operatorName={visit.operatorName} bond={payments.bond} />
       <p className="text-muted-foreground text-xs">
         Your bank and card details go to Stripe, the payment company {visit.operatorName} uses,
-        which keeps them in Australia and overseas. {visit.operatorName} never sees them, and
-        neither do we.
+        which keeps them in Australia and overseas. {visit.operatorName} can see only the last
+        digits of your account or card. Nobody can take money with what they see.
       </p>
     </div>
   );

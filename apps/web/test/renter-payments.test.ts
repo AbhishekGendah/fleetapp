@@ -16,7 +16,8 @@ import {
   sendPaymentsLink,
   type PaymentsLinkDependencies,
 } from "../src/lib/payments/payments-links";
-import { startRenterCheckout } from "../src/lib/payments/renter-checkout";
+import { recordBondReceived } from "../src/lib/bonds/bond-records";
+import { recordReturnFromStripe, startRenterCheckout } from "../src/lib/payments/renter-checkout";
 import { runStripeTidyUp } from "../src/lib/payments/stripe-tidy-up";
 import { loadRentalPayments } from "../src/lib/payments/renter-payment-records";
 import {
@@ -321,6 +322,79 @@ describe("a Renter's direct debit and bond", () => {
     );
     expect(entries).toHaveLength(1);
     expect(entries[0]?.paymentId).toBe(after.payments[0]?.id);
+  });
+
+  function cashBond(owner: ActingUser, rentalId: string, amountCents: number) {
+    return recordBondReceived(web.db, owner, rentalId, {
+      amountCents,
+      method: "cash",
+      reference: null,
+      occurredOn: "2026-11-04",
+    });
+  }
+
+  it("hands a second press, or a second phone, the same bond page, so it is paid once (review KS-1)", async () => {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    const onePhone = await visitStripe(visit, "bond");
+    const otherPhone = await visitStripe(visit, "bond");
+    expect(otherPhone).toBe(onePhone);
+
+    // Cash taken meanwhile: the old page is expired at Stripe, a new one asks for the rest.
+    await cashBond(actor, rental.rentalId, 200_00);
+    const forTheRest = await visitStripe(visit, "bond");
+    expect(forTheRest).not.toBe(onePhone);
+    expect(stripe.checkout(onePhone)?.outcome.isExpired).toBe(true);
+    expect(stripe.checkout(forTheRest)?.request.payment?.amountCents).toBe(300_00);
+    expect(() => stripe.finishCheckout(onePhone)).toThrow();
+  });
+
+  it("opens a fresh bond page when the open one is about to expire", async () => {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    const first = await visitStripe(visit, "bond");
+    const nearlyAnHourOn = new Date(Date.now() + 58 * 60 * 1000);
+    const started = await startRenterCheckout(deps({ now: () => nearlyAnHourOn }), visit, "bond");
+    expect(started.status).toBe("started");
+    expect(stripe.checkout(first)?.outcome.isExpired).toBe(true);
+  });
+
+  it("records a bond paid on Stripe's page as soon as the Renter comes back (review KS-1)", async () => {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    const card = stripe.finishCheckout(await visitStripe(visit, "bond"), "card");
+
+    await recordReturnFromStripe(deps(), visit);
+    expect((await paymentsOf(actor, rental)).bond).toMatchObject({
+      heldCents: BOND_CENTS,
+      toCollectCents: 0,
+    });
+    expect((await startRenterCheckout(deps(), visit, "bond")).status).toBe("nothing_owing");
+    // Stripe's own message arrives after: nothing is added twice.
+    expect(await deliver(card)).toBe("handled");
+    expect((await paymentsOf(actor, rental)).bond.heldCents).toBe(BOND_CENTS);
+  });
+
+  it("counts a bank debit bond finished on Stripe's page as on its way at once, never as owing", async () => {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    stripe.finishCheckout(await visitStripe(visit, "bond"), "becs_debit");
+
+    await recordReturnFromStripe(deps(), visit);
+    expect((await paymentsOf(actor, rental)).bond).toMatchObject({
+      heldCents: 0,
+      pendingCents: BOND_CENTS,
+      toCollectCents: 0,
+    });
+    expect((await startRenterCheckout(deps(), visit, "bond")).status).toBe("nothing_owing");
+  });
+
+  it("offers no Stripe page for a bond remainder under Stripe's 50 cent minimum (review KM-2)", async () => {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    await cashBond(actor, rental.rentalId, BOND_CENTS - 25);
+    expect((await paymentsOf(actor, rental)).bond.toCollectCents).toBe(25);
+    expect((await startRenterCheckout(deps(), visit, "bond")).status).toBe("nothing_owing");
   });
 
   it("counts a bank debit bond only once it clears; a bounced one is asked for again", async () => {

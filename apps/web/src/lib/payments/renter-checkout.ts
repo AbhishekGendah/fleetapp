@@ -1,4 +1,10 @@
-import { canTakeStripePayments, type CheckoutPurpose } from "@fleetapp/core";
+import {
+  bondPayableOnlineCents,
+  canTakeStripePayments,
+  CHECKOUT_LIFETIME_MS,
+  describeErrorForLog,
+  type CheckoutPurpose,
+} from "@fleetapp/core";
 import { recordActivity } from "@fleetapp/db/activity";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import {
@@ -16,8 +22,13 @@ import { BOND_OPEN_STATUSES } from "../bonds/bond-account";
 import { STRIPE_RETURN_PATH } from "../paths";
 import type { LinkVisit } from "../renter-links/link-visits";
 import { loadPaymentAccount } from "./payment-accounts";
-import type { PaymentsProvider } from "./payments-provider";
-import { rentalPaymentsIn, type RentalPayments } from "./renter-payment-records";
+import type { CheckoutOutcome, PaymentsProvider } from "./payments-provider";
+import {
+  applyCheckoutOutcome,
+  rentalPaymentsIn,
+  type RentalPayments,
+} from "./renter-payment-records";
+import { lockOpenBondCheckout, openCheckoutsOfLink, saveCheckout } from "./stripe-checkouts";
 
 /** What the Renter's payment steps need: the database, Stripe (if set up here) and this site's address. */
 export interface RenterCheckoutDependencies {
@@ -143,7 +154,121 @@ async function customerFor(
 }
 
 export type StartCheckoutResult =
-  { status: "started"; url: string } | { status: "not_offered" | "not_found" | "nothing_owing" };
+  | { status: "started"; url: string }
+  | { status: "not_offered" | "not_found" | "nothing_owing" | "just_paid" };
+
+/** A bond page this close to expiring isn't handed out again: a fresh one is opened instead. */
+const REUSE_MARGIN_MS = 5 * 60 * 1000;
+
+type StripeAccess = { accountId: string; payments: PaymentsProvider };
+
+/**
+ * Asks Stripe about a page we opened and records what came of it, in the
+ * business's own transaction: a payment made, a direct debit set up, or
+ * the page expired.
+ */
+async function recordOutcome(
+  deps: RenterCheckoutDependencies,
+  stripe: StripeAccess,
+  operatorId: string,
+  sessionId: string,
+): Promise<CheckoutOutcome> {
+  const outcome = await stripe.payments.readCheckout(stripe.accountId, sessionId);
+  await withTenant(deps.database, operatorId, (tx) =>
+    applyCheckoutOutcome(tx, operatorId, outcome, deps.now()),
+  );
+  return outcome;
+}
+
+type OpenBondPage = { status: "reuse"; url: string } | { status: "none" | "just_paid" };
+
+/**
+ * The rental's open bond page, if it can be handed out again: the same
+ * page for the same amount, so two phones or two presses can't both pay
+ * (review KS-1). One for a different amount, or about to expire, is
+ * expired at Stripe first; if the Renter had just paid it, that is
+ * recorded instead.
+ */
+async function openBondPage(
+  deps: RenterCheckoutDependencies,
+  stripe: StripeAccess,
+  operatorId: string,
+  rental: { id: string; payableCents: number },
+): Promise<OpenBondPage> {
+  const open = await withTenant(deps.database, operatorId, (tx) =>
+    lockOpenBondCheckout(tx, operatorId, rental.id),
+  );
+  if (!open) {
+    return { status: "none" };
+  }
+  const isFresh = open.expiresAt.getTime() - deps.now().getTime() > REUSE_MARGIN_MS;
+  if (isFresh && open.amountCents === rental.payableCents) {
+    return { status: "reuse", url: open.url };
+  }
+  await stripe.payments.expireCheckout(stripe.accountId, open.sessionId);
+  const outcome = await recordOutcome(deps, stripe, operatorId, open.sessionId);
+  return outcome.isComplete ? { status: "just_paid" } : { status: "none" };
+}
+
+/** Where Stripe's page sends the Renter back to: a page holding no secret (APP_URL). */
+function backUrl(appUrl: string, step: string): string {
+  const url = new URL(STRIPE_RETURN_PATH, appUrl);
+  url.searchParams.set("step", step);
+  return url.toString();
+}
+
+/**
+ * Opens a new Stripe page and keeps it. If another press opened the
+ * rental's bond page in the meantime, the new one is expired at Stripe and
+ * the other handed out, so only one can ever be paid.
+ */
+async function openNewPage(
+  deps: RenterCheckoutDependencies,
+  stripe: StripeAccess,
+  visit: LinkVisit,
+  page: { rental: PaymentsRental; purpose: CheckoutPurpose; amountCents: number | null },
+): Promise<string> {
+  const customerId = await customerFor(deps, stripe, visit, {
+    name: page.rental.renterName,
+    email: page.rental.renterEmail,
+  });
+  const expiresAt = new Date(deps.now().getTime() + CHECKOUT_LIFETIME_MS);
+  const opened = await stripe.payments.startCheckout(stripe.accountId, {
+    customerId,
+    reference: {
+      purpose: page.purpose,
+      rentalId: page.rental.id,
+      renterId: visit.renterId,
+      linkId: visit.linkId,
+    },
+    successUrl: backUrl(deps.appUrl, STRIPE_RETURN_STEPS.finished),
+    cancelUrl: backUrl(deps.appUrl, STRIPE_RETURN_STEPS.left),
+    expiresAt,
+    payment:
+      page.amountCents === null
+        ? null
+        : { amountCents: page.amountCents, description: `Bond for ${page.rental.carRego}` },
+  });
+  const winner = await withTenant(deps.database, visit.operatorId, async (tx) => {
+    const isSaved = await saveCheckout(tx, {
+      operatorId: visit.operatorId,
+      rentalId: page.rental.id,
+      linkId: visit.linkId,
+      purpose: page.purpose,
+      amountCents: page.amountCents,
+      sessionId: opened.sessionId,
+      url: opened.url,
+      expiresAt,
+      now: deps.now(),
+    });
+    return isSaved ? null : lockOpenBondCheckout(tx, visit.operatorId, page.rental.id);
+  });
+  if (!winner) {
+    return opened.url;
+  }
+  await stripe.payments.expireCheckout(stripe.accountId, opened.sessionId);
+  return winner.url;
+}
 
 /**
  * Sends the Renter to Stripe's own page, on the business's account: to set
@@ -171,33 +296,27 @@ export async function startRenterCheckout(
   if (!found) {
     return { status: "not_found" };
   }
-  const bondCents = found.payments.bond.toCollectCents;
-  if (purpose === "bond" && bondCents === 0) {
-    return { status: "nothing_owing" };
+  const payableCents = bondPayableOnlineCents(found.payments.bond.toCollectCents);
+  if (purpose === "bond") {
+    if (payableCents === 0) {
+      return { status: "nothing_owing" };
+    }
+    const open = await openBondPage(deps, stripe, visit.operatorId, {
+      id: found.rental.id,
+      payableCents,
+    });
+    if (open.status === "reuse") {
+      return { status: "started", url: open.url };
+    }
+    if (open.status === "just_paid") {
+      return { status: "just_paid" };
+    }
   }
-  const customerId = await customerFor(deps, stripe, visit, {
-    name: found.rental.renterName,
-    email: found.rental.renterEmail,
-  });
-  const backTo = (step: string) => {
-    const url = new URL(STRIPE_RETURN_PATH, deps.appUrl);
-    url.searchParams.set("step", step);
-    return url.toString();
-  };
-  const { url } = await stripe.payments.startCheckout(stripe.accountId, {
-    customerId,
-    reference: {
-      purpose,
-      rentalId: found.rental.id,
-      renterId: visit.renterId,
-      linkId: visit.linkId,
-    },
-    successUrl: backTo(STRIPE_RETURN_STEPS.finished),
-    cancelUrl: backTo(STRIPE_RETURN_STEPS.left),
-    payment:
-      purpose === "bond"
-        ? { amountCents: bondCents, description: `Bond for ${found.rental.carRego}` }
-        : null,
+  const amountCents = purpose === "bond" ? payableCents : null;
+  const url = await openNewPage(deps, stripe, visit, {
+    rental: found.rental,
+    purpose,
+    amountCents,
   });
   await withTenant(deps.database, visit.operatorId, (tx) =>
     recordActivity(tx, {
@@ -206,8 +325,34 @@ export async function startRenterCheckout(
       entityType: ACTIVITY_ENTITY_TYPES.rental,
       entityId: found.rental.id,
       action: ACTIVITY_ACTIONS.checkoutStarted,
-      valuesAfter: { purpose, ...(purpose === "bond" ? { amountCents: bondCents } : {}) },
+      valuesAfter: { purpose, ...(amountCents === null ? {} : { amountCents }) },
     }),
   );
   return { status: "started", url };
+}
+
+/**
+ * The Renter is back from Stripe's page: what came of each page the link
+ * has open is read from Stripe and recorded now, not left for Stripe's
+ * message, so the page shows it at once and never offers to pay again
+ * (review KS-1). A failure here is logged; Stripe's message still records it.
+ */
+export async function recordReturnFromStripe(
+  deps: RenterCheckoutDependencies,
+  visit: LinkVisit,
+): Promise<void> {
+  const stripe = await isStripeOfferedToRenters(deps, visit.operatorId);
+  if (!stripe) {
+    return;
+  }
+  const open = await withTenant(deps.database, visit.operatorId, (tx) =>
+    openCheckoutsOfLink(tx, visit.operatorId, visit.linkId, deps.now()),
+  );
+  for (const page of open) {
+    try {
+      await recordOutcome(deps, stripe, visit.operatorId, page.sessionId);
+    } catch (error) {
+      console.error("Reading a Stripe page on the way back failed", describeErrorForLog(error));
+    }
+  }
 }

@@ -43,7 +43,13 @@ export default async function StandInCheckoutPage(props: {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          {payment ? (
+          {checkout.outcome.isComplete || checkout.outcome.isExpired ? (
+            <p role="status" className="text-sm">
+              {checkout.outcome.isComplete
+                ? "This page has already been paid."
+                : "This page has expired."}
+            </p>
+          ) : payment ? (
             <>
               <form action={finish("card")}>
                 <Button type="submit" className="w-full">

@@ -1,7 +1,12 @@
 "use server";
 
-import type { StripePaymentMethod } from "@fleetapp/core";
+import {
+  STRIPE_ID_PATTERNS,
+  STRIPE_PAYMENT_METHODS,
+  type StripePaymentMethod,
+} from "@fleetapp/core";
 import { notFound, redirect } from "next/navigation";
+import { z } from "zod";
 
 import { appDb } from "../../../../lib/app-db";
 import { standInPayments } from "../../../../lib/payments/app-payments";
@@ -12,16 +17,28 @@ import { handlePaymentEvent } from "../../../../lib/payments/payment-accounts";
  * the bond paid by card or bank debit), Stripe's event arrives signed like
  * the real one, and the Renter is sent back. Or they leave without finishing.
  */
+const LEAVE = "leave";
+/** What the stand-in's buttons send, checked as every action's input is (review A5-11). */
+const finishInputSchema = z.object({
+  sessionId: z.string().regex(STRIPE_ID_PATTERNS.checkoutSession),
+  method: z.enum([...STRIPE_PAYMENT_METHODS, LEAVE]),
+});
+
 export async function finishStandInCheckoutAction(
-  sessionId: string,
-  method: StripePaymentMethod | "leave",
+  sessionIdInput: string,
+  methodInput: StripePaymentMethod | typeof LEAVE,
 ): Promise<void> {
+  const parsed = finishInputSchema.safeParse({ sessionId: sessionIdInput, method: methodInput });
+  if (!parsed.success) {
+    notFound();
+  }
+  const { sessionId, method } = parsed.data;
   const stripe = standInPayments();
   const checkout = stripe?.checkout(sessionId);
   if (!stripe || !checkout) {
     notFound();
   }
-  if (method === "leave") {
+  if (method === LEAVE) {
     redirect(checkout.request.cancelUrl);
   }
   const event = stripe.finishCheckout(sessionId, method);

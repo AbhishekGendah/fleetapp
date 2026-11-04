@@ -159,14 +159,25 @@ export function createStandInPayments(webhookSecret: string): StandInPayments {
           sessionId,
           reference: request.reference,
           isComplete: false,
+          isExpired: false,
           setup: null,
           payment: null,
         },
         mandateStatus: null,
       });
       return {
+        sessionId,
         url: new URL(`${STAND_IN_CHECKOUT_PATH}/${sessionId}`, request.successUrl).toString(),
       };
+    },
+    async expireCheckout(_accountId, sessionId) {
+      const checkout = checkouts.get(sessionId);
+      if (checkout && !checkout.outcome.isComplete) {
+        checkouts.set(sessionId, {
+          ...checkout,
+          outcome: { ...checkout.outcome, isExpired: true },
+        });
+      }
     },
     async readCheckout(_accountId, sessionId) {
       const checkout = checkouts.get(sessionId);
@@ -207,6 +218,10 @@ export function createStandInPayments(webhookSecret: string): StandInPayments {
       return checkouts.get(sessionId) ?? null;
     },
     finishCheckout(sessionId, method = "card", directDebit = {}) {
+      const { outcome } = checkouts.get(sessionId) ?? {};
+      if (outcome?.isExpired || outcome?.isComplete) {
+        throw new Error("That stand-in checkout is finished or expired: Stripe would refuse it.");
+      }
       const mandateStatus = directDebit.mandateStatus ?? "active";
       const finished = update(sessionId, (checkout) => {
         const { payment } = checkout.request;

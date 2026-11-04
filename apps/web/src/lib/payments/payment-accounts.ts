@@ -189,9 +189,10 @@ async function operatorForAccount(
 }
 
 const ACCOUNT_EVENT = /^v2\.core\.account[.[]/;
-/** A visit to Stripe's page finished, or its bank debit cleared or bounced later. */
+/** A visit to Stripe's page finished or expired, or its bank debit cleared or bounced later. */
 const CHECKOUT_EVENTS: ReadonlySet<string> = new Set([
   "v1.checkout.session.completed",
+  "v1.checkout.session.expired",
   "v1.checkout.session.async_payment_succeeded",
   "v1.checkout.session.async_payment_failed",
 ]);

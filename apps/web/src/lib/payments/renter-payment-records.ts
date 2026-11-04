@@ -26,6 +26,7 @@ import { and, asc, eq, ne, sql } from "drizzle-orm";
 
 import { bondAccountOf, selectBondMovements } from "../bonds/bond-account";
 import type { CheckoutOutcome } from "./payments-provider";
+import { settleCheckout, unrecordedBondCents } from "./stripe-checkouts";
 
 const SYSTEM_ACTOR = { type: "system", id: null } as const;
 
@@ -94,15 +95,17 @@ export async function rentalPaymentsIn(
   operatorId: string,
   rental: { id: string; renterId: string; bondCents: number },
 ): Promise<RentalPayments> {
-  const [mandates, rows, movements] = await Promise.all([
+  const [mandates, rows, movements, unrecordedCents] = await Promise.all([
     selectMandates(tx, operatorId, rental.renterId),
     selectRentalPayments(tx, operatorId, rental.id),
     selectBondMovements(tx, operatorId, rental.id),
+    unrecordedBondCents(tx, operatorId, rental.id),
   ]);
   const { heldCents } = bondAccountOf(movements, rental.bondCents);
-  const pendingCents = rows
-    .filter((row) => row.status === "pending")
-    .reduce((sum, row) => sum + row.amountCents, 0);
+  // A finished Stripe page whose payment isn't recorded yet is on its way too (review KS-1).
+  const pendingCents =
+    unrecordedCents +
+    rows.filter((row) => row.status === "pending").reduce((sum, row) => sum + row.amountCents, 0);
   return {
     directDebit: directDebitState(mandates),
     payments: rows,
@@ -394,6 +397,7 @@ export async function applyCheckoutOutcome(
   outcome: CheckoutOutcome,
   now: Date,
 ): Promise<void> {
+  await settleCheckout(tx, operatorId, outcome, now);
   const { reference } = outcome;
   if (!outcome.isComplete || !reference) {
     return;

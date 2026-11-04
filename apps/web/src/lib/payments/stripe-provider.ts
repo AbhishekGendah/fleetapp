@@ -220,6 +220,7 @@ export function checkoutOutcomeOf(raw: unknown, mandateStatus: string | null): C
     sessionId: session.id,
     reference: referenceOf(session.metadata),
     isComplete: session.status === "complete",
+    isExpired: session.status === "expired",
     setup:
       setupIntent?.mandate && setupIntent.payment_method && mandateStatus
         ? {
@@ -328,6 +329,7 @@ export function createStripeProvider(
         cancel_url: request.cancelUrl,
         metadata,
         locale: "en" as const,
+        expires_at: Math.floor(request.expiresAt.getTime() / MILLISECONDS_PER_SECOND),
       };
       const session = request.payment
         ? await stripe.checkout.sessions.create(
@@ -362,7 +364,18 @@ export function createStripeProvider(
       if (!session.url) {
         throw new Error("Stripe gave no address for its page.");
       }
-      return { url: session.url };
+      return { sessionId: session.id, url: session.url };
+    },
+
+    async expireCheckout(accountId, sessionId) {
+      try {
+        await stripe.checkout.sessions.expire(sessionId, {}, { stripeAccount: accountId });
+      } catch (error) {
+        // Stripe refuses to expire a page already finished or expired; the caller reads which.
+        if (!(error instanceof Stripe.errors.StripeInvalidRequestError)) {
+          throw error;
+        }
+      }
     },
 
     async readCheckout(accountId, sessionId) {
