@@ -6,6 +6,7 @@ import {
   isValidAbn,
   normaliseAbn,
   optionalLine,
+  optionalWebAddress,
   POSTCODE_PATTERN,
   requiredEmail,
   REQUIRED_MESSAGE,
@@ -23,8 +24,8 @@ const GST_PROBLEM_MESSAGES = {
 /**
  * Business details as submitted from the Settings form. Everything that goes
  * on a contract or a tax invoice is required: legal name, ABN, address,
- * phone and email. A trading name, a second address line and (when not
- * registered) a GST date may be left out.
+ * phone and email. A trading name, a second address line, a privacy policy
+ * link and (when not registered) a GST date may be left out.
  */
 export const businessDetailsInputSchema = z
   .object({
@@ -45,6 +46,7 @@ export const businessDetailsInputSchema = z
     postcode: requiredLine.regex(POSTCODE_PATTERN, "A postcode is 4 digits."),
     phone: requiredPhone,
     email: requiredEmail,
+    privacyPolicyUrl: optionalWebAddress,
     timezone: z.string().refine(isAustralianTimezone, "Choose a timezone."),
   })
   .superRefine((input, context) => {

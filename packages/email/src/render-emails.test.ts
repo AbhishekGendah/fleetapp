@@ -1,3 +1,4 @@
+import { privacyNoticeFor } from "@fleetapp/core";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -10,6 +11,7 @@ import {
   renderRenterDetailsSentBackEmail,
   renderRenterLinkCodeEmail,
   renderRenterPaymentsLinkEmail,
+  renderRenterPrivacyNoticeEmail,
   renderRenterSigningLinkEmail,
 } from "./render-emails";
 import { senderFor } from "./email-sender";
@@ -89,6 +91,53 @@ describe("Renter emails", () => {
     expect(message).toMatchObject({ fromName: "Sunny Rentals", replyTo: "office@sunny.test" });
     expect(message.text).toContain("https://app.example.test/r/a-secret-token");
     expect(message.html).toContain("Sunny Rentals");
+  });
+
+  it("never say reply when the business has no email for replies (review G7-4)", async () => {
+    const withoutEmail = {
+      to: "sam@example.test",
+      renterName: "Sam",
+      operatorName: "Sunny Rentals",
+      linkUrl: "https://app.example.test/r/a-secret-token",
+      validUntil: "Friday 6 November",
+    };
+    const silent = await renderRenterDetailsLinkEmail(withoutEmail);
+    const answerable = await renderRenterDetailsLinkEmail({
+      ...withoutEmail,
+      replyTo: "office@sunny.test",
+    });
+
+    expect(silent.replyTo).toBeUndefined();
+    expect(silent.text).not.toMatch(/reply/i);
+    expect(silent.text).toContain("contact Sunny Rentals");
+    expect(answerable.text).toContain("reply to let Sunny Rentals know");
+  });
+
+  it("send the privacy notice to a Renter added at the counter, from the business", async () => {
+    const message = await renderRenterPrivacyNoticeEmail({
+      to: "sam@example.test",
+      replyTo: "office@sunny.test",
+      renterName: "Sam",
+      operatorName: "Sunny Rentals",
+      notice: privacyNoticeFor(
+        {
+          name: "Sunny Rentals",
+          email: "office@sunny.test",
+          phone: null,
+          privacyPolicyUrl: "https://sunny.example.com.au/privacy",
+        },
+        "TheApp",
+        "counter",
+      ),
+    });
+
+    expect(message).toMatchObject({
+      fromName: "Sunny Rentals",
+      subject: "How Sunny Rentals looks after your information",
+    });
+    expect(message.text).toContain("Sunny Rentals collects your details");
+    expect(message.text).toContain("Postmark");
+    expect(message.html).toContain("https://sunny.example.com.au/privacy");
   });
 
   it("put the code in the subject and the body", async () => {

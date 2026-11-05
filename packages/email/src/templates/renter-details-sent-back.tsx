@@ -1,9 +1,9 @@
 import { Text } from "@react-email/components";
 import type { ReactElement } from "react";
 
-import { EmailLayout, SmallPrint } from "./email-layout";
+import { EmailLayout, SmallPrint, type ReplyAware } from "./email-layout";
 
-export interface RenterDetailsSentBackEmailProps {
+export interface RenterDetailsSentBackEmailProps extends ReplyAware {
   operatorName: string;
   /** The Operator's note on what to change, in their words. */
   note: string;
@@ -37,7 +37,9 @@ export function RenterDetailsSentBackEmail(props: RenterDetailsSentBackEmailProp
         again. It works until {props.linkWorksUntil}.
       </Text>
       <SmallPrint>
-        If the link has stopped working, reply to this email and ask for a new one.
+        {props.canReply
+          ? "If the link has stopped working, reply to this email and ask for a new one."
+          : `If the link has stopped working, ask ${props.operatorName} for a new one.`}
       </SmallPrint>
     </EmailLayout>
   );

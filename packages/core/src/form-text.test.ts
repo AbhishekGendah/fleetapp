@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { formTextValues, optionalLine, requiredEmail, requiredLine } from "./form-text";
+import {
+  formTextValues,
+  optionalLine,
+  optionalWebAddress,
+  requiredEmail,
+  requiredLine,
+} from "./form-text";
 
 describe("form text rules", () => {
   it("trims, refuses blanks where required, and keeps to one line", () => {
@@ -24,5 +30,26 @@ describe("form text rules", () => {
       legalName: "Test Fleet",
       email: "",
     });
+  });
+});
+
+describe("a web address the business gives", () => {
+  it("takes a full https address, and blank as none", () => {
+    expect(optionalWebAddress.parse("https://coast.example.com.au/privacy")).toBe(
+      "https://coast.example.com.au/privacy",
+    );
+    expect(optionalWebAddress.parse("  ")).toBeNull();
+  });
+
+  it("refuses anything that is not an https page on a real domain", () => {
+    for (const address of [
+      "http://coast.example.com.au/privacy",
+      "javascript:alert(1)",
+      "coast.example.com.au",
+      "https://203.0.113.9/privacy",
+      "https://localhost/privacy",
+    ]) {
+      expect(optionalWebAddress.safeParse(address).success, address).toBe(false);
+    }
   });
 });

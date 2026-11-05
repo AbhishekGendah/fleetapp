@@ -1,9 +1,9 @@
 import { Text } from "@react-email/components";
 import type { ReactElement } from "react";
 
-import { EmailLayout, SmallPrint } from "./email-layout";
+import { EmailLayout, SmallPrint, type ReplyAware } from "./email-layout";
 
-export interface BillingDocumentEmailProps {
+export interface BillingDocumentEmailProps extends ReplyAware {
   /** What it is, as printed on it: "Tax invoice", "Credit note", "Receipt", "Statement". */
   title: string;
   /** e.g. "INV-1001"; none for a statement. */
@@ -39,7 +39,9 @@ export function BillingDocumentEmail(props: BillingDocumentEmailProps): ReactEle
       <Text>{props.amountLine}</Text>
       <SmallPrint>
         Keep it for your records. It is fixed once issued: any correction comes as a credit note.
-        Questions about it go to {props.operatorName}: reply to this email.
+        {props.canReply
+          ? `Questions about it go to ${props.operatorName}: reply to this email.`
+          : `Questions about it go to ${props.operatorName}.`}
       </SmallPrint>
     </EmailLayout>
   );

@@ -34,6 +34,8 @@ export function SwapForm(props: {
   returnInspectionId: string;
   handoverInspectionId: string;
   renterName: string;
+  /** Where the business's privacy policy is, shown before the Renter signs. */
+  privacyLine: React.ReactNode;
   oldCar: string;
   shown: ShownSwap;
 }) {
@@ -81,6 +83,7 @@ export function SwapForm(props: {
         id="swap-signature"
         renterName={props.renterName}
         onSignatureChange={setSignature}
+        privacyLine={props.privacyLine}
         problem={problem ?? (state.status === "problem" ? state.message : null)}
         isPending={isPending}
         submitLabel="The Renter signs the swap"

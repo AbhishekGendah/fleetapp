@@ -11,6 +11,9 @@ import { rentalPath } from "../../../../lib/paths";
 import { loadRentalProblems } from "../../../../lib/rentals/booking-checks";
 import { bookingProblemMessage } from "../../../../lib/rentals/rental-messages";
 import type { SignedInUser } from "../../../../lib/require-user";
+import { NoBusinessEmailWarning } from "../../../../components/no-business-email-warning";
+import { RenterPrivacyLine } from "../../../../components/renter-privacy-notice";
+import { loadNoticeBusiness } from "../../../../lib/privacy/notice-business";
 import { checklistData } from "./checklist-page-data";
 import { loadChecklistPage } from "./load-checklist-page";
 import { AcceptanceForm } from "./acceptance-form";
@@ -49,7 +52,10 @@ async function acceptanceChecks(user: SignedInUser, view: HandoverView) {
 /** The handover checklist under way for a rental; back to the rental if there is none. */
 export default async function HandoverPage(props: { params: Promise<{ rentalId: string }> }) {
   const { user, rentalId, view } = await loadChecklistPage(props.params, "handover");
-  const checks = await acceptanceChecks(user, view);
+  const [checks, business] = await Promise.all([
+    acceptanceChecks(user, view),
+    loadNoticeBusiness(appDb, user.operatorId),
+  ]);
   const shown = shownChecklistOf(view);
   return (
     <AppShell user={user}>
@@ -62,6 +68,7 @@ export default async function HandoverPage(props: { params: Promise<{ rentalId: 
         For {view.renterFullName}. Everything is kept on this phone as you go, and sent when there
         is signal.
       </p>
+      <NoBusinessEmailWarning user={user} />
       <OfflineReady>
         <HandoverChecklist
           data={checklistData(view, checks)}
@@ -75,6 +82,7 @@ export default async function HandoverPage(props: { params: Promise<{ rentalId: 
                 rentalId={view.rentalId}
                 inspectionId={view.inspectionId}
                 renterName={view.renterFullName}
+                privacyLine={<RenterPrivacyLine business={business} />}
                 summary={`${view.carRego} · ${view.carMakeModel}`}
                 shown={shown}
                 bondShortCents={checks.bondShortCents}

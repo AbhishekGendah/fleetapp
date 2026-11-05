@@ -1,7 +1,13 @@
 import { Text } from "@react-email/components";
 import type { ReactElement } from "react";
 
-import { EmailButton, EmailLayout, SmallPrint } from "./email-layout";
+import {
+  EmailButton,
+  EmailLayout,
+  SmallPrint,
+  NotExpectingNote,
+  type ReplyAware,
+} from "./email-layout";
 
 /** What the link is for: the rental contract, or a change to it. */
 export type SignedDocumentKind = "contract" | "change_of_terms";
@@ -21,7 +27,7 @@ const DOCUMENT_WORDS: Readonly<
   },
 };
 
-export interface RenterSigningLinkEmailProps {
+export interface RenterSigningLinkEmailProps extends ReplyAware {
   /** The contract unless said otherwise. */
   document?: SignedDocumentKind;
   renterName: string;
@@ -52,9 +58,7 @@ export function RenterSigningLinkEmail(props: RenterSigningLinkEmailProps): Reac
         The link works until {props.validUntil}. The first time you open it on a phone, we will
         email you a code to type in. You will get a copy of the signed {words.name} by email.
       </SmallPrint>
-      <SmallPrint>
-        Not expecting this? Ignore this email, or reply to let {props.operatorName} know.
-      </SmallPrint>
+      <NotExpectingNote operatorName={props.operatorName} canReply={props.canReply} />
     </EmailLayout>
   );
 }

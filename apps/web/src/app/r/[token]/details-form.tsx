@@ -25,7 +25,6 @@ import {
 } from "./form-actions";
 import { LinkPhotos } from "./link-photos";
 import { INITIAL_SEND_DETAILS_STATE, PHOTOS_MISSING_MESSAGE } from "./link-state";
-import { PrivacyNotice } from "./privacy-notice";
 import { SentBackNote } from "./sent-back-note";
 import { SentThanks } from "./sent-thanks";
 
@@ -109,7 +108,6 @@ export function DetailsForm(props: DetailsFormProps) {
       {props.sentBackNote ? (
         <SentBackNote operatorName={props.operatorName} note={props.sentBackNote} />
       ) : null}
-      <PrivacyNotice operatorName={props.operatorName} />
       <RequiredFieldsNote />
       <RenterDetailsFields
         form={form}

@@ -12,6 +12,8 @@ import { isPhoneRemembered, openLink, wasLinkUsed } from "../../../lib/renter-li
 import { STRIPE_RETURN_STEPS } from "../../../lib/payments/renter-checkout";
 import { loadFormStart } from "../../../lib/renter-links/submissions";
 import { checkCodeAction, sendCodeAction } from "./actions";
+import { RenterPrivacyNotice } from "../../../components/renter-privacy-notice";
+import { loadNoticeBusiness } from "../../../lib/privacy/notice-business";
 import { CodeStep } from "./code-step";
 import { DetailsForm } from "./details-form";
 import { ForgetDraft } from "./forget-draft";
@@ -37,7 +39,13 @@ const PAGE_TITLES: Readonly<Record<RenterLinkPurpose, string>> = {
   set_up_payments: "Your payments",
 };
 
-function LinkPage(props: { operatorName?: string; title: string; children: React.ReactNode }) {
+function LinkPage(props: {
+  operatorName?: string;
+  title: string;
+  /** The privacy notice, at the top of every page that collects something (APP 5). */
+  notice?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 p-4">
       {props.operatorName ? (
@@ -47,7 +55,10 @@ function LinkPage(props: { operatorName?: string; title: string; children: React
         <CardHeader>
           <CardTitle>{props.title}</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">{props.children}</CardContent>
+        <CardContent className="flex flex-col gap-4">
+          {props.notice}
+          {props.children}
+        </CardContent>
       </Card>
       <p className="text-muted-foreground text-center text-xs">Sent using {BRAND.productName}</p>
     </main>
@@ -106,9 +117,14 @@ export default async function RenterLinkPage(props: {
       </LinkPage>
     );
   }
+  const business = await loadNoticeBusiness(appDb, visit.operatorId);
   if (visit.purpose === "set_up_payments") {
     return (
-      <LinkPage operatorName={visit.operatorName} title={PAGE_TITLES.set_up_payments}>
+      <LinkPage
+        operatorName={visit.operatorName}
+        title={PAGE_TITLES.set_up_payments}
+        notice={<RenterPrivacyNotice business={business} place="payments" />}
+      >
         <PaymentsStep
           token={token}
           visit={visit}
@@ -119,14 +135,22 @@ export default async function RenterLinkPage(props: {
   }
   if (visit.purpose === "sign_contract" || visit.purpose === "sign_change") {
     return (
-      <LinkPage operatorName={visit.operatorName} title={PAGE_TITLES[visit.purpose]}>
+      <LinkPage
+        operatorName={visit.operatorName}
+        title={PAGE_TITLES[visit.purpose]}
+        notice={<RenterPrivacyNotice business={business} place="signing" />}
+      >
         <SigningStep token={token} visit={visit} />
       </LinkPage>
     );
   }
   const start = await loadFormStart(appDb, visit);
   return (
-    <LinkPage operatorName={visit.operatorName} title={PAGE_TITLES.details_form}>
+    <LinkPage
+      operatorName={visit.operatorName}
+      title={PAGE_TITLES.details_form}
+      notice={<RenterPrivacyNotice business={business} place="details" />}
+    >
       {start.status === "waiting" ? (
         <>
           <SentThanks operatorName={visit.operatorName} />

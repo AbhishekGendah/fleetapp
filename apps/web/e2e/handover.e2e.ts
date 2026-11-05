@@ -158,6 +158,8 @@ test.describe.serial("handing a car over", () => {
       await page.getByRole("link", { name: "Continue handover" }).click();
       const accept = page.getByRole("button", { name: "The Renter accepts the car" });
       await expect(accept).toBeVisible();
+      // Before signing on the business's phone, where its privacy policy is (review A5-10).
+      await expect(page.getByText(/keeps what is recorded here, and the signature/)).toBeVisible();
 
       // A changed detail not yet saved holds the signing back (review G9-2).
       const odometer = page.getByRole("textbox", { name: /^Odometer/ });

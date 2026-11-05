@@ -2,6 +2,7 @@ import { render } from "@react-email/components";
 import { createElement, type ReactElement } from "react";
 
 import type { EmailAttachment, EmailMessage } from "./email-sender";
+import type { ReplyAware } from "./templates/email-layout";
 import {
   NewDeviceSignInEmail,
   type NewDeviceSignInEmailProps,
@@ -26,6 +27,10 @@ import {
   RenterPaymentsLinkEmail,
   type RenterPaymentsLinkEmailProps,
 } from "./templates/renter-payments-link";
+import {
+  RenterPrivacyNoticeEmail,
+  type RenterPrivacyNoticeEmailProps,
+} from "./templates/renter-privacy-notice";
 import {
   RenterSigningLinkEmail,
   type RenterSigningLinkEmailProps,
@@ -102,7 +107,10 @@ export function renderNightlyRunAlertEmail(
 }
 
 /** From the Operator's business, replies to the Operator: the Renter deals with them, not with AGS. */
-type FromOperator<Props> = WithRecipient<Props> & { operatorName: string; replyTo?: string };
+type FromOperator<Props> = WithRecipient<Omit<Props, keyof ReplyAware>> & {
+  operatorName: string;
+  replyTo?: string;
+};
 
 async function fromOperator(
   message: Promise<EmailMessage>,
@@ -120,7 +128,7 @@ export function renderRenterDetailsLinkEmail(
     renderEmail(
       to,
       `Your details form from ${props.operatorName}`,
-      createElement(RenterDetailsLinkEmail, props),
+      createElement(RenterDetailsLinkEmail, { ...props, canReply: replyTo !== undefined }),
     ),
     props.operatorName,
     replyTo,
@@ -151,7 +159,7 @@ export function renderRenterDetailsSentBackEmail(
     renderEmail(
       to,
       `${props.operatorName} asked you to change your details`,
-      createElement(RenterDetailsSentBackEmail, props),
+      createElement(RenterDetailsSentBackEmail, { ...props, canReply: replyTo !== undefined }),
     ),
     props.operatorName,
     replyTo,
@@ -168,7 +176,7 @@ export function renderRenterSigningLinkEmail(
       props.document === "change_of_terms"
         ? `A change to your rental from ${props.operatorName}`
         : `Your rental contract from ${props.operatorName}`,
-      createElement(RenterSigningLinkEmail, props),
+      createElement(RenterSigningLinkEmail, { ...props, canReply: replyTo !== undefined }),
     ),
     props.operatorName,
     replyTo,
@@ -183,7 +191,23 @@ export function renderRenterPaymentsLinkEmail(
     renderEmail(
       to,
       `Set up your payments for ${props.operatorName}`,
-      createElement(RenterPaymentsLinkEmail, props),
+      createElement(RenterPaymentsLinkEmail, { ...props, canReply: replyTo !== undefined }),
+    ),
+    props.operatorName,
+    replyTo,
+  );
+}
+
+/** The privacy notice, to a Renter the business added itself (e.g. at the counter). */
+export function renderRenterPrivacyNoticeEmail(
+  input: WithRecipient<RenterPrivacyNoticeEmailProps> & { replyTo?: string },
+): Promise<EmailMessage> {
+  const { to, replyTo, ...props } = input;
+  return fromOperator(
+    renderEmail(
+      to,
+      `How ${props.operatorName} looks after your information`,
+      createElement(RenterPrivacyNoticeEmail, props),
     ),
     props.operatorName,
     replyTo,
@@ -247,7 +271,7 @@ export async function renderDocumentCopyEmail(
  * the business (replies go to the business).
  */
 export async function renderBillingDocumentEmail(
-  input: WithRecipient<BillingDocumentEmailProps> & {
+  input: WithRecipient<Omit<BillingDocumentEmailProps, keyof ReplyAware>> & {
     replyTo?: string;
     attachment: EmailAttachment;
   },
@@ -256,7 +280,7 @@ export async function renderBillingDocumentEmail(
   const message = await renderEmail(
     to,
     `${billingDocumentName(props)} from ${props.operatorName}`,
-    createElement(BillingDocumentEmail, props),
+    createElement(BillingDocumentEmail, { ...props, canReply: replyTo !== undefined }),
   );
   return fromOperator(
     Promise.resolve({ ...message, attachments: [attachment] }),

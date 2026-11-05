@@ -46,6 +46,8 @@ test("adds a Renter, sends the details form, and the Renter opens it", async ({
 
   const home = renterPage.getByRole("combobox", { name: /^Home address/ });
   await expect(home).toBeVisible();
+  // Told who sees their details, overseas services included (APP 5 and 8, review G8-2).
+  await expect(renterPage.getByRole("region", { name: "Privacy" })).toContainText("Postmark");
   await expectAccessible(renterPage);
   await home.fill("1 Exa");
   await renterPage

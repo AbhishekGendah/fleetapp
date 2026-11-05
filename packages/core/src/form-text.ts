@@ -107,3 +107,18 @@ export function fieldErrorsOf<Output>(
 ): Record<string, string[] | undefined> {
   return result.success ? {} : z.flattenError(result.error).fieldErrors;
 }
+
+export const INVALID_WEB_ADDRESS_MESSAGE =
+  "Enter the full web address, starting https://, e.g. https://example.com.au/privacy.";
+
+const SECURE_WEB_ADDRESS = z.url({ protocol: /^https$/, hostname: z.regexes.domain });
+
+/**
+ * A web page the business gives, e.g. its privacy policy: blank becomes null.
+ * Only https, and only a real domain, so a Renter's link can't be turned into
+ * a script or sent to a bare internet address.
+ */
+export const optionalWebAddress = optionalLine.refine(
+  (value) => value === null || SECURE_WEB_ADDRESS.safeParse(value).success,
+  INVALID_WEB_ADDRESS_MESSAGE,
+);

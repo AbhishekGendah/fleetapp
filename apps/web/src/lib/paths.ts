@@ -109,6 +109,9 @@ export function renterEverythingHeldPath(renterId: string): string {
 }
 
 /** Where a Renter's link opens, before its secret: `/r/<secret>`. */
+/** The business's privacy notice for its Renters, to show or print for one added at the counter. */
+export const PRIVACY_NOTICE_PATH = "/privacy-notice";
+
 export const RENTALS_PATH = "/rentals";
 export const NEW_RENTAL_PATH = `${RENTALS_PATH}/new`;
 export const RENTALS_CALENDAR_PATH = `${RENTALS_PATH}/calendar`;

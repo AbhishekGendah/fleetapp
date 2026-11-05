@@ -81,6 +81,10 @@ test.describe.serial("a Renter's direct debit and bond", () => {
     });
     await expect(phone.getByRole("heading", { name: "1. Set up your direct debit" })).toBeVisible();
     await expect(phone.getByText(/can see only the last digits/)).toBeVisible();
+    // The privacy notice says what goes to Stripe (review G8-2).
+    await expect(phone.getByRole("region", { name: "Privacy" })).toContainText(
+      "your name and email go to Stripe",
+    );
     expect(await scriptKilobytes(phone)).toBeLessThanOrEqual(PAYMENTS_PAGE_BUDGET_KB);
     await expectNoSidewaysScroll(phone);
     await expectAccessible(phone);

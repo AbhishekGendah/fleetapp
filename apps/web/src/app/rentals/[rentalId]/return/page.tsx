@@ -14,6 +14,9 @@ import { OfflineReady } from "../handover/offline-ready";
 import { comparisonWith } from "./comparison";
 import { shownChecklistOf } from "../../../../lib/handover/checklist-fingerprint";
 import { LazyReturnForm } from "./lazy-return-form";
+import { NoBusinessEmailWarning } from "../../../../components/no-business-email-warning";
+import { RenterPrivacyLine } from "../../../../components/renter-privacy-notice";
+import { loadNoticeBusiness } from "../../../../lib/privacy/notice-business";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,10 +24,10 @@ export const dynamic = "force-dynamic";
 /** The return checklist under way for a rental; back to the rental if there is none. */
 export default async function ReturnPage(props: { params: Promise<{ rentalId: string }> }) {
   const { user, rentalId, view } = await loadChecklistPage(props.params, "return");
-  const handover = await loadCompletedHandover(appDb, user.operatorId, {
-    rentalId,
-    vehicleId: view.vehicleId,
-  });
+  const [handover, business] = await Promise.all([
+    loadCompletedHandover(appDb, user.operatorId, { rentalId, vehicleId: view.vehicleId }),
+    loadNoticeBusiness(appDb, user.operatorId),
+  ]);
   if (!handover) {
     redirect(rentalPath(rentalId));
   }
@@ -41,6 +44,7 @@ export default async function ReturnPage(props: { params: Promise<{ rentalId: st
         From {view.renterFullName}. Each step shows the handover beside it. Everything is kept on
         this phone as you go, and sent when there is signal.
       </p>
+      <NoBusinessEmailWarning user={user} />
       <OfflineReady>
         <HandoverChecklist
           data={checklistData(view, { blockers: [], bondShortCents: null })}
@@ -54,6 +58,7 @@ export default async function ReturnPage(props: { params: Promise<{ rentalId: st
                 rentalId={rentalId}
                 inspectionId={view.inspectionId}
                 renterName={view.renterFullName}
+                privacyLine={<RenterPrivacyLine business={business} />}
                 summary={`${view.carRego} · ${view.carMakeModel}`}
                 timeZone={user.operatorTimezone}
                 initialValues={initialReturnValues(new Date(), user.operatorTimezone)}

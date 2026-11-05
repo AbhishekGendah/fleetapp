@@ -65,3 +65,23 @@ export function EmailButton(props: { href: string; children: ReactNode }): React
 export function SmallPrint(props: { children: ReactNode }): ReactElement {
   return <Text style={smallTextStyle}>{props.children}</Text>;
 }
+
+/**
+ * On an email from a business: whether a reply reaches it. Without an email
+ * in its Business details, replies would go nowhere, so the email never
+ * says "reply" (review G7-4).
+ */
+export interface ReplyAware {
+  canReply: boolean;
+}
+
+/** "Not expecting this?", worded for whether the Renter can reply. */
+export function NotExpectingNote(props: ReplyAware & { operatorName: string }): ReactElement {
+  return (
+    <SmallPrint>
+      {props.canReply
+        ? `Not expecting this? Ignore this email, or reply to let ${props.operatorName} know.`
+        : `Not expecting this? Ignore this email, or contact ${props.operatorName} to let them know.`}
+    </SmallPrint>
+  );
+}

@@ -28,6 +28,8 @@ import {
 import Link from "next/link";
 
 import { DetailLines } from "../../../components/detail-lines";
+import { NOTICE_PARAM } from "../../../lib/privacy/send-privacy-notice";
+import { NoticeNotSent } from "./notice-not-sent";
 import { HistoryCard } from "../../../components/history-card";
 import { appDb } from "../../../lib/app-db";
 import {
@@ -362,6 +364,7 @@ export default async function RenterPage(props: {
           />
         </span>
       </div>
+      <NoticeNotSent renterName={renter.fullName} outcome={searchParams[NOTICE_PARAM]} />
       <TabLinks
         label="Renter sections"
         tabs={TABS.map((item) => ({

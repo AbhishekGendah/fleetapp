@@ -57,6 +57,7 @@ function savedValues(details: BusinessDetails): BusinessDetailsFormValues {
     postcode: details.postcode ?? "",
     phone: details.phone ? formatAustralianPhone(details.phone) : "",
     email: details.email ?? "",
+    privacyPolicyUrl: details.privacyPolicyUrl ?? "",
     timezone: details.timezone,
   };
 }
@@ -220,10 +221,24 @@ export function BusinessDetailsForm({ details }: { details: BusinessDetails }) {
         <Field
           name="email"
           label="Email"
-          hint="Renters' replies go here."
+          hint="Renters' replies, and your own copies of signed documents and reports, go here. Without it, Renters can't reply to your emails."
           error={errorFor("email")}
         >
           <Input {...textBoxProps("email")} type="email" autoComplete="email" />
+        </Field>
+        <Field
+          name="privacyPolicyUrl"
+          label="Your privacy policy (link)"
+          hint="Renters see this link in the privacy notice on their forms and signing pages. Until it is filled in, they see your phone and email instead."
+          error={errorFor("privacyPolicyUrl")}
+        >
+          <Input
+            {...textBoxProps("privacyPolicyUrl")}
+            type="url"
+            inputMode="url"
+            autoComplete="url"
+            placeholder="https://"
+          />
         </Field>
         <Field
           name="timezone"

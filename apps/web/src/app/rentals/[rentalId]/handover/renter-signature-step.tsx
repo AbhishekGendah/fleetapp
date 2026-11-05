@@ -41,6 +41,8 @@ export function RenterSignatureFields(props: {
   id: string;
   renterName: string;
   onSignatureChange: (signature: RenterSignatureInput) => void;
+  /** Where the business's privacy policy is, shown before the Renter signs (APP 5). */
+  privacyLine: React.ReactNode;
 }) {
   const [signature, setSignature] = useState<RenterSignatureInput>(NO_SIGNATURE);
   const methodId = `${props.id}-method`;
@@ -53,6 +55,7 @@ export function RenterSignatureFields(props: {
 
   return (
     <>
+      {props.privacyLine}
       <FormField htmlFor={methodId} label={`How ${props.renterName} signs`} isRequired>
         <Select
           id={methodId}
@@ -106,6 +109,7 @@ export function RenterSignatureStep(props: {
   id: string;
   renterName: string;
   onSignatureChange: (signature: RenterSignatureInput) => void;
+  privacyLine: React.ReactNode;
   problem: string | null;
   isPending: boolean;
   submitLabel: string;
@@ -117,6 +121,7 @@ export function RenterSignatureStep(props: {
         id={props.id}
         renterName={props.renterName}
         onSignatureChange={props.onSignatureChange}
+        privacyLine={props.privacyLine}
       />
       <FormError message={props.isPending ? null : props.problem} />
       <Button type="submit" disabled={props.isPending} className="w-full">

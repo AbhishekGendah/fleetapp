@@ -20,6 +20,7 @@ const BUSINESS_DETAIL_FIELDS = [
   "postcode",
   "phone",
   "email",
+  "privacyPolicyUrl",
   "timezone",
 ] as const satisfies readonly (keyof BusinessDetailsInput)[];
 
@@ -40,6 +41,7 @@ const businessDetailColumns = {
   postcode: operators.postcode,
   phone: operators.phone,
   email: operators.email,
+  privacyPolicyUrl: operators.privacyPolicyUrl,
   timezone: operators.timezone,
 };
 

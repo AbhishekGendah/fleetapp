@@ -1,9 +1,15 @@
 import { Text } from "@react-email/components";
 import type { ReactElement } from "react";
 
-import { EmailButton, EmailLayout, SmallPrint } from "./email-layout";
+import {
+  EmailButton,
+  EmailLayout,
+  SmallPrint,
+  NotExpectingNote,
+  type ReplyAware,
+} from "./email-layout";
 
-export interface RenterPaymentsLinkEmailProps {
+export interface RenterPaymentsLinkEmailProps extends ReplyAware {
   renterName: string;
   operatorName: string;
   /** e.g. "1ABC234 Toyota Corolla, from 1 June 2027". */
@@ -36,9 +42,7 @@ export function RenterPaymentsLinkEmail(props: RenterPaymentsLinkEmailProps): Re
         email you a code to type in. Your bank or card details are entered on Stripe&apos;s secure
         page, never in an email.
       </SmallPrint>
-      <SmallPrint>
-        Not expecting this? Ignore this email, or reply to let {props.operatorName} know.
-      </SmallPrint>
+      <NotExpectingNote operatorName={props.operatorName} canReply={props.canReply} />
     </EmailLayout>
   );
 }

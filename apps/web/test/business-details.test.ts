@@ -27,6 +27,7 @@ const COMPLETE_FORM = {
   postcode: "6000",
   phone: "(08) 9123 4567",
   email: "hello@example.test",
+  privacyPolicyUrl: "",
   timezone: "Australia/Perth",
 };
 
@@ -115,6 +116,19 @@ describe("the business details form's rules", () => {
     const parsed = parseBusinessDetailsForm(values, false);
 
     expect(parsed.success && parsed.data.gstRegisteredFrom).toBeNull();
+  });
+
+  it("takes the business's privacy policy as an https link, or none (review G8-2)", () => {
+    const parsed = businessDetailsInputSchema.parse({
+      ...COMPLETE_FORM,
+      privacyPolicyUrl: "https://example.test.com.au/privacy",
+    });
+
+    expect(parsed.privacyPolicyUrl).toBe("https://example.test.com.au/privacy");
+    expect(businessDetailsInputSchema.parse(COMPLETE_FORM).privacyPolicyUrl).toBeNull();
+    expect(errorsFor({ ...COMPLETE_FORM, privacyPolicyUrl: "javascript:alert(1)" })).toHaveProperty(
+      "privacyPolicyUrl",
+    );
   });
 
   it("refuses a name that spans lines", () => {

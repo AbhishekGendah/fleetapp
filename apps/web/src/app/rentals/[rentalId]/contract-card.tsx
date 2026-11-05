@@ -22,6 +22,7 @@ import { loadDefaultTemplate } from "../../../lib/contracts/templates";
 import { CONTRACTS_PATH, rentalContractPreviewPath } from "../../../lib/paths";
 import type { RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { RentalClock } from "../../../lib/rentals/rental-records";
+import { NoBusinessEmailWarning } from "../../../components/no-business-email-warning";
 import type { SignedInUser } from "../../../lib/require-user";
 import { IssuedPaper } from "./issued-paper";
 import { cancelSigningLinkAction, sendSigningLinkAction } from "./signing-actions";
@@ -170,6 +171,7 @@ export async function ContractCard({
             Preview contract
           </a>
         </Button>
+        {missing.length === 0 ? <NoBusinessEmailWarning user={user} /> : null}
         {missing.length === 0 ? (
           <SigningControls
             rentalId={rental.id}

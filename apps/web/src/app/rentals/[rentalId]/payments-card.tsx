@@ -28,6 +28,7 @@ import {
 import { PAYMENT_SETTINGS_PATH } from "../../../lib/paths";
 import type { RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { RentalClock } from "../../../lib/rentals/rental-records";
+import { NoBusinessEmailWarning } from "../../../components/no-business-email-warning";
 import type { SignedInUser } from "../../../lib/require-user";
 import {
   cancelPaymentsLinkAction,
@@ -120,6 +121,7 @@ async function PaymentsLinkActions(props: { rentalId: string; user: SignedInUser
           icon={<XCircle aria-hidden />}
         />
       ) : null}
+      <NoBusinessEmailWarning user={props.user} />
       <LinkSendChoices
         emailAction={emailPaymentsLinkAction.bind(null, props.rentalId)}
         onTheSpotAction={showPaymentsLinkAction.bind(null, props.rentalId)}

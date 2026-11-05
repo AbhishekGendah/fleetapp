@@ -9,6 +9,9 @@ import { HandoverChecklist } from "../../handover/handover-checklist";
 import { OfflineReady } from "../../handover/offline-ready";
 import { loadSwapSigningView } from "../../../../../lib/handover/complete-swap";
 import { SwapSigningStep } from "../swap-signing-step";
+import { NoBusinessEmailWarning } from "../../../../../components/no-business-email-warning";
+import { RenterPrivacyLine } from "../../../../../components/renter-privacy-notice";
+import { loadNoticeBusiness } from "../../../../../lib/privacy/notice-business";
 import { loadSwapPage } from "../load-swap-page";
 
 export const runtime = "nodejs";
@@ -17,12 +20,13 @@ export const dynamic = "force-dynamic";
 /** A swap's second step: the new car checked out as a handover, then the Renter signs. */
 export default async function SwapNewCarPage(props: { params: Promise<{ rentalId: string }> }) {
   const { user, rentalId, swap, view } = await loadSwapPage(props.params, "new");
-  const [oldCar, signing] = await Promise.all([
+  const [oldCar, signing, business] = await Promise.all([
     loadReturn(appDb, user.operatorId, swap.returnInspectionId),
     loadSwapSigningView({ database: appDb }, user.operatorId, rentalId, {
       timeZone: user.operatorTimezone,
       now: new Date(),
     }),
+    loadNoticeBusiness(appDb, user.operatorId),
   ]);
   const oldCarText = oldCar ? `${oldCar.carRego} · ${oldCar.carMakeModel}` : "the old car";
   const oldCarGaps = oldCar?.gaps.length ?? 0;
@@ -40,6 +44,7 @@ export default async function SwapNewCarPage(props: { params: Promise<{ rentalId
           ? ` The car handed back still needs ${oldCarGaps} more things: go back to finish it.`
           : ""}
       </p>
+      <NoBusinessEmailWarning user={user} />
       <OfflineReady>
         <HandoverChecklist
           data={checklistData(view, { blockers: [], bondShortCents: null })}
@@ -52,6 +57,7 @@ export default async function SwapNewCarPage(props: { params: Promise<{ rentalId
                 rentalId={rentalId}
                 signing={signing}
                 renterName={view.renterFullName}
+                privacyLine={<RenterPrivacyLine business={business} />}
                 oldCar={oldCarText}
                 newCar={`${view.carRego} · ${view.carMakeModel}`}
               />

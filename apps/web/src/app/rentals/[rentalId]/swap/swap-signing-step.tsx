@@ -22,6 +22,7 @@ export function SwapSigningStep(props: {
   rentalId: string;
   signing: SwapSigningView | null;
   renterName: string;
+  privacyLine: React.ReactNode;
   oldCar: string;
   newCar: string;
 }) {
@@ -71,6 +72,7 @@ export function SwapSigningStep(props: {
         returnInspectionId={signing.returned.inspectionId}
         handoverInspectionId={signing.handedOver.inspectionId}
         renterName={props.renterName}
+        privacyLine={props.privacyLine}
         oldCar={props.oldCar}
         shown={{
           swapId: signing.swapId,

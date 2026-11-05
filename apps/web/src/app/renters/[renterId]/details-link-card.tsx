@@ -11,6 +11,7 @@ import { RenterLinkStatus } from "../../../components/renter-link-status";
 import { loadDetailsLink } from "../../../lib/renter-links/details-links";
 import { renterReviewPath } from "../../../lib/paths";
 import { loadWaitingSubmission } from "../../../lib/renter-links/submissions";
+import { NoBusinessEmailWarning } from "../../../components/no-business-email-warning";
 import type { SignedInUser } from "../../../lib/require-user";
 import type { RenterDetail } from "../../../lib/renters/renter-queries";
 import { WaitingReviewBadge } from "../renter-status-badge";
@@ -58,6 +59,7 @@ export async function DetailsLinkCard({
           </div>
         ) : null}
         {link ? <RenterLinkStatus link={link} timeZone={user.operatorTimezone} /> : null}
+        {renter.email ? <NoBusinessEmailWarning user={user} /> : null}
         {renter.email ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
             <RenterLinkSender

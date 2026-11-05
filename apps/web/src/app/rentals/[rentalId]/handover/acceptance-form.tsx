@@ -52,6 +52,8 @@ export function AcceptanceForm(props: {
   rentalId: string;
   inspectionId: string;
   renterName: string;
+  /** Where the business's privacy policy is, shown before the Renter signs. */
+  privacyLine: React.ReactNode;
   summary: string;
   shown: ShownChecklist;
   bondShortCents: number | null;
@@ -115,6 +117,7 @@ export function AcceptanceForm(props: {
         id="renter-signature"
         renterName={props.renterName}
         onSignatureChange={setSignature}
+        privacyLine={props.privacyLine}
         problem={problem ?? (state.status === "problem" ? state.message : null)}
         isPending={isPending}
         submitLabel="The Renter accepts the car"

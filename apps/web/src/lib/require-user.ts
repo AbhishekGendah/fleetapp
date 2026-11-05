@@ -24,6 +24,8 @@ export interface SignedInUser {
   operatorTimezone: string;
   /** From business details: whether costs can have GST to claim back. */
   isGstRegistered: boolean;
+  /** Whether Renters' replies, and the business's own copies, have somewhere to go (review G7-4). */
+  hasBusinessEmail: boolean;
   twoFactorEnabled: boolean;
 }
 
@@ -36,6 +38,7 @@ interface SignedInAccount {
   operatorName: string;
   operatorTimezone: string;
   isGstRegistered: boolean;
+  hasBusinessEmail: boolean;
   access: AccountAccess;
 }
 
@@ -75,6 +78,7 @@ async function loadSignedInAccount(): Promise<SignedInAccount | null> {
         tradingName: operators.tradingName,
         operatorTimezone: operators.timezone,
         isGstRegistered: operators.gstRegistered,
+        operatorEmail: operators.email,
         operatorSuspendedAt: operators.suspendedAt,
         operatorArchivedAt: operators.archivedAt,
       })
@@ -95,6 +99,7 @@ async function loadSignedInAccount(): Promise<SignedInAccount | null> {
     operatorName: operatorDisplayName(row),
     operatorTimezone: row.operatorTimezone,
     isGstRegistered: row.isGstRegistered,
+    hasBusinessEmail: Boolean(row.operatorEmail?.trim()),
     access: getAccountAccess(row),
   };
 }
@@ -128,6 +133,7 @@ export async function requireUser(
     operatorName: account.operatorName,
     operatorTimezone: account.operatorTimezone,
     isGstRegistered: account.isGstRegistered,
+    hasBusinessEmail: account.hasBusinessEmail,
     twoFactorEnabled: account.twoFactorEnabled,
   };
 }

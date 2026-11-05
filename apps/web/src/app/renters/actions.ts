@@ -6,7 +6,9 @@ import { redirect } from "next/navigation";
 
 import type { ActingUser } from "../../lib/acting-user";
 import { appDb } from "../../lib/app-db";
+import { appEmailSender } from "../../lib/email-sender";
 import { appPaymentDependencies } from "../../lib/payments/app-payments";
+import { NOTICE_PARAM, sendPrivacyNotice } from "../../lib/privacy/send-privacy-notice";
 import { tellStripeAboutRenter } from "../../lib/payments/stripe-tidy-up";
 import { renterPath, RENTERS_PATH } from "../../lib/paths";
 import { requireUser } from "../../lib/require-user";
@@ -28,6 +30,8 @@ const INVALID_MESSAGE =
 async function saveRenterForm(
   formData: FormData,
   save: (actor: ActingUser, input: RenterInput) => Promise<string | null>,
+  afterSave: (actor: ActingUser, renterId: string) => Promise<string> = async (_, renterId) =>
+    renterPath(renterId),
 ): Promise<RenterFormState> {
   const user = await requireUser();
   const parsed = parseRenterForm(
@@ -38,9 +42,10 @@ async function saveRenterForm(
     return { status: "failed", formError: INVALID_MESSAGE };
   }
 
+  const actor = { userId: user.id, operatorId: user.operatorId };
   let renterId: string | null;
   try {
-    renterId = await save({ userId: user.id, operatorId: user.operatorId }, parsed.data);
+    renterId = await save(actor, parsed.data);
   } catch (error) {
     console.error("Saving a Renter failed", describeErrorForLog(error));
     return { status: "failed", formError: UNEXPECTED_ERROR_MESSAGE };
@@ -49,15 +54,34 @@ async function saveRenterForm(
     return { status: "failed", formError: RENTER_NOT_FOUND_MESSAGE };
   }
   revalidatePath(RENTERS_PATH);
+  const nextPath = await afterSave(actor, renterId);
   // Outside the try: Next carries out a redirect by throwing.
-  redirect(renterPath(renterId));
+  redirect(nextPath);
+}
+
+/**
+ * A Renter added by the business gets the privacy notice by email; their
+ * page says so when it could not go, so the business hands them a copy.
+ */
+async function afterAddingRenter(actor: ActingUser, renterId: string): Promise<string> {
+  const outcome = await sendPrivacyNotice(
+    { database: appDb, emailSender: appEmailSender },
+    actor,
+    renterId,
+  );
+  const path = renterPath(renterId);
+  return outcome === "sent" ? path : `${path}?${NOTICE_PARAM}=${outcome}`;
 }
 
 export async function addRenterAction(
   _previous: RenterFormState,
   formData: FormData,
 ): Promise<RenterFormState> {
-  return saveRenterForm(formData, (actor, input) => createRenter(appDb, actor, input));
+  return saveRenterForm(
+    formData,
+    (actor, input) => createRenter(appDb, actor, input),
+    afterAddingRenter,
+  );
 }
 
 /** Bound to one Renter's id by the edit page; checked against the User's Operator on save. */

@@ -153,6 +153,10 @@ test.describe.serial("signing a contract", () => {
       `Rental agreement for ${RENTER.name}, who rents ${CAR_REGO}`,
     );
     await expect(contract.getByText("End of contract")).toBeVisible();
+    // The privacy notice says what signing keeps (review A3-11).
+    await expect(phone.getByRole("region", { name: "Privacy" })).toContainText(
+      "your internet address, your phone or browser, and your signature are kept",
+    );
     await expectAccessible(phone);
     expect(await scriptKilobytes(phone)).toBeLessThanOrEqual(SIGNING_PAGE_BUDGET_KB);
     await expectNoSidewaysScroll(phone);

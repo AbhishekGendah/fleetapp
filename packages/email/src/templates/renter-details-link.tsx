@@ -1,9 +1,15 @@
 import { Text } from "@react-email/components";
 import type { ReactElement } from "react";
 
-import { EmailButton, EmailLayout, SmallPrint } from "./email-layout";
+import {
+  EmailButton,
+  EmailLayout,
+  SmallPrint,
+  NotExpectingNote,
+  type ReplyAware,
+} from "./email-layout";
 
-export interface RenterDetailsLinkEmailProps {
+export interface RenterDetailsLinkEmailProps extends ReplyAware {
   renterName: string;
   operatorName: string;
   linkUrl: string;
@@ -28,9 +34,7 @@ export function RenterDetailsLinkEmail(props: RenterDetailsLinkEmailProps): Reac
         The link works until {props.validUntil}. The first time you open it on a phone, we will
         email you a code to type in.
       </SmallPrint>
-      <SmallPrint>
-        Not expecting this? Ignore this email, or reply to let {props.operatorName} know.
-      </SmallPrint>
+      <NotExpectingNote operatorName={props.operatorName} canReply={props.canReply} />
     </EmailLayout>
   );
 }

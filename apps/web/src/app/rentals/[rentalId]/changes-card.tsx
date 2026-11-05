@@ -34,6 +34,7 @@ import { listRentalChanges, type RentalChangeRow } from "../../../lib/rentals/ch
 import { rateChangeStartText } from "../../../lib/rentals/rental-changes";
 import type { RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { RentalClock } from "../../../lib/rentals/rental-records";
+import { NoBusinessEmailWarning } from "../../../components/no-business-email-warning";
 import type { SignedInUser } from "../../../lib/require-user";
 import { IssuedPaper } from "./issued-paper";
 import {
@@ -276,6 +277,9 @@ export async function ChangesCard(props: {
             </Link>
             .
           </p>
+        ) : null}
+        {changes.some((change) => change.signingProblem === null) ? (
+          <NoBusinessEmailWarning user={user} />
         ) : null}
         {changes.length === 0 ? (
           <p className="text-muted-foreground text-sm">No changes yet.</p>

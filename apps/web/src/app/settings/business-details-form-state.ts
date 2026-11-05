@@ -13,6 +13,7 @@ export const BUSINESS_DETAIL_TEXT_FIELDS = [
   "postcode",
   "phone",
   "email",
+  "privacyPolicyUrl",
   "timezone",
 ] as const satisfies readonly (keyof BusinessDetailsFormValues)[];
 

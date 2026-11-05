@@ -40,6 +40,8 @@ export function ReturnForm(props: {
   rentalId: string;
   inspectionId: string;
   renterName: string;
+  /** Where the business's privacy policy is, shown before the Renter signs. */
+  privacyLine: React.ReactNode;
   summary: string;
   timeZone: string;
   initialValues: ReturnFormValues;
@@ -120,6 +122,7 @@ export function ReturnForm(props: {
             id="renter-signature"
             renterName={props.renterName}
             onSignatureChange={setSignature}
+            privacyLine={props.privacyLine}
           />
         </>
       ) : (
