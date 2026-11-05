@@ -18,6 +18,7 @@ import {
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 
+import { rentalHandoverPath, rentalReturnPath, rentalSwapPath } from "../paths";
 import { latestKilometres } from "../vehicles/odometer";
 import { latestHandoverOf } from "./handover-records";
 
@@ -303,6 +304,46 @@ export async function loadRentalHandoverStatus(
   return {
     inProgressId: rows.find((row) => row.status === "in_progress")?.id ?? null,
     completedAt: rows.find((row) => row.status === "completed")?.completedAt ?? null,
+  };
+}
+
+/**
+ * What a phone may keep of a rental's checklists (review A6-4): the pages of
+ * those still under way, and the ids of those that ended (finished or
+ * cancelled, here or on another phone), whose copies it should wipe.
+ */
+export interface ChecklistsOnPhone {
+  endedInspectionIds: string[];
+  openPagePaths: string[];
+}
+
+function checklistPagePaths(rentalId: string, kind: InspectionKind, isForSwap: boolean): string[] {
+  if (isForSwap) {
+    return [rentalSwapPath(rentalId, "old"), rentalSwapPath(rentalId, "new")];
+  }
+  return [kind === "handover" ? rentalHandoverPath(rentalId) : rentalReturnPath(rentalId)];
+}
+
+export async function loadChecklistsOnPhone(
+  database: AnyDatabase,
+  operatorId: string,
+  rentalId: string,
+): Promise<ChecklistsOnPhone> {
+  const rows = await withTenant(database, operatorId, (tx) =>
+    tx
+      .select({
+        id: inspections.id,
+        status: inspections.status,
+        kind: inspections.kind,
+        isForSwap: inspections.isForSwap,
+      })
+      .from(inspections)
+      .where(and(eq(inspections.operatorId, operatorId), eq(inspections.rentalId, rentalId))),
+  );
+  const open = rows.filter((row) => row.status === "in_progress");
+  return {
+    endedInspectionIds: rows.filter((row) => row.status !== "in_progress").map((row) => row.id),
+    openPagePaths: open.flatMap((row) => checklistPagePaths(rentalId, row.kind, row.isForSwap)),
   };
 }
 

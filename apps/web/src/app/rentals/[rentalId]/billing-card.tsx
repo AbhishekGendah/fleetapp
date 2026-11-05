@@ -12,7 +12,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@flee
 import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
 import { FileText, Mail, ReceiptText } from "lucide-react";
-import Link from "next/link";
 
 import { appDb } from "../../../lib/app-db";
 import {
@@ -71,14 +70,16 @@ function DocumentItem(props: {
       actions={
         <>
           <Button asChild variant="outline">
-            <Link
+            {/* A plain link, as Next's would fetch the PDF ahead of time for every row. */}
+            <a
               href={rentalDocumentPath(props.rentalId, document.kind, document.issuedDocumentId)}
               target="_blank"
+              rel="noopener"
             >
               <FileText aria-hidden />
               Open
               <span className="sr-only"> {titleOf(document)}</span>
-            </Link>
+            </a>
           </Button>
           <ActionButton
             action={emailDocumentAgainAction.bind(null, props.rentalId, document.issuedDocumentId)}

@@ -18,6 +18,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { DetailLines } from "../../../components/detail-lines";
+import { ForgetEndedChecklists } from "../../../components/forget-ended-checklists";
+import { loadChecklistsOnPhone } from "../../../lib/handover/handover-queries";
 import { HistoryCard } from "../../../components/history-card";
 import { possessionAndHoldIdsOf } from "../../../lib/handover/possession-records";
 import { appDb } from "../../../lib/app-db";
@@ -283,9 +285,11 @@ export default async function RentalPage(props: {
     notFound();
   }
   const tab = TAB_LINKS.chosen(searchParams[TAB_PARAM]);
+  const checklistsOnPhone = await loadChecklistsOnPhone(appDb, user.operatorId, rental.id);
 
   return (
     <AppShell user={user}>
+      <ForgetEndedChecklists rentalId={rental.id} {...checklistsOnPhone} />
       <PageHeader
         backHref={RENTALS_PATH}
         backLabel="Rentals"

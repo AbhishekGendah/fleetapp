@@ -5,8 +5,8 @@ import { Logo, LogoMark } from "@fleetapp/ui/logo";
 import { loadOperatorLogoUrl } from "../lib/files/operator-logo";
 import type { SignedInUser } from "../lib/require-user";
 import { SidebarNavigation, TabBarNavigation } from "./navigation";
-import { SignOutButton } from "@fleetapp/ui/sign-out-button";
-import { SIGN_IN_PATH } from "../lib/paths";
+import { PhoneSignOutButton } from "../components/phone-sign-out-button";
+import { PhoneWeekLimit } from "../components/phone-week-limit";
 
 /**
  * The frame around every signed-in page. Designed at phone width first: a
@@ -26,6 +26,7 @@ export async function AppShell({
   const logoUrl = await loadOperatorLogoUrl(user.operatorId);
   return (
     <div className="flex min-h-dvh">
+      <PhoneWeekLimit />
       <aside className="bg-card hidden w-60 shrink-0 flex-col gap-6 border-r p-4 md:flex">
         <Logo className="px-2" />
         <SidebarNavigation />
@@ -44,7 +45,7 @@ export async function AppShell({
                 <span className="text-muted-foreground truncate text-xs">{user.email}</span>
               </div>
             </div>
-            <SignOutButton signInHref={SIGN_IN_PATH} />
+            <PhoneSignOutButton />
           </div>
         </header>
 

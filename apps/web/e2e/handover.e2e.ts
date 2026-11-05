@@ -236,6 +236,8 @@ test.describe.serial("handing a car over", () => {
       await page.getByRole("textbox", { name: "What is the damage?" }).fill("Dent on bonnet");
       await page.getByRole("button", { name: "Add damage mark" }).click();
       await expect(page.getByRole("button", { name: "Damage 1: Dent on bonnet" })).toBeVisible();
+      // Once saved, the mark's row is drawn afresh: a photo chosen before then would be lost.
+      await expect(page.getByRole("button", { name: "Remove mark 1" })).toBeVisible();
       await takePhoto(page, "Take photo: damage 1");
       await expect(page.getByAltText("Damage 1 photo")).toBeVisible();
       await expectAccessible(page);

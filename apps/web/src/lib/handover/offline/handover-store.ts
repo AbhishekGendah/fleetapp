@@ -1,12 +1,8 @@
 import { MILLISECONDS_PER_DAY } from "@fleetapp/core";
 import Dexie, { type Table } from "dexie";
 
-import { HANDOVER_PAGES_CACHE } from "../../../service-worker/cache-names";
+import { HANDOVER_DATABASE_NAME, KEPT_ON_PHONE_DAYS } from "./phone-limits";
 import type { NewQueuedChange, QueuedChange, QueueStore } from "./queued-changes";
-
-/** The longest the phone keeps a handover's details and photos (rule 25 and privacy). */
-export const KEPT_ON_PHONE_DAYS = 7;
-const DATABASE_NAME = "handover-checklists";
 
 /** What has been typed on the checklist, kept as typed so a lost page loses nothing. */
 export interface HandoverDraft {
@@ -34,7 +30,7 @@ class HandoverDatabase extends Dexie {
   marks!: Table<SavedMark, string>;
 
   constructor() {
-    super(DATABASE_NAME);
+    super(HANDOVER_DATABASE_NAME);
     this.version(1).stores({
       drafts: "inspectionId, savedAt",
       queue: "++id, inspectionId, queuedAt",
@@ -85,15 +81,17 @@ export function countQueued(inspectionId: string): Promise<number> {
   return handoverDatabase().queue.where("inspectionId").equals(inspectionId).count();
 }
 
-/** Wipes one handover from the phone: its typing, its queue, its marks and the saved page. */
-export async function forgetHandover(inspectionId: string): Promise<void> {
+/** Wipes these checklists from the phone: their typing, their queues and their marks. */
+export async function forgetHandovers(inspectionIds: readonly string[]): Promise<void> {
+  if (inspectionIds.length === 0) {
+    return;
+  }
   const db = handoverDatabase();
   await db.transaction("rw", db.drafts, db.queue, db.marks, async () => {
-    await db.drafts.delete(inspectionId);
-    await db.queue.where("inspectionId").equals(inspectionId).delete();
-    await db.marks.where("inspectionId").equals(inspectionId).delete();
+    await db.drafts.where("inspectionId").anyOf(inspectionIds).delete();
+    await db.queue.where("inspectionId").anyOf(inspectionIds).delete();
+    await db.marks.where("inspectionId").anyOf(inspectionIds).delete();
   });
-  await caches.delete(HANDOVER_PAGES_CACHE);
 }
 
 /** Wipes anything older than a week, so a shared or lost phone does not keep a Renter's details. */
@@ -105,4 +103,16 @@ export async function forgetOldHandovers(now: number = Date.now()): Promise<void
     await db.queue.where("queuedAt").below(cutoff).delete();
     await db.marks.where("savedAt").below(cutoff).delete();
   });
+}
+
+/** Photos and damage marks on this phone not yet sent, across every checklist. */
+export function countAllQueued(): Promise<number> {
+  return handoverDatabase().queue.count();
+}
+
+/** Wipes every checklist from the phone, as at sign-out. */
+export async function forgetAllHandovers(): Promise<void> {
+  database?.close();
+  database = null;
+  await Dexie.delete(HANDOVER_DATABASE_NAME);
 }
