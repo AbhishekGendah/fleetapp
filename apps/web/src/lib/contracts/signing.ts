@@ -37,6 +37,7 @@ import {
   type RentalChange,
 } from "../rentals/rental-changes";
 import { loadPdfBranding } from "./contract-pdf";
+import { evidenceRow, insertSigningEvidence } from "./signing-evidence";
 import { emailDocumentCopies } from "./document-copies";
 import type { RenterLinkInPlay } from "../renter-links/details-links";
 import { renderDocumentPdf, type PdfSignature, type PdfSigningRecord } from "./document-pdf";
@@ -68,22 +69,52 @@ export type SigningView =
     }
   | { status: "signed" | "changed" | "not_signable" };
 
-function detailRows(data: ContractData): DetailRow[] {
-  const rows: [string, string | null][] = [
+type DetailSource = [label: string, value: string | null];
+
+function presentRows(rows: readonly DetailSource[]): DetailRow[] {
+  return rows.flatMap(([label, value]) => (value ? [[label, value] as const] : []));
+}
+
+function carText(data: ContractData): string {
+  return [data.carRego, data.carMakeModel].filter(Boolean).join(" · ");
+}
+
+/** Everything the contract holds about the Renter and the rental, to check before signing. */
+function contractDetailRows(data: ContractData): DetailRow[] {
+  return presentRows([
     ["Name", data.renterFullName],
     ["Date of birth", data.renterDateOfBirth],
     ["Home address", data.renterAddress],
     ["Phone", data.renterPhone],
     ["Email", data.renterEmail],
     ["Licence", data.renterLicenceNumber],
-    ["Car", [data.carRego, data.carMakeModel].filter(Boolean).join(" · ")],
+    ["Car", carText(data)],
     ["Starts", data.rentalStart],
     ["Ends", data.rentalEnd],
     ["Weekly rate", data.weeklyRate],
     ["Bond", data.bond],
-  ];
-  return rows.flatMap(([label, value]) => (value ? [[label, value] as const] : []));
+  ]);
 }
+
+/**
+ * A change form shows only what it is about: who, which car, and the change.
+ * Its licence, date of birth and address would be shown for nothing (review A3-9).
+ */
+function changeDetailRows(data: ContractData): DetailRow[] {
+  return presentRows([
+    ["Name", data.renterFullName],
+    ["Car", carText(data)],
+    ["What is changing", data.changeSummary],
+    ["Why", data.changeReason],
+  ]);
+}
+
+const DETAIL_ROWS_BY_KIND: Readonly<
+  Record<SignedDocumentKind, (data: ContractData) => DetailRow[]>
+> = {
+  contract: contractDetailRows,
+  change_of_terms: changeDetailRows,
+};
 
 /** Whether the rental already has a signed contract, other than `exceptDocumentId` (one being issued now). */
 async function isSigned(
@@ -263,26 +294,8 @@ export async function loadSigningView(
     document: filled.document,
     fingerprint: filled.fingerprint,
     renterFullName: filled.data.renterFullName,
-    details: detailRows(filled.data),
+    details: DETAIL_ROWS_BY_KIND[state.kind](filled.data),
     rentalSummary: rentalSummaryText(filled.data),
-  };
-}
-
-function evidenceRow(
-  visit: LinkVisit,
-  rentalId: string,
-  step: SigningEvidenceStep,
-  meta: RequestMeta,
-  details: Record<string, unknown> = {},
-) {
-  return {
-    operatorId: visit.operatorId,
-    linkId: visit.linkId,
-    rentalId,
-    step,
-    ipAddress: meta.ipAddress,
-    userAgent: meta.userAgent,
-    details,
   };
 }
 
@@ -294,11 +307,9 @@ export async function recordSigningEvidence(
   meta: RequestMeta,
   details: Record<string, unknown> = {},
 ): Promise<void> {
-  if (!visit.signing) {
-    return;
-  }
-  const row = evidenceRow(visit, visit.signing.rentalId, step, meta, details);
-  await withTenant(database, visit.operatorId, (tx) => tx.insert(signingEvidence).values(row));
+  await withTenant(database, visit.operatorId, (tx) =>
+    insertSigningEvidence(tx, visit, step, meta, details),
+  );
 }
 
 function stepLine(timeZone: string, occurredAt: Date, meta: RequestMeta): string {

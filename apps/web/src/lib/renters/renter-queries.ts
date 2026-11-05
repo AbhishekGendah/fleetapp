@@ -6,12 +6,13 @@ import {
   loadListPage,
   type DatabaseListRules,
 } from "@fleetapp/db/list-query";
-import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, renters } from "@fleetapp/db/schema";
+import { renters } from "@fleetapp/db/schema";
 import type { ExportFormat } from "@fleetapp/core/spreadsheet";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, asc, count, eq, isNotNull, isNull, ne, or, sql, type SQL } from "drizzle-orm";
 
-import { recordUserChange, type ActingUser } from "../acting-user";
+import type { ActingUser } from "../acting-user";
+import { recordListExport } from "../list-export-log";
 
 /** The filter value that shows archived Renters instead of current ones. */
 export const ARCHIVED_FILTER_VALUE = "archived";
@@ -140,12 +141,7 @@ export async function exportRenters(
       matchingRenters(actor.operatorId, query),
       query,
     ).limit(MAX_EXPORT_ROWS);
-    await recordUserChange(tx, actor, {
-      entityType: ACTIVITY_ENTITY_TYPES.operator,
-      entityId: actor.operatorId,
-      action: ACTIVITY_ACTIONS.exported,
-      valuesAfter: { list: "renters", format, rows: rows.length },
-    });
+    await recordListExport(tx, actor, { list: "renters", format, rows: rows.length });
     return rows;
   });
 }

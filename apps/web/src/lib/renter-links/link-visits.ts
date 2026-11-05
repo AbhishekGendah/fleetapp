@@ -28,6 +28,8 @@ import { renderRenterLinkCodeEmail } from "@fleetapp/email";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
+import { insertSigningEvidence } from "../contracts/signing-evidence";
+import type { RequestMeta } from "../request-meta";
 import { loadLinkSender } from "./link-email";
 
 const CODE_WINDOW_MS = 60 * MILLISECONDS_PER_MINUTE;
@@ -265,6 +267,7 @@ export async function checkLinkCode(
   deps: { database: AnyDatabase; now: () => Date },
   visit: LinkVisit,
   typedCode: string,
+  meta: RequestMeta,
 ): Promise<CheckCodeResult> {
   const now = deps.now();
   if (typedCode.length !== LINK_CODE_DIGITS) {
@@ -285,6 +288,9 @@ export async function checkLinkCode(
         .where(eq(renterLinks.id, link.id));
       const deviceToken = await rememberPhone(tx, { operatorId: link.operatorId, linkId: link.id });
       await logLink(tx, visit, ACTIVITY_ACTIONS.phoneVerified);
+      // The first step of a signing's evidence (who signed), saved with the code it
+      // uses up: a hiccup can't spend the code and leave no record (review A3-10).
+      await insertSigningEvidence(tx, visit, "code_verified", meta);
       return { status: "right", deviceToken };
     }
     const tries = link.codeTries + 1;

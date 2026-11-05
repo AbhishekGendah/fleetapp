@@ -25,6 +25,8 @@ import { seedOperatorWithUser } from "./car-fixtures";
 const APP_URL = "https://app.example.test";
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** The code stands alone on its own line in the email's text. */
+/** A request with no internet address or browser: what the code check records for evidence. */
+const NO_REQUEST_META = { ipAddress: null, userAgent: null };
 const CODE_IN_TEXT = /^\s*(\d{6})\s*$/m;
 
 describe("a Renter's details link", () => {
@@ -120,15 +122,18 @@ describe("a Renter's details link", () => {
     expect(await sendLinkCode(deps, visit)).toBe("sent");
     const code = lastCode();
     const wrong = code === "000000" ? "111111" : "000000";
-    expect(await checkLinkCode(deps, visit, wrong)).toEqual({ status: "wrong", triesLeft: 9 });
-    const right = await checkLinkCode(deps, visit, code);
+    expect(await checkLinkCode(deps, visit, wrong, NO_REQUEST_META)).toEqual({
+      status: "wrong",
+      triesLeft: 9,
+    });
+    const right = await checkLinkCode(deps, visit, code, NO_REQUEST_META);
     if (right.status !== "right") {
       throw new Error(right.status);
     }
     expect(await isPhoneRemembered(web.db, visit, right.deviceToken)).toBe(true);
     expect(await isPhoneRemembered(web.db, visit, "someone-elses-cookie")).toBe(false);
     // A code is used up once it is right.
-    expect(await checkLinkCode(deps, visit, code)).toEqual({ status: "expired" });
+    expect(await checkLinkCode(deps, visit, code, NO_REQUEST_META)).toEqual({ status: "expired" });
   });
 
   it("locks after 10 wrong codes over the link's life, and sends at most 3 codes an hour", async () => {
@@ -138,19 +143,28 @@ describe("a Renter's details link", () => {
     expect(await sendLinkCode(deps, visit)).toBe("sent");
     const wrong = () => (lastCode() === "000000" ? "111111" : "000000");
     for (let i = 0; i < 5; i += 1) {
-      await checkLinkCode(deps, visit, wrong());
+      await checkLinkCode(deps, visit, wrong(), NO_REQUEST_META);
     }
     // A new code does not buy more guesses, and a short code is not a guess.
     expect(await sendLinkCode(deps, visit)).toBe("sent");
-    expect(await checkLinkCode(deps, visit, "12")).toEqual({ status: "incomplete" });
-    expect(await checkLinkCode(deps, visit, wrong())).toEqual({ status: "wrong", triesLeft: 4 });
+    expect(await checkLinkCode(deps, visit, "12", NO_REQUEST_META)).toEqual({
+      status: "incomplete",
+    });
+    expect(await checkLinkCode(deps, visit, wrong(), NO_REQUEST_META)).toEqual({
+      status: "wrong",
+      triesLeft: 4,
+    });
     expect(await sendLinkCode(deps, visit)).toBe("sent");
     expect(await sendLinkCode(deps, visit)).toBe("too_many");
     for (let i = 0; i < 3; i += 1) {
-      await checkLinkCode(deps, visit, wrong());
+      await checkLinkCode(deps, visit, wrong(), NO_REQUEST_META);
     }
-    expect(await checkLinkCode(deps, visit, wrong())).toEqual({ status: "locked" });
-    expect(await checkLinkCode(deps, visit, lastCode())).toEqual({ status: "locked" });
+    expect(await checkLinkCode(deps, visit, wrong(), NO_REQUEST_META)).toEqual({
+      status: "locked",
+    });
+    expect(await checkLinkCode(deps, visit, lastCode(), NO_REQUEST_META)).toEqual({
+      status: "locked",
+    });
     expect(await loadDetailsLink(web.db, actor.operatorId, renterId, new Date())).toMatchObject({
       isLocked: true,
     });

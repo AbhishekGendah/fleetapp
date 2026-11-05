@@ -7,6 +7,7 @@ import {
   snapshotSettings,
   type OperatorSettings,
   type SettingsSnapshot,
+  withholdFields,
 } from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, operatorSettings } from "@fleetapp/db/schema";
@@ -16,6 +17,12 @@ import { eq, sql } from "drizzle-orm";
 import { recordUserChange, type ActingUser } from "../acting-user";
 
 const SETTING_NAMES = Object.keys(operatorSettingsSchema.shape) as (keyof OperatorSettings)[];
+/**
+ * Settings the history says changed without showing them: "How to pay" holds
+ * the business's bank details, which the history would otherwise keep for
+ * good and AGS staff could read (review A8-8).
+ */
+const WITHHELD_SETTING_NAMES: readonly (keyof OperatorSettings)[] = ["howToPay"];
 
 async function readStoredSettings(
   tx: AnyTransaction,
@@ -93,7 +100,8 @@ export async function saveOperatorSettings(
       entityType: ACTIVITY_ENTITY_TYPES.operatorSettings,
       entityId: actor.operatorId,
       action: ACTIVITY_ACTIONS.updated,
-      ...changed,
+      valuesBefore: withholdFields(changed.valuesBefore, WITHHELD_SETTING_NAMES),
+      valuesAfter: withholdFields(changed.valuesAfter, WITHHELD_SETTING_NAMES),
     });
   });
 }

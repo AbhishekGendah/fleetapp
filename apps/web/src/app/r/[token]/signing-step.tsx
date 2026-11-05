@@ -1,3 +1,4 @@
+import { describeErrorForLog } from "@fleetapp/core";
 import { CardDescription } from "@fleetapp/ui/card";
 import { ContractReader } from "@fleetapp/ui/contract-reader";
 import { FormSection } from "@fleetapp/ui/form-section";
@@ -36,6 +37,27 @@ function closedMessage(
   return `This ${name} can no longer be signed. Ask ${operatorName} if you think that is wrong.`;
 }
 
+const NOT_RECORDED_MESSAGE =
+  "Something went wrong opening this. Please try again in a moment by reloading the page.";
+
+/**
+ * Records that the Renter opened the document. It can't be signed without
+ * that record, so a failure stops the page calmly; only the error's type is
+ * logged, never the Renter's internet address in it (review A3-10).
+ */
+async function isOpeningRecorded(visit: LinkVisit, fingerprint: string): Promise<boolean> {
+  try {
+    const meta = requestMetaFrom(await headers());
+    await recordSigningEvidence(appDb, visit, "contract_viewed", meta, {
+      contractFingerprint: fingerprint,
+    });
+    return true;
+  } catch (error) {
+    console.error("Recording that a contract was opened failed", describeErrorForLog(error));
+    return false;
+  }
+}
+
 /**
  * A signing link once its phone has passed the code: the Renter checks their
  * details, reads the whole contract, agrees and signs. Opening the contract
@@ -52,9 +74,9 @@ export async function SigningStep({ token, visit }: { token: string; visit: Link
     );
   }
   const name = DOCUMENT_NAMES[view.kind];
-  await recordSigningEvidence(appDb, visit, "contract_viewed", requestMetaFrom(await headers()), {
-    contractFingerprint: view.fingerprint,
-  });
+  if (!(await isOpeningRecorded(visit, view.fingerprint))) {
+    return <CardDescription role="alert">{NOT_RECORDED_MESSAGE}</CardDescription>;
+  }
   return (
     <div className="flex flex-col gap-6">
       <CardDescription>

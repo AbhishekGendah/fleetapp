@@ -7,7 +7,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import type { ActingUser } from "../src/lib/acting-user";
-import { signContract } from "../src/lib/contracts/signing";
+import { loadSigningView, signContract } from "../src/lib/contracts/signing";
 import { loadSigningStatus } from "../src/lib/contracts/signing-links";
 import { createTemplate, saveTemplate } from "../src/lib/contracts/templates";
 import {
@@ -273,6 +273,10 @@ describe("changes of terms during a rental", () => {
     const token = TOKEN_PATTERN.exec(sentEmails[0]?.html ?? "")?.[1] ?? "";
     const visit = await openLink(web.db, token);
     expect(visit?.purpose).toBe("sign_change");
+    // The change form shows only what it is about (review A3-9).
+    const view = await loadSigningView(web.db, visit!);
+    const labels = view.status === "ready" ? view.details.map(([label]) => label) : [];
+    expect(labels).toEqual(["Name", "Car", "What is changing", "Why"]);
     const signed = await signContract(
       linkDeps(),
       visit!,

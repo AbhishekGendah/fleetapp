@@ -1,4 +1,4 @@
-import { SIGNING_CONSENT_TEXT, type TemplateDocument } from "@fleetapp/core";
+import { describeErrorForLog, SIGNING_CONSENT_TEXT, type TemplateDocument } from "@fleetapp/core";
 import { documentFingerprint } from "@fleetapp/core/server";
 import { files, issuedDocuments, renterLinks, signingEvidence } from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
@@ -19,7 +19,12 @@ import { createTemplate, saveTemplate } from "../src/lib/contracts/templates";
 import { cancelRental } from "../src/lib/rentals/rental-records";
 import { emptyRenterForm, parseRenterForm } from "../src/lib/renters/renter-input";
 import { createRenter, updateRenter } from "../src/lib/renters/renter-records";
-import { openLink, type LinkVisit } from "../src/lib/renter-links/link-visits";
+import {
+  checkLinkCode,
+  openLink,
+  sendLinkCode,
+  type LinkVisit,
+} from "../src/lib/renter-links/link-visits";
 import {
   createMemoryFileStorage,
   type MemoryFileStorage,
@@ -158,6 +163,35 @@ describe("signing a contract through a link", () => {
         signed: null,
         link: { sentToEmail: "sam.signer@example.test" },
       });
+    });
+  });
+
+  describe("the code", () => {
+    const CODE_IN_TEXT = /^\s*(\d{6})\s*$/m;
+    // Postgres refuses a NUL character in text, so the evidence row can't be saved.
+    const UNSAVEABLE_META = { ...META, userAgent: "Broken\u0000browser" };
+
+    it("is used up only with its evidence saved, and a failure logs no internet address (review A3-10)", async () => {
+      const { visit } = await sentLink();
+      sentEmails.length = 0;
+      expect(await sendLinkCode(deps(), visit)).toBe("sent");
+      const code = CODE_IN_TEXT.exec(sentEmails.at(-1)!.text)![1]!;
+
+      const failure: unknown = await checkLinkCode(deps(), visit, code, UNSAVEABLE_META).catch(
+        (error: unknown) => error,
+      );
+      expect(String(failure)).toContain(META.ipAddress);
+      expect(JSON.stringify(describeErrorForLog(failure))).not.toContain(META.ipAddress);
+
+      // The code still works, and this time its evidence is kept with it.
+      expect(await checkLinkCode(deps(), visit, code, META)).toMatchObject({ status: "right" });
+      const steps = await withTenant(web.db, actor.operatorId, (tx) =>
+        tx
+          .select({ step: signingEvidence.step, ip: signingEvidence.ipAddress })
+          .from(signingEvidence)
+          .where(eq(signingEvidence.linkId, visit.linkId)),
+      );
+      expect(steps).toEqual([{ step: "code_verified", ip: META.ipAddress }]);
     });
   });
 

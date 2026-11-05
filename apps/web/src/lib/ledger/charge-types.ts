@@ -4,6 +4,7 @@ import {
   type BuiltInChargeType,
   type GstTreatment,
 } from "@fleetapp/core";
+import { recordActivity } from "@fleetapp/db/activity";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, chargeTypes } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
@@ -35,16 +36,28 @@ function chargeTypeOf(row: ChargeTypeRow): ChargeType {
 /**
  * Adds any built-in type the business does not have yet (one row each, so
  * running it again adds nothing). Done in the business's own tenant context
- * when the types are first needed.
+ * when the types are first needed; each one added gets its history line,
+ * by the system (rule 19, review A8-8).
  */
 export async function ensureBuiltInChargeTypes(
   tx: AnyTransaction,
   operatorId: string,
 ): Promise<void> {
-  await tx
+  const added = await tx
     .insert(chargeTypes)
     .values(BUILT_IN_CHARGE_TYPES.map((builtIn) => ({ operatorId, builtIn })))
-    .onConflictDoNothing();
+    .onConflictDoNothing()
+    .returning({ id: chargeTypes.id, builtIn: chargeTypes.builtIn });
+  for (const chargeType of added) {
+    await recordActivity(tx, {
+      operatorId,
+      actor: { type: "system", id: null },
+      entityType: ACTIVITY_ENTITY_TYPES.chargeType,
+      entityId: chargeType.id,
+      action: ACTIVITY_ACTIONS.created,
+      valuesAfter: { builtIn: chargeType.builtIn },
+    });
+  }
 }
 
 /** Every charge type, built-in first in their usual order, then the business's own by name. */

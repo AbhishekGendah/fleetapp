@@ -5,6 +5,7 @@ import {
   type ListQuery,
   type VehicleStatus,
 } from "@fleetapp/core";
+import type { ExportFormat } from "@fleetapp/core/spreadsheet";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import {
   listConditions,
@@ -23,6 +24,8 @@ import {
   isRegoOnDirectDebit,
 } from "./expiry-columns";
 import { idleSince, renterWithCar, withRenterSince } from "./car-whereabouts";
+import type { ActingUser } from "../acting-user";
+import { recordListExport } from "../list-export-log";
 import { countedReading } from "./odometer";
 
 /** The filter value that shows archived cars instead of current ones. */
@@ -160,6 +163,27 @@ export async function listVehiclesForExport(
   return withTenant(database, operatorId, (tx) =>
     selectVehicleSummaries(tx, matchingVehicles(operatorId, query), query).limit(MAX_EXPORT_ROWS),
   );
+}
+
+/**
+ * The cars list as a download, logged: it names the Renters who have the
+ * cars, so it is personal information leaving the app (review A8-8).
+ */
+export async function exportVehicles(
+  database: AnyDatabase,
+  actor: ActingUser,
+  query: ListQuery,
+  format: ExportFormat,
+): Promise<VehicleSummary[]> {
+  return withTenant(database, actor.operatorId, async (tx) => {
+    const rows = await selectVehicleSummaries(
+      tx,
+      matchingVehicles(actor.operatorId, query),
+      query,
+    ).limit(MAX_EXPORT_ROWS);
+    await recordListExport(tx, actor, { list: "cars", format, rows: rows.length });
+    return rows;
+  });
 }
 
 /** Whether the Operator has any cars at all, archived ones included. */

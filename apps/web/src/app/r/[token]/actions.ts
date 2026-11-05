@@ -11,7 +11,6 @@ import { redirect } from "next/navigation";
 
 import { env } from "../../../env";
 import { appDb } from "../../../lib/app-db";
-import { recordSigningEvidence } from "../../../lib/contracts/signing";
 import { appEmailSender } from "../../../lib/email-sender";
 import { checkLinkCode, openLink, sendLinkCode } from "../../../lib/renter-links/link-visits";
 import { requestMetaFrom } from "../../../lib/request-meta";
@@ -73,6 +72,7 @@ export async function checkCodeAction(
       { database: appDb, now: () => new Date() },
       visit,
       typedLinkCode(typeof typed === "string" ? typed : ""),
+      requestMetaFrom(await headers()),
     );
     if (result.status === "locked") {
       return { status: "problem", message: LOCKED_MESSAGE };
@@ -89,8 +89,6 @@ export async function checkCodeAction(
         message: `That code is not right. ${result.triesLeft} ${result.triesLeft === 1 ? "try" : "tries"} left.`,
       };
     }
-    // The right code is the first step of a signing's evidence: who signed.
-    await recordSigningEvidence(appDb, visit, "code_verified", requestMetaFrom(await headers()));
     deviceToken = result.deviceToken;
     expiresAt = visit.expiresAt;
   } catch (error) {
