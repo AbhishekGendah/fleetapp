@@ -330,6 +330,13 @@
       "when": 1793860067808,
       "tag": "0046_privacy_records",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1793870798153,
+      "tag": "0047_renter_retention",
+      "breakpoints": true
     }
   ]
 }

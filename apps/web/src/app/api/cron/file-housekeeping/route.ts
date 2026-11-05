@@ -7,6 +7,7 @@ import { isScheduledJobRequest } from "../../../../lib/cron-auth";
 import { runFileHousekeeping } from "../../../../lib/files/file-housekeeping";
 import { removeOldSubmissions } from "../../../../lib/renter-links/submission-cleanup";
 import { RENTAL_RETENTION_HOLDS } from "../../../../lib/rentals/retention-holds";
+import { retireOldRenters } from "../../../../lib/renters/renter-retirement";
 import { binExpiredLicenceScans } from "../../../../lib/renters/scan-retention";
 import { appFileStorage } from "../../../../lib/storage/app-file-storage";
 
@@ -32,7 +33,7 @@ async function runPart<Summary>(
   }
 }
 
-/** The daily clean-up (old Renter submissions, expired licence scans, then files), called by Vercel's scheduler (vercel.json). */
+/** The daily clean-up (old Renter submissions, expired licence scans, Renters past seven years, then files), called by Vercel's scheduler (vercel.json). */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!isScheduledJobRequest(request.headers.get("authorization"), env.CRON_SECRET)) {
     return NextResponse.json({ error: "unauthorised" }, { status: UNAUTHORISED_STATUS });
@@ -48,6 +49,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const licenceScans = await runPart("Licence scan retention", () =>
     binExpiredLicenceScans(deps, RENTAL_RETENTION_HOLDS, isOutOfTime),
   );
+  const renters = await runPart("Renter record retention", () =>
+    retireOldRenters(deps.database, isOutOfTime),
+  );
   const files = await runPart("File clean-up", () => runFileHousekeeping(deps, isOutOfTime));
-  return NextResponse.json({ submissions, licenceScans, files });
+  return NextResponse.json({ submissions, licenceScans, renters, files });
 }

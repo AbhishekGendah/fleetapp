@@ -14,6 +14,7 @@ import {
   pgEnum,
   pgTable,
   text,
+  timestamp,
   unique,
   uniqueIndex,
   uuid,
@@ -77,6 +78,12 @@ export const renters = pgTable(
     status: renterStatusEnum("status").notNull().default("active"),
     /** Private to the Operator. Required for, and only for, "do not rent". */
     doNotRentReason: text("do_not_rent_reason"),
+    /**
+     * When the nightly job removed this Renter's personal details, seven years
+     * after their last rental (review G8-4). Only that job's database function
+     * sets it; the app's own role has no grant on it.
+     */
+    retiredAt: timestamp("retired_at", { withTimezone: true }),
 
     ...auditColumns,
   },
@@ -85,7 +92,11 @@ export const renters = pgTable(
     // nothing can link one Operator's record to another's Renter.
     unique("renters_id_operator_unique").on(table.id, table.operatorId),
     index("renters_operator_name_idx").on(table.operatorId, table.fullName),
-    check("renters_has_contact", sql`num_nonnulls(${table.phone}, ${table.email}) > 0`),
+    // A retired Renter's details are removed (7 years on): no contact is left by design.
+    check(
+      "renters_has_contact",
+      sql`${table.retiredAt} is not null or num_nonnulls(${table.phone}, ${table.email}) > 0`,
+    ),
     check("renters_email_lower_case", sql`${table.email} = lower(${table.email})`),
     // One Renter per licence, archived ones included, so a returning Renter
     // is brought back rather than entered twice.

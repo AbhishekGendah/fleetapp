@@ -14,6 +14,7 @@ declare module "vitest" {
     adminAuthRoleUrl: string;
     webAppRoleUrl: string;
     webAuthRoleUrl: string;
+    superuserUrl: string;
   }
 }
 
@@ -28,6 +29,9 @@ export default async function setup(project: TestProject): Promise<() => Promise
   project.provide("adminAuthRoleUrl", postgres.urlForRole(ADMIN_AUTH_ROLE));
   project.provide("webAppRoleUrl", postgres.urlForRole(WEB_APP_ROLE));
   project.provide("webAuthRoleUrl", postgres.urlForRole(WEB_AUTH_ROLE));
+  // Only for a test that must date records years back, which no app role (and,
+  // under forced row security, not even the owner) can do.
+  project.provide("superuserUrl", postgres.superuserUrl);
 
   return async () => {
     await postgres.stop();
