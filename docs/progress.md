@@ -1146,8 +1146,9 @@ merged (still to do), and APP_STAGE=development in both dev Vercel projects
 (the test inbox now needs it, or the dev site won't start). Check the dev
 database logins with the query in docs/runbooks/database-roles.md before
 merging too. Abhi: add batch 2's new Stripe event types to both event
-destinations (list in docs/launch-checklist.md). Batch 5 done (5 Nov 2026);
-next from the review: batch 6 (database update safety). Abhi: add the second Stripe event destination (connected
+destinations (list in docs/launch-checklist.md). Batch 5 done (5 Nov 2026).
+Batch 6 plan (database update safety) written, waiting for Abhi:
+docs/plans/review-fixes-batch-6.md. Abhi: add the second Stripe event destination (connected
 accounts) and its secret, then try slice 4 on the dev site. Then Phase 4
 slice 5 (weekly debits).
 Open idea: trim the phone rules to Australia only with libphonenumber's
