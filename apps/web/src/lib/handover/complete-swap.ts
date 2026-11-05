@@ -45,7 +45,11 @@ import type { VehicleStatusInput } from "../vehicles/vehicle-input";
 import { addReading } from "../vehicles/odometer";
 import { checklistRefusal, FinishedAlreadyError } from "./checklist-report";
 import type { HandoverDependencies } from "./complete-handover";
-import { HANDOVER_REPORT_TITLE, renderHandoverReport } from "./handover-report";
+import {
+  HANDOVER_REPORT_TITLE,
+  renderHandoverReport,
+  reportOrPhotoMissing,
+} from "./handover-report";
 import { phoneSignature } from "./phone-signature";
 import { lockOpenInspection } from "./handover-records";
 import {
@@ -74,7 +78,13 @@ export type CompleteSwapResult =
   | { status: "missing"; fields: MergeFieldKey[] }
   | {
       status:
-        "not_found" | "no_signature" | "no_template" | "car_status" | "clash" | "finished_already";
+        | "not_found"
+        | "no_signature"
+        | "no_template"
+        | "car_status"
+        | "clash"
+        | "finished_already"
+        | "photo_missing";
     };
 
 /** The swap's two checklists as they stand. */
@@ -537,7 +547,9 @@ export async function completeSwap(
     timeZone: clock.timeZone,
     signature,
   };
-  const pdfs = await renderSwapDocuments(deps, actor.operatorId, views, moment);
+  const pdfs = await reportOrPhotoMissing(() =>
+    renderSwapDocuments(deps, actor.operatorId, views, moment),
+  );
   if ("status" in pdfs) {
     return pdfs;
   }

@@ -44,7 +44,7 @@ export function ImageUpload(props: ImageUploadProps): React.JSX.Element {
     setIsBusy(true);
     setMessage(null);
     try {
-      const image = await shrinkImage(file);
+      const image = await shrinkImage(file, { keepsTransparency: true });
       setMessage(image ? await props.onUpload(image) : UNREADABLE_IMAGE_MESSAGE);
     } catch (error) {
       // A dropped connection must never leave the button stuck on busy.

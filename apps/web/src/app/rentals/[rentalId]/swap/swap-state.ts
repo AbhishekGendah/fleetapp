@@ -2,7 +2,7 @@ import { formatKilometres, mergeFieldLabel } from "@fleetapp/core";
 
 import type { CompleteSwapResult } from "../../../../lib/handover/complete-swap";
 import type { StartSwapResult } from "../../../../lib/rentals/car-swaps";
-import { gapsMessage, SIGNATURE_NEEDED } from "../handover/handover-state";
+import { gapsMessage, PHOTO_MISSING_MESSAGE, SIGNATURE_NEEDED } from "../handover/handover-state";
 
 /** What finishing the swap came back with, for its form. */
 export type CompleteSwapState =
@@ -26,6 +26,8 @@ export function swapRefusalMessage(
       return `Fill in what the swap form needs first: ${result.fields.map(mergeFieldLabel).join(", ")}.`;
     case "no_template":
       return SWAP_FORM_SETUP;
+    case "photo_missing":
+      return PHOTO_MISSING_MESSAGE;
     case "no_signature":
       return SIGNATURE_NEEDED;
     case "car_status":

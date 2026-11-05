@@ -79,8 +79,12 @@ export function checklistKit(
     if (start.status !== "allowed") {
       throw new Error(`The photo was not allowed: ${start.status}`);
     }
-    const photoPermission = storage.permissions.at(-2)!;
-    storage.receive(photoPermission.area, photoPermission.key, SAMPLE_JPEG);
+    const [photoPermission, thumbnailPermission] = storage.permissions.slice(-2);
+    storage.receive(photoPermission!.area, photoPermission!.key, SAMPLE_JPEG);
+    storage.receive(thumbnailPermission!.area, thumbnailPermission!.key, SAMPLE_JPEG);
+    expect(
+      await confirmUpload(deps(), actor, start.thumbnail.fileId, ["vehicle_photo_thumbnail"]),
+    ).toBe("confirmed");
     expect(await confirmUpload(deps(), actor, start.photo.fileId, ["vehicle_photo"])).toBe(
       "confirmed",
     );

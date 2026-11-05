@@ -5,6 +5,9 @@ import { bookingProblemMessage } from "../../../../lib/rentals/rental-messages";
 
 /** Said whenever the Renter is to sign on the phone and has not. */
 export const SIGNATURE_NEEDED = "Ask the Renter to sign in the box.";
+/** Said when a checklist photo couldn't be put in the report: nothing was signed (review G9-7). */
+export const PHOTO_MISSING_MESSAGE =
+  "Couldn't add every photo to the report, so nothing was signed. Check your signal and try again.";
 /** Said when the Renter chose to type their name and it doesn't match. */
 export const TYPED_NAME_NEEDED = "Ask the Renter to type their full name exactly as shown.";
 
@@ -52,6 +55,8 @@ export function completionMessage(
       return `The car last read ${formatKilometres(result.lastKilometres)}. Check the kilometres: they cannot go down.`;
     case "contract_unsigned":
       return "The Renter has not signed the contract yet. Send it for signing from the rental's page.";
+    case "photo_missing":
+      return PHOTO_MISSING_MESSAGE;
     case "no_signature":
       return SIGNATURE_NEEDED;
     case "finished_already":

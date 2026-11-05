@@ -8,6 +8,9 @@ const RENTER_LINK_PAGES = "/r/:token*";
 const nextConfig: NextConfig = {
   // Workspace packages ship TypeScript source, not pre-built JS, so Next
   // needs to transpile them through its own build pipeline.
+  // The PDF fonts are read from disk when a PDF is made, so they go with the server code.
+  outputFileTracingIncludes: { "/**/*": ["./assets/fonts/**"] },
+
   transpilePackages: [
     "@fleetapp/ui",
     "@fleetapp/db",

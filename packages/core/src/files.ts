@@ -36,10 +36,22 @@ export type FileContentType = (typeof FILE_CONTENT_TYPES)[keyof typeof FILE_CONT
 export interface FilePurposeRule {
   area: StorageArea;
   contentTypes: readonly FileContentType[];
+  /** What the person may pick, when the device turns it into one of contentTypes first. */
+  pickedTypes?: readonly FileContentType[];
   maxBytes: number;
   /** In words, for the person choosing a file. */
   describedAs: string;
 }
+
+/**
+ * What a PDF can hold: a car photo, its small copy and the logo are made
+ * into one of these on the device, so a signed report never leaves one out
+ * (review G9-7).
+ */
+const PRINTABLE_PICTURE_TYPES: readonly FileContentType[] = [
+  FILE_CONTENT_TYPES.jpeg,
+  FILE_CONTENT_TYPES.png,
+];
 
 /** A paper as a PDF, or a photo of it. */
 const DOCUMENT_CONTENT_TYPES: readonly FileContentType[] = [
@@ -53,20 +65,21 @@ export const FILE_PURPOSE_RULES: Readonly<Record<FilePurpose, FilePurposeRule>> 
   // No SVG: it can carry code that would run wherever the logo is shown.
   operator_logo: {
     area: "general",
-    contentTypes: [FILE_CONTENT_TYPES.png, FILE_CONTENT_TYPES.jpeg, FILE_CONTENT_TYPES.webp],
+    contentTypes: PRINTABLE_PICTURE_TYPES,
+    pickedTypes: [...PRINTABLE_PICTURE_TYPES, FILE_CONTENT_TYPES.webp],
     maxBytes: 5 * BYTES_PER_MEGABYTE,
     describedAs: "a PNG, JPEG or WebP image up to 5 MB",
   },
   // Shrunk on the phone first, so a stored photo is about 400 KB.
   vehicle_photo: {
     area: "general",
-    contentTypes: [FILE_CONTENT_TYPES.jpeg, FILE_CONTENT_TYPES.png, FILE_CONTENT_TYPES.webp],
+    contentTypes: PRINTABLE_PICTURE_TYPES,
     maxBytes: 5 * BYTES_PER_MEGABYTE,
     describedAs: "a photo (JPEG, PNG or WebP)",
   },
   vehicle_photo_thumbnail: {
     area: "general",
-    contentTypes: [FILE_CONTENT_TYPES.jpeg, FILE_CONTENT_TYPES.png, FILE_CONTENT_TYPES.webp],
+    contentTypes: PRINTABLE_PICTURE_TYPES,
     maxBytes: 1 * BYTES_PER_MEGABYTE,
     describedAs: "a small copy of a photo",
   },

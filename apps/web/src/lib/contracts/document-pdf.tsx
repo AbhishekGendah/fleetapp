@@ -1,20 +1,49 @@
 import type { TemplateBlock, TemplateDocument, TemplateInline } from "@fleetapp/core";
 import { BRAND } from "@fleetapp/ui/brand";
-import { Document, Image, Page, renderToBuffer, StyleSheet, Text, View } from "@react-pdf/renderer";
+import path from "node:path";
+
+import {
+  Document,
+  Font,
+  Image,
+  Page,
+  renderToBuffer,
+  StyleSheet,
+  Text,
+  View,
+} from "@react-pdf/renderer";
 import type { ReactElement, ReactNode } from "react";
 
 /**
- * The PDF of a filled-in template, made on the server. PDFs use the
- * built-in Helvetica, which covers English and Western European accents
- * (é, ñ, ü); other scripts need an embedded font (docs/progress.md).
+ * The PDF of a filled-in template, made on the server. Noto Sans is
+ * embedded (only the letters used), so every European name prints as
+ * typed: the built-in PDF fonts can't print letters such as Ł or ő
+ * (review A3-4).
  */
 
-const FONTS = {
-  regular: "Helvetica",
-  bold: "Helvetica-Bold",
-  italic: "Helvetica-Oblique",
-  boldItalic: "Helvetica-BoldOblique",
+/** Where the font files are: inside the app, included with the server code (next.config.ts). */
+export const PDF_FONT_DIRECTORY = path.join(process.cwd(), "assets", "fonts");
+
+const FONT_FILES = {
+  regular: "NotoSans-Regular.ttf",
+  bold: "NotoSans-Bold.ttf",
+  italic: "NotoSans-Italic.ttf",
+  boldItalic: "NotoSans-BoldItalic.ttf",
 } as const;
+type FontStyleName = keyof typeof FONT_FILES;
+
+/** Each style is its own family, so a style is named in one word wherever text is drawn. */
+const FONTS: Readonly<Record<FontStyleName, string>> = {
+  regular: "PdfSans",
+  bold: "PdfSans-Bold",
+  italic: "PdfSans-Italic",
+  boldItalic: "PdfSans-BoldItalic",
+};
+
+for (const style of Object.keys(FONT_FILES) as FontStyleName[]) {
+  Font.register({ family: FONTS[style], src: path.join(PDF_FONT_DIRECTORY, FONT_FILES[style]) });
+}
+
 const BODY_SIZE = 10;
 const HEADING_SIZES = { 1: 18, 2: 13, 3: 11 } as const;
 const BULLET = "•";

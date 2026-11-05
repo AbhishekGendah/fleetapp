@@ -43,7 +43,7 @@ export function LogoUpload({ logoUrl }: { logoUrl: string | null }) {
       label="Logo"
       hint={`Shown in the app, and later on your contracts and invoices. Use ${LOGO_RULE.describedAs}.`}
       currentImageUrl={logoUrl}
-      accept={LOGO_RULE.contentTypes.join(",")}
+      accept={(LOGO_RULE.pickedTypes ?? LOGO_RULE.contentTypes).join(",")}
       onUpload={handleUpload}
       onRemove={handleRemove}
     />

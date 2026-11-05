@@ -36,6 +36,7 @@ import type { HandoverDependencies } from "./complete-handover";
 import { checklistRefusal, FinishedAlreadyError, issueChecklistReport } from "./checklist-report";
 import { lockOpenInspection } from "./handover-records";
 import { loadCompletedHandover, loadReturn, type HandoverView } from "./handover-queries";
+import { isPhotoMissing, PHOTO_MISSING, reportOrPhotoMissing } from "./handover-report";
 import { RETURN_REPORT_TITLE, renderReturnReport } from "./return-report";
 
 /** Where a returned car may go: back for rent, or off for repair. Never Sold from here. */
@@ -61,7 +62,12 @@ export type CompleteReturnResult =
   | { status: "return_time"; problem: ReturnTimeProblem }
   | {
       status:
-        "not_found" | "finished_already" | "no_signature" | "signature_required" | "car_status";
+        | "not_found"
+        | "finished_already"
+        | "no_signature"
+        | "signature_required"
+        | "car_status"
+        | "photo_missing";
     };
 
 /** What stops the return being finished now. */
@@ -256,13 +262,18 @@ export async function completeReturn(
       })
     : renterAbsentText(facts);
   const atText = formatDateTimeInTimeZone(input.returnedAt, clock.timeZone);
-  const pdf = await renderReturnReport(deps, actor.operatorId, view, {
-    handover,
-    returnedAtText: atText,
-    acceptanceText,
-    signature,
-    signedAtText: formatDateTimeInTimeZone(clock.now, clock.timeZone),
-  });
+  const pdf = await reportOrPhotoMissing(() =>
+    renderReturnReport(deps, actor.operatorId, view, {
+      handover,
+      returnedAtText: atText,
+      acceptanceText,
+      signature,
+      signedAtText: formatDateTimeInTimeZone(clock.now, clock.timeZone),
+    }),
+  );
+  if (isPhotoMissing(pdf)) {
+    return PHOTO_MISSING;
+  }
   const issued = await issueChecklistReport(deps, actor, {
     view,
     kind: "return_report",

@@ -6,9 +6,21 @@ export const MAX_IMAGE_EDGE_PX = 1600;
 export const THUMBNAIL_EDGE_PX = 400;
 const JPEG_QUALITY = 0.85;
 
-/** PNG and WebP keep transparency, which a logo often needs; everything else becomes JPEG. */
-function outputTypeFor(inputType: string): string {
-  return inputType === "image/png" || inputType === "image/webp" ? inputType : "image/jpeg";
+const JPEG = "image/jpeg";
+const PNG = "image/png";
+const TYPES_WITH_TRANSPARENCY: ReadonlySet<string> = new Set([PNG, "image/webp"]);
+
+export interface ShrinkOptions {
+  maxEdgePx?: number;
+  /**
+   * Keep a see-through background (a logo): such a picture becomes PNG.
+   * Otherwise everything becomes JPEG, which every PDF can hold (review G9-7).
+   */
+  keepsTransparency?: boolean;
+}
+
+function outputTypeFor(inputType: string, keepsTransparency: boolean): string {
+  return keepsTransparency && TYPES_WITH_TRANSPARENCY.has(inputType) ? PNG : JPEG;
 }
 
 /**
@@ -17,16 +29,14 @@ function outputTypeFor(inputType: string): string {
  * drops hidden details a phone adds, such as where it was taken. Null if this
  * browser cannot read the image (some cannot open iPhone HEIC photos).
  */
-export function shrinkImage(
-  file: Blob,
-  maxEdgePx: number = MAX_IMAGE_EDGE_PX,
-): Promise<Blob | null> {
+export function shrinkImage(file: Blob, options: ShrinkOptions = {}): Promise<Blob | null> {
+  const maxEdgePx = options.maxEdgePx ?? MAX_IMAGE_EDGE_PX;
   return new Promise((resolve) => {
     new Compressor(file, {
       maxWidth: maxEdgePx,
       maxHeight: maxEdgePx,
       quality: JPEG_QUALITY,
-      mimeType: outputTypeFor(file.type),
+      mimeType: outputTypeFor(file.type, options.keepsTransparency ?? false),
       // Our own rule above decides the type, not Compressor's size-based switch to JPEG.
       convertSize: Number.POSITIVE_INFINITY,
       checkOrientation: true,

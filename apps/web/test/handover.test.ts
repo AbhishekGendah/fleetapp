@@ -195,6 +195,42 @@ describe("handing a car over", () => {
     ).toBe("rented");
   });
 
+  it("signs nothing when a photo can't be put in the report (review G9-7)", async () => {
+    const { rentalId } = await readyRental();
+    const inspectionId = await filledHandover(rentalId);
+    const view = await loadHandover(web.db, actor.operatorId, inspectionId);
+    const front = view?.photos.get("Front");
+    const lost = await withTenant(
+      web.db,
+      actor.operatorId,
+      async (tx) =>
+        (
+          await tx
+            .select({ area: files.storageArea, key: files.objectKey })
+            .from(files)
+            .where(eq(files.id, front?.thumbnailFileId ?? ""))
+        )[0],
+    );
+    await storage.remove(lost!.area, lost!.key);
+
+    const result = await completeHandover(
+      handoverDeps(),
+      actor,
+      inspectionId,
+      {
+        signature: drawnSignatureInput(TEST_SIGNATURE),
+        bondOverrideReason: null,
+        directDebitOverrideReason: null,
+      },
+      clock(),
+    );
+
+    expect(result).toEqual({ status: "photo_missing" });
+    expect((await loadHandover(web.db, actor.operatorId, inspectionId))?.status).toBe(
+      "in_progress",
+    );
+  });
+
   it("takes a damage mark off, and a cancelled checklist makes way for a new one", async () => {
     const { rentalId } = await readyRental();
     const started = await startHandover(web.db, actor, rentalId);

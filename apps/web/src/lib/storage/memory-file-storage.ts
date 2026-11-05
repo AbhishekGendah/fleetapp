@@ -59,6 +59,13 @@ export function createMemoryFileStorage(): MemoryFileStorage {
       stored.delete(address(area, key));
     },
     async createViewUrl(area, key, downloadName) {
+      // A stored file is served as itself, so a report made in a test can
+      // fetch its photos the way it fetches them from S3.
+      const found = stored.get(address(area, key));
+      if (found && !downloadName) {
+        const bytes = Buffer.from(found.bytes).toString("base64");
+        return `data:application/octet-stream;address=${encodeURIComponent(`${area}/${key}`)};base64,${bytes}`;
+      }
       const name = downloadName ? `?name=${encodeURIComponent(downloadName)}` : "";
       return `${STAND_IN_VIEW_URL}/${area}/${key}${name}`;
     },

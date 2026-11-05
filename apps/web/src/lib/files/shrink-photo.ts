@@ -16,7 +16,7 @@ export async function shrinkPhotoForUpload(
   }
   const [photo, thumbnail] = await Promise.all([
     shrinkImage(file),
-    shrinkImage(file, THUMBNAIL_EDGE_PX),
+    shrinkImage(file, { maxEdgePx: THUMBNAIL_EDGE_PX }),
   ]);
   return photo && thumbnail ? { photo, thumbnail } : { problem: UNREADABLE_MESSAGE };
 }

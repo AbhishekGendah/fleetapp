@@ -27,6 +27,15 @@ describe("checking an upload before it is allowed", () => {
   });
 });
 
+describe("pictures that go into PDFs (review G9-7)", () => {
+  it("takes car photos, their small copies and logos only as JPEG or PNG", () => {
+    for (const purpose of ["vehicle_photo", "vehicle_photo_thumbnail", "operator_logo"] as const) {
+      expect(checkUpload(purpose, "image/webp", MEGABYTE / 2)).toBe("type_not_allowed");
+      expect(checkUpload(purpose, "image/jpeg", MEGABYTE / 2)).toBeNull();
+    }
+  });
+});
+
 describe("recognising a file from its first bytes", () => {
   it("knows PNG, JPEG, WebP and PDF", async () => {
     expect(await detectFileType(SAMPLE_PNG)).toBe(FILE_CONTENT_TYPES.png);

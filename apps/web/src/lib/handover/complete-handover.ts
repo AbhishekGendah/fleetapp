@@ -31,7 +31,13 @@ import { addReading } from "../vehicles/odometer";
 import { checklistRefusal, FinishedAlreadyError, issueChecklistReport } from "./checklist-report";
 import { lockOpenInspection } from "./handover-records";
 import { loadHandover, type HandoverView } from "./handover-queries";
-import { HANDOVER_REPORT_TITLE, renderHandoverReport } from "./handover-report";
+import {
+  HANDOVER_REPORT_TITLE,
+  isPhotoMissing,
+  PHOTO_MISSING,
+  renderHandoverReport,
+  reportOrPhotoMissing,
+} from "./handover-report";
 
 export interface CompleteHandoverInput {
   /** The Renter's signature on the Operator's phone, drawn or typed, as the form sent it. */
@@ -50,7 +56,8 @@ export type CompleteHandoverResult =
   | { status: "direct_debit_missing" }
   | { status: "lower"; lastKilometres: number }
   | {
-      status: "not_found" | "contract_unsigned" | "no_signature" | "finished_already";
+      status:
+        "not_found" | "contract_unsigned" | "no_signature" | "finished_already" | "photo_missing";
     };
 
 export interface HandoverDependencies extends FileDependencies, Partial<PaymentsReach> {
@@ -239,11 +246,12 @@ export async function completeHandover(
     odometerKm: view.odometerKm ?? 0,
     fuelLevel: view.fuelLevel ?? "empty",
   });
-  const pdf = await renderHandoverReport(deps, actor.operatorId, view, {
-    atText,
-    acceptanceText,
-    signature,
-  });
+  const pdf = await reportOrPhotoMissing(() =>
+    renderHandoverReport(deps, actor.operatorId, view, { atText, acceptanceText, signature }),
+  );
+  if (isPhotoMissing(pdf)) {
+    return PHOTO_MISSING;
+  }
   const issued = await issueChecklistReport(deps, actor, {
     view,
     kind: "handover_report",
