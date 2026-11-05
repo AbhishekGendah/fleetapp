@@ -1101,7 +1101,7 @@ Abhi: add OPS_ALERT_EMAIL in Vercel (fleetapp-web) before this branch is
 merged (still to do), and APP_STAGE=development in both dev Vercel projects
 (the test inbox now needs it, or the dev site won't start). Check the dev
 database logins with the query in docs/runbooks/database-roles.md before
-merging too. Abhi: add batch 2's new Stripe event types to both event
+merging too. Batch 4 plan (signing and documents) written, waiting for Abhi: docs/plans/review-fixes-batch-4.md. Abhi: add batch 2's new Stripe event types to both event
 destinations (list in docs/launch-checklist.md). Then review batch 4
 (signing and documents), plan first. Abhi: add the second Stripe event destination (connected
 accounts) and its secret, then try slice 4 on the dev site. Then Phase 4
