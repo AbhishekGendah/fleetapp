@@ -17,7 +17,7 @@
   },
   "devDependencies": {
     "@fleetapp/config": "workspace:*",
-    "@types/node": "26.6.2",
+    "@types/node": "26.6.5",
     "@types/papaparse": "5.5.2",
     "eslint": "9.39.5",
     "typescript": "6.0.3",
