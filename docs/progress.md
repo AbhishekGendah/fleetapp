@@ -1160,7 +1160,9 @@ database logins with the query in docs/runbooks/database-roles.md before
 merging too. Abhi: add batch 2's new Stripe event types to both event
 destinations (list in docs/launch-checklist.md). Batch 5 done (5 Nov 2026). Batch 6 (database update safety) built
 (docs/plans/review-fixes-batch-6.md); Abhi: add the Vercel token and project
-IDs to GitHub so the apps go live after their database updates. Abhi: add the second Stripe event destination (connected
+IDs to GitHub so the apps go live after their database updates. Batch 7 (everything
+left from the review) planned in docs/plans/review-fixes-batch-7.md, waiting for
+Abhi's approval. Abhi: add the second Stripe event destination (connected
 accounts) and its secret, then try slice 4 on the dev site. Then Phase 4
 slice 5 (weekly debits).
 Open idea: trim the phone rules to Australia only with libphonenumber's
