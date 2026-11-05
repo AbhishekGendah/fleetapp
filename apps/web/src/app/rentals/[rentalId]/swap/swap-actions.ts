@@ -9,6 +9,7 @@ import { appDb } from "../../../../lib/app-db";
 import { appEmailSender } from "../../../../lib/email-sender";
 import { fileDependencies } from "../../../../lib/files/file-action-support";
 import { completeSwap } from "../../../../lib/handover/complete-swap";
+import { renterSignatureFrom } from "../../../../lib/handover/renter-signature-form";
 import { rentalPath, rentalSwapPath } from "../../../../lib/paths";
 import { cancelSwap, startSwap } from "../../../../lib/rentals/car-swaps";
 import {
@@ -79,7 +80,7 @@ export async function completeSwapAction(
       { ...fileDependencies(), emailSender: appEmailSender },
       { userId: user.id, operatorId: user.operatorId },
       rentalId,
-      { drawnSignature: String(formData.get("drawnSignature") ?? ""), oldCarAfter: parsed.data },
+      { signature: renterSignatureFrom(formData), oldCarAfter: parsed.data },
       { timeZone: user.operatorTimezone, now: new Date() },
     );
     revalidatePath(rentalPath(rentalId));

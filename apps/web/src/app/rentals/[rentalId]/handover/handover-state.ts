@@ -5,6 +5,8 @@ import { bookingProblemMessage } from "../../../../lib/rentals/rental-messages";
 
 /** Said whenever the Renter is to sign on the phone and has not. */
 export const SIGNATURE_NEEDED = "Ask the Renter to sign in the box.";
+/** Said when the Renter chose to type their name and it doesn't match. */
+export const TYPED_NAME_NEEDED = "Ask the Renter to type their full name exactly as shown.";
 
 /** What finishing the handover came back with, for its form. */
 export type CompleteHandoverState =

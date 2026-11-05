@@ -7,7 +7,6 @@ import { DateTimePicker } from "@fleetapp/ui/date-time-picker";
 import { FormField } from "@fleetapp/ui/form-field";
 import { FormError } from "@fleetapp/ui/form-message";
 import { RequiredFieldsNote } from "@fleetapp/ui/input";
-import { SignaturePad } from "@fleetapp/ui/signature-pad";
 import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import { CheckCircle2 } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
@@ -21,7 +20,11 @@ import {
   type ReturnFormValues,
 } from "../../../../lib/handover/return-input";
 import { CarStatusFields } from "../../../cars/[vehicleId]/car-status-fields";
-import { SIGNATURE_NEEDED } from "../handover/handover-state";
+import {
+  NO_SIGNATURE,
+  RenterSignatureFields,
+  signatureProblemOf,
+} from "../handover/renter-signature-step";
 import { useForgetWhenDone } from "../handover/use-forget-when-done";
 import { completeReturnAction } from "./actions";
 import { INITIAL_RETURN_STATE } from "./return-state";
@@ -54,7 +57,7 @@ export function ReturnForm(props: {
     isRequired: isRequiredReturnField,
     idPrefix: "return-",
   });
-  const [signature, setSignature] = useState("");
+  const [signature, setSignature] = useState(NO_SIGNATURE);
   const [problem, setProblem] = useState<string | null>(null);
   const isRenterPresent = props.isSignatureRequired || form.values.isRenterPresent === TICKED;
 
@@ -62,7 +65,7 @@ export function ReturnForm(props: {
 
   const submit = form.submitHandler(formAction);
   function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
-    const missing = isRenterPresent && signature === "" ? SIGNATURE_NEEDED : null;
+    const missing = isRenterPresent ? signatureProblemOf(signature, props.renterName) : null;
     setProblem(missing);
     if (missing) {
       event.preventDefault();
@@ -107,17 +110,11 @@ export function ReturnForm(props: {
             {props.renterName}: by signing, you agree you returned {props.summary} at the time
             above, in the condition shown in this checklist.
           </p>
-          <FormField
-            htmlFor="renter-signature"
-            label={`${props.renterName}'s signature`}
-            isRequired
-          >
-            <SignaturePad
-              id="renter-signature"
-              name="drawnSignature"
-              onValueChange={setSignature}
-            />
-          </FormField>
+          <RenterSignatureFields
+            id="renter-signature"
+            renterName={props.renterName}
+            onSignatureChange={setSignature}
+          />
         </>
       ) : (
         <p className="bg-muted rounded-md p-3 text-sm">

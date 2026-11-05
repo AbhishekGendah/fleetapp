@@ -2,9 +2,9 @@
 
 import {
   SIGN_CONTRACT_FIELDS,
+  SIGNATURE_METHOD_CHOICES,
   SIGNING_CONSENT_TEXT,
   signContractInputSchema,
-  type SignatureMethod,
 } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { Checkbox } from "@fleetapp/ui/checkbox";
@@ -25,10 +25,6 @@ import { INITIAL_SIGN_STATE } from "./signing-state";
 type SignField = (typeof SIGN_CONTRACT_FIELDS)[number];
 const TICKED = "on";
 const ALWAYS_REQUIRED = new Set<SignField>(["areDetailsConfirmed", "hasConsented", "method"]);
-const METHOD_CHOICES: readonly { method: SignatureMethod; label: string }[] = [
-  { method: "drawn", label: "Draw my signature" },
-  { method: "typed", label: "Type my full name" },
-];
 
 function isRequiredSignField(field: SignField, values: Readonly<Record<SignField, string>>) {
   if (ALWAYS_REQUIRED.has(field)) {
@@ -189,7 +185,7 @@ export function SigningForm(props: {
             {...form.boxProps("method")}
             onChange={(event) => form.setValue("method", event.target.value)}
           >
-            {METHOD_CHOICES.map((choice) => (
+            {SIGNATURE_METHOD_CHOICES.map((choice) => (
               <option key={choice.method} value={choice.method}>
                 {choice.label}
               </option>

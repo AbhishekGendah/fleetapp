@@ -52,15 +52,50 @@ function openOnRenterPhone(browser: Browser, link: string): Promise<Page> {
   });
 }
 
+/** Where the first of two strokes is drawn, as a share of the box: checked once both are down. */
+const FIRST_STROKE_AT = { x: 0.25, y: 0.5 };
+
+/**
+ * Two strokes, lifting the finger between them, as a real signature is
+ * drawn; the first must still be in what is signed (review A10-1).
+ */
 async function drawSignature(phone: Page): Promise<void> {
   const pad = phone.getByRole("img", { name: /^Your signature/ });
   await pad.scrollIntoViewIfNeeded();
   const box = (await pad.boundingBox())!;
-  await phone.mouse.move(box.x + 20, box.y + box.height / 2);
+  await phone.mouse.move(box.x + 20, box.y + box.height * FIRST_STROKE_AT.y);
   await phone.mouse.down();
-  await phone.mouse.move(box.x + box.width / 2, box.y + 30, { steps: 8 });
-  await phone.mouse.move(box.x + box.width - 20, box.y + box.height - 30, { steps: 8 });
+  await phone.mouse.move(box.x + box.width / 2, box.y + box.height * FIRST_STROKE_AT.y, {
+    steps: 8,
+  });
   await phone.mouse.up();
+  await phone.mouse.move(box.x + box.width / 2, box.y + box.height - 30);
+  await phone.mouse.down();
+  await phone.mouse.move(box.x + box.width - 20, box.y + 30, { steps: 8 });
+  await phone.mouse.up();
+  expect(await hasInkAt(phone, FIRST_STROKE_AT)).toBe(true);
+}
+
+/** Whether the signature sent with the form has ink at a spot (a share of its width and height). */
+function hasInkAt(phone: Page, at: { x: number; y: number }): Promise<boolean> {
+  return phone.evaluate(async (spot) => {
+    const field = document.querySelector<HTMLInputElement>('input[name="drawnSignature"]');
+    const image = new Image();
+    image.src = field?.value ?? "";
+    await image.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const context = canvas.getContext("2d")!;
+    context.drawImage(image, 0, 0);
+    const alpha = context.getImageData(
+      Math.round(image.width * spot.x),
+      Math.round(image.height * spot.y),
+      1,
+      1,
+    ).data[3];
+    return (alpha ?? 0) > 0;
+  }, at);
 }
 
 test.describe.serial("signing a contract", () => {

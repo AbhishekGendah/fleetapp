@@ -3,6 +3,7 @@ import {
   FUEL_LEVEL_LABELS,
   type TemplateBlock,
   type TemplateDocument,
+  type RenterSignature,
 } from "@fleetapp/core";
 import { files } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
@@ -12,6 +13,7 @@ import { loadPdfBranding, loadPdfImage } from "../contracts/contract-pdf";
 import { renderDocumentPdf, type PdfPhoto } from "../contracts/document-pdf";
 import type { FileDependencies } from "../files/stored-files";
 import type { ChecklistPhoto, HandoverView } from "./handover-queries";
+import { phoneSignature } from "./phone-signature";
 
 export const HANDOVER_REPORT_TITLE = "Handover report";
 
@@ -124,7 +126,7 @@ export async function renderHandoverReport(
   deps: Pick<FileDependencies, "database" | "storage">,
   operatorId: string,
   view: HandoverView,
-  accepted: { atText: string; acceptanceText: string; signaturePng: Uint8Array },
+  accepted: { atText: string; acceptanceText: string; signature: RenterSignature },
 ): Promise<Uint8Array> {
   const [branding, photos] = await Promise.all([
     loadPdfBranding(deps, operatorId),
@@ -135,10 +137,10 @@ export async function renderHandoverReport(
     title: `${HANDOVER_REPORT_TITLE} ${view.carRego}`,
     document: reportDocument(view, accepted),
     photos: { heading: "Photos at handover", photos },
-    signature: {
-      signedByText: `Accepted by ${view.renterFullName}`,
-      signedAtText: `Signed on the business's phone on ${accepted.atText}`,
-      drawnPng: accepted.signaturePng,
-    },
+    signature: phoneSignature(
+      accepted.signature,
+      `Accepted by ${view.renterFullName}`,
+      accepted.atText,
+    ),
   });
 }

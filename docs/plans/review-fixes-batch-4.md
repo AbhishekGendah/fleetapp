@@ -1,4 +1,4 @@
-# Review fixes, batch 4: signing and documents (plan, waiting for approval)
+# Review fixes, batch 4: signing and documents (approved 5 Nov 2026)
 
 From docs/reviews/2026-11-04-full-code-review.md, fix order item 4. Touches
 signed documents, the Renter links and the database, so nothing is built

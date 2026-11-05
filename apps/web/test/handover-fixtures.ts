@@ -1,3 +1,4 @@
+import { drawnSignatureInput } from "@fleetapp/core";
 import { SAMPLE_JPEG } from "@fleetapp/core/testing";
 import type { TestConnection } from "@fleetapp/db/testing";
 import type { EmailMessage } from "@fleetapp/email";
@@ -113,7 +114,11 @@ export function checklistKit(
       handoverDeps(),
       actor,
       inspectionId,
-      { drawnSignature: TEST_SIGNATURE, bondOverrideReason: null, directDebitOverrideReason: null },
+      {
+        signature: drawnSignatureInput(TEST_SIGNATURE),
+        bondOverrideReason: null,
+        directDebitOverrideReason: null,
+      },
       { timeZone: TEST_TIME_ZONE, now: handedOverAt },
     );
     expect(result.status).toBe("completed");

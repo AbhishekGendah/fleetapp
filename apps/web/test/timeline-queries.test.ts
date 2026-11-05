@@ -1,3 +1,4 @@
+import { drawnSignatureInput } from "@fleetapp/core";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import type { EmailMessage } from "@fleetapp/email";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
@@ -55,7 +56,7 @@ describe("the timeline's past", () => {
       returnId,
       {
         returnedAt: new Date(Date.now() - DAY_MS),
-        drawnSignature: TEST_SIGNATURE,
+        signature: drawnSignatureInput(TEST_SIGNATURE),
         carAfter: { status: "available", statusReason: null, statusExpectedBack: null },
       },
       { timeZone: TEST_TIME_ZONE, now: new Date() },

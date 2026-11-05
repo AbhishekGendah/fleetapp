@@ -1,3 +1,4 @@
+import { drawnSignatureInput } from "@fleetapp/core";
 import { completeReturn } from "../handover/complete-return";
 import { loadReturn, type HandoverView } from "../handover/handover-queries";
 import { startReturn } from "../handover/handover-records";
@@ -70,7 +71,7 @@ export async function returnDemoRental(
     started.inspectionId,
     {
       returnedAt: momentOf(context, dayFrom(context, plan.returned.days), plan.returned.time),
-      drawnSignature: plan.returned.isRenterAbsent ? null : DEMO_SIGNATURE,
+      signature: plan.returned.isRenterAbsent ? null : drawnSignatureInput(DEMO_SIGNATURE),
       carAfter: carAfter(context, plan.returned),
     },
     { timeZone: context.timeZone, now: new Date() },

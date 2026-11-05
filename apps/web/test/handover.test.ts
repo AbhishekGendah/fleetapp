@@ -1,4 +1,4 @@
-import { DEFAULT_HANDOVER_PHOTOS } from "@fleetapp/core";
+import { DEFAULT_HANDOVER_PHOTOS, drawnSignatureInput } from "@fleetapp/core";
 import {
   files,
   inspections,
@@ -109,7 +109,7 @@ describe("handing a car over", () => {
       description: "Scratch on bonnet",
     });
     const input = {
-      drawnSignature: TEST_SIGNATURE,
+      signature: drawnSignatureInput(TEST_SIGNATURE),
       bondOverrideReason: null,
       directDebitOverrideReason: null,
     };
@@ -131,14 +131,22 @@ describe("handing a car over", () => {
       handoverDeps(),
       actor,
       inspectionId,
-      { drawnSignature: TEST_SIGNATURE, bondOverrideReason: null, directDebitOverrideReason: null },
+      {
+        signature: drawnSignatureInput(TEST_SIGNATURE),
+        bondOverrideReason: null,
+        directDebitOverrideReason: null,
+      },
       clock(),
     );
     const again = await completeHandover(
       handoverDeps(),
       actor,
       inspectionId,
-      { drawnSignature: TEST_SIGNATURE, bondOverrideReason: null, directDebitOverrideReason: null },
+      {
+        signature: drawnSignatureInput(TEST_SIGNATURE),
+        bondOverrideReason: null,
+        directDebitOverrideReason: null,
+      },
       clock(),
     );
 
@@ -213,7 +221,7 @@ describe("handing a car over", () => {
       actor,
       inspectionId,
       {
-        drawnSignature: TEST_SIGNATURE,
+        signature: drawnSignatureInput(TEST_SIGNATURE),
         bondOverrideReason: "Paying the bond on Friday",
         directDebitOverrideReason: null,
       },
@@ -232,7 +240,7 @@ describe("handing a car over", () => {
       actor,
       inspectionId,
       {
-        drawnSignature: TEST_SIGNATURE,
+        signature: drawnSignatureInput(TEST_SIGNATURE),
         bondOverrideReason: "Typed before the bond came in",
         directDebitOverrideReason: "Typed before the direct debit was set up",
       },

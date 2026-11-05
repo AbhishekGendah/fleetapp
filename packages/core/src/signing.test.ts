@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 
 import { contentFingerprint } from "./document-fingerprint";
 import {
+  drawnSignatureInput,
+  readRenterSignature,
   decodeDrawnSignature,
   isTypedNameMatching,
   MAXIMUM_DRAWN_SIGNATURE_BYTES,
@@ -105,5 +107,27 @@ describe("content fingerprints", () => {
     expect(contentFingerprint(first)).not.toBe(
       contentFingerprint({ type: "doc", content: [{ type: "text", text: "b" }] }),
     );
+  });
+});
+
+describe("a Renter's signature on the business's phone (review G9-10)", () => {
+  const drawn = `data:image/png;base64,${ONE_PIXEL_PNG_BASE64}`;
+
+  it("takes a drawing that is a small PNG", () => {
+    expect(readRenterSignature(drawnSignatureInput(drawn), "Sam Example")?.method).toBe("drawn");
+    expect(readRenterSignature(drawnSignatureInput(""), "Sam Example")).toBeNull();
+  });
+
+  it("takes a typed name only when it is the Renter's own", () => {
+    const typed = (typedName: string) =>
+      readRenterSignature({ method: "typed", typedName, drawnSignature: "" }, "Łukasz Wójcik");
+    expect(typed("  Łukasz Wójcik ")).toEqual({ method: "typed", typedName: "Łukasz Wójcik" });
+    expect(typed("Someone Else")).toBeNull();
+  });
+
+  it("refuses any other way of signing", () => {
+    expect(
+      readRenterSignature({ method: "stamped", typedName: "", drawnSignature: drawn }, "Sam"),
+    ).toBeNull();
   });
 });

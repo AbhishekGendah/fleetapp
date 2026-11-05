@@ -25,6 +25,7 @@ import {
 } from "../../../../lib/files/file-action-support";
 import { confirmUpload } from "../../../../lib/files/stored-files";
 import { completeHandover } from "../../../../lib/handover/complete-handover";
+import { renterSignatureFrom } from "../../../../lib/handover/renter-signature-form";
 import { handoverDetailsFormSchema } from "../../../../lib/handover/handover-input";
 import { startChecklistPhotoUpload } from "../../../../lib/handover/handover-photos";
 import {
@@ -186,7 +187,6 @@ export async function finishChecklistPhotoAction(
 }
 
 const completeSchema = z.object({
-  drawnSignature: z.string(),
   bondOverrideReason: optionalLine,
   directDebitOverrideReason: optionalLine,
 });
@@ -200,7 +200,6 @@ export async function completeHandoverAction(
 ): Promise<CompleteHandoverState> {
   const { user, actor } = await actingUser();
   const parsed = completeSchema.safeParse({
-    drawnSignature: formData.get("drawnSignature") ?? "",
     bondOverrideReason: formData.get("bondOverrideReason") ?? "",
     directDebitOverrideReason: formData.get("directDebitOverrideReason") ?? "",
   });
@@ -212,7 +211,7 @@ export async function completeHandoverAction(
       { ...fileDependencies(), emailSender: appEmailSender, canHearRenterPayments },
       actor,
       inspectionId,
-      parsed.data,
+      { ...parsed.data, signature: renterSignatureFrom(formData) },
       { timeZone: user.operatorTimezone, now: new Date() },
     );
     revalidatePath(rentalPath(rentalId));

@@ -11,8 +11,11 @@ import {
   INITIAL_FINISH_SWAP_VALUES,
 } from "../../../../lib/rentals/swap-input";
 import { CarStatusFields } from "../../../cars/[vehicleId]/car-status-fields";
-import { SIGNATURE_NEEDED } from "../handover/handover-state";
-import { RenterSignatureStep } from "../handover/renter-signature-step";
+import {
+  NO_SIGNATURE,
+  RenterSignatureStep,
+  signatureProblemOf,
+} from "../handover/renter-signature-step";
 import { useForgetWhenDone } from "../handover/use-forget-when-done";
 import { completeSwapAction } from "./swap-actions";
 import { INITIAL_SWAP_STATE } from "./swap-state";
@@ -42,7 +45,7 @@ export function SwapForm(props: {
     isRequired: isRequiredField,
     idPrefix: "swap-",
   });
-  const [signature, setSignature] = useState("");
+  const [signature, setSignature] = useState(NO_SIGNATURE);
   const [problem, setProblem] = useState<string | null>(null);
 
   useForgetWhenDone(state.status === "completed", {
@@ -53,7 +56,7 @@ export function SwapForm(props: {
 
   const submit = form.submitHandler(formAction);
   function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
-    const missing = signature === "" ? SIGNATURE_NEEDED : null;
+    const missing = signatureProblemOf(signature, props.renterName);
     setProblem(missing);
     if (missing) {
       event.preventDefault();

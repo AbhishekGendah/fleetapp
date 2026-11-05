@@ -153,3 +153,48 @@ export const SIGN_CONTRACT_FIELDS = [
   "drawnSignature",
   "contractFingerprint",
 ] as const;
+
+/** A Renter's signature on the business's phone (handover, return, swap): drawn or typed. */
+export type RenterSignature =
+  { method: "drawn"; drawnPng: Uint8Array } | { method: "typed"; typedName: string };
+
+/** The signature fields a business-phone signing form sends, as typed. */
+export interface RenterSignatureInput {
+  method: string;
+  typedName: string;
+  drawnSignature: string;
+}
+
+/** The form fields that carry a signature on the business's phone. */
+export const RENTER_SIGNATURE_FIELDS = ["method", "typedName", "drawnSignature"] as const;
+
+/**
+ * The Renter's signature from the form, or null if it isn't one: a drawing
+ * that isn't a small PNG, or a typed name that isn't theirs. The same rules
+ * as the Renter's own signing link (review G9-10).
+ */
+export function readRenterSignature(
+  input: RenterSignatureInput,
+  fullName: string,
+): RenterSignature | null {
+  if (input.method === "typed") {
+    const typedName = input.typedName.trim();
+    return isTypedNameMatching(typedName, fullName) ? { method: "typed", typedName } : null;
+  }
+  if (input.method !== "drawn") {
+    return null;
+  }
+  const drawnPng = decodeDrawnSignature(input.drawnSignature);
+  return drawnPng ? { method: "drawn", drawnPng } : null;
+}
+
+/** The ways to sign offered to a Renter, worded for the Renter. */
+export const SIGNATURE_METHOD_CHOICES: readonly { method: SignatureMethod; label: string }[] = [
+  { method: "drawn", label: "Draw my signature" },
+  { method: "typed", label: "Type my full name" },
+];
+
+/** A drawn signature as a form would send it: for code that signs on a Renter's behalf in tests and demos. */
+export function drawnSignatureInput(drawnSignature: string): RenterSignatureInput {
+  return { method: "drawn", typedName: "", drawnSignature };
+}

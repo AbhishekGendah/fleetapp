@@ -1,6 +1,7 @@
 import { chargeRentNow } from "../ledger/rent-job";
 import {
-  decodeDrawnSignature,
+  readRenterSignature,
+  type RenterSignatureInput,
   formatDateTimeInTimeZone,
   operatorSettingsSchema,
   readSettings,
@@ -47,8 +48,8 @@ const STATUSES_AFTER_RETURN: readonly VehicleStatusInput["status"][] = [
 export interface CompleteReturnInput {
   /** When the car came back: now, or the real time of an after-hours drop-off. */
   returnedAt: Date;
-  /** The Renter's drawn signature; null when they were not there. */
-  drawnSignature: string | null;
+  /** The Renter's signature, drawn or typed; null when they were not there. */
+  signature: RenterSignatureInput | null;
   /** The car's status from now on. */
   carAfter: VehicleStatusInput;
 }
@@ -74,7 +75,7 @@ function returnRefusal(
     return unfinished;
   }
   const settings = readSettings(operatorSettingsSchema, view.settingsSnapshot);
-  if (input.drawnSignature === null && settings.isRenterSignatureAtReturnRequired) {
+  if (input.signature === null && settings.isRenterSignatureAtReturnRequired) {
     return { status: "signature_required" };
   }
   return STATUSES_AFTER_RETURN.includes(input.carAfter.status) ? null : { status: "car_status" };
@@ -241,13 +242,13 @@ export async function completeReturn(
   if (refusal || !handover) {
     return refusal ?? { status: "not_found" };
   }
-  const signaturePng =
-    input.drawnSignature === null ? null : decodeDrawnSignature(input.drawnSignature);
-  if (input.drawnSignature !== null && !signaturePng) {
+  const signature =
+    input.signature === null ? null : readRenterSignature(input.signature, view.renterFullName);
+  if (input.signature !== null && !signature) {
     return { status: "no_signature" };
   }
   const facts = { at: input.returnedAt, timeZone: clock.timeZone };
-  const acceptanceText = signaturePng
+  const acceptanceText = signature
     ? returnAcceptanceText({
         ...facts,
         odometerKm: view.odometerKm ?? 0,
@@ -259,7 +260,8 @@ export async function completeReturn(
     handover,
     returnedAtText: atText,
     acceptanceText,
-    signaturePng,
+    signature,
+    signedAtText: formatDateTimeInTimeZone(clock.now, clock.timeZone),
   });
   const issued = await issueChecklistReport(deps, actor, {
     view,
@@ -269,7 +271,7 @@ export async function completeReturn(
       recordReturned(tx, actor, view, {
         at: input.returnedAt,
         acceptanceText,
-        isRenterAbsent: signaturePng === null,
+        isRenterAbsent: signature === null,
         carAfter: input.carAfter,
         foundOn: todayInTimeZone(input.returnedAt, clock.timeZone),
       }),

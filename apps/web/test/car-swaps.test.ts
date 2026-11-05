@@ -1,3 +1,4 @@
+import { drawnSignatureInput } from "@fleetapp/core";
 import {
   carHolds,
   carSwaps,
@@ -49,7 +50,10 @@ describe("swapping the Renter's car", () => {
   let kit: ReturnType<typeof checklistKit>;
 
   const clock = () => ({ timeZone: TEST_TIME_ZONE, now: new Date() });
-  const swapInput: CompleteSwapInput = { drawnSignature: TEST_SIGNATURE, oldCarAfter: TO_WORKSHOP };
+  const swapInput: CompleteSwapInput = {
+    signature: drawnSignatureInput(TEST_SIGNATURE),
+    oldCarAfter: TO_WORKSHOP,
+  };
 
   async function swapUnderWayFor() {
     const out = await kit.rentalOut(new Date(Date.now() - 48 * HOUR_MS));
@@ -208,7 +212,7 @@ describe("swapping the Renter's car", () => {
       returnId,
       {
         returnedAt: new Date(),
-        drawnSignature: TEST_SIGNATURE,
+        signature: drawnSignatureInput(TEST_SIGNATURE),
         carAfter: { status: "available", statusReason: null, statusExpectedBack: null },
       },
       clock(),

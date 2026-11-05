@@ -7,8 +7,8 @@ import { useActionState, useMemo, useState } from "react";
 
 import { completeHandoverAction } from "./actions";
 import { useForgetWhenDone } from "./use-forget-when-done";
-import { INITIAL_COMPLETE_STATE, SIGNATURE_NEEDED } from "./handover-state";
-import { RenterSignatureStep } from "./renter-signature-step";
+import { INITIAL_COMPLETE_STATE } from "./handover-state";
+import { NO_SIGNATURE, RenterSignatureStep, signatureProblemOf } from "./renter-signature-step";
 
 const BOND_REASON_NEEDED = "Say why the car goes before the bond is paid.";
 const DIRECT_DEBIT_REASON_NEEDED = "Say why the car goes without a direct debit set up.";
@@ -59,7 +59,7 @@ export function AcceptanceForm(props: {
     [props.rentalId, props.inspectionId],
   );
   const [state, formAction, isPending] = useActionState(complete, INITIAL_COMPLETE_STATE);
-  const [signature, setSignature] = useState("");
+  const [signature, setSignature] = useState(NO_SIGNATURE);
   const [reason, setReason] = useState("");
   const [directDebitReason, setDirectDebitReason] = useState("");
   const [problem, setProblem] = useState<string | null>(null);
@@ -69,7 +69,7 @@ export function AcceptanceForm(props: {
   function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
     const missing =
       [
-        signature === "" ? SIGNATURE_NEEDED : null,
+        signatureProblemOf(signature, props.renterName),
         props.bondShortCents !== null && reason.trim() === "" ? BOND_REASON_NEEDED : null,
         props.isDirectDebitMissing && directDebitReason.trim() === ""
           ? DIRECT_DEBIT_REASON_NEEDED

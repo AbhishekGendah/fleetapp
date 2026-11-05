@@ -47,14 +47,18 @@ export function SignaturePad({
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const drawingRef = React.useRef<SignaturePadDrawing | null>(null);
   const [value, setValue] = React.useState("");
+  // Kept in a ref so a screen passing a new function each time it redraws
+  // never makes the pad start again, which wiped every stroke but the last
+  // (review A10-1).
+  const onValueChangeRef = React.useRef(onValueChange);
+  React.useEffect(() => {
+    onValueChangeRef.current = onValueChange;
+  }, [onValueChange]);
 
-  const changeValue = React.useCallback(
-    (next: string) => {
-      setValue(next);
-      onValueChange?.(next);
-    },
-    [onValueChange],
-  );
+  const changeValue = React.useCallback((next: string) => {
+    setValue(next);
+    onValueChangeRef.current?.(next);
+  }, []);
 
   React.useEffect(() => {
     const canvas = canvasRef.current;

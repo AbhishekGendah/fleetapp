@@ -1,3 +1,4 @@
+import { drawnSignatureInput } from "@fleetapp/core";
 import type { TemplateDocument } from "@fleetapp/core";
 
 import { completeSwap } from "../handover/complete-swap";
@@ -108,7 +109,7 @@ export async function addDemoSwap(context: DemoContext): Promise<number> {
     context.actor,
     rental.id,
     {
-      drawnSignature: DEMO_SIGNATURE,
+      signature: drawnSignatureInput(DEMO_SIGNATURE),
       oldCarAfter: {
         status: "in_service",
         statusReason: "Engine light: diagnosis",

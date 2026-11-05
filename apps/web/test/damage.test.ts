@@ -1,4 +1,4 @@
-import { todayInTimeZone } from "@fleetapp/core";
+import { todayInTimeZone, drawnSignatureInput } from "@fleetapp/core";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import type { EmailMessage } from "@fleetapp/email";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
@@ -120,7 +120,11 @@ describe("damage records and insurance claims", () => {
         kit.handoverDeps(),
         actor,
         inspectionId,
-        { returnedAt: new Date(), drawnSignature: TEST_SIGNATURE, carAfter: AVAILABLE },
+        {
+          returnedAt: new Date(),
+          signature: drawnSignatureInput(TEST_SIGNATURE),
+          carAfter: AVAILABLE,
+        },
         { timeZone: TEST_TIME_ZONE, now: new Date() },
       );
     expect((await finish()).status).toBe("completed");

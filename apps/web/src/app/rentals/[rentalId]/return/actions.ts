@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { appDb } from "../../../../lib/app-db";
 import { appEmailSender } from "../../../../lib/email-sender";
 import { fileDependencies } from "../../../../lib/files/file-action-support";
+import { renterSignatureFrom } from "../../../../lib/handover/renter-signature-form";
 import { completeReturn } from "../../../../lib/handover/complete-return";
 import { cancelHandover, startReturn } from "../../../../lib/handover/handover-records";
 import { RETURN_FORM_FIELDS, returnFormSchema } from "../../../../lib/handover/return-input";
@@ -56,7 +57,7 @@ export async function completeReturnAction(
   if (!parsed.success) {
     return { status: "problem", message: FIX_MESSAGE };
   }
-  const signature = String(formData.get("drawnSignature") ?? "");
+  const signature = renterSignatureFrom(formData);
   try {
     const result = await completeReturn(
       { ...fileDependencies(), emailSender: appEmailSender },
@@ -64,7 +65,7 @@ export async function completeReturnAction(
       inspectionId,
       {
         returnedAt: parsed.data.returnedAt,
-        drawnSignature: parsed.data.isRenterPresent ? signature : null,
+        signature: parsed.data.isRenterPresent ? signature : null,
         carAfter: parsed.data.carAfter,
       },
       { timeZone: user.operatorTimezone, now: new Date() },

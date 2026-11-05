@@ -1,3 +1,4 @@
+import { drawnSignatureInput } from "@fleetapp/core";
 import { carHolds, issuedDocuments, possessions, rentals, vehicles } from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { withTenant } from "@fleetapp/db/tenant-context";
@@ -48,7 +49,12 @@ describe("taking a car back", () => {
       kit.handoverDeps(),
       actor,
       inspectionId,
-      { returnedAt: new Date(), drawnSignature: TEST_SIGNATURE, carAfter: AVAILABLE, ...input },
+      {
+        returnedAt: new Date(),
+        signature: drawnSignatureInput(TEST_SIGNATURE),
+        carAfter: AVAILABLE,
+        ...input,
+      },
       clock(),
     );
   }
@@ -141,11 +147,11 @@ describe("taking a car back", () => {
 
   it("records the Renter as not there, unless the rental's settings need their signature", async () => {
     const first = await filledReturn();
-    expect((await finish(first.inspectionId, { drawnSignature: null })).status).toBe("completed");
+    expect((await finish(first.inspectionId, { signature: null })).status).toBe("completed");
 
     await saveOperatorSettings(web.db, actor, { isRenterSignatureAtReturnRequired: true });
     const second = await filledReturn();
-    expect(await finish(second.inspectionId, { drawnSignature: null })).toEqual({
+    expect(await finish(second.inspectionId, { signature: null })).toEqual({
       status: "signature_required",
     });
   });
@@ -173,7 +179,11 @@ describe("taking a car back", () => {
       kit.handoverDeps(),
       otherOperator,
       inspectionId,
-      { returnedAt: new Date(), drawnSignature: TEST_SIGNATURE, carAfter: AVAILABLE },
+      {
+        returnedAt: new Date(),
+        signature: drawnSignatureInput(TEST_SIGNATURE),
+        carAfter: AVAILABLE,
+      },
       clock(),
     );
     expect(result).toEqual({ status: "not_found" });

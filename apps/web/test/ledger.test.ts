@@ -1,3 +1,4 @@
+import { drawnSignatureInput } from "@fleetapp/core";
 import { ledgerLines, operators, rentalRates } from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { withTenant } from "@fleetapp/db/tenant-context";
@@ -76,7 +77,7 @@ describe("the ledger", () => {
       returnId,
       {
         returnedAt,
-        drawnSignature: TEST_SIGNATURE,
+        signature: drawnSignatureInput(TEST_SIGNATURE),
         carAfter: { status: "available", statusReason: null, statusExpectedBack: null },
       },
       { timeZone: TEST_TIME_ZONE, now: returnedAt },

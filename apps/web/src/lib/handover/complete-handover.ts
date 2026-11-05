@@ -1,6 +1,7 @@
 import { chargeRentNow } from "../ledger/rent-job";
 import {
-  decodeDrawnSignature,
+  readRenterSignature,
+  type RenterSignatureInput,
   formatDateTimeInTimeZone,
   handoverAcceptanceText,
   OVERRIDABLE_HANDOVER_PROBLEMS,
@@ -33,8 +34,8 @@ import { loadHandover, type HandoverView } from "./handover-queries";
 import { HANDOVER_REPORT_TITLE, renderHandoverReport } from "./handover-report";
 
 export interface CompleteHandoverInput {
-  /** The Renter's signature drawn on the Operator's phone, as a PNG data URL. */
-  drawnSignature: string;
+  /** The Renter's signature on the Operator's phone, drawn or typed, as the form sent it. */
+  signature: RenterSignatureInput;
   /** Why the car goes before the full bond is held, when the rental's rules want it first. */
   bondOverrideReason: string | null;
   /** Why the car goes without a working direct debit, when the rental's rules want one first. */
@@ -127,7 +128,7 @@ async function recordHandedOver(
   tx: AnyTransaction,
   actor: ActingUser,
   view: HandoverView,
-  accepted: { at: Date; acceptanceText: string } & Omit<CompleteHandoverInput, "drawnSignature">,
+  accepted: { at: Date; acceptanceText: string } & Omit<CompleteHandoverInput, "signature">,
 ): Promise<void> {
   if (!(await lockOpenInspection(tx, actor.operatorId, view.inspectionId))) {
     throw new FinishedAlreadyError();
@@ -226,8 +227,8 @@ export async function completeHandover(
   if (checked.status !== "accepted") {
     return checked;
   }
-  const signaturePng = decodeDrawnSignature(input.drawnSignature);
-  if (!signaturePng) {
+  const signature = readRenterSignature(input.signature, view.renterFullName);
+  if (!signature) {
     return { status: "no_signature" };
   }
   const at = clock.now;
@@ -241,7 +242,7 @@ export async function completeHandover(
   const pdf = await renderHandoverReport(deps, actor.operatorId, view, {
     atText,
     acceptanceText,
-    signaturePng,
+    signature,
   });
   const issued = await issueChecklistReport(deps, actor, {
     view,

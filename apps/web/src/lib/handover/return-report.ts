@@ -4,12 +4,14 @@ import {
   kilometresDriven,
   type TemplateBlock,
   type TemplateDocument,
+  type RenterSignature,
 } from "@fleetapp/core";
 
 import { loadPdfBranding } from "../contracts/contract-pdf";
 import { renderDocumentPdf } from "../contracts/document-pdf";
 import type { FileDependencies } from "../files/stored-files";
 import type { HandoverView } from "./handover-queries";
+import { phoneSignature } from "./phone-signature";
 import {
   damagePhotos,
   heading,
@@ -28,8 +30,10 @@ export interface ReturnReportFacts {
   handover: HandoverView;
   returnedAtText: string;
   acceptanceText: string;
-  /** The Renter's drawn signature; none when they were not there. */
-  signaturePng: Uint8Array | null;
+  /** The Renter's signature; none when they were not there. */
+  signature: RenterSignature | null;
+  /** When the Renter signed, which can differ from when the car came back (review G9-4). */
+  signedAtText: string;
 }
 
 function fuelText(view: HandoverView): string {
@@ -65,7 +69,7 @@ function returnDocument(view: HandoverView, facts: ReturnReportFacts): TemplateD
       ...damageLines(facts.handover, "None marked."),
       heading(2, "New damage at return"),
       ...damageLines(view, "None found."),
-      heading(2, facts.signaturePng ? "Accepted by the Renter" : "Recorded by the business"),
+      heading(2, facts.signature ? "Accepted by the Renter" : "Recorded by the business"),
       paragraph(facts.acceptanceText),
     ],
   };
@@ -103,12 +107,8 @@ export async function renderReturnReport(
     title: `${RETURN_REPORT_TITLE} ${view.carRego}`,
     document: returnDocument(view, facts),
     photos: { heading: "Photos at handover and return", photos },
-    signature: facts.signaturePng
-      ? {
-          signedByText: `Accepted by ${view.renterFullName}`,
-          signedAtText: `Signed on the business's phone on ${facts.returnedAtText}`,
-          drawnPng: facts.signaturePng,
-        }
+    signature: facts.signature
+      ? phoneSignature(facts.signature, `Accepted by ${view.renterFullName}`, facts.signedAtText)
       : undefined,
   });
 }

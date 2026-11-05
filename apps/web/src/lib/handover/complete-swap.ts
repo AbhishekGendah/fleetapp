@@ -1,5 +1,7 @@
 import {
-  decodeDrawnSignature,
+  readRenterSignature,
+  type RenterSignature,
+  type RenterSignatureInput,
   formatDateTimeInTimeZone,
   handoverAcceptanceText,
   returnAcceptanceText,
@@ -44,6 +46,7 @@ import { addReading } from "../vehicles/odometer";
 import { checklistRefusal, FinishedAlreadyError } from "./checklist-report";
 import type { HandoverDependencies } from "./complete-handover";
 import { HANDOVER_REPORT_TITLE, renderHandoverReport } from "./handover-report";
+import { phoneSignature } from "./phone-signature";
 import { lockOpenInspection } from "./handover-records";
 import {
   loadCompletedHandover,
@@ -56,8 +59,8 @@ import { RETURN_REPORT_TITLE, renderReturnReport } from "./return-report";
 export const SWAP_FORM_TITLE = "Car swap";
 
 export interface CompleteSwapInput {
-  /** The Renter's signature drawn on the Operator's phone, as a PNG data URL. */
-  drawnSignature: string;
+  /** The Renter's signature on the Operator's phone, drawn or typed, as the form sent it. */
+  signature: RenterSignatureInput;
   /** Where the old car goes: Available, In service or Off road. */
   oldCarAfter: VehicleStatusInput;
 }
@@ -116,7 +119,7 @@ interface SwapMoment {
   at: Date;
   atText: string;
   timeZone: string;
-  signaturePng: Uint8Array;
+  signature: RenterSignature;
 }
 
 const carText = (view: HandoverView): string => `${view.carRego} ${view.carMakeModel}`;
@@ -152,11 +155,11 @@ async function renderSwapForm(
     ...(await loadPdfBranding(deps, operatorId)),
     title: `${SWAP_FORM_TITLE} ${views.new.carRego}`,
     document: filled.document,
-    signature: {
-      signedByText: `Signed by ${views.new.renterFullName}`,
-      signedAtText: `Signed on the business's device on ${moment.atText}`,
-      drawnPng: moment.signaturePng,
-    },
+    signature: phoneSignature(
+      moment.signature,
+      `Signed by ${views.new.renterFullName}`,
+      moment.atText,
+    ),
   });
   return { status: "ready" as const, pdf, templateVersionId: template.latestVersionId };
 }
@@ -202,12 +205,13 @@ async function renderSwapDocuments(
       handover: oldHandover,
       returnedAtText: moment.atText,
       acceptanceText: acceptance.old,
-      signaturePng: moment.signaturePng,
+      signature: moment.signature,
+      signedAtText: moment.atText,
     }),
     renderHandoverReport(deps, operatorId, views.new, {
       atText: moment.atText,
       acceptanceText: acceptance.new,
-      signaturePng: moment.signaturePng,
+      signature: moment.signature,
     }),
   ]);
   return {
@@ -522,8 +526,8 @@ export async function completeSwap(
   if (refusal) {
     return refusal;
   }
-  const signaturePng = decodeDrawnSignature(input.drawnSignature);
-  if (!signaturePng) {
+  const signature = readRenterSignature(input.signature, views.new.renterFullName);
+  if (!signature) {
     return { status: "no_signature" };
   }
   const at = clock.now;
@@ -531,7 +535,7 @@ export async function completeSwap(
     at,
     atText: formatDateTimeInTimeZone(at, clock.timeZone),
     timeZone: clock.timeZone,
-    signaturePng,
+    signature,
   };
   const pdfs = await renderSwapDocuments(deps, actor.operatorId, views, moment);
   if ("status" in pdfs) {

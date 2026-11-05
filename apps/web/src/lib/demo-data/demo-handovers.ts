@@ -1,4 +1,4 @@
-import { CAR_AREAS, FUEL_LEVELS } from "@fleetapp/core";
+import { CAR_AREAS, FUEL_LEVELS, drawnSignatureInput } from "@fleetapp/core";
 
 import { loadSigningStatus } from "../contracts/signing-links";
 import { completeHandover } from "../handover/complete-handover";
@@ -168,7 +168,7 @@ export async function handOverDemoRental(
     context.actor,
     started.inspectionId,
     {
-      drawnSignature: DEMO_SIGNATURE,
+      signature: drawnSignatureInput(DEMO_SIGNATURE),
       bondOverrideReason: plan.bondOverrideReason ?? null,
       directDebitOverrideReason: null,
     },
