@@ -1075,7 +1075,7 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
 ## Next
 
 Abhi: add OPS_ALERT_EMAIL in Vercel (fleetapp-web) before this branch is
-merged (still to do, 4 Nov). Abhi: add batch 2's new Stripe event types to both event destinations (list in docs/launch-checklist.md). Then review batch 3 (logins and server safety), plan first. Abhi: add the second Stripe event destination (connected
+merged (still to do, 4 Nov). Abhi: add batch 2's new Stripe event types to both event destinations (list in docs/launch-checklist.md). Review batch 3 (logins and server safety): plan written, docs/plans/review-fixes-batch-3.md, awaiting approval (and the suspension decision). Abhi: add the second Stripe event destination (connected
 accounts) and its secret, then try slice 4 on the dev site. Then Phase 4
 slice 5 (weekly debits).
 Open idea: trim the phone rules to Australia only with libphonenumber's
