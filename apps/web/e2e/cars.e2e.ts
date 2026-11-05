@@ -1,13 +1,15 @@
 import { expectAccessible } from "@fleetapp/e2e/accessibility";
 import { expect, test } from "@playwright/test";
 
-import { samplePhoto } from "./sample-photo";
+import { PHOTO_DETAILS_MARKER, samplePhoto, smallPhotoWithLocation } from "./sample-photo";
 
 /**
  * The car pages as an Operator uses them: adding a car with the searchable
  * make and model boxes and the kilometre box, then adding a photo (shrunk on
  * the device, sent to storage, checked) and opening it full screen.
  */
+/** How every JPEG file begins: marks the requests that carry a photo. */
+const JPEG_START = Buffer.from([0xff, 0xd8, 0xff]);
 const CAR = { rego: "E2E001", state: "WA", make: "Toyota", model: "Corolla", year: "2022" };
 
 test("adds a car, then a photo, and opens it full screen", async ({ page }) => {
@@ -53,6 +55,27 @@ test("adds a car, then a photo, and opens it full screen", async ({ page }) => {
   await expectAccessible(page);
   await page.keyboard.press("Escape");
   await expect(viewer).toBeHidden();
+
+  // A small photo that says where it was taken is still redrawn, so what is
+  // stored no longer says so (review A7-9): each stored copy is fetched back.
+  await page
+    .locator("input[type=file]")
+    .first()
+    .setInputFiles(await smallPhotoWithLocation(page, "where.jpg"));
+  const openers = page.getByRole("button", { name: /^Open photo/ });
+  await expect(openers).toHaveCount(2);
+  const storedUrls = await openers
+    .locator("img")
+    .evaluateAll((images) => images.map((image) => (image as HTMLImageElement).src));
+  for (const opener of await openers.all()) {
+    await opener.click();
+    storedUrls.push((await viewer.locator("img").getAttribute("src")) ?? "");
+    await page.keyboard.press("Escape");
+  }
+  for (const url of storedUrls) {
+    const stored = await (await page.request.get(url)).body();
+    expect(stored.includes(JPEG_START) && !stored.includes(PHOTO_DETAILS_MARKER)).toBe(true);
+  }
 
   // A document: the name is checked like every form, then the file is sent.
   await page.getByRole("link", { name: "Documents" }).click();

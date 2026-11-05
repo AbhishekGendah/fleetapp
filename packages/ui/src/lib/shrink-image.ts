@@ -26,7 +26,8 @@ function outputTypeFor(inputType: string, keepsTransparency: boolean): string {
 /**
  * Shrinks an image on the device before it is sent, so uploads stay quick on
  * poor signal, with Compressor.js: it turns phone photos the right way up and
- * drops hidden details a phone adds, such as where it was taken. Null if this
+ * always redraws them, which drops hidden details a phone adds, such as where
+ * it was taken. Null if this
  * browser cannot read the image (some cannot open iPhone HEIC photos).
  */
 export function shrinkImage(file: Blob, options: ShrinkOptions = {}): Promise<Blob | null> {
@@ -41,6 +42,9 @@ export function shrinkImage(file: Blob, options: ShrinkOptions = {}): Promise<Bl
       convertSize: Number.POSITIVE_INFINITY,
       checkOrientation: true,
       retainExif: false,
+      // Compressor hands back the original when redrawing would not make it
+      // smaller, location and all (review A7-9). Always redraw instead.
+      strict: false,
       success: resolve,
       error: (error) => {
         console.warn("A photo could not be shrunk on this device", error.name);

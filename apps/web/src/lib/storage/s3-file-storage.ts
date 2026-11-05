@@ -17,6 +17,13 @@ import { UPLOAD_PERMISSION_SECONDS, VIEW_LINK_SECONDS, type FileStorage } from "
 /** What S3 answers when a version condition (If-Match) no longer holds. */
 const PRECONDITION_FAILED_STATUS = 412;
 
+/**
+ * Every view link tells the browser to keep no copy (review A7-7). The links
+ * are signed afresh each time, so caching saved almost nothing, and a shared
+ * office computer would otherwise keep licence pictures and contracts on disk.
+ */
+export const VIEW_CACHE_CONTROL = "private, no-store";
+
 /** The smallest file an upload permission accepts: an empty file is never useful. */
 const MINIMUM_UPLOAD_BYTES = 1;
 
@@ -144,6 +151,7 @@ export function createS3FileStorage(config: S3FileStorageConfig): FileStorage {
       const command = new GetObjectCommand({
         Bucket: bucketFor(area),
         Key: key,
+        ResponseCacheControl: VIEW_CACHE_CONTROL,
         // Shown in the browser, and saved or shared under this name.
         ResponseContentDisposition: downloadName
           ? contentDisposition("inline", downloadName)
