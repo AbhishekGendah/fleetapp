@@ -32,7 +32,10 @@ test("records damage from the car's page and marks it repaired on its own page",
   await expectNoSidewaysScroll(page);
   await expectAccessible(page);
 
-  await page.getByLabel(/^Status/).first().selectOption({ label: "Repaired" });
+  await page
+    .getByLabel(/^Status/)
+    .first()
+    .selectOption({ label: "Repaired" });
   await page.getByRole("button", { name: "Save status" }).click();
   await expect(page.getByText("Repaired").first()).toBeVisible();
 });
