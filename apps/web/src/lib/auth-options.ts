@@ -5,7 +5,8 @@ import {
   MAXIMUM_PASSWORD_LENGTH,
   MINIMUM_PASSWORD_LENGTH,
   RECOVERY_CODES,
-  loginGuard,
+  loginGuards,
+  rememberedDeviceExpiry,
   safeAuthLogger,
   sessionMaxAge,
   signInLockout,
@@ -72,6 +73,22 @@ function buildUserAuthOptions(config: UserAuthConfig) {
     signInLockedUntil: userAccounts.signInLockedUntil,
   });
 
+  const codeStore = createDrizzleCodeStore(config.database, {
+    table: userTwoFactors,
+    userId: userTwoFactors.userId,
+    lastCodeHash: userTwoFactors.lastCodeHash,
+    lastCodeAt: userTwoFactors.lastCodeAt,
+    lockedUntil: userTwoFactors.lockedUntil,
+  });
+  const guards = loginGuards({
+    onSignedIn: (userId) => record(userId, ACTIVITY_ACTIONS.signedIn, "user"),
+    onCodeFailed: (userId) => record(userId, ACTIVITY_ACTIONS.twoFactorFailed, "system"),
+    onCodeLockedOut: (userId) => record(userId, ACTIVITY_ACTIONS.lockedOut, "system"),
+    isAllowed: (userId) => isAllowedToSignIn(config.database, userId),
+    codeStore,
+    now: config.now,
+  });
+
   return {
     appName: config.issuerName,
     baseURL: config.baseURL,
@@ -131,31 +148,20 @@ function buildUserAuthOptions(config: UserAuthConfig) {
     },
 
     plugins: [
-      loginGuard({
-        onSignedIn: (userId) => record(userId, ACTIVITY_ACTIONS.signedIn, "user"),
-        onCodeFailed: (userId) => record(userId, ACTIVITY_ACTIONS.twoFactorFailed, "system"),
-        onCodeLockedOut: (userId) => record(userId, ACTIVITY_ACTIONS.lockedOut, "system"),
-        isAllowed: (userId) => isAllowedToSignIn(config.database, userId),
-        codeStore: createDrizzleCodeStore(config.database, {
-          table: userTwoFactors,
-          userId: userTwoFactors.userId,
-          lastCodeHash: userTwoFactors.lastCodeHash,
-          lastCodeAt: userTwoFactors.lastCodeAt,
-        }),
-        rememberedDevice: {
-          days: TRUSTED_DEVICE_DAYS,
-          // Records are kept by fingerprint, so devices can't be told from reset links:
-          // an unused reset link goes too, which is harmless once they sign in again.
-          forgetDevices: (userId) => forgetRememberedDevices(config.database, userId),
-        },
-        now: config.now,
-      }),
+      guards.guard,
       sessionMaxAge({ maxAgeSeconds: USER_SESSION.maxAgeSeconds, now: config.now }),
       signInLockout({
         store: lockoutStore,
         now: config.now,
         onSignInFailed: (userId) => record(userId, ACTIVITY_ACTIONS.signInFailed, "system"),
         onLockedOut: (userId) => record(userId, ACTIVITY_ACTIONS.lockedOut, "system"),
+      }),
+      rememberedDeviceExpiry({
+        codeStore,
+        days: TRUSTED_DEVICE_DAYS,
+        // Better Auth dates its own records by the real clock, so they are compared by it too.
+        forgetDevices: (userId) => forgetRememberedDevices(config.database, userId, new Date()),
+        now: config.now,
       }),
       twoFactor({
         issuer: config.issuerName,
@@ -164,6 +170,7 @@ function buildUserAuthOptions(config: UserAuthConfig) {
         accountLockout: TWO_FACTOR_LOCKOUT,
         trustDeviceMaxAge: TRUSTED_DEVICE_SECONDS,
       }),
+      guards.recorder,
       newDeviceAlert({
         database: config.database,
         emailSender: config.emailSender,
@@ -176,7 +183,7 @@ function buildUserAuthOptions(config: UserAuthConfig) {
     databaseHooks: {
       session: {
         create: {
-          // Sign-ins are recorded by loginGuard, once the person is fully in.
+          // Sign-ins are recorded by the sign-in recorder, once the person is fully in.
           before: async (session: { userId: string }) => {
             const isAllowed = await isAllowedToSignIn(config.database, session.userId);
             return isAllowed ? undefined : false;

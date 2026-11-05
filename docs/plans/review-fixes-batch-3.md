@@ -233,7 +233,28 @@ sending real Renter emails to AGS.
 - **Logos:** checked by their header's size whenever a PDF is made, not
   re-made on upload (no image library on the server for that); the size
   check stops the freeze.
-- **Not done here:** the handover return browser test
-  ("takes the car back beside the handover") fails on this date with and
-  without this batch's changes: the damage photo is never attached in
-  the test. To be looked at on its own.
+- **Deep review (5 Nov 2026), six findings, both checkers agreed, all fixed:**
+  - A sign-in on a remembered device (no code) wasn't recorded. The login
+    guard is now two plugins: the guard (listed first, refuses unused
+    actions) and the sign-in recorder (listed after the authenticator
+    plugin, so it can tell a finished sign-in from "now the code").
+  - "Remember this device" running out deleted every login record with
+    the User's ID, so a password step could cancel a reset link or a
+    half-done sign-in. It now runs only after a right password and
+    deletes only remembered devices (records that outlive a reset link).
+  - The lock message never showed (its status was read before its code);
+    the lock was logged late or more than once; a code step left over 10
+    minutes said "code not right" forever. The code is read first, the
+    lock is logged once as it is set, and an expired step goes back to the
+    password with "That sign-in ran out of time".
+  - Two devices could use one code at the same moment, and requests could
+    mix each other's state. A code is now claimed in one database
+    statement; the loser's sign-in is undone. No shared state.
+  - Reset emails sent all at once could beat the limit. Counted under a
+    lock per login now.
+  - A picture cut off part-way crashed the page; now refused like any
+    unreadable picture.
+- **Not done here:** the handover return browser test ("takes the car
+  back beside the handover") failed earlier on this date with and without
+  this batch, and passed in the full run after the review fixes: it fails
+  only sometimes. To be looked at on its own.

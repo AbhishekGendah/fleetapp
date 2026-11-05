@@ -23,7 +23,8 @@ export type PasswordStepResult =
   "refused" | "paused" | "unreachable" | "too_many" | "needs_code" | "signed_in";
 
 /** What an authenticator or recovery code step leads to. */
-export type CodeStepResult = "verified" | "wrong" | "locked" | "unreachable" | "too_many";
+export type CodeStepResult =
+  "verified" | "wrong" | "locked" | "expired" | "unreachable" | "too_many";
 
 export interface AuthenticatorEnrolment {
   totpURI: string;
@@ -35,6 +36,14 @@ const TOO_MANY_REQUESTS_STATUS = 429;
 const LOGIN_PAUSED_CODE = "FAILED_TO_CREATE_SESSION";
 /** Better Auth's answer once five wrong codes locked the login. */
 const CODE_LOCK_CODE = "ACCOUNT_TEMPORARILY_LOCKED";
+/**
+ * Better Auth's answers once the half-done sign-in is over: its 10 minutes
+ * ran out, or its own tries did. Only typing the password again helps.
+ */
+const SIGN_IN_OVER_CODES: ReadonlySet<string> = new Set([
+  "INVALID_TWO_FACTOR_COOKIE",
+  "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE",
+]);
 
 interface ClientError {
   status?: number;
@@ -82,10 +91,14 @@ function codeStepResultOf(error: ClientError | null): CodeStepResult {
   if (isUnanswered(error)) {
     return "unreachable";
   }
-  if (error.status === TOO_MANY_REQUESTS_STATUS) {
-    return "too_many";
+  // The lock is answered with the same status as too many requests, so its code is read first.
+  if (error.code === CODE_LOCK_CODE) {
+    return "locked";
   }
-  return error.code === CODE_LOCK_CODE ? "locked" : "wrong";
+  if (error.code && SIGN_IN_OVER_CODES.has(error.code)) {
+    return "expired";
+  }
+  return error.status === TOO_MANY_REQUESTS_STATUS ? "too_many" : "wrong";
 }
 
 export async function verifyAuthenticatorCode(

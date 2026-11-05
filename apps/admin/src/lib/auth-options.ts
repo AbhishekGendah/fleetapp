@@ -14,7 +14,7 @@ import {
   MAXIMUM_PASSWORD_LENGTH,
   MINIMUM_PASSWORD_LENGTH,
   RECOVERY_CODES,
-  loginGuard,
+  loginGuards,
   safeAuthLogger,
   sessionMaxAge,
   signInLockout,
@@ -76,6 +76,24 @@ export interface AdminAuthConfig {
  * the Drizzle property, not the database column.
  */
 function buildAdminAuthOptions(config: AdminAuthConfig) {
+  const guards = loginGuards({
+    onSignedIn: (adminUserId, ipAddress) =>
+      config.recordActivity({ adminUserId, action: ADMIN_ACTIVITY_ACTIONS.signedIn, ipAddress }),
+    onCodeFailed: (adminUserId) =>
+      config.recordActivity({ adminUserId, action: ADMIN_ACTIVITY_ACTIONS.twoFactorFailed }),
+    onCodeLockedOut: (adminUserId) =>
+      config.recordActivity({ adminUserId, action: ADMIN_ACTIVITY_ACTIONS.lockedOut }),
+    isAllowed: (adminUserId) => isAdminStillActive(config.database, adminUserId),
+    codeStore: createDrizzleCodeStore(config.database, {
+      table: adminTwoFactors,
+      userId: adminTwoFactors.adminUserId,
+      lastCodeHash: adminTwoFactors.lastCodeHash,
+      lastCodeAt: adminTwoFactors.lastCodeAt,
+      lockedUntil: adminTwoFactors.lockedUntil,
+    }),
+    now: config.now,
+  });
+
   return {
     appName: config.issuerName,
     baseURL: config.baseURL,
@@ -120,26 +138,7 @@ function buildAdminAuthOptions(config: AdminAuthConfig) {
     },
 
     plugins: [
-      loginGuard({
-        onSignedIn: (adminUserId, ipAddress) =>
-          config.recordActivity({
-            adminUserId,
-            action: ADMIN_ACTIVITY_ACTIONS.signedIn,
-            ipAddress,
-          }),
-        onCodeFailed: (adminUserId) =>
-          config.recordActivity({ adminUserId, action: ADMIN_ACTIVITY_ACTIONS.twoFactorFailed }),
-        onCodeLockedOut: (adminUserId) =>
-          config.recordActivity({ adminUserId, action: ADMIN_ACTIVITY_ACTIONS.lockedOut }),
-        isAllowed: (adminUserId) => isAdminStillActive(config.database, adminUserId),
-        codeStore: createDrizzleCodeStore(config.database, {
-          table: adminTwoFactors,
-          userId: adminTwoFactors.adminUserId,
-          lastCodeHash: adminTwoFactors.lastCodeHash,
-          lastCodeAt: adminTwoFactors.lastCodeAt,
-        }),
-        now: config.now,
-      }),
+      guards.guard,
       sessionMaxAge({ maxAgeSeconds: ADMIN_SESSION.maxAgeSeconds, now: config.now }),
       signInLockout({
         store: createDrizzleLockoutStore(config.database, {
@@ -168,13 +167,14 @@ function buildAdminAuthOptions(config: AdminAuthConfig) {
         accountLockout: TWO_FACTOR_LOCKOUT,
         trustDeviceMaxAge: ADMIN_TRUST_DEVICE_MAX_AGE_SECONDS,
       }),
+      guards.recorder,
     ],
 
     databaseHooks: {
       session: {
         create: {
           // A switched-off Admin can't sign in at all (review A9-5). Sign-ins are
-          // recorded by loginGuard, once the Admin is fully in.
+          // recorded by the sign-in recorder, once the Admin is fully in.
           before: async (session: { userId: string }) => {
             const isActive = await isAdminStillActive(config.database, session.userId);
             return isActive ? undefined : false;

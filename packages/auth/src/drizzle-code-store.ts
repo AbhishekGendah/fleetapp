@@ -16,14 +16,22 @@ export interface CodeTable {
   userId: PgColumn;
   lastCodeHash: PgColumn;
   lastCodeAt: PgColumn;
+  /** Better Auth's own: set when five wrong codes lock the login. */
+  lockedUntil: PgColumn;
 }
 
 /** What the login guard needs to stop a code being used twice and to age remembered devices. */
 export interface CodeStore {
   /** Whether this exact code was accepted for this login within its lifetime (review A2-7). */
   wasJustUsed(userId: string, code: string, now: Date): Promise<boolean>;
-  /** Notes a code accepted now; a recovery code notes only the time. */
-  noteCodeTyped(userId: string, code: string | null, now: Date): Promise<void>;
+  /**
+   * Claims a code just accepted, in one statement, so two requests can't
+   * both use it: false if it was already claimed within its lifetime. A
+   * recovery code notes only the time.
+   */
+  claimCode(userId: string, code: string | null, now: Date): Promise<boolean>;
+  /** Whether five wrong codes have locked the login right now. */
+  isCodeLocked(userId: string, now: Date): Promise<boolean>;
   /** When a code was last typed for this login, or null if never since this was built. */
   lastCodeAt(userId: string): Promise<Date | null>;
 }
@@ -46,13 +54,30 @@ export function createDrizzleCodeStore(database: SqlExecutor, columns: CodeTable
       return firstRow(result) !== undefined;
     },
 
-    async noteCodeTyped(userId, code, now) {
-      await database.execute(sql`
+    async claimCode(userId, code, now) {
+      const since = new Date(now.getTime() - CODE_LIFETIME_SECONDS * 1000).toISOString();
+      const fingerprint = code === null ? null : codeFingerprint(userId, code);
+      const result = await database.execute(sql`
         UPDATE ${columns.table} SET
-          ${columnName(columns.lastCodeHash)} = ${code === null ? null : codeFingerprint(userId, code)},
+          ${columnName(columns.lastCodeHash)} = ${fingerprint},
           ${columnName(columns.lastCodeAt)} = ${now.toISOString()}::timestamptz
         WHERE ${columns.userId} = ${userId}
+          AND (${fingerprint}::text IS NULL
+            OR ${columns.lastCodeHash} IS DISTINCT FROM ${fingerprint}
+            OR ${columns.lastCodeAt} IS NULL
+            OR ${columns.lastCodeAt} <= ${since}::timestamptz)
+        RETURNING 1 AS claimed
       `);
+      return firstRow(result) !== undefined;
+    },
+
+    async isCodeLocked(userId, now) {
+      const result = await database.execute(sql`
+        SELECT 1 AS locked FROM ${columns.table}
+        WHERE ${columns.userId} = ${userId}
+          AND ${columns.lockedUntil} > ${now.toISOString()}::timestamptz
+      `);
+      return firstRow(result) !== undefined;
     },
 
     async lastCodeAt(userId) {

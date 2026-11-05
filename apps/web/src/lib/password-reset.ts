@@ -17,7 +17,7 @@ import {
   renderPasswordResetEmail,
   type EmailSender,
 } from "@fleetapp/email";
-import { and, count, eq, gt, isNull } from "drizzle-orm";
+import { and, count, eq, gt, isNull, sql } from "drizzle-orm";
 
 import {
   RESET_EMAILS_PER_HOUR,
@@ -27,6 +27,12 @@ import {
 import { FORGOT_PASSWORD_PATH, RESET_PASSWORD_PATH } from "./paths";
 import { isAllowedToSignIn } from "./sign-in-eligibility";
 import type { RecordUserActivity } from "./user-activity";
+
+/** Twice the longest-lived record that isn't a remembered device (a reset link), to be safe. */
+const LONGEST_SHORT_RECORD_SECONDS = 2 * RESET_LINK_LIFETIME_SECONDS;
+
+/** Keeps this lock apart from any other advisory lock taken on a login's ID. */
+const RESET_COUNT_LOCK_PREFIX = "password-reset-count:";
 
 export function buildResetPasswordUrl(appUrl: string, token: string): string {
   return `${joinUrl(appUrl, RESET_PASSWORD_PATH)}?token=${encodeURIComponent(token)}`;
@@ -39,14 +45,28 @@ export function buildResetPasswordUrl(appUrl: string, token: string): string {
  * no code at all.
  *
  * Better Auth keeps each remembered device as a verification record whose
- * value is the User's ID. Any other such record (an unused reset link) is
- * worth throwing away at this point too.
+ * value is the User's ID, as it does each reset link and half-done sign-in;
+ * the records' names are stored as fingerprints, so they are told apart by
+ * how long they last. Only a remembered device outlives the longest of the
+ * others, so a reset link or half-done sign-in is never thrown away here
+ * (review of batch 3: a sign-in must not undo a reset link just sent).
  */
 export async function forgetRememberedDevices(
   database: AnyDatabase,
   userId: string,
+  now: Date,
 ): Promise<void> {
-  await database.delete(userVerifications).where(eq(userVerifications.value, userId));
+  const outlivesOtherRecords = new Date(
+    now.getTime() + LONGEST_SHORT_RECORD_SECONDS * MILLISECONDS_PER_SECOND,
+  );
+  await database
+    .delete(userVerifications)
+    .where(
+      and(
+        eq(userVerifications.value, userId),
+        gt(userVerifications.expiresAt, outlivesOtherRecords),
+      ),
+    );
 }
 
 /**
@@ -55,15 +75,22 @@ export async function forgetRememberedDevices(
  */
 async function claimResetEmail(database: AnyDatabase, userId: string, now: Date): Promise<boolean> {
   const hourAgo = new Date(now.getTime() - SECONDS_PER_HOUR * MILLISECONDS_PER_SECOND);
-  const [sent] = await database
-    .select({ total: count() })
-    .from(passwordResetSends)
-    .where(and(eq(passwordResetSends.userId, userId), gt(passwordResetSends.sentAt, hourAgo)));
-  if ((sent?.total ?? 0) >= RESET_EMAILS_PER_HOUR) {
-    return false;
-  }
-  await database.insert(passwordResetSends).values({ userId, sentAt: now });
-  return true;
+  return database.transaction(async (tx) => {
+    // One login's requests are counted one at a time, so a burst sent at once
+    // can't all see room left (review of batch 3). Held until the transaction ends.
+    await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtext(${RESET_COUNT_LOCK_PREFIX + userId}))`,
+    );
+    const [sent] = await tx
+      .select({ total: count() })
+      .from(passwordResetSends)
+      .where(and(eq(passwordResetSends.userId, userId), gt(passwordResetSends.sentAt, hourAgo)));
+    if ((sent?.total ?? 0) >= RESET_EMAILS_PER_HOUR) {
+      return false;
+    }
+    await tx.insert(passwordResetSends).values({ userId, sentAt: now });
+    return true;
+  });
 }
 
 export interface PasswordResetDependencies {
@@ -137,7 +164,7 @@ export function createPasswordResetOptions(deps: PasswordResetDependencies): Pas
     // (review A2-10). Each step's failure is logged instead.
     onPasswordReset: async ({ user }: { user: ResetUser }) => {
       await afterReset("Forgetting remembered devices", () =>
-        forgetRememberedDevices(deps.database, user.id),
+        forgetRememberedDevices(deps.database, user.id, deps.now?.() ?? new Date()),
       );
       // A new password starts the wrong-password count afresh, so a User
       // locked out by a guesser can get back in by resetting.

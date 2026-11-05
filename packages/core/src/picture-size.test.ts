@@ -23,4 +23,10 @@ describe("a picture's size, read from its header", () => {
       false,
     );
   });
+
+  it("refuses a picture cut off part-way through its header, rather than failing", () => {
+    // Its signature and the start of its header only: reading the size runs off the end.
+    const cutShort = ONE_PIXEL_PNG.slice(0, 20);
+    expect(isPictureWithin(cutShort, PDF_PICTURE_LIMITS)).toBe(false);
+  });
 });

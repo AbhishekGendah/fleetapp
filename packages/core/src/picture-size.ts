@@ -30,8 +30,8 @@ export function isPictureWithin(bytes: Uint8Array, limits: PictureLimits): boole
   try {
     size = imageSize(bytes);
   } catch (error) {
-    if (error instanceof TypeError) {
-      // Its header can't be read: not a picture we can print.
+    // A header that can't be read (TypeError) or is cut short (RangeError): not a picture we can print.
+    if (error instanceof TypeError || error instanceof RangeError) {
       return false;
     }
     throw error;

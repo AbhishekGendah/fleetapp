@@ -23,6 +23,8 @@ const CODE_FAILED_MESSAGE = "That code was not right. Check your authenticator a
 const RECOVERY_CODE_FAILED_MESSAGE = "That recovery code was not right, or has been used.";
 const UNREACHABLE_MESSAGE = "Couldn't reach us. Check your connection and try again.";
 const TOO_MANY_MESSAGE = "Too many tries. Wait a few minutes, then try again.";
+const SIGN_IN_EXPIRED_MESSAGE =
+  "That sign-in ran out of time. Enter your email and password again to start again.";
 const CODE_LOCKED_MESSAGE =
   "Too many wrong codes, so this login is locked for 15 minutes. Wait, then sign in again.";
 
@@ -72,6 +74,13 @@ function useSubmission() {
 
 export function SignInForm(props: SignInFormProps) {
   const [step, setStep] = useState<Step>("password");
+  const [restartNotice, setRestartNotice] = useState<string | null>(null);
+  const notice = restartNotice ?? props.notice;
+
+  function handleSignInExpired(): void {
+    setRestartNotice(SIGN_IN_EXPIRED_MESSAGE);
+    setStep("password");
+  }
 
   return (
     <AuthPageLayout label={props.logoLabel}>
@@ -87,9 +96,9 @@ export function SignInForm(props: SignInFormProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          {props.notice && step === "password" ? (
+          {notice && step === "password" ? (
             <p className="text-attention text-sm" role="status">
-              {props.notice}
+              {notice}
             </p>
           ) : null}
           {step === "password" ? (
@@ -99,6 +108,7 @@ export function SignInForm(props: SignInFormProps) {
               {...props}
               isRecoveryCode={step === "recovery-code"}
               onSwitch={() => setStep(step === "code" ? "recovery-code" : "code")}
+              onExpired={handleSignInExpired}
             />
           )}
         </CardContent>
@@ -175,6 +185,8 @@ function PasswordStep(props: SignInFormProps & { onNeedsCode(): void }) {
 interface CodeStepProps extends SignInFormProps {
   isRecoveryCode: boolean;
   onSwitch(): void;
+  /** The half-done sign-in is over: back to the password, with a word why. */
+  onExpired(): void;
 }
 
 function CodeStep(props: CodeStepProps) {
@@ -201,6 +213,10 @@ function CodeStep(props: CodeStepProps) {
     );
     if (result === "verified") {
       props.onSignedIn();
+      return;
+    }
+    if (result === "expired") {
+      props.onExpired();
       return;
     }
     setCode("");

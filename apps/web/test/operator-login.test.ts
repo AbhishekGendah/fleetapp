@@ -60,6 +60,14 @@ function cookiesFrom(response: Response): string {
     .join("; ");
 }
 
+/** The "remember this device" cookie a response sets, as a request would send it back. */
+function trustCookieFrom(response: Response): string | null {
+  const setCookie = response.headers
+    .getSetCookie()
+    .find((cookie) => cookie.includes(TRUST_DEVICE_COOKIE) && !cookie.includes("Max-Age=0"));
+  return setCookie?.split(";")[0] ?? null;
+}
+
 const TOTP_PERIOD_MS = 30_000;
 
 function otpFor(totpURI: string) {
@@ -312,14 +320,15 @@ describe("the Operator login", () => {
       headers: new Headers({ cookie: cookiesFrom(passwordStep) }),
       asResponse: true,
     });
-    const trustCookie = codeStep.headers
-      .getSetCookie()
-      .find((cookie) => cookie.includes(TRUST_DEVICE_COOKIE));
+    const trustCookie = trustCookieFrom(codeStep);
     if (!trustCookie) {
       throw new Error("The code step did not remember the device.");
     }
-    return trustCookie.split(";")[0]!;
+    return trustCookie;
   }
+
+  const countSignIns = async (operatorId: string): Promise<number> =>
+    (await historyOf(operatorId)).filter((line) => line === "user signed_in").length;
 
   const signInOnDevice = (email: string, password: string, trustCookie: string) =>
     auth.api.signInEmail({
@@ -458,17 +467,106 @@ describe("the Operator login", () => {
         emailSender: sender,
         now: () => clock,
       });
-      const trustCookie = await enrolAndTrustDevice(seeded.email);
-      const signInOnTrusted = () =>
-        clockedAuth.api.signInEmail({
+      let trustCookie = await enrolAndTrustDevice(seeded.email);
+      // Better Auth swaps the device's cookie at each use, so the newest one is carried on.
+      const signInOnTrusted = async (): Promise<unknown> => {
+        const response = await clockedAuth.api.signInEmail({
           body: { email: seeded.email, password: TEST_PASSWORD },
           headers: new Headers({ cookie: trustCookie }),
+          asResponse: true,
         });
+        trustCookie = trustCookieFrom(response) ?? trustCookie;
+        return response.json();
+      };
 
       clock = new Date(clock.getTime() + 13 * ONE_DAY_MS);
       expect(await signInOnTrusted()).not.toHaveProperty("twoFactorRedirect");
       clock = new Date(clock.getTime() + 2 * ONE_DAY_MS);
       expect(await signInOnTrusted()).toHaveProperty("twoFactorRedirect", true);
+    });
+
+    it("records a sign-in on a remembered device, which needs no code", async () => {
+      const seeded = await seedAcceptedUser();
+      const trustCookie = await enrolAndTrustDevice(seeded.email);
+      const before = await countSignIns(seeded.operatorId);
+      expect(await signInOnDevice(seeded.email, TEST_PASSWORD, trustCookie)).not.toHaveProperty(
+        "twoFactorRedirect",
+      );
+      expect(await countSignIns(seeded.operatorId)).toBe(before + 1);
+    });
+
+    it("keeps reset links and half-done sign-ins when a remembered device runs out", async () => {
+      const seeded = await seedAcceptedUser();
+      await enrolled(seeded.email);
+      const waitingForCode = await passwordStepCookie(seeded.email);
+      await auth.api.requestPasswordReset({
+        body: { email: seeded.email, redirectTo: "/reset-password" },
+      });
+      const resetToken = sender.messages
+        .filter((message) => message.to === seeded.email)
+        .at(-1)
+        ?.text.match(RESET_LINK_PATTERN)?.[1];
+
+      // No code typed for 20 days: the password step forgets the remembered devices.
+      const lateAuth = createUserAuth({
+        database: webAuth.db,
+        baseURL: TEST_BASE_URL,
+        secret: TEST_SECRET,
+        issuerName: "Test Issuer",
+        emailSender: sender,
+        now: () => new Date(Date.now() + 20 * ONE_DAY_MS),
+      });
+      await lateAuth.api.signInEmail({ body: { email: seeded.email, password: TEST_PASSWORD } });
+      // A wrong password never touches anything either.
+      await expect(
+        lateAuth.api.signInEmail({ body: { email: seeded.email, password: WRONG_PASSWORD } }),
+      ).rejects.toThrow();
+
+      await expect(
+        auth.api.verifyTOTP({
+          body: { code: "000000" },
+          headers: new Headers({ cookie: waitingForCode }),
+        }),
+      ).rejects.toMatchObject({ body: { code: "INVALID_CODE" } });
+      await expect(
+        auth.api.resetPassword({
+          body: { newPassword: NEW_PASSWORD, token: decodeURIComponent(resetToken!) },
+        }),
+      ).resolves.toBeDefined();
+    });
+
+    it("logs a code lock once, and answers a locked login with the lock", async () => {
+      const seeded = await seedAcceptedUser();
+      await enrolled(seeded.email);
+      const cookie = await passwordStepCookie(seeded.email);
+      const outcomes: unknown[] = [];
+      for (let attempt = 0; attempt < 7; attempt += 1) {
+        outcomes.push(
+          await auth.api
+            .verifyTOTP({ body: { code: "000000" }, headers: new Headers({ cookie }) })
+            .catch((error: unknown) => error),
+        );
+      }
+      expect(outcomes.at(-1)).toMatchObject({ body: { code: "ACCOUNT_TEMPORARILY_LOCKED" } });
+      const history = await historyOf(seeded.operatorId);
+      expect(history.filter((line) => line === "user locked_out")).toHaveLength(1);
+      expect(history.filter((line) => line === "user two_factor_failed")).toHaveLength(5);
+    });
+
+    it("lets only one of two sign-ins at once use the same code", async () => {
+      const seeded = await seedAcceptedUser();
+      const totpURI = await enrolled(seeded.email);
+      const [firstCookie, secondCookie] = await Promise.all([
+        passwordStepCookie(seeded.email),
+        passwordStepCookie(seeded.email),
+      ]);
+      const code = await nextCodeFor(totpURI);
+      const outcomes = await Promise.allSettled(
+        [firstCookie, secondCookie].map((cookie) =>
+          auth.api.verifyTOTP({ body: { code }, headers: new Headers({ cookie: cookie! }) }),
+        ),
+      );
+      expect(outcomes.filter((outcome) => outcome.status === "fulfilled")).toHaveLength(1);
     });
   });
 
@@ -502,6 +600,20 @@ describe("the Operator login", () => {
           body: { email: seeded.email, redirectTo: "/reset-password" },
         });
       }
+      expect(
+        emailsTo(seeded.email).filter((message) => /Reset/.test(message.subject)),
+      ).toHaveLength(3);
+    });
+
+    it("sends no more than three even when the requests arrive at once", async () => {
+      const seeded = await seedAcceptedUser();
+      await Promise.all(
+        Array.from({ length: 6 }, () =>
+          auth.api.requestPasswordReset({
+            body: { email: seeded.email, redirectTo: "/reset-password" },
+          }),
+        ),
+      );
       expect(
         emailsTo(seeded.email).filter((message) => /Reset/.test(message.subject)),
       ).toHaveLength(3);

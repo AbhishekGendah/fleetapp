@@ -1086,8 +1086,14 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
   - Doctored signatures, logos and templates can't stall the server; the
     test inbox runs only with APP_STAGE=development.
   - Paused business: payments links keep working (Abhi's decision).
-  - Known: the handover return browser test fails on this date with or
-    without this batch; to look at on its own.
+  - Deep review of the login changes (each finding checked twice) found
+    six problems, all fixed with tests: a remembered-device sign-in wasn't
+    recorded; signing in could cancel a reset link just emailed; the code
+    lock message never showed and an expired code step looped; two devices
+    could use one code at the same moment; reset emails could beat the
+    limit when sent at once; a cut-off picture crashed the page.
+  - The handover return browser test that failed earlier passed in the
+    full run after these fixes: it fails only sometimes. To look at on its own.
 
 ## Next
 
