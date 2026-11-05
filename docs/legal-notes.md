@@ -89,7 +89,22 @@ of service) and the countries.
 - Images are redrawn on the device before upload, which also removes the
   hidden details phones add to photos, such as the GPS location where a
   photo was taken. Worth saying in the privacy policy.
-- Deleted files are kept 30 days, then removed for good (rule 23).
+- Deleted files are kept 30 days, then removed for good (rule 23). A car's
+  photos and documents can be brought back by the business in that time
+  (batch 7).
+- **Receipts and tax papers** attached to a car's costs, purchase, sale,
+  rego or insurance are kept 5 years after they are removed, hidden but
+  recoverable, then deleted (batch 7 decision 4): the ATO wants records
+  behind GST claimed kept 5 years. Purchase and sale papers show the other
+  person's licence and date of birth, so they are kept that long too; the
+  privacy policy should say so. Lawyer to confirm 5 years is the right
+  period, and from when (removal, or the tax year's end).
+- **Damage photos** backing a charge to the Renter or an open insurance
+  claim can't be removed until it is settled (batch 7 decision 3): they are
+  the evidence if the Renter disputes the charge.
+- **Old checklist photos** move to S3 Glacier Instant Retrieval a year after
+  their rental came back (rule 23). Same Sydney region, same protections,
+  opened as quickly; nothing changes for the privacy policy.
 - **Car photos** can show people, number plates of other cars, or a home
   in the background. They are the Operator's records; the privacy policy
   should say photos of cars are kept to record their condition. Operators
@@ -869,3 +884,15 @@ of service) and the countries.
   settings history; the cars list download is logged; a signing-page
   failure never logs the Renter's internet address.
 
+
+## Handovers without insurance or rego on file (batch 7)
+
+- A handover stops when the app holds no insurance or rego covering the car
+  that day, unless the business types why the car goes anyway (decision 2).
+  The reason is kept with the checklist, never in the Log, and is blanked
+  with the Renter's other details after 7 years. Letting an unregistered or
+  uninsured car go is the business's call and risk; the app records that it
+  was told. Worth a line in the terms of use (the business is responsible
+  for its cars being registered and insured).
+- Invoices after a car swap name the car on each charge, so the Renter can
+  see which car a charge was for (consumer law: clear tax invoices).

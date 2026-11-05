@@ -1,4 +1,4 @@
-# Review fixes, batch 7: everything left from the review (plan, waiting for Abhi)
+# Review fixes, batch 7: everything left from the review (approved 5 Nov 2026)
 
 From docs/reviews/2026-11-04-full-code-review.md, fix order item 7: the
 remaining medium items, then the small ones. On 5 Nov 2026 every finding
@@ -250,3 +250,87 @@ All are additions that work with the code already live (batch 6's rule).
 
 Everything in the review is now in a batch. Anything new found while
 building goes to the next one.
+
+## As built: slices A, B and C (5 Nov 2026)
+
+Slices A (handovers and swaps) and B (cars and their records), and the file
+items of C, built together, as several files carry pieces of each.
+
+- **1 (A6-1).** `handoverBlockers` in packages/core, used by the handover
+  page and the server: Do not rent and a sold or written-off car now stop a
+  handover. Under the transaction's locks the car must still be Available
+  and the Renter still active, and only a booking still Booked is made
+  active.
+- **2 (A6-3).** New problems: `car_still_out` (a booking warns only when the
+  other Renter is overdue back; the handover blocks whenever the car is
+  out). An early handover moves the rental's hold to start then; a booking
+  in the way is shown on the page before signing and refused cleanly at
+  signing (also when the database's own rule catches a race).
+- **3 (G4-3).** Swap forms are filled with the new car (`loadContractData`
+  takes a car), and documents speak of the excess on the day: the start
+  before the car goes, the day made once it is out. Ledger lines name the
+  car the Renter had when the line's period began; invoices name the car on
+  every line once a rental has had two (display only). The swap now locks
+  its new car and refuses if it was sold, sent to the workshop or archived
+  meanwhile.
+- **4 (A6-9).** Cancelling a booking cancels its open checklist; a phone
+  still on it is told "cancelled".
+- **5 (A6-5).** Migration 0049: `inspection_damage_marks.client_key`, unique
+  per checklist; a mark sent again returns the first. A photo the server
+  will never take (wrong kind, too large, not a real photo) is dropped from
+  the phone with a note instead of blocking the checklist.
+- **6 (A6-7).** `isRentalOfCar`: a rental counts for every car the Renter
+  had (possessions), for damage and the car's Rentals tab.
+- **7 (A10-11).** `ConfirmButton` in packages/ui (Base UI AlertDialog, starts
+  on the safe choice, in the component catalogue), for cancelling a
+  handover, return or swap. `ActionButton` takes `confirm` for removals.
+- **8 (A10-5).** Saving details gives the button back after 20 seconds or a
+  failure, saying the details are kept on the phone.
+- **9 (A11-9).** On the night the clocks go back the return form asks which
+  of the two times was meant, pre-chosen for now; the "didn't happen"
+  message names no amount.
+- **10 (A8-2).** `isInsuredOn` / `isRegisteredOn`: cover counts from start
+  to end date. The dashboard lists cars with none ("Missing"). At handover
+  `no_insurance` / `no_rego` stop it unless a reason is typed (migration
+  0048: two reason columns; never logged; blanked by the 7-year clean-up).
+- **11 (A8-1).** Archiving a car or Renter booked or out is refused.
+- **12 (A8-4).** A sale and a handover (or swap) lock the car, so the second
+  sees the first.
+- **13 (A8-5).** The Status box no longer offers Sold, and a sold car's
+  status changes only by cancelling the sale.
+- **14 (A8-6).** A purchase can't be dated after the business's today.
+- **15 (A8-7).** Removing an archived car's rego, costs, readings, insurance
+  links, photos or papers is refused.
+- **16 (A7-3, G8-7).** Removing a photo, document or paper asks first. A
+  damage photo can't be removed while a claim is open or a charge for it
+  isn't reversed. Removed receipts and tax papers are kept 5 years.
+- **17 (A7-4).** "Removed in the last 30 days" with Bring back on the Photos
+  tab; removed documents and papers on the Documents tab.
+- **18 (rule 23).** Migration 0050: `files.long_term_storage_at` and a
+  look-up of businesses with photos due; the nightly run moves checklist
+  photos of rentals back over a year to S3 Glacier Instant Retrieval.
+- **19 (A7-5).** Checklist photos are confirmed before their small copy;
+  the clean-up bins the small copy of a photo that never arrived.
+- **A11-8.** The policy's end date counts as covered on contracts.
+
+### Review (deep: two reviewers) and fixes
+
+Fixed: the swap's new car was never re-checked; a cancelled booking could
+be made active from an old open checklist; the early-handover clash only
+showed after signing; a database clash in the hold move gave a raw error;
+"finished" was shown for a cancelled checklist; the Renter wasn't re-checked
+under the lock; "Missing" shown for cover that had expired; a reason needed
+after the page loaded had no box (the message says to reload); the
+repeated-hour choice was wrong for a time with seconds; a document made
+before a late handover could change once the car went out; lines dated only
+by day were named by entry time; three doc comments had moved; the confirm
+pop-up's buttons read in a different order than they showed.
+
+Left, noted: swaps don't check the new car's insurance or rego (a swap form
+using the excess field says which field is missing); a dropped photo's note
+is gone after a reload (a named photo shows "Not taken" again); the old
+car's Rentals tab shows the rental's current car; small copies left on a
+finished checklist stay (the database keeps those as they are); removed
+policy papers have no Bring back yet (launch checklist); only the return
+form asks about the repeated hour (bookings, changes and sales still take
+the first).

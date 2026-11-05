@@ -97,7 +97,15 @@ Add to this list whenever something is relaxed or put off "until launch".
       (docs/legal-notes.md, Stored files). Uploads first land under `incoming/`
       and are moved once checked: the app's storage login needs read, write,
       copy and delete there too, and a bucket rule removing `incoming/` objects
-      older than 2 days is a cheap backstop.
+      older than 2 days is a cheap backstop (review A7-6: set it on dev too,
+      batch 7).
+- [ ] Production buckets: the app's storage login may copy an object onto
+      itself with storage class GLACIER_IR (the nightly move of year-old
+      checklist photos, batch 7). Check the first night's run on dev
+      (`longTerm` in the clean-up's answer) once dev has a year-old rental.
+- [ ] Removed insurance-policy papers (not on a car's record) can't yet be
+      brought back from a screen: they are kept 5 years, recoverable only
+      by AGS. Add a Bring back on the policy page (batch 7, left for later).
 - [ ] Google Places: a production project and key with higher caps, and an
       in-app daily limit per Operator (progress.md, Open items).
 - [ ] Google logo image in place of the "Powered by Google" text, and the
