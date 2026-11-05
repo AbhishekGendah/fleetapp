@@ -26,6 +26,12 @@ export type NewQueuedChange = QueuedMark | QueuedPhoto;
 
 export type QueuedChange = NewQueuedChange & { id?: number; queuedAt: number };
 
+/**
+ * What a sender answers for a photo whose damage mark or checklist is gone:
+ * it can never be sent, so it is dropped rather than holding up the queue.
+ */
+export const PHOTO_TARGET_GONE = "gone";
+
 /** What sending needs from the server, as the handover page's actions provide it. */
 export interface QueueSenders {
   addMark: (mark: QueuedMark) => Promise<{ markId: string } | { problem: string }>;
@@ -33,7 +39,7 @@ export interface QueueSenders {
     inspectionId: string,
     target: { photoName: string } | { damageMarkId: string },
     files: { photo: Blob; thumbnail: Blob },
-  ) => Promise<string | null>;
+  ) => Promise<string | null | typeof PHOTO_TARGET_GONE>;
 }
 
 /** Where the queue is kept: the phone's own database, or a stand-in in tests. */
@@ -67,7 +73,7 @@ async function sendOne(
   store: QueueStore,
   senders: QueueSenders,
   change: QueuedChange,
-): Promise<string | null> {
+): Promise<string | null | typeof PHOTO_TARGET_GONE> {
   if (change.kind === "mark") {
     const added = await senders.addMark(change);
     if ("problem" in added) {
@@ -96,7 +102,7 @@ export async function runQueue(
   let count = 0;
   for (const change of await store.pending(inspectionId)) {
     const problem = await sendOne(store, senders, change);
-    if (problem) {
+    if (problem && problem !== PHOTO_TARGET_GONE) {
       return { status: "stopped", count, problem };
     }
     await store.remove(change.id!);
@@ -116,4 +122,9 @@ export interface MarkSentFromPhone {
   x: number;
   y: number;
   description: string;
+  /**
+   * The page's own list has shown it saved, or it was removed: from then on
+   * it is never shown from here again, only its key is lent to its saved row.
+   */
+  isSettled: boolean;
 }

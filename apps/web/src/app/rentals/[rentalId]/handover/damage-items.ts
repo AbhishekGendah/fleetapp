@@ -55,7 +55,7 @@ export function damageItems(
     photoState: photoStateOf(queued, mark.photo, forSaved(mark.id, phoneKeyOf.get(mark.id))),
   }));
   const savingNow = sentFromPhone
-    .filter((mark) => !savedIds.has(mark.markId))
+    .filter((mark) => !mark.isSettled && !savedIds.has(mark.markId))
     .map((mark) => ({
       key: mark.markKey,
       serverId: mark.markId,

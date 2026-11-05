@@ -320,3 +320,32 @@ losing evidence the business needs in a dispute.
   workbook with every section, the issued documents and licence scans still
   held, and a files-not-included.txt if one can't be read. Streaming keeps
   memory low and avoids Vercel's 4.5 MB response limit.
+
+### Deep review (two reviewers, each finding checked by two checkers)
+
+Every finding was confirmed (some narrower than first claimed) except one
+race, which was fixed anyway. Fixed before push:
+- **Retired Renters stay as left** (serious): a trigger refuses any change
+  to a retired Renter's row, and new rentals, links, notes or files for them,
+  except by the owner; restore is refused in the app and the page says the
+  details were removed. The file, checklist, damage-mark and signing-evidence
+  exceptions now allow only the job's own steps: binning by the owner, then
+  removal for good of an already-binned file; never un-binning, never other
+  changes. So moving a file onto a retired Renter can't get round rule 12.
+- **Small copies of photos** are binned with their photos.
+- **The clock**: a draft also counts as open; the seven years run from the
+  latest of the Renter or any rental being recorded (times now stamped by
+  the database, not the app) and any rental ending.
+- **The job**: each Renter is locked first, then checked for money, bond
+  and damage, then retired, in its own transaction; one failing is logged
+  and skipped; held Renters no longer crowd out others; the time limit is
+  checked per Renter. Files are binned before anything is unlinked; links
+  are cancelled; more free text is cleared (see legal-notes).
+- **The file check** answers only about the current business.
+- **App**: a removed damage mark no longer comes back, and a photo whose
+  mark is gone is dropped instead of blocking the checklist; signing out
+  wipes the phone first and copes with no signal or unreadable storage; the
+  suspended page wipes and runs the week's limit; the zip reads one file at a
+  time as the download asks, with a 30-second limit per file; the privacy
+  notice can't make Add Renter fail; the notice-not-sent check uses own keys.
+

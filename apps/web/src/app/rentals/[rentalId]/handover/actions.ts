@@ -128,7 +128,9 @@ interface AllowedUpload {
 
 export type ChecklistPhotoStart =
   | { status: "allowed"; photo: AllowedUpload; thumbnail: AllowedUpload }
-  | { status: "refused"; message: string };
+  | { status: "refused"; message: string }
+  /** Its checklist or damage mark is gone (removed, or finished elsewhere): nothing to send it to. */
+  | { status: "gone" };
 
 /** Asks to send one checklist photo and its small copy, shrunk on the phone. */
 export async function startChecklistPhotoAction(
@@ -154,7 +156,7 @@ export async function startChecklistPhotoAction(
         user.operatorTimezone,
       );
       if (result.status === "not_found") {
-        return { status: "refused", message: NOT_FOUND_MESSAGE };
+        return { status: "gone" };
       }
       return result.status === "refused"
         ? { status: "refused", message: refusedMessage(result) }

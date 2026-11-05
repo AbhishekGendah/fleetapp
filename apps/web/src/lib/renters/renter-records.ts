@@ -52,7 +52,11 @@ export function logRenterActivity(
   });
 }
 
-/** The Operator's Renter, locked for this transaction, if they are theirs and not archived. */
+/**
+ * The Operator's Renter, locked for this transaction, if they are theirs and
+ * not archived. A Renter whose details were removed (seven years on) is
+ * always archived, so is never returned.
+ */
 export async function lockCurrentRenter(
   tx: AnyTransaction,
   operatorId: string,
@@ -197,6 +201,8 @@ async function setRenterArchived(
           eq(renters.id, renterId),
           eq(renters.operatorId, actor.operatorId),
           shouldArchive ? isNull(renters.archivedAt) : isNotNull(renters.archivedAt),
+          // Their details are gone: they are kept as the retention job left them.
+          isNull(renters.retiredAt),
         ),
       )
       .returning({ id: renters.id });

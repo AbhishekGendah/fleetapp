@@ -2,8 +2,8 @@ import { AuthPageLayout } from "@fleetapp/ui/auth-page-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 
 import { requireSuspendedUser } from "../../lib/require-user";
-import { SignOutButton } from "@fleetapp/ui/sign-out-button";
-import { SIGN_IN_PATH } from "../../lib/paths";
+import { PhoneSignOutButton } from "../../components/phone-sign-out-button";
+import { PhoneWeekLimit } from "../../components/phone-week-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +14,8 @@ export default async function SuspendedPage() {
 
   return (
     <AuthPageLayout>
+      {/* A suspended business never reaches the app's pages, so the phone's week limit runs here too. */}
+      <PhoneWeekLimit />
       <Card>
         <CardHeader>
           <CardTitle>This account is suspended</CardTitle>
@@ -23,7 +25,7 @@ export default async function SuspendedPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <SignOutButton signInHref={SIGN_IN_PATH} />
+          <PhoneSignOutButton />
         </CardContent>
       </Card>
     </AuthPageLayout>

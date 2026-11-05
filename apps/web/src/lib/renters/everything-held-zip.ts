@@ -10,10 +10,11 @@ const NOT_INCLUDED_HEADING =
   "These files are held but could not be read just now. Download again to include them:\n";
 
 /**
- * Everything held as a zip, sent piece by piece as each file is read, so a
- * Renter with many documents is never held in memory at once or cut off by
- * the host's response size limit. Files are stored as they are (PDFs and
- * photos are already compressed). A file that can't be read is listed in
+ * Everything held as a zip, sent piece by piece: one stored file is read
+ * only when the download has taken the last, so a Renter with many
+ * documents is never held in memory at once nor cut off by the host's
+ * response size limit. Files are stored as they are (PDFs and photos are
+ * already compressed). A file that can't be read is listed in
  * files-not-included.txt rather than silently left out.
  */
 export function everythingHeldZip(
@@ -21,9 +22,18 @@ export function everythingHeldZip(
   workbook: Uint8Array,
   storage: FileStorage,
 ): ReadableStream<Uint8Array> {
+  let zip: Zip;
+  let next = 0;
+  const notIncluded: string[] = [];
+  const add = (path: string, bytes: Uint8Array): void => {
+    const entry = new ZipPassThrough(path);
+    zip.add(entry);
+    entry.push(bytes, true);
+  };
+
   return new ReadableStream({
-    async start(controller) {
-      const zip = new Zip((error, chunk, isFinal) => {
+    start(controller) {
+      zip = new Zip((error, chunk, isFinal) => {
         if (error) {
           controller.error(error);
           return;
@@ -33,28 +43,25 @@ export function everythingHeldZip(
           controller.close();
         }
       });
-      const add = (path: string, bytes: Uint8Array) => {
-        const entry = new ZipPassThrough(path);
-        zip.add(entry);
-        entry.push(bytes, true);
-      };
       add(WORKBOOK_PATH, workbook);
-      const notIncluded: string[] = [];
-      for (const file of held.files) {
-        const bytes = await readStoredFile(storage, file.area, file.key, "everything held");
-        if (bytes) {
-          add(file.path, bytes);
-        } else {
-          notIncluded.push(file.path);
+    },
+    async pull() {
+      const file = held.files[next];
+      next += 1;
+      if (!file) {
+        if (notIncluded.length > 0) {
+          const list = NOT_INCLUDED_HEADING + notIncluded.join("\n");
+          add(NOT_INCLUDED_PATH, new TextEncoder().encode(list));
         }
+        zip.end();
+        return;
       }
-      if (notIncluded.length > 0) {
-        add(
-          NOT_INCLUDED_PATH,
-          new TextEncoder().encode(NOT_INCLUDED_HEADING + notIncluded.join("\n")),
-        );
+      const bytes = await readStoredFile(storage, file.area, file.key, "everything held");
+      if (bytes) {
+        add(file.path, bytes);
+      } else {
+        notIncluded.push(file.path);
       }
-      zip.end();
     },
   });
 }

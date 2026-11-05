@@ -2,6 +2,7 @@ import { RETIRED_RENTER_NAME } from "@fleetapp/core";
 import {
   activityLog,
   files,
+  inspections,
   issuedDocuments,
   ledgerLines,
   rentals,
@@ -15,13 +16,16 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import type { ActingUser } from "../src/lib/acting-user";
 import { cancelRental } from "../src/lib/rentals/rental-records";
+import { restoreRenter } from "../src/lib/renters/renter-records";
 import { retireOldRenters } from "../src/lib/renters/renter-retirement";
 import { createMemoryFileStorage } from "../src/lib/storage/memory-file-storage";
 import { seedOperatorWithUser } from "./car-fixtures";
 import { checklistKit } from "./handover-fixtures";
+import { bookTestRental } from "./rental-fixtures";
 
 /** Long enough ago that seven years have passed, whatever today is. */
 const EIGHT_YEARS_AGO = sql`now() - interval '8 years'`;
+const EIGHT_YEARS_AND_A_WEEK_AGO = sql`now() - interval '8 years 7 days'`;
 
 /** A Renter's records seven years on (review G8-4). */
 describe("removing a Renter's details seven years after their last rental", () => {
@@ -48,16 +52,39 @@ describe("removing a Renter's details seven years after their last rental", () =
     return { rentalId, renterId: rental!.renterId };
   }
 
+  /**
+   * Dates a Renter and their rentals eight years back: rentals come back or
+   * are cancelled then. Done as the superuser with the app's own triggers
+   * off, as no app role (rightly) can rewrite those times.
+   */
   async function ageRenter(renterId: string): Promise<void> {
-    await superuser.db
-      .update(renters)
-      .set({ createdAt: EIGHT_YEARS_AGO })
-      .where(eq(renters.id, renterId));
-    await superuser.db
-      .update(rentals)
-      .set({ cancelledAt: EIGHT_YEARS_AGO })
-      .where(and(eq(rentals.renterId, renterId), eq(rentals.status, "cancelled")));
+    await superuser.db.transaction(async (tx) => {
+      await tx.execute(sql`set local session_replication_role = replica`);
+      await tx.update(renters).set({ createdAt: EIGHT_YEARS_AGO }).where(eq(renters.id, renterId));
+      await tx
+        .update(rentals)
+        .set({ createdAt: EIGHT_YEARS_AGO })
+        .where(eq(rentals.renterId, renterId));
+      await tx
+        .update(rentals)
+        .set({ cancelledAt: EIGHT_YEARS_AGO })
+        .where(and(eq(rentals.renterId, renterId), eq(rentals.status, "cancelled")));
+      await tx
+        .update(rentals)
+        .set({
+          status: "returned",
+          handedOverAt: EIGHT_YEARS_AND_A_WEEK_AGO,
+          returnedAt: EIGHT_YEARS_AGO,
+        })
+        .where(and(eq(rentals.renterId, renterId), eq(rentals.status, "active")));
+    });
   }
+
+  const retireDirectly = (owner: ActingUser, renterId: string) =>
+    withTenant(web.db, owner.operatorId, async (tx) => {
+      const result = await tx.execute(sql`select app.retire_renter(${renterId}) as retired`);
+      return (result.rows[0] as { retired: boolean }).retired;
+    });
 
   const renterOf = (owner: ActingUser, renterId: string) =>
     withTenant(web.db, owner.operatorId, async (tx) => {
@@ -157,14 +184,8 @@ describe("removing a Renter's details seven years after their last rental", () =
     const theirs = await cancelledBooking(otherBusiness, otherKit);
     await ageRenter(theirs.renterId);
     const recent = await cancelledBooking(actor, kit);
-    const retire = (renterId: string) =>
-      withTenant(web.db, actor.operatorId, async (tx) => {
-        const result = await tx.execute(sql`select app.retire_renter(${renterId}) as retired`);
-        return (result.rows[0] as { retired: boolean }).retired;
-      });
-
-    expect(await retire(theirs.renterId)).toBe(false);
-    expect(await retire(recent.renterId)).toBe(false);
+    expect(await retireDirectly(actor, theirs.renterId)).toBe(false);
+    expect(await retireDirectly(actor, recent.renterId)).toBe(false);
     expect((await renterOf(otherBusiness, theirs.renterId)).retiredAt).toBeNull();
     // And the app's own role can't mark anyone retired itself.
     await expect(
@@ -172,5 +193,99 @@ describe("removing a Renter's details seven years after their last rental", () =
         tx.update(renters).set({ retiredAt: new Date() }).where(eq(renters.id, recent.renterId)),
       ),
     ).rejects.toThrow();
+  });
+
+  it("bins a returned rental's checklist photos and their small copies (batch 5 review)", async () => {
+    const { rentalId } = await kit.rentalOut(new Date());
+    const [rental] = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx.select({ renterId: rentals.renterId }).from(rentals).where(eq(rentals.id, rentalId)),
+    );
+    await ageRenter(rental!.renterId);
+
+    expect(await retireDirectly(actor, rental!.renterId)).toBe(true);
+
+    const photos = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx
+        .select({ id: files.id, purpose: files.purpose, deletedAt: files.deletedAt })
+        .from(files)
+        .innerJoin(inspections, eq(inspections.id, files.inspectionId))
+        .where(eq(inspections.rentalId, rentalId)),
+    );
+    const thumbnails = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx
+        .select({ deletedAt: files.deletedAt })
+        .from(files)
+        .where(
+          inArray(
+            files.thumbnailOfFileId,
+            photos.map((photo) => photo.id),
+          ),
+        ),
+    );
+    expect(photos.length).toBeGreaterThan(0);
+    expect(thumbnails).toHaveLength(photos.length);
+    expect([...photos, ...thumbnails].every((file) => file.deletedAt !== null)).toBe(true);
+  });
+
+  it("keeps a retired Renter as left: the app can't restore, edit, re-add or un-bin (batch 5 review)", async () => {
+    const { rentalId, renterId } = await cancelledBooking(actor, kit);
+    await ageRenter(renterId);
+    expect(await retireDirectly(actor, renterId)).toBe(true);
+    const [contract] = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx
+        .select({ fileId: issuedDocuments.fileId })
+        .from(issuedDocuments)
+        .where(eq(issuedDocuments.rentalId, rentalId)),
+    );
+
+    expect(await restoreRenter(web.db, actor, renterId)).toBe("unchanged");
+    await expect(
+      withTenant(web.db, actor.operatorId, (tx) =>
+        tx.update(renters).set({ fullName: "Back Again" }).where(eq(renters.id, renterId)),
+      ),
+    ).rejects.toThrow();
+    await expect(bookTestRental(web, actor, renterId)).rejects.toThrow();
+    // A binned PDF is never un-binned by the app.
+    await expect(
+      withTenant(web.db, actor.operatorId, (tx) =>
+        tx.update(files).set({ deletedAt: null }).where(eq(files.id, contract!.fileId)),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("never lets the app use a retired Renter to bin a document that is kept for good (batch 5 review)", async () => {
+    const retired = await cancelledBooking(actor, kit);
+    await ageRenter(retired.renterId);
+    expect(await retireDirectly(actor, retired.renterId)).toBe(true);
+    const { rentalId: liveRentalId } = await kit.readyRental({ isBondHeld: false });
+    const [liveContract] = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx
+        .select({ fileId: issuedDocuments.fileId })
+        .from(issuedDocuments)
+        .where(eq(issuedDocuments.rentalId, liveRentalId)),
+    );
+
+    // Pointed at the retired Renter, then binned: refused, as the binning isn't the job's.
+    await expect(
+      withTenant(web.db, actor.operatorId, async (tx) => {
+        await tx
+          .update(files)
+          .set({ renterId: retired.renterId })
+          .where(eq(files.id, liveContract!.fileId));
+        await tx
+          .update(files)
+          .set({ deletedAt: new Date() })
+          .where(eq(files.id, liveContract!.fileId));
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("keeps a Renter with a draft rental: it restarts the clock (batch 5 review)", async () => {
+    const withDraft = await cancelledBooking(actor, kit);
+    await ageRenter(withDraft.renterId);
+    await bookTestRental(web, actor, withDraft.renterId, "draft");
+
+    expect(await retireDirectly(actor, withDraft.renterId)).toBe(false);
+    expect((await renterOf(actor, withDraft.renterId)).retiredAt).toBeNull();
   });
 });

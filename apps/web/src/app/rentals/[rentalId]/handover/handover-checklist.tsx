@@ -4,7 +4,7 @@ import { Button } from "@fleetapp/ui/button";
 import { FormSection } from "@fleetapp/ui/form-section";
 import { CloudOff, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import type { QueuedPhotoTarget } from "../../../../lib/handover/offline/queued-changes";
 import { removeDamageMarkAction } from "./actions";
@@ -77,7 +77,13 @@ export function HandoverChecklist({
   finalStep: { title: string; form: ReactNode };
 }) {
   const router = useRouter();
-  const { queued, sentFromPhone, state, enqueue, sendNow } = useHandoverQueue(data.inspectionId);
+  const { queued, sentFromPhone, settleMarks, state, enqueue, sendNow } = useHandoverQueue(
+    data.inspectionId,
+  );
+  const savedMarkIds = data.marks.map((mark) => mark.id).join(",");
+  useEffect(() => {
+    settleMarks(savedMarkIds === "" ? [] : savedMarkIds.split(","));
+  }, [savedMarkIds, settleMarks]);
   const queuePhoto = useCallback(
     (target: QueuedPhotoTarget, files: { photo: Blob; thumbnail: Blob }) =>
       enqueue({ kind: "photo", inspectionId: data.inspectionId, target, ...files }),
@@ -95,6 +101,8 @@ export function HandoverChecklist({
 
   async function handleRemoveMark(markId: string): Promise<void> {
     await removeDamageMarkAction(data.rentalId, data.inspectionId, markId);
+    // Never shown again from the phone's memory, even before the page refreshes.
+    settleMarks([markId]);
     router.refresh();
   }
 

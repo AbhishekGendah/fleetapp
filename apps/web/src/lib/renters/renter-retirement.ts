@@ -1,6 +1,7 @@
 import {
   bondHeldCents,
   CLAIM_STATUSES_UNDER_WAY,
+  describeErrorForLog,
   isAnythingStillOpen,
   ledgerBalanceCents,
 } from "@fleetapp/core";
@@ -17,14 +18,15 @@ import {
   renters,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { findDueOperators, forEachOperator } from "../jobs/due-operators";
 
-/** At most this many Renters per business per night; the next night carries on. */
+/** At most this many Renters retired per business per night; the next night carries on. */
 const RENTERS_PER_RUN = 50;
-const OPEN_RENTAL_STATUSES = ["booked", "active"] as const;
+/** A draft, a booking or a car out: the database's own check says the same. */
+const OPEN_RENTAL_STATUSES = ["draft", "booked", "active"] as const;
 
 export interface RenterRetirementSummary {
   operators: number;
@@ -33,15 +35,20 @@ export interface RenterRetirementSummary {
   unreachedOperators: number;
 }
 
-const retiredSchema = z.object({ rows: z.array(z.object({ retired: z.boolean() })) });
+const answerSchema = z.object({ rows: z.array(z.object({ answer: z.boolean() })) });
 
-/** Renters whose seven years are up by the database's own count, with no booking or car out. */
-async function findCandidates(
-  tx: AnyTransaction,
-  operatorId: string,
-): Promise<{ id: string; addedAt: Date }[]> {
-  return tx
-    .select({ id: renters.id, addedAt: renters.createdAt })
+async function askDatabase(tx: AnyTransaction, query: ReturnType<typeof sql>): Promise<boolean> {
+  return answerSchema.parse(await tx.execute(query)).rows[0]?.answer === true;
+}
+
+/**
+ * Renters whose seven years are up by the database's own count, with no
+ * draft, booking or car out: every one, in a fixed order, so Renters held
+ * back by money or damage never crowd out the rest.
+ */
+async function findCandidates(tx: AnyTransaction, operatorId: string): Promise<string[]> {
+  const rows = await tx
+    .select({ id: renters.id })
     .from(renters)
     .where(
       and(
@@ -51,7 +58,8 @@ async function findCandidates(
         sql`not exists (select 1 from ${rentals} where ${rentals.renterId} = ${renters.id} and ${inArray(rentals.status, [...OPEN_RENTAL_STATUSES])})`,
       ),
     )
-    .limit(RENTERS_PER_RUN);
+    .orderBy(asc(renters.id));
+  return rows.map((row) => row.id);
 }
 
 /**
@@ -122,31 +130,62 @@ async function isAnythingOpen(
   });
 }
 
-/** One business's Renters whose time is up, retired one by one, each with its history line. */
-async function retireForOperator(database: AnyDatabase, operatorId: string): Promise<number> {
+/**
+ * One Renter, in their own transaction: locked first, so a payment, bond or
+ * damage record landing meanwhile is seen; then checked; then retired, with
+ * its history line. True if retired.
+ */
+async function retireOne(
+  database: AnyDatabase,
+  operatorId: string,
+  renterId: string,
+): Promise<boolean> {
   return withTenant(database, operatorId, async (tx) => {
-    let retired = 0;
-    for (const candidate of await findCandidates(tx, operatorId)) {
-      if (await isAnythingOpen(tx, operatorId, candidate.id)) {
-        continue;
-      }
-      const result = retiredSchema.parse(
-        await tx.execute(sql`select app.retire_renter(${candidate.id}) as retired`),
-      );
-      if (result.rows[0]?.retired) {
-        retired += 1;
-        await recordActivity(tx, {
-          operatorId,
-          actor: { type: "system", id: null },
-          entityType: ACTIVITY_ENTITY_TYPES.renter,
-          entityId: candidate.id,
-          action: ACTIVITY_ACTIONS.purged,
-          valuesAfter: { reason: "kept_seven_years" },
-        });
-      }
+    const isLocked = await askDatabase(
+      tx,
+      sql`select app.lock_renter_for_retirement(${renterId}) as answer`,
+    );
+    if (!isLocked || (await isAnythingOpen(tx, operatorId, renterId))) {
+      return false;
     }
-    return retired;
+    if (!(await askDatabase(tx, sql`select app.retire_renter(${renterId}) as answer`))) {
+      return false;
+    }
+    await recordActivity(tx, {
+      operatorId,
+      actor: { type: "system", id: null },
+      entityType: ACTIVITY_ENTITY_TYPES.renter,
+      entityId: renterId,
+      action: ACTIVITY_ACTIONS.purged,
+      valuesAfter: { reason: "kept_seven_years" },
+    });
+    return true;
   });
+}
+
+/**
+ * One business's Renters whose time is up. Each is done on its own, so one
+ * that fails is logged (its type only) and the rest carry on; the run stops
+ * at the limit or when its time is spent, and the next night carries on.
+ */
+async function retireForOperator(
+  database: AnyDatabase,
+  operatorId: string,
+  isOutOfTime: () => boolean,
+): Promise<number> {
+  const candidates = await withTenant(database, operatorId, (tx) => findCandidates(tx, operatorId));
+  let retired = 0;
+  for (const renterId of candidates) {
+    if (retired >= RENTERS_PER_RUN || isOutOfTime()) {
+      break;
+    }
+    try {
+      retired += (await retireOne(database, operatorId, renterId)) ? 1 : 0;
+    } catch (error) {
+      console.error("Retiring a Renter failed", describeErrorForLog(error));
+    }
+  }
+  return retired;
 }
 
 /**
@@ -168,7 +207,7 @@ export async function retireOldRenters(
   const run = await forEachOperator(
     operatorIds,
     "Renter record retention",
-    (operatorId) => retireForOperator(database, operatorId),
+    (operatorId) => retireForOperator(database, operatorId, isOutOfTime),
     isOutOfTime,
   );
   return {

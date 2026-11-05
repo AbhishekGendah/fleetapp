@@ -5,7 +5,7 @@ import type { TestConnection } from "@fleetapp/db/testing";
 import type { ActingUser } from "../src/lib/acting-user";
 import { confirmUpload, type FileDependencies } from "../src/lib/files/stored-files";
 import { emptyRentalForm, parseRentalForm } from "../src/lib/rentals/rental-input";
-import { createRental } from "../src/lib/rentals/rental-records";
+import { createRental, type NewRentalStatus } from "../src/lib/rentals/rental-records";
 import { parseLicenceForm } from "../src/lib/renters/licence-input";
 import { saveLicence } from "../src/lib/renters/licence-records";
 import { startLicenceScanUpload } from "../src/lib/renters/licence-scans";
@@ -37,6 +37,7 @@ export async function bookTestRental(
   web: TestConnection,
   owner: ActingUser,
   renterId: string,
+  status: NewRentalStatus = "booked",
 ): Promise<{ rentalId: string; vehicleId: string }> {
   const vehicleId = await addTestCar(web, owner);
   const input = parseRentalForm(
@@ -50,7 +51,7 @@ export async function bookTestRental(
     },
     TEST_TIME_ZONE,
   );
-  const result = await createRental(web.db, owner, input.data!, "booked", {
+  const result = await createRental(web.db, owner, input.data!, status, {
     timeZone: TEST_TIME_ZONE,
     now: new Date(),
   });

@@ -15,7 +15,7 @@ const queuedMark: QueuedChange = {
   ...DENT,
   queuedAt: 1,
 };
-const sent = { markKey: MARK_KEY, markId: MARK_ID, ...DENT };
+const sent = { markKey: MARK_KEY, markId: MARK_ID, ...DENT, isSettled: false };
 const savedMark = { id: MARK_ID, ...DENT, photo: null };
 
 describe("the damage marks on a checklist", () => {
@@ -49,6 +49,15 @@ describe("the damage marks on a checklist", () => {
     expect(
       damageItems([savedMark], [photo({ damageMarkId: MARK_ID })], [sent])[0]?.photoState,
     ).toEqual({ kind: "waiting" });
+  });
+
+  it("never brings back a phone-made mark once it was saved and then removed (batch 5 review)", () => {
+    const settled = { ...sent, isSettled: true };
+
+    // Saved, then removed: it is in neither list, and stays gone.
+    expect(damageItems([], [], [settled])).toEqual([]);
+    // Still saved: shown once, under its phone key.
+    expect(damageItems([savedMark], [], [settled]).map((item) => item.key)).toEqual([MARK_KEY]);
   });
 
   it("keys a mark saved elsewhere by its own id, and shows it once", () => {

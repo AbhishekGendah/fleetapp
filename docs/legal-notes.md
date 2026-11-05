@@ -840,9 +840,12 @@ of service) and the countries.
   is open, or a booking or car is out. **Lawyer to confirm 7 years before
   launch** (launch checklist).
 - **Known limits of the removal, for the lawyer:**
-  - free text the business typed into a money line (a payment reference
-    such as "transfer from J Smith") stays, because money lines are never
-    changed (rule 11);
+  - free text the business typed into records that are never changed
+    stays: a money line's description or reference ("transfer from J
+    Smith"), a bond movement's note, a change of terms' reason and a car
+    swap's reason (rules 11 and 12). Other free text the business typed
+    (rental and checklist notes, cancellation and override reasons, damage
+    descriptions, claim notes) is cleared or replaced with "Removed";
   - the Renter's customer record and direct debit on the business's own
     Stripe account are not deleted by us: the business deletes them in
     Stripe if it wants (Stripe keeps payment records for its own legal

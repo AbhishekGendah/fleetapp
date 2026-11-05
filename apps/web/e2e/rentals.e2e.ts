@@ -38,7 +38,7 @@ test.describe.serial("bookings", () => {
     await page.getByRole("textbox", { name: /^Full name/ }).fill(RENTER_NAME);
     await page.getByRole("textbox", { name: /^Phone/ }).pressSequentially("0412000201");
     await page.getByRole("button", { name: "Add Renter" }).click();
-    await expect(page.getByRole("heading", { name: RENTER_NAME })).toBeVisible();
+    await expect(page.getByRole("heading", { name: RENTER_NAME, exact: true })).toBeVisible();
 
     await addCarToBook(page, CAR_REGO);
   });

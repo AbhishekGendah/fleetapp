@@ -3,6 +3,7 @@ import {
   DETAIL_NEEDED_LABELS,
   detailsStillNeeded,
   expiryStatus,
+  formatDateTimeInTimeZone,
   type DetailNeededBeforeRenting,
   formatCalendarDate,
   todayInTimeZone,
@@ -284,24 +285,38 @@ async function DetailsTab({ renter, user }: { renter: RenterDetail; user: Signed
           </Button>
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>{isArchived ? "Archived" : "Archive"}</CardTitle>
-          <CardDescription>
-            {isArchived
-              ? "Hidden from your list and read-only. Restore to change anything."
-              : "Hides the Renter from your list. Nothing is deleted, and you can restore them."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ActionButton
-            action={setRenterArchivedAction.bind(null, renter.id, !isArchived)}
-            label={isArchived ? "Restore this Renter" : "Archive this Renter"}
-            pendingLabel={isArchived ? "Restoring…" : "Archiving…"}
-            icon={isArchived ? <ArchiveRestore aria-hidden /> : <Archive aria-hidden />}
-          />
-        </CardContent>
-      </Card>
+      {renter.retiredAt ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Details removed</CardTitle>
+            <CardDescription>
+              Seven years after their last rental, this Renter&rsquo;s personal details, documents
+              and photos were removed on{" "}
+              {formatDateTimeInTimeZone(renter.retiredAt, user.operatorTimezone)}. Their money
+              records stay. They can&rsquo;t be restored: add them again if they come back.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>{isArchived ? "Archived" : "Archive"}</CardTitle>
+            <CardDescription>
+              {isArchived
+                ? "Hidden from your list and read-only. Restore to change anything."
+                : "Hides the Renter from your list. Nothing is deleted, and you can restore them."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ActionButton
+              action={setRenterArchivedAction.bind(null, renter.id, !isArchived)}
+              label={isArchived ? "Restore this Renter" : "Archive this Renter"}
+              pendingLabel={isArchived ? "Restoring…" : "Archiving…"}
+              icon={isArchived ? <ArchiveRestore aria-hidden /> : <Archive aria-hidden />}
+            />
+          </CardContent>
+        </Card>
+      )}
     </>
   );
 }

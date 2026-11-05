@@ -10,7 +10,7 @@ const REASONS: Readonly<Record<Exclude<PrivacyNoticeOutcome, "sent">, string>> =
 };
 
 function isUnsent(value: unknown): value is keyof typeof REASONS {
-  return typeof value === "string" && value in REASONS;
+  return typeof value === "string" && Object.hasOwn(REASONS, value);
 }
 
 /**

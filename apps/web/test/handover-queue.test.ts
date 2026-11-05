@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  PHOTO_TARGET_GONE,
   runQueue,
   type QueuedChange,
   type QueuedPhotoTarget,
@@ -86,5 +87,22 @@ describe("the phone's handover queue", () => {
 
     expect(result).toEqual({ status: "stopped", count: 1, problem: "No signal" });
     expect(store.left().map((change) => change.id)).toEqual([2, 3]);
+  });
+
+  it("drops a photo whose damage mark is gone, rather than holding up the rest (batch 5 review)", async () => {
+    const senders: QueueSenders = {
+      addMark: async () => ({ markId: "m" }),
+      sendPhoto: async (_inspection, target) =>
+        "damageMarkId" in target ? PHOTO_TARGET_GONE : null,
+    };
+    const store = memoryStore([
+      photo(1, { damageMarkId: "removed-mark" }),
+      photo(2, { photoName: "Boot" }),
+    ]);
+
+    const result = await runQueue(store, senders, INSPECTION);
+
+    expect(result).toEqual({ status: "sent", count: 2 });
+    expect(store.left()).toEqual([]);
   });
 });

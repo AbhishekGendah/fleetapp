@@ -30,6 +30,27 @@ export async function sendPrivacyNotice(
   actor: ActingUser,
   renterId: string,
 ): Promise<PrivacyNoticeOutcome> {
+  let outcome: PrivacyNoticeOutcome;
+  try {
+    outcome = await emailNotice(deps, actor, renterId);
+  } catch (error) {
+    console.error("Emailing a privacy notice failed", describeErrorForLog(error));
+    return "not_sent";
+  }
+  if (outcome === "sent") {
+    // It went: a history line that can't be written is logged, never reported as unsent.
+    await recordNoticeSent(deps.database, actor, renterId).catch((error: unknown) =>
+      console.error("Recording a privacy notice email failed", describeErrorForLog(error)),
+    );
+  }
+  return outcome;
+}
+
+async function emailNotice(
+  deps: { database: AnyDatabase; emailSender: EmailSender },
+  actor: ActingUser,
+  renterId: string,
+): Promise<PrivacyNoticeOutcome> {
   const [renter] = await withTenant(deps.database, actor.operatorId, (tx) =>
     tx
       .select({
@@ -43,29 +64,31 @@ export async function sendPrivacyNotice(
   if (!renter?.email) {
     return "no_email";
   }
-  try {
-    const business = await loadNoticeBusiness(deps.database, actor.operatorId);
-    const message = await renderRenterPrivacyNoticeEmail({
-      to: renter.email,
-      replyTo: business.email ?? undefined,
-      renterName: renter.preferredName ?? renter.fullName,
-      operatorName: business.name,
-      notice: privacyNoticeFor(business, BRAND.productName, "counter"),
-    });
-    await deps.emailSender.send(message);
-    await withTenant(deps.database, actor.operatorId, (tx) =>
-      recordActivity(tx, {
-        operatorId: actor.operatorId,
-        actor: { type: "user", id: actor.userId },
-        entityType: ACTIVITY_ENTITY_TYPES.renter,
-        entityId: renterId,
-        action: ACTIVITY_ACTIONS.sent,
-        valuesAfter: { email: NOTICE_EMAIL_NAME },
-      }),
-    );
-    return "sent";
-  } catch (error) {
-    console.error("Emailing a privacy notice failed", describeErrorForLog(error));
-    return "not_sent";
-  }
+  const business = await loadNoticeBusiness(deps.database, actor.operatorId);
+  const message = await renderRenterPrivacyNoticeEmail({
+    to: renter.email,
+    replyTo: business.email ?? undefined,
+    renterName: renter.preferredName ?? renter.fullName,
+    operatorName: business.name,
+    notice: privacyNoticeFor(business, BRAND.productName, "counter"),
+  });
+  await deps.emailSender.send(message);
+  return "sent";
+}
+
+function recordNoticeSent(
+  database: AnyDatabase,
+  actor: ActingUser,
+  renterId: string,
+): Promise<void> {
+  return withTenant(database, actor.operatorId, (tx) =>
+    recordActivity(tx, {
+      operatorId: actor.operatorId,
+      actor: { type: "user", id: actor.userId },
+      entityType: ACTIVITY_ENTITY_TYPES.renter,
+      entityId: renterId,
+      action: ACTIVITY_ACTIONS.sent,
+      valuesAfter: { email: NOTICE_EMAIL_NAME },
+    }),
+  );
 }

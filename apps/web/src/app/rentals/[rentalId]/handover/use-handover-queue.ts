@@ -11,6 +11,7 @@ import {
   queueChange,
 } from "../../../../lib/handover/offline/handover-store";
 import {
+  PHOTO_TARGET_GONE,
   runQueue,
   type MarkSentFromPhone,
   type NewQueuedChange,
@@ -38,6 +39,9 @@ const senders: QueueSenders = {
       photo: { contentType: files.photo.type, sizeBytes: files.photo.size },
       thumbnail: { contentType: files.thumbnail.type, sizeBytes: files.thumbnail.size },
     });
+    if (start.status === "gone") {
+      return PHOTO_TARGET_GONE;
+    }
     if (start.status === "refused") {
       return start.message;
     }
@@ -79,6 +83,8 @@ export function useHandoverQueue(inspectionId: string): {
   queued: QueuedChange[];
   /** Marks this phone sent while the page has been open, kept until the page shows them saved. */
   sentFromPhone: MarkSentFromPhone[];
+  /** Tells the queue these marks are saved on the page, or removed (see MarkSentFromPhone). */
+  settleMarks: (markIds: readonly string[]) => void;
   state: QueueState;
   enqueue: (change: NewQueuedChange) => Promise<void>;
   sendNow: () => void;
@@ -143,7 +149,17 @@ export function useHandoverQueue(inspectionId: string): {
     };
   }, [reload, sendNow]);
 
-  return { queued, sentFromPhone, state, enqueue, sendNow };
+  const settleMarks = useCallback((markIds: readonly string[]) => {
+    setSentFromPhone((previous) =>
+      previous.some((mark) => !mark.isSettled && markIds.includes(mark.markId))
+        ? previous.map((mark) =>
+            markIds.includes(mark.markId) ? { ...mark, isSettled: true } : mark,
+          )
+        : previous,
+    );
+  }, []);
+
+  return { queued, sentFromPhone, settleMarks, state, enqueue, sendNow };
 }
 
 /**
@@ -169,7 +185,14 @@ function useMarkRemembering(
           (change) => change.kind === "mark" && change.markKey === markKey,
         );
         if (mark?.kind === "mark") {
-          const sent = { markKey, markId, x: mark.x, y: mark.y, description: mark.description };
+          const sent = {
+            markKey,
+            markId,
+            x: mark.x,
+            y: mark.y,
+            description: mark.description,
+            isSettled: false,
+          };
           setSentFromPhone((previous) => [
             ...previous.filter((each) => each.markKey !== markKey),
             sent,
