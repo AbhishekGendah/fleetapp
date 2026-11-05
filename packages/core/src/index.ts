@@ -35,6 +35,7 @@ export * from "./postgres-errors";
 export * from "./record-id";
 export * from "./settings";
 export * from "./signing";
+export * from "./document-emails";
 export * from "./setup-checklist";
 export * from "./spreadsheet-cells";
 export * from "./state-areas";

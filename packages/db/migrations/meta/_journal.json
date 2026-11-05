@@ -316,6 +316,13 @@
       "when": 1793839583058,
       "tag": "0044_login_safety",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1793852073346,
+      "tag": "0045_signing_documents",
+      "breakpoints": true
     }
   ]
 }

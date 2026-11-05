@@ -82,7 +82,12 @@ describe("inspections and possessions", () => {
     );
   }
 
-  function addPhoto(vehicleId: string, inspectionId: string, name: string) {
+  function addPhoto(
+    vehicleId: string,
+    inspectionId: string,
+    name: string,
+    confirmedAt: Date | null = new Date(),
+  ) {
     return withTenant(web.db, operatorAId, (tx) =>
       tx
         .insert(schema.files)
@@ -97,7 +102,7 @@ describe("inspections and possessions", () => {
           label: `TEST ${randomUUID()}`,
           inspectionId,
           inspectionPhotoName: name,
-          confirmedAt: new Date(),
+          confirmedAt,
         })
         .returning({ id: schema.files.id }),
     );
@@ -200,6 +205,24 @@ describe("inspections and possessions", () => {
     ];
 
     expect(codes).toEqual(codes.map(() => POSTGRES_ERROR_CODES.restrictViolation));
+  });
+
+  it("refuses a photo whose upload finishes after the checklist is finished (review A6-10)", async () => {
+    const rental = await addRental();
+    const inspectionId = await startInspection(rental);
+    const [late] = await addPhoto(rental.vehicleId, inspectionId, "Boot", null);
+    await complete(inspectionId);
+
+    const code = await postgresErrorCodeOf(
+      withTenant(web.db, operatorAId, (tx) =>
+        tx
+          .update(schema.files)
+          .set({ confirmedAt: new Date() })
+          .where(eq(schema.files.id, late!.id)),
+      ),
+    );
+
+    expect(code).toBe(POSTGRES_ERROR_CODES.restrictViolation);
   });
 
   it("takes one photo in use for each name on the list", async () => {

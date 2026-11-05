@@ -50,6 +50,12 @@ export const renterLinks = pgTable(
     sentToEmail: text("sent_to_email").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    /**
+     * When the Renter used the link to do what it was for (signed). Kept
+     * apart from cancelledAt, so a used link says "already signed" rather
+     * than "no longer works" (review A3-7).
+     */
+    usedAt: timestamp("used_at", { withTimezone: true }),
     createdByUserId: uuid("created_by_user_id")
       .notNull()
       .references(() => users.id),
@@ -88,14 +94,15 @@ export const renterLinks = pgTable(
       columns: [table.renterId, table.operatorId],
       foreignColumns: [renters.id, renters.operatorId],
     }),
-    // One link of each kind in play per Renter (per rental for signing): sending
-    // another cancels the first.
+    // One link of each kind in play per Renter (per rental for signing, per
+    // change for a change form): sending another cancels the first (review A3-2).
     uniqueIndex("renter_links_one_live_per_purpose")
       .on(
         table.operatorId,
         table.renterId,
         table.purpose,
         sql`coalesce(${table.rentalId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
+        sql`coalesce(${table.rentalChangeId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
       )
       .where(sql`${table.cancelledAt} is null`),
     foreignKey({

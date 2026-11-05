@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { STARTER_CONTRACT } from "@fleetapp/core";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import * as schema from "../src/schema";
@@ -140,6 +140,61 @@ describe("contract signing", () => {
 
     expect(sameRental).toBe(UNIQUE_VIOLATION);
     expect(otherRental).toHaveLength(1);
+  });
+
+  it("keeps one live change-form link per change, not per rental (review A3-2)", async () => {
+    const rentalId = await addRental();
+    const change = (status: "waiting_for_signature" | "withdrawn") =>
+      withTenant(web.db, operatorAId, async (tx) => {
+        const [row] = await tx
+          .insert(schema.rentalChanges)
+          .values({
+            operatorId: operatorAId,
+            rentalId,
+            kind: "weekly_rate",
+            status,
+            withdrawnAt: status === "withdrawn" ? new Date() : null,
+            rateBeforeCents: 350_00,
+            rateAfterCents: 380_00,
+            appliesFrom: "2026-12-08",
+            reason: "Yearly review",
+            createdByUserId: userAId,
+          })
+          .returning({ id: schema.rentalChanges.id });
+        return row!.id;
+      });
+    const [first, second] = [await change("withdrawn"), await change("waiting_for_signature")];
+    const changeLink = (rentalChangeId: string) =>
+      signingLink(rentalId, { purpose: "sign_change", rentalChangeId });
+
+    await changeLink(first);
+    const otherChange = await changeLink(second);
+    const sameChange = await postgresErrorCodeOf(changeLink(first));
+
+    expect(otherChange).toHaveLength(1);
+    expect(sameChange).toBe(UNIQUE_VIOLATION);
+  });
+
+  it("says a link was used from its secret alone, and nothing more (review A3-7)", async () => {
+    const tokenHash = randomUUID();
+    const [link] = await signingLink(await addRental(), { tokenHash });
+    const wasUsed = async () =>
+      (
+        await web.db.execute<{ used: boolean }>(
+          sql`SELECT "app"."renter_link_was_used"(${tokenHash}) AS used`,
+        )
+      ).rows[0]?.used;
+
+    const before = await wasUsed();
+    await withTenant(web.db, operatorAId, (tx) =>
+      tx
+        .update(schema.renterLinks)
+        .set({ usedAt: new Date(), cancelledAt: new Date() })
+        .where(eq(schema.renterLinks.id, link!.id)),
+    );
+
+    expect(before).toBe(false);
+    expect(await wasUsed()).toBe(true);
   });
 
   it("never changes or removes evidence, and keeps it from other Operators and the admin app", async () => {

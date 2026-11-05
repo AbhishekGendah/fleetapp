@@ -301,4 +301,35 @@ describe("contracts", () => {
       expect([badFingerprint, sameVersion]).toEqual([CHECK_VIOLATION, UNIQUE_VIOLATION]);
     });
   });
+
+  it("records each emailed copy for good, kept from other Operators and the admin app (review G9-9)", async () => {
+    const documentId = await issue();
+    const [row] = await withTenant(web.db, operatorAId, (tx) =>
+      tx
+        .insert(schema.documentEmails)
+        .values({ operatorId: operatorAId, documentId, recipient: "renter", outcome: "failed" })
+        .returning({ id: schema.documentEmails.id }),
+    );
+
+    const codes = [
+      await postgresErrorCodeOf(
+        withTenant(web.db, operatorAId, (tx) =>
+          tx
+            .update(schema.documentEmails)
+            .set({ outcome: "sent" })
+            .where(eq(schema.documentEmails.id, row!.id)),
+        ),
+      ),
+      await postgresErrorCodeOf(admin.db.select().from(schema.documentEmails)),
+    ];
+    const seenByOther = await withTenant(web.db, operatorBId, (tx) =>
+      tx.select().from(schema.documentEmails).where(eq(schema.documentEmails.id, row!.id)),
+    );
+
+    expect(codes).toEqual([
+      POSTGRES_ERROR_CODES.insufficientPrivilege,
+      POSTGRES_ERROR_CODES.insufficientPrivilege,
+    ]);
+    expect(seenByOther).toEqual([]);
+  });
 });

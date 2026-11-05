@@ -1,5 +1,7 @@
 import {
   CONTRACT_TEMPLATE_KINDS,
+  DOCUMENT_EMAIL_OUTCOMES,
+  DOCUMENT_EMAIL_RECIPIENTS,
   ISSUED_DOCUMENT_KINDS,
   type TemplateDocument,
 } from "@fleetapp/core";
@@ -149,5 +151,36 @@ export const issuedDocuments = pgTable(
     unique("issued_documents_id_operator_unique").on(table.id, table.operatorId),
     check("issued_documents_version", sql`${table.version} > 0`),
     check("issued_documents_sha256", sql`${table.sha256} ~ '^[0-9a-f]{64}$'`),
+  ],
+);
+
+/**
+ * Each try at emailing a copy of an issued document, to the Renter or the
+ * business: never changed, a resend is a new row (review G7-1, G9-9). Kept
+ * apart from the document, which can never be changed (rule 12).
+ */
+export const documentEmails = pgTable(
+  "document_emails",
+  {
+    ...primaryKeyColumn,
+    ...operatorIdColumn,
+    documentId: uuid("document_id").notNull(),
+    recipient: text("recipient", { enum: DOCUMENT_EMAIL_RECIPIENTS }).notNull(),
+    outcome: text("outcome", { enum: DOCUMENT_EMAIL_OUTCOMES }).notNull(),
+    /** Who pressed "Email again"; none for the copy sent when it was issued. */
+    sentByUserId: uuid("sent_by_user_id").references(() => users.id),
+    triedAt: timestamp("tried_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (table) => [
+    foreignKey({
+      name: "document_emails_document_fk",
+      columns: [table.documentId, table.operatorId],
+      foreignColumns: [issuedDocuments.id, issuedDocuments.operatorId],
+    }),
+    index("document_emails_document_idx").on(table.operatorId, table.documentId, table.triedAt),
+    check("document_emails_recipient", sql`${table.recipient} in ('renter', 'business')`),
+    check("document_emails_outcome", sql`${table.outcome} in ('sent', 'failed', 'no_address')`),
   ],
 );

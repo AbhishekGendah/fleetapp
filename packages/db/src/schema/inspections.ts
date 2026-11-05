@@ -1,4 +1,10 @@
-import { FUEL_LEVELS, INSPECTION_KINDS, INSPECTION_STATUSES, OUTLINE_SCALE } from "@fleetapp/core";
+import {
+  FUEL_LEVELS,
+  INSPECTION_KINDS,
+  INSPECTION_STATUSES,
+  OUTLINE_SCALE,
+  SIGNATURE_METHODS,
+} from "@fleetapp/core";
 import { sql } from "drizzle-orm";
 import {
   boolean,
@@ -65,6 +71,10 @@ export const inspections = pgTable(
      * acceptance then holds what the business recorded instead.
      */
     isRenterAbsent: boolean("is_renter_absent").notNull().default(false),
+    /** How the Renter signed on the business's phone: drawn or typed (review G9-10). */
+    signatureMethod: text("signature_method", { enum: SIGNATURE_METHODS }),
+    /** The name the Renter typed, when they typed it. */
+    typedName: text("typed_name"),
     /**
      * One of a car swap's pair (the old car's return, the new car's
      * handover): the rental's own first handover and final return are not.
@@ -102,6 +112,11 @@ export const inspections = pgTable(
     check(
       "inspections_renter_absent_on_return",
       sql`${table.kind} = 'return' or not ${table.isRenterAbsent}`,
+    ),
+    check(
+      "inspections_signature",
+      sql`(${table.signatureMethod} is null or ${table.signatureMethod} in ('drawn', 'typed'))
+        and (${table.signatureMethod} = 'typed') = (${table.typedName} is not null)`,
     ),
     check(
       "inspections_cancelled",

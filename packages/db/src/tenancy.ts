@@ -136,6 +136,7 @@ export const APPEND_ONLY_TABLES = [
   "issued_documents",
   "signing_evidence",
   "bond_movements",
+  "document_emails",
 ] as const;
 
 /**
