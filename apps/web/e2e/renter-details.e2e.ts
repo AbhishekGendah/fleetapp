@@ -73,7 +73,7 @@ test("a Renter sends their details from their phone; the business sends back, th
 
   const renterPage = await openLinkOnPhone(browser, link);
   await fillPersonalDetails(renterPage);
-  await fillLicence(renterPage, "1234567");
+  await fillLicence(renterPage, "5550101");
   await expectNoSidewaysScroll(renterPage);
   await expectAccessible(renterPage);
   await renterPage.getByRole("button", { name: BUSINESS_NAME_PATTERN }).click();
@@ -82,7 +82,7 @@ test("a Renter sends their details from their phone; the business sends back, th
   await page.goto(renterUrl, { waitUntil: "networkidle" });
   await page.getByRole("link", { name: "Review what they sent" }).click();
   await expect(page.getByRole("heading", { name: "Review what they sent" })).toBeVisible();
-  await expect(page.getByText("1234567")).toBeVisible();
+  await expect(page.getByText("5550101")).toBeVisible();
   await expectAccessible(page);
   await page.getByRole("button", { name: "Send back" }).click();
   const dialog = page.getByRole("dialog");
@@ -95,14 +95,14 @@ test("a Renter sends their details from their phone; the business sends back, th
   await expect(renterPage.getByText(SEND_BACK_NOTE)).toBeVisible();
   await expect(renterPage.getByRole("textbox", { name: /^Phone/ })).toHaveValue("0412 000 777");
   await expect(renterPage.getByRole("textbox", { name: /^Licence number/ })).toHaveValue("");
-  await fillLicence(renterPage, "7654321");
+  await fillLicence(renterPage, "5550102");
   await renterPage.getByRole("button", { name: BUSINESS_NAME_PATTERN }).click();
   await expect(renterPage.getByText(/will check your details\.$/)).toBeVisible();
   await renterPage.context().close();
 
   await page.goto(renterUrl, { waitUntil: "networkidle" });
   await page.getByRole("link", { name: "Review what they sent" }).click();
-  await expect(page.getByText("7654321")).toBeVisible();
+  await expect(page.getByText("5550102")).toBeVisible();
   await page.getByRole("button", { name: "Approve" }).click();
   await expect(page.getByRole("heading", { name: RENTER.name })).toBeVisible();
   await expect(page.getByRole("link", { name: "Review what they sent" })).toHaveCount(0);
