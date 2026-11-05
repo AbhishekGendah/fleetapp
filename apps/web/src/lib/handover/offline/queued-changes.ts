@@ -104,3 +104,16 @@ export async function runQueue(
   }
   return { status: "sent", count };
 }
+
+/**
+ * A mark the phone made and has just sent: its phone key, the id the server
+ * gave it, and what it looks like. Kept until the page's own list shows the
+ * saved mark, so the mark is never missing from the screen in between.
+ */
+export interface MarkSentFromPhone {
+  markKey: string;
+  markId: string;
+  x: number;
+  y: number;
+  description: string;
+}

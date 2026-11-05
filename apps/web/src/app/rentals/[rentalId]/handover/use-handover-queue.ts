@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { orSendFailed } from "../../../../lib/files/or-send-failed";
 import { SEND_FAILED_MESSAGE, sendToStorage } from "../../../../lib/files/send-to-storage";
@@ -12,9 +12,11 @@ import {
 } from "../../../../lib/handover/offline/handover-store";
 import {
   runQueue,
+  type MarkSentFromPhone,
   type NewQueuedChange,
   type QueuedChange,
   type QueueSenders,
+  type QueueStore,
 } from "../../../../lib/handover/offline/queued-changes";
 import {
   addDamageMarkAction,
@@ -75,6 +77,8 @@ async function withSavedMarks(pending: QueuedChange[]): Promise<QueuedChange[]> 
  */
 export function useHandoverQueue(inspectionId: string): {
   queued: QueuedChange[];
+  /** Marks this phone sent while the page has been open, kept until the page shows them saved. */
+  sentFromPhone: MarkSentFromPhone[];
   state: QueueState;
   enqueue: (change: NewQueuedChange) => Promise<void>;
   sendNow: () => void;
@@ -82,6 +86,8 @@ export function useHandoverQueue(inspectionId: string): {
   const router = useRouter();
   const [queued, setQueued] = useState<QueuedChange[]>([]);
   const [state, setState] = useState<QueueState>({ status: "idle" });
+  const [sentFromPhone, setSentFromPhone] = useState<MarkSentFromPhone[]>([]);
+  const store = useMarkRemembering(setSentFromPhone);
   const isRunning = useRef(false);
   /** Something was queued while a run was sending: run again straight after, not at the next retry. */
   const isRunAgainWanted = useRef(false);
@@ -105,7 +111,7 @@ export function useHandoverQueue(inspectionId: string): {
       do {
         isRunAgainWanted.current = false;
         problem = await orSendFailed(async () => {
-          const result = await runQueue(phoneQueueStore, senders, inspectionId);
+          const result = await runQueue(store, senders, inspectionId);
           if (result.count > 0) {
             router.refresh();
           }
@@ -116,7 +122,7 @@ export function useHandoverQueue(inspectionId: string): {
       setState(problem ? { status: "waiting", problem } : { status: "idle" });
       await reload();
     })();
-  }, [inspectionId, reload, router]);
+  }, [inspectionId, reload, router, store]);
 
   const enqueue = useCallback(
     async (change: NewQueuedChange) => {
@@ -137,5 +143,40 @@ export function useHandoverQueue(inspectionId: string): {
     };
   }, [reload, sendNow]);
 
-  return { queued, state, enqueue, sendNow };
+  return { queued, sentFromPhone, state, enqueue, sendNow };
+}
+
+/**
+ * The phone's queue, also noting each mark as the server saves it, with the
+ * details it was queued with: the page shows it in place until its own list
+ * has the saved mark (see damage-items.ts).
+ */
+function useMarkRemembering(
+  setSentFromPhone: (update: (previous: MarkSentFromPhone[]) => MarkSentFromPhone[]) => void,
+): QueueStore {
+  const lastPending = useRef<QueuedChange[]>([]);
+  return useMemo(
+    () => ({
+      ...phoneQueueStore,
+      pending: async (inspectionId) => {
+        const pending = await phoneQueueStore.pending(inspectionId);
+        lastPending.current = pending;
+        return pending;
+      },
+      rememberMark: async (markKey, markId) => {
+        await phoneQueueStore.rememberMark(markKey, markId);
+        const mark = lastPending.current.find(
+          (change) => change.kind === "mark" && change.markKey === markKey,
+        );
+        if (mark?.kind === "mark") {
+          const sent = { markKey, markId, x: mark.x, y: mark.y, description: mark.description };
+          setSentFromPhone((previous) => [
+            ...previous.filter((each) => each.markKey !== markKey),
+            sent,
+          ]);
+        }
+      },
+    }),
+    [setSentFromPhone],
+  );
 }

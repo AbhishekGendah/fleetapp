@@ -6,24 +6,15 @@ import { CloudOff, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useState, type ReactNode } from "react";
 
-import type {
-  QueuedChange,
-  QueuedPhotoTarget,
-} from "../../../../lib/handover/offline/queued-changes";
+import type { QueuedPhotoTarget } from "../../../../lib/handover/offline/queued-changes";
 import { removeDamageMarkAction } from "./actions";
 import type { ChecklistData, SavedMark, SavedPhoto } from "./checklist-data";
-import { ChecklistDamage, type DamageMarkItem } from "./checklist-damage";
+import { ChecklistDamage } from "./checklist-damage";
 import { ChecklistDetails } from "./checklist-details";
 import { ChecklistPhotos, useTakePhoto, type PhotoState } from "./checklist-photos";
+import { damageItems, isWaitingFor } from "./damage-items";
 import { gapsMessage } from "./handover-state";
 import { useHandoverQueue, type QueueState } from "./use-handover-queue";
-
-function isWaitingFor(
-  queued: readonly QueuedChange[],
-  matches: (target: QueuedPhotoTarget) => boolean,
-) {
-  return queued.some((change) => change.kind === "photo" && matches(change.target));
-}
 
 function SyncStatus({
   count,
@@ -51,45 +42,6 @@ function SyncStatus({
       </Button>
     </div>
   );
-}
-
-/** Damage marks to show: the server's, then those still on the phone, each with where its photo is. */
-function damageItems(data: ChecklistData, queued: readonly QueuedChange[]): DamageMarkItem[] {
-  const saved = data.marks.map((mark) => ({
-    key: mark.id,
-    serverId: mark.id,
-    x: mark.x,
-    y: mark.y,
-    description: mark.description,
-    photoState: mark.photo
-      ? ({ kind: "saved", photo: mark.photo } as const)
-      : isWaitingFor(
-            queued,
-            (target) => "damageMarkId" in target && target.damageMarkId === mark.id,
-          )
-        ? ({ kind: "waiting" } as const)
-        : ({ kind: "missing" } as const),
-  }));
-  const local = queued.flatMap((change) =>
-    change.kind === "mark"
-      ? [
-          {
-            key: change.markKey,
-            serverId: null,
-            x: change.x,
-            y: change.y,
-            description: change.description,
-            photoState: isWaitingFor(
-              queued,
-              (target) => "markKey" in target && target.markKey === change.markKey,
-            )
-              ? ({ kind: "waiting" } as const)
-              : ({ kind: "missing" } as const),
-          },
-        ]
-      : [],
-  );
-  return [...saved, ...local];
 }
 
 /** At a return: what the handover found, to compare each step with. */
@@ -125,7 +77,7 @@ export function HandoverChecklist({
   finalStep: { title: string; form: ReactNode };
 }) {
   const router = useRouter();
-  const { queued, state, enqueue, sendNow } = useHandoverQueue(data.inspectionId);
+  const { queued, sentFromPhone, state, enqueue, sendNow } = useHandoverQueue(data.inspectionId);
   const queuePhoto = useCallback(
     (target: QueuedPhotoTarget, files: { photo: Blob; thumbnail: Blob }) =>
       enqueue({ kind: "photo", inspectionId: data.inspectionId, target, ...files }),
@@ -176,7 +128,7 @@ export function HandoverChecklist({
       </FormSection>
       <FormSection title={`3. ${damageTitle}`}>
         <ChecklistDamage
-          marks={damageItems(data, queued)}
+          marks={damageItems(data.marks, queued, sentFromPhone)}
           existingMarks={comparison?.marks}
           onAdd={(mark) =>
             enqueue({

@@ -87,6 +87,30 @@ async function takePhoto(page: Page, buttonName: string): Promise<void> {
   await row.locator('input[type="file"]').setInputFiles(await samplePhoto(page, "photo.jpg"));
 }
 
+/**
+ * Holds back the server's saving of the damage mark with this description
+ * until released, as on poor signal.
+ */
+function holdMarkSave(page: Page, description: string): { release: () => Promise<void> } {
+  let release: () => void = () => undefined;
+  const released = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  void page.route(/\/return$/, async (route) => {
+    const request = route.request();
+    if (request.headers()["next-action"] && request.postData()?.includes(description)) {
+      await released;
+    }
+    await route.fallback();
+  });
+  return {
+    release: async () => {
+      release();
+      await page.unrouteAll({ behavior: "wait" });
+    },
+  };
+}
+
 test.describe.serial("handing a car over", () => {
   test("sets up a ready Renter, a car, a booking and a signed contract", async ({ page }) => {
     await addRenterReadyToRent(page);
@@ -236,11 +260,19 @@ test.describe.serial("handing a car over", () => {
       ).toBeVisible();
       await page.getByLabel("Or choose where on the car").selectOption("bonnet");
       await page.getByRole("textbox", { name: "What is the damage?" }).fill("Dent on bonnet");
+      // The photo picker is opened while the mark is still saving, and the
+      // photo chosen after the save lands: it must not be lost.
+      const saving = holdMarkSave(page, "Dent on bonnet");
       await page.getByRole("button", { name: "Add damage mark" }).click();
       await expect(page.getByRole("button", { name: "Damage 1: Dent on bonnet" })).toBeVisible();
-      // Once saved, the mark's row is drawn afresh: a photo chosen before then would be lost.
+      const openPicker = await page
+        .getByRole("listitem")
+        .filter({ has: page.getByRole("button", { name: "Take photo: damage 1" }) })
+        .locator('input[type="file"]')
+        .elementHandle();
+      await saving.release();
       await expect(page.getByRole("button", { name: "Remove mark 1" })).toBeVisible();
-      await takePhoto(page, "Take photo: damage 1");
+      await openPicker!.setInputFiles(await samplePhoto(page, "dent.jpg"));
       await expect(page.getByAltText("Damage 1 photo")).toBeVisible();
       await expectAccessible(page);
     });
