@@ -131,9 +131,13 @@ Add to this list whenever something is relaxed or put off "until launch".
 
 ## Documents
 
-- [ ] Retention period for issued documents (contracts, reports) decided
-      with the lawyer (commonly 7 years) before any deletion rule touches
-      them. See docs/legal-notes.md, Contract templates.
+- [ ] The lawyer confirms 7 years: a Renter's personal details, signed PDFs
+      and photos are removed 7 years after their last rental ended, money
+      lines kept as amounts (decided by Abhi 5 Nov 2026, built in batch 5;
+      the nightly job is live from then). Also the two known limits: payment
+      references typed into money lines stay, and the Renter's record on the
+      business's own Stripe account is the business's to delete. See
+      docs/legal-notes.md, Review fixes batch 5.
 - [x] Every European name prints in PDFs: Noto Sans embedded (SIL OFL,
       allowed for fonts by Abhi 5 Nov 2026, batch 4). Scripts beyond Latin,
       Greek and Cyrillic (e.g. Arabic, Chinese) would still need another font.
@@ -155,13 +159,14 @@ Add to this list whenever something is relaxed or put off "until launch".
       policy, Operator terms (including AGS correcting car make and model
       names, and record keeping), the Renter privacy notice, and the data
       breach response plan.
-- [ ] "Download everything we hold" for a Renter includes their damage
-      records and insurance claims (added 2 Nov 2026 with slice 6b; see
-      docs/legal-notes.md).
+- [x] "Download everything we hold" for a Renter includes their damage
+      records and insurance claims, and everything else held, with the
+      documents themselves (batch 5, 5 Nov 2026).
 - [ ] PintoFleet name checked (ASIC, IP Australia, domain).
-- [ ] The privacy notice on the Renter's details form checked by the lawyer,
-      and every Operator has a privacy policy it can point to (a link to it on
-      the form may be wanted). See docs/legal-notes.md, Renter links.
+- [ ] The Renter privacy notice wording checked by the lawyer: one wording,
+      on the details, signing and payments links, emailed to Renters added at
+      the counter, and a short line on the business's phone (batch 5). Each
+      business can now give its privacy policy link in Business details.
 - [ ] The Operator privacy policy template
       (docs/legal/renter-privacy-policy-template.md) reviewed once by the lawyer,
       and the Operator terms saying it is a

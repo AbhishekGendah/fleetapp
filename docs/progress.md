@@ -1111,7 +1111,33 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
     stopped link says nothing was signed, a signed link says it's signed.
   - Known: the handover return browser test still fails in short runs (a
     damage photo taken right after its mark is added is lost); it passed
-    in the last full run. To look at on its own.
+    in the last full run. Fixed in batch 5 (below).
+
+- **Review fixes batch 5: privacy and records** (plan:
+  docs/plans/review-fixes-batch-5.md, approved 5 Nov 2026 with 7-year
+  retention). Migrations 0046 and 0047.
+  - The nightly file clean-up no longer sticks on a retaken checklist photo
+    or one bad file, and stops inside its time limit. Licence scans are kept
+    only while a booking or car is out, not for ever after a return.
+  - Photos never keep where they were taken; browsers keep no copy of
+    licence pictures or contracts; the handover phone forgets a checklist
+    when it is cancelled or finished (here or elsewhere), after 7 days, and
+    at sign-out (warning first about unsent photos).
+  - A damage photo chosen while its new mark is saving is kept (it used to
+    be lost).
+  - Signing records saved with the code they use; no internet address in
+    the logs; "How to pay" kept out of the history; cars download and
+    built-in charge types logged; the change form shows only what it is
+    about.
+  - One privacy notice for Renters on every link, a short line on the
+    business's phone, emailed to Renters added at the counter (or a
+    printable page when they have no email); a privacy policy link in
+    Business details; no "reply" wording when replies can't arrive.
+  - "Download everything we hold" is a zip of the full workbook and the
+    documents and scans themselves.
+  - Seven years after a Renter's last rental, with nothing open, a nightly
+    job removes their personal details and bins their PDFs and photos;
+    money lines stay. Lawyer to confirm before launch.
 
 ## Next
 
@@ -1120,8 +1146,8 @@ merged (still to do), and APP_STAGE=development in both dev Vercel projects
 (the test inbox now needs it, or the dev site won't start). Check the dev
 database logins with the query in docs/runbooks/database-roles.md before
 merging too. Abhi: add batch 2's new Stripe event types to both event
-destinations (list in docs/launch-checklist.md). Batch 5 plan (privacy and records) written, waiting for Abhi:
-docs/plans/review-fixes-batch-5.md. Abhi: add the second Stripe event destination (connected
+destinations (list in docs/launch-checklist.md). Batch 5 done (5 Nov 2026);
+next from the review: batch 6 (database update safety). Abhi: add the second Stripe event destination (connected
 accounts) and its secret, then try slice 4 on the dev site. Then Phase 4
 slice 5 (weekly debits).
 Open idea: trim the phone rules to Australia only with libphonenumber's

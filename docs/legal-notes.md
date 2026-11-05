@@ -34,11 +34,11 @@ of service) and the countries.
 | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
 | Google Places (address lookup)            | Address text as it is typed; nothing else                                                                                          | Google, worldwide              |
 | Have I Been Pwned (leaked-password check) | 5 characters of a scrambled fingerprint of a new password; not personal information, and the password cannot be worked out from it | Run from Cloudflare, worldwide |
-| Postmark (email, not yet live)            | Names, email addresses, email contents                                                                                             | USA                            |
-| Stripe (payments, not yet built)          | Renter names, bank details, payment history                                                                                        | Stripe, incl. USA              |
+| Postmark (email, live)                    | Names, email addresses, email contents (signed PDFs, reports with photos, invoices)                                                 | USA                            |
+| Stripe (payments, live)                   | Renter names and emails, bank and card details (typed into Stripe), payment history                                                | Stripe, Australia and USA      |
 | Vercel (hosting)                          | Everything passing through the app; functions run in Sydney                                                                        | US company                     |
 | Neon (database)                           | Everything stored; data in Sydney                                                                                                  | US company                     |
-| AWS S3 (files, not yet built)             | Photos and documents; stored in Sydney                                                                                             | US company                     |
+| AWS S3 (files, live)                      | Photos, documents and licence scans; stored in Sydney                                                                              | US company                     |
 | SMS provider (TBD)                        | Renter phone numbers and message text                                                                                              | TBD                            |
 
 ## Address lookup (Google Places)
@@ -825,3 +825,44 @@ of service) and the countries.
 - Terms of service for Operators, including a data processing section.
 - A privacy notice Renters see when they first open a link.
 - A data breach response plan.
+
+## Review fixes batch 5: privacy and records (5 Nov 2026)
+
+- **Retention (APP 11.2), decided 5 Nov 2026:** a Renter's rental and
+  money records are kept 7 years after their last rental ended (or after
+  they were added, if they never rented). Then a nightly job removes their
+  personal details (name, contact, date of birth, addresses, licence,
+  emergency contact, notes, submitted forms, link emails, signing evidence,
+  typed names) and bins their signed PDFs, reports, invoices, photos and
+  licence scans (gone for good 30 days later). Money lines, invoice
+  numbers and the history stay as amounts and events. Nothing is removed
+  while money is owed either way, a bond is held, a damage matter or claim
+  is open, or a booking or car is out. **Lawyer to confirm 7 years before
+  launch** (launch checklist).
+- **Known limits of the removal, for the lawyer:**
+  - free text the business typed into a money line (a payment reference
+    such as "transfer from J Smith") stays, because money lines are never
+    changed (rule 11);
+  - the Renter's customer record and direct debit on the business's own
+    Stripe account are not deleted by us: the business deletes them in
+    Stripe if it wants (Stripe keeps payment records for its own legal
+    duties).
+- **Collection notice (APP 5), one wording everywhere:** on the details,
+  signing and payments links; a short line on the business's phone before
+  signing; emailed to a Renter added at the counter (a service message
+  about their own details, not marketing, so the Spam Act allows it; it
+  names the business). Without an email, the business is told to show or
+  print it. Wording to be checked by the lawyer.
+- **Each business's own privacy policy:** a link in Business details,
+  shown in the notice; the template (docs/legal/renter-privacy-policy-
+  template.md) now covers proof of signing, direct debits, what emails
+  carry and the real keeping times.
+- **APP 12 "everything we hold":** now a zip of the full workbook and the
+  documents and scans themselves; staff names show as "the business".
+- **APP 11 security:** photos never keep where they were taken; browsers
+  keep no copy of files opened through view links; the handover phone
+  forgets checklists when they end, after 7 days, and at sign-out.
+- **Logs:** "How to pay" bank details are no longer written into the
+  settings history; the cars list download is logged; a signing-page
+  failure never logs the Renter's internet address.
+

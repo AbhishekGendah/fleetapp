@@ -268,3 +268,55 @@ lawyer before launch.
 Tradeoff: longer than the tax minimum (5 years) but within the 6-year
 window a contract claim can come; shorter means less held, but risks
 losing evidence the business needs in a dispute.
+
+## As built (5 Nov 2026)
+
+- **A. Deleting what should be deleted:** migration 0046 lets the clean-up
+  remove a photo binned while its checklist was open. Each file is cleaned
+  up on its own, oldest first, a failing one sent to the back; the nightly
+  run stops after 4 minutes. Licence scans are held only by a booking or a
+  car out.
+- **4. Seven years (migration 0047):** `renters.retired_at`, set only by
+  `app.retire_renter`, which re-checks under lock (no booking or car out,
+  seven years by the database's own clock, never sooner) and works only
+  within the business set for the transaction. The job (lib/renters/
+  renter-retirement.ts) also checks money either way, bond and open damage
+  or claims (`isAnythingStillOpen` in packages/core). It removes the
+  personal details, notes, submitted forms, link devices and emails,
+  signing evidence, typed names and rental notes, and bins the Renter's
+  files (licence scans, link photos, checklist and damage photos, issued
+  PDFs); the usual clean-up removes them 30 days later. The files,
+  checklist and signing-evidence protections each allow only that for a
+  retired Renter. Owner policies (as in 0007): read of renters and rentals
+  to find businesses with work; changes only within the current business.
+  - Deliberately left: money lines (rule 11), including any free-text
+    payment reference; invoices and numbers; the history; the business's
+    own Stripe records. In legal-notes for the lawyer.
+- **B. Leaks:** the shrinker always redraws (Compressor `strict: false`);
+  every view link is "private, no-store" (links are signed afresh, so no
+  caching was lost). Phone wipes: per-rental page cache, on the rental page
+  for ended checklists, a week's limit on every signed-in page, and at
+  sign-out with a warning (loaded only when needed; the phone database's
+  code loads only where it exists, keeping every page in its budget).
+  - Found on the way: billing documents opened through Next's link, which
+    fetched every PDF ahead of time; now a plain link.
+  - Found on the way: a damage photo chosen while its new mark was saving
+    was lost (the mark left the phone's queue before the page showed it
+    saved). Fixed with stable row keys; a browser test holds the save.
+- **8–10.** Code evidence saved in the code check's transaction; the
+  signing page catches a failed "opened" record. "How to pay" withheld in
+  history; cars download logged (shared `recordListExport`); built-in
+  charge types logged by the system; change forms show name, car, change
+  and reason only.
+- **C. Notice:** one wording in packages/core (`privacyNoticeFor`), on the
+  three Renter link pages, a short line before signing on the business's
+  phone, emailed after Add Renter (or the "Give them the privacy notice"
+  card and a printable Privacy notice page). `operators.privacy_policy_url`
+  (https on a real domain only). Renter emails never say "reply" without a
+  business email; warnings by every link sender and on checklist pages.
+  - Formatting (rule 31): the privacy policy link is a web address, kept
+    as typed (a path can be case-sensitive), so no formatter applies.
+- **D. Everything we hold:** a streamed zip (fflate 0.8.3, pinned): the
+  workbook with every section, the issued documents and licence scans still
+  held, and a files-not-included.txt if one can't be read. Streaming keeps
+  memory low and avoids Vercel's 4.5 MB response limit.

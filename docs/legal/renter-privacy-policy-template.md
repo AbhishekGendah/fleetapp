@@ -3,7 +3,8 @@
 **Status:** first draft, written by AGS from the OAIC's guidance on APP
 privacy policies (Australian Privacy Principle 1). Not legal advice. To be
 reviewed by a lawyer once before the first real Operator uses it (see
-docs/launch-checklist.md). Last updated 31 Oct 2026.
+docs/launch-checklist.md). Last updated 5 Nov 2026 (review batch 5: proof
+of signing, direct debits, what emails carry, the real keeping times).
 
 ## Notes for the Operator (delete this section before publishing)
 
@@ -56,13 +57,24 @@ When you rent from us, or ask to, we collect:
   signed, handover and return reports and photos (which may show you or
   your belongings), odometer readings, damage, and any fines, tolls or
   infringement notices received while you had the vehicle.
-- **Payments:** what you have paid and owe. Your bank account or card
-  details are collected and held by our payment provider (Stripe), not by
-  us. [Delete this item until you take payments through the system.]
+- **Payments:** what you have paid and owe, and your direct debit
+  agreement (when it was set up, and whether it is active). Your bank
+  account or card details are collected and held by our payment provider
+  (Stripe), not by us: we only ever see the last few digits. To set it up,
+  your name and email address are sent to Stripe. [Delete this item if you
+  do not take payments through the system.]
+- **Proof of signing:** when you sign an agreement, a change to it, or a
+  handover or return report, we keep your signature (drawn with your
+  finger, or your full name typed), the time, and for signing on your own
+  phone, your device's internet address and what kind of phone or browser
+  it was, and that a code we emailed you was typed in. This is kept with
+  the signed document as proof of who signed and when.
 - **Notes we make** about our dealings with you, and whether we have
   decided not to rent to you again and why. We write facts only. You can
   ask to see these (section 6).
-- **Messages** between you and us (emails, texts, calls notes).
+- **Messages** between you and us (emails, texts, calls notes). The emails
+  we send you can carry your signed documents, invoices and receipts, and
+  the vehicle's handover and return reports with their photos.
 - **Technical information** when you use a link we send you: a private
   cookie that remembers your phone for that link, and the basic details
   every website receives (such as your device's internet address), kept
@@ -119,7 +131,8 @@ We share your information only as needed for the purposes above, with:
     information for us in Australia;
   - the providers PintoFleet uses: data storage and hosting in Sydney
     (Amazon Web Services, Neon, Vercel), email delivery (Postmark), address
-    search (Google), and payments (Stripe) [delete Stripe until used];
+    search (Google), and payments (Stripe) [delete Stripe if you do not take
+    payments through the system];
   - [our accountant / bookkeeper];
   - [any others, e.g. an SMS provider, a GPS tracker company].
 - **Anyone else you ask us to** share it with.
@@ -133,7 +146,7 @@ overseas companies or handle some information outside Australia:
 | ------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------ |
 | Postmark (email delivery)                               | Your name, email address and the emails we send you | United States                                          |
 | Google (address search on our forms)                    | The address text you type into the address box      | Various countries                                      |
-| Stripe (payments) [delete until used]                   | Your name, payment details and payment history      | United States and other countries                      |
+| Stripe (payments) [delete if not used]                  | Your name, email, payment details and history       | Australia, the United States and other countries       |
 | Amazon Web Services, Neon, Vercel (storage and hosting) | Everything we hold, stored in Sydney                | Australian data centres run by United States companies |
 | [Others, e.g. SMS or GPS tracker providers]             | [What]                                              | [Where]                                                |
 
@@ -154,14 +167,27 @@ we can cancel them, and the first time they are opened on a phone they
 need a code emailed to you. Please do not forward them.
 
 We keep your information while you rent from us and afterwards for as long
-as we need it for the purposes above or the law requires (for example, tax
-records for 5 years). Photos and scans of your licence are deleted [12]
-months after your last rental with us, or after we received them if you
-have not rented since, unless a fine or dispute is still open. Details you
-send through a link are held for our review and removed within about 30
-days of the link ending. Deleted files are removed completely within 30
-days. [If you change how long licence photos are kept in Settings, put
-your number here.]
+as we need it for the purposes above or the law requires:
+
+- **Your rental and money records** (agreements, reports, invoices,
+  payments and proof of signing) are kept for **7 years after your last
+  rental with us ends**, or after we first recorded you if you never
+  rented. That covers the 5 years tax records must be kept and the 6 years
+  in which a claim about a contract can be made. After that, your personal
+  details are removed automatically: your name, contact details, date of
+  birth, addresses, licence and emergency contact are wiped, and your
+  signed documents and photos are deleted. The amounts in our books stay,
+  without your details, so our accounts still add up. Nothing is removed
+  while you still owe us money or we owe you, a bond is held, a damage
+  matter or claim is open, or you have a booking or a vehicle out.
+- **Photos and scans of your licence** are deleted [12] months after your
+  last rental with us ends, or after we received them if you have not
+  rented since. They are kept while you have a booking or a vehicle out,
+  or a fine or dispute is still open. [If you change how long licence
+  photos are kept in Settings, put your number here.]
+- **Details you send through a link** are held for our review and removed
+  within about 30 days of the link ending.
+- **Deleted files** are removed completely within 30 days.
 
 If a data breach is likely to cause you serious harm, we will tell you and
 the Office of the Australian Information Commissioner, as the law requires.
