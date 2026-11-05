@@ -45,7 +45,7 @@ jobs:
     outputs:
       is_newest: ${{ steps.newest.outputs.is_newest }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.4.0
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
@@ -62,10 +62,10 @@ jobs:
             echo "A newer commit is on main: its own run updates the database and deploys."
           fi
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4.4.0
         if: steps.newest.outputs.is_newest == 'true'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4.4.0
         if: steps.newest.outputs.is_newest == 'true'
         with:
           node-version-file: ".nvmrc"
@@ -98,13 +98,13 @@ jobs:
       # Pinned: released 20 Oct 2026, Apache-2.0. Used here only, never by the apps.
       VERCEL_CLI: vercel@65.0.0
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.4.0
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4.4.0
         with:
           node-version-file: ".nvmrc"
           cache: "pnpm"
