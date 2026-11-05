@@ -193,7 +193,7 @@ holding:
 
 The emergency contact the Renter gave is included (they supplied it).
 
-Library: fflate (MIT), already used by the spreadsheet library, added as a
+Library: fflate (MIT), already installed through the PDF library, added as a
 direct dependency, pinned (reason in the commit): Node has no zip maker.
 
 ## Database changes (migration 0046)
