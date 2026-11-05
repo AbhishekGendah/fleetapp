@@ -1193,9 +1193,26 @@ OPS_ALERT_EMAIL in fleetapp-web; dev database logins checked
 row-level security: rebuilt by SQL, new password in Vercel, all four now
 pass; runbook updated); VERCEL_TOKEN secret and VERCEL_ORG_ID,
 VERCEL_WEB_PROJECT_ID, VERCEL_ADMIN_PROJECT_ID variables in GitHub, so
-GitHub now puts both apps live after each database update. Next: merge the
-review-fix branch into main, then turn off Vercel's own deploys from main
-once a GitHub deploy has worked. Abhi: add batch 2's new Stripe event types to both event
+GitHub now puts both apps live after each database update. The review-fix
+branch was merged into main on 5 Nov (fast-forward), with Renovate's four
+updates applied on top (GitHub Actions pinned; prettier, typescript-eslint,
+@types/node, @types/qrcode). **Stuck:** GitHub started no CI run for the
+pushes after the merge (f6cb56e onwards), so the dev database is not yet
+updated (0042 to 0051) and both dev sites run new code on the old database
+(the admin site fails to open). This session cannot start a run by hand.
+Abhi: start one from GitHub (one small edit on main), then turn off
+Vercel's own deploys from main once a GitHub deploy has worked.
+
+Overnight 5 to 6 Nov: browser tests added for the Renter's details sent
+from a phone and reviewed (send back, approve), the insurance policy page,
+admin Suspend/Reactivate and the damage page. **Bug found and fixed:** a
+new policy's ticked cars, "Add car" on a policy and "Put on an existing
+policy" on a car were never saved (their field names were taken from
+browser-only files, which the server can't read); a check now stops that
+kind of mistake. Plans drafted for approval: docs/plans/phase-4-slice-5.md
+(weekly debits) and docs/plans/phase-4-slice-6.md (failed payments and
+arrears). Flagged, not changed: the admin Suspend button asks with the
+browser's own pop-up, not the shared ConfirmButton (rule 29). Abhi: add batch 2's new Stripe event types to both event
 destinations (list in docs/launch-checklist.md). Batch 5 done (5 Nov 2026). Batch 6 (database update safety) built
 (docs/plans/review-fixes-batch-6.md); Abhi: add the Vercel token and project
 IDs to GitHub so the apps go live after their database updates (done 5 Nov). Batch 7 (everything

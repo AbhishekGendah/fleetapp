@@ -117,6 +117,14 @@ Add to this list whenever something is relaxed or put off "until launch".
 - [ ] Removed insurance-policy papers (not on a car's record) can't yet be
       brought back from a screen: they are kept 5 years, recoverable only
       by AGS. Add a Bring back on the policy page (batch 7, left for later).
+- [ ] Email templates off `@react-email/components` (packages/email): npm
+      marks it no longer supported (last release 1.0.12, Apr 2026). Its
+      makers moved everything into one `react-email` package in 6.0.0
+      (MIT, released weekly); the change is the import path, the components
+      and `render` stay the same. Pin the newest release at least 14 days
+      old (6.11.3 on 5 Nov 2026; 6.11.6 from 12 Nov), swap the imports in
+      the 15 template files, compare the rendered emails, and check the
+      server bundle size (the package also carries its preview tool).
 - [ ] Google Places: a production project and key with higher caps, and an
       in-app daily limit per Operator (progress.md, Open items).
 - [ ] Google logo image in place of the "Powered by Google" text, and the
