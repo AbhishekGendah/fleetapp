@@ -1,18 +1,25 @@
-name: Migrate database
+name: Migrate and deploy
 
-# Runs the Drizzle migrations against the development database, only after CI
-# has passed for that commit on main, so a commit that fails its checks never
-# changes the database.
+# After CI passes for a commit on main, in this order and from exactly that
+# commit (review G1-3):
+#   1. the database updates run (`pnpm db:migrate`: stops, changing
+#      nothing, if an update that ran was edited or one is out of order);
+#   2. only then are both apps put live with Vercel's command-line tool.
+# If the update fails, nothing goes live and the old code keeps working.
 #
-# Vercel deploys on the push itself, so which finishes first is not
-# guaranteed. Every migration must therefore be backwards compatible with the
-# currently deployed code: add columns and tables first, remove them in a
-# later release (expand, deploy, then contract); add CHECKs on large tables as
-# NOT VALID, then VALIDATE. See docs/plans/phase-1a.md.
+# The old code is still live while the update runs, so every update must
+# work with it: add columns and tables first, remove them in a later release
+# (expand, deploy, then contract); add CHECKs on large tables as NOT VALID,
+# then VALIDATE. See docs/plans/phase-1a.md.
 #
-# Pending migrations run in one transaction: a migration that adds an enum
-# value must be pushed on its own, or the next one must compare it as text
-# (::text), since a new enum value cannot be used before it is committed.
+# Waiting updates run in one transaction, all or nothing: an update that
+# adds an enum value must be pushed on its own, or the next one must compare
+# it as text (::text), since a new enum value can't be used before it is
+# committed.
+#
+# Deploying from here starts once the Vercel token is in GitHub's secrets
+# and the project IDs in its variables (docs/runbooks/production-database.md);
+# until then Vercel deploys from the push itself, as before.
 on:
   workflow_run:
     workflows: [CI]
@@ -22,10 +29,10 @@ on:
 permissions:
   contents: read
 
-# One migration at a time. Two concurrent runs would race for the same
-# advisory lock and one would fail.
+# One run at a time, oldest first: two at once would deploy out of order.
+# (The update command also holds a database lock of its own.)
 concurrency:
-  group: migrate-database
+  group: migrate-and-deploy
   cancel-in-progress: false
 
 jobs:
@@ -49,3 +56,41 @@ jobs:
       - run: pnpm db:migrate
         env:
           DATABASE_MIGRATION_URL: ${{ secrets.DATABASE_MIGRATION_URL }}
+
+  deploy:
+    needs: migrate
+    if: vars.VERCEL_ORG_ID != ''
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: web
+            project: VERCEL_WEB_PROJECT_ID
+          - app: admin
+            project: VERCEL_ADMIN_PROJECT_ID
+    env:
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars[matrix.project] }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      # Pinned: released 20 Oct 2026, Apache-2.0. Used here only, never by the apps.
+      VERCEL_CLI: vercel@65.0.0
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      # The project's own settings and production environment variables, then
+      # a build of exactly this commit, then that build put live.
+      - run: pnpm dlx "$VERCEL_CLI" pull --yes --environment=production --token="$VERCEL_TOKEN"
+      - run: pnpm dlx "$VERCEL_CLI" build --prod --token="$VERCEL_TOKEN"
+      - run: pnpm dlx "$VERCEL_CLI" deploy --prebuilt --prod --token="$VERCEL_TOKEN"

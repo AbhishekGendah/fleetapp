@@ -1,4 +1,4 @@
-# Review fixes, batch 6: database update safety (plan, waiting for Abhi)
+# Review fixes, batch 6: database update safety (approved 5 Nov 2026)
 
 From docs/reviews/2026-11-04-full-code-review.md, fix order item 6: before
 moving to branches and pull requests. These items change how database
@@ -150,3 +150,32 @@ update, from exactly the commit that passed (item 3). Tradeoff: a few
 minutes slower to go live, and it needs a Vercel token in GitHub's secrets.
 In return, the app can never run against a database that isn't ready, as
 happened on 3 Nov.
+
+## As built (5 Nov 2026)
+
+- **1.** `pnpm db:migrate` is packages/db/scripts/migrate.ts: Zod-checked
+  address, then `runMigrations` (src/migrate.ts) takes an advisory lock,
+  compares the journal with `drizzle.__drizzle_migrations`
+  (`findMigrationProblems`, src/migration-check.ts) and only then runs
+  Drizzle's own migrator. The test databases use the same command. Tested:
+  edited, out-of-order, unknown and out-of-date-order updates refused with
+  nothing run; two runs at once never overlap; a second run does nothing.
+- **2.** CI job `update-filled-database` (only when packages/db/migrations
+  changed): a throwaway Postgres, built and filled by `main`'s own
+  demo-data test (the existing test fills every kind of record, so no new
+  fill script was needed), then `pnpm --filter @fleetapp/db
+  db:update-filled-database` runs this change's updates on it as the owner.
+  Proved locally: a required column with no default fails; nothing new
+  passes (40 Renters). The structure checks stay in the normal database
+  tests, which build from the same updates.
+- **3.** .github/workflows/migrate.yml is now "Migrate and deploy": the
+  update job, then (once `vars.VERCEL_ORG_ID` is set) both apps built and
+  put live from exactly that commit with Vercel's command-line tool
+  (vercel@65.0.0, Apache-2.0, pinned, CI only). Until Abhi adds the token
+  and IDs, Vercel deploys from the push as before. After a first deploy
+  through GitHub works, `"git": {"deploymentEnabled": {"main": false}}` goes
+  in each app's vercel.json (launch checklist).
+- **4.** docs/runbooks/production-database.md; launch checklist items.
+- **5.** Notes in migrate.yml corrected (a real lock now exists;
+  all-or-nothing explained; the race is gone once GitHub deploys).
+

@@ -1139,6 +1139,18 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
     job removes their personal details and bins their PDFs and photos;
     money lines stay. Lawyer to confirm before launch.
 
+- **Review fixes batch 6: database update safety** (plan:
+  docs/plans/review-fixes-batch-6.md, approved 5 Nov 2026). No table changes.
+  - Database updates can no longer be skipped silently: our own update
+    command stops, changing nothing, if one that ran was edited or one is
+    out of order, and never lets two runs overlap.
+  - CI proves each change's updates on a database already filled with the
+    demo data, not only on an empty one.
+  - GitHub will put the apps live only after their database update has
+    worked (waiting for Abhi's Vercel token).
+  - A runbook for the live database: setting up, updating, backups and test
+    restores.
+
 ## Next
 
 Abhi: add OPS_ALERT_EMAIL in Vercel (fleetapp-web) before this branch is
@@ -1146,9 +1158,9 @@ merged (still to do), and APP_STAGE=development in both dev Vercel projects
 (the test inbox now needs it, or the dev site won't start). Check the dev
 database logins with the query in docs/runbooks/database-roles.md before
 merging too. Abhi: add batch 2's new Stripe event types to both event
-destinations (list in docs/launch-checklist.md). Batch 5 done (5 Nov 2026).
-Batch 6 plan (database update safety) written, waiting for Abhi:
-docs/plans/review-fixes-batch-6.md. Abhi: add the second Stripe event destination (connected
+destinations (list in docs/launch-checklist.md). Batch 5 done (5 Nov 2026). Batch 6 (database update safety) built
+(docs/plans/review-fixes-batch-6.md); Abhi: add the Vercel token and project
+IDs to GitHub so the apps go live after their database updates. Abhi: add the second Stripe event destination (connected
 accounts) and its secret, then try slice 4 on the dev site. Then Phase 4
 slice 5 (weekly debits).
 Open idea: trim the phone rules to Australia only with libphonenumber's

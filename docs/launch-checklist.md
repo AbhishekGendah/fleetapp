@@ -123,6 +123,15 @@ Add to this list whenever something is relaxed or put off "until launch".
       in the background once Postmark is in).
 - [ ] Separate production database and buckets, with real Renter data only
       there (CLAUDE.md, Development environment).
+- [ ] The production database set up with docs/runbooks/production-database.md:
+      its own Neon project in Sydney, the four logins, the owner address in
+      GitHub's secrets only, Abhi's Neon account on two-step sign-in.
+- [ ] Production's point-in-time restore window set to at least 7 days, and
+      one test restore onto a throwaway branch done before launch (then every
+      three months; runbook).
+- [ ] Apps put live only by GitHub's "Migrate and deploy" job: Vercel token
+      in GitHub's secrets, project IDs in its variables, and Vercel's own
+      deploys from `main` turned off in each app's vercel.json (batch 6).
 - [ ] Switch from pushing to main to branches and pull requests (CLAUDE.md).
 - [ ] Admin password reset built (progress.md, Open items).
 - [ ] `OPS_ALERT_EMAIL` set in the production Vercel project to an AGS inbox
