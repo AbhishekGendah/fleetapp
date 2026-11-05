@@ -107,12 +107,10 @@ jobs:
       - uses: actions/setup-node@v4.4.0
         with:
           node-version-file: ".nvmrc"
-          cache: "pnpm"
 
-      - run: pnpm install --frozen-lockfile
-
-      # The project's own settings and production environment variables, then
-      # a build of exactly this commit, then that build put live.
-      - run: pnpm dlx "$VERCEL_CLI" pull --yes --environment=production --token="$VERCEL_TOKEN"
-      - run: pnpm dlx "$VERCEL_CLI" build --prod --token="$VERCEL_TOKEN"
-      - run: pnpm dlx "$VERCEL_CLI" deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+      # Exactly this commit's files are sent to Vercel, which builds and puts
+      # them live with the project's own settings (its Root Directory) and
+      # secrets. Built here instead, the secrets can't be read: Vercel never
+      # hands secret values out (5 Nov 2026). Run from the repository root, as
+      # Vercel asks for a monorepo.
+      - run: pnpm dlx "$VERCEL_CLI" deploy --prod --yes --token="$VERCEL_TOKEN"
