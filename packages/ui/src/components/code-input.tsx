@@ -25,6 +25,8 @@ export interface CodeInputProps {
   onComplete?(value: string): void;
   /** While a code is being checked: nothing more can be typed. */
   isDisabled?: boolean;
+  /** Set by FormField, so a wrong-code message is read out with the box. */
+  "aria-describedby"?: string;
 }
 
 /**
@@ -87,6 +89,7 @@ export function CodeInput(props: CodeInputProps) {
       required
       autoFocus={props.autoFocus}
       aria-label={props.ariaLabel}
+      aria-describedby={props["aria-describedby"]}
       disabled={props.isDisabled}
       // 16px or more stops phones zooming in on focus.
       className="text-base"

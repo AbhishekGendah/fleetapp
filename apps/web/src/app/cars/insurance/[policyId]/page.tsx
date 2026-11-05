@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import {
   expiryStatus,
   formatPremium,
@@ -33,6 +34,9 @@ import {
   removeCarFromPolicyAction,
   updatePolicyAction,
 } from "../actions";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Insurance policy" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

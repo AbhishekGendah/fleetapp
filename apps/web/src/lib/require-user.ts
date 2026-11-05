@@ -9,6 +9,7 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 import { appDb } from "./app-db";
 import { auth } from "./auth";
@@ -49,9 +50,10 @@ interface SignedInAccount {
  * The Operator comes from the session, which the login system read from the
  * User's own record: never from anything the browser sends (rule 1). The rest
  * is then read through the app's own role, scoped to that Operator, so the
- * flags are current rather than a snapshot from sign-in.
+ * flags are current rather than a snapshot from sign-in. Read once per
+ * request: a page and its tab title both ask (review).
  */
-async function loadSignedInAccount(): Promise<SignedInAccount | null> {
+const loadSignedInAccount = cache(async (): Promise<SignedInAccount | null> => {
   const requestHeaders = await headers();
   const session = await auth.api.getSession({ headers: requestHeaders });
   if (!session) {
@@ -102,7 +104,7 @@ async function loadSignedInAccount(): Promise<SignedInAccount | null> {
     hasBusinessEmail: Boolean(row.operatorEmail?.trim()),
     access: getAccountAccess(row),
   };
-}
+});
 
 /**
  * Loads the signed-in User, or sends them wherever they need to go first.

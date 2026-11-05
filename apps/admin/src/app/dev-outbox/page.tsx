@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Card, CardContent } from "@fleetapp/ui/card";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -9,6 +10,9 @@ import { formatAdminDateTime } from "../../lib/format";
 import { requireAdmin } from "../../lib/require-admin";
 import { AdminShell } from "../admin-shell";
 import { devOutboxEmailPath } from "../../lib/paths";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Test inbox" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

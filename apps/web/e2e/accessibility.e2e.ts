@@ -20,7 +20,24 @@ describePageChecks({
     "/rentals/calendar",
     "/settings",
     "/settings/contracts",
+    // Batch 7 (review A10-9): the rest of Settings, the timeline, the
+    // privacy notice and the new insurance form.
+    "/settings/charges",
+    "/settings/invoices",
+    "/settings/payments",
+    "/settings/demo-data",
+    "/rentals/timeline",
+    "/privacy-notice",
+    "/cars/insurance/new",
+    // Not "/suspended": the test login's business is not paused, so it would
+    // only land on the dashboard. On docs/launch-checklist.md until it has one.
   ],
-  signedOutPages: ["/sign-in", "/forgot-password"],
+  signedOutPages: [
+    "/sign-in",
+    "/forgot-password",
+    // Both ways the reset page shows: a link cut short, and the form itself.
+    "/reset-password",
+    "/reset-password?token=e2e-made-up-token",
+  ],
   phoneViewport: PHONE_VIEWPORT,
 });

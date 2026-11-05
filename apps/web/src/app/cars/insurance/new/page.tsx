@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Card, CardContent } from "@fleetapp/ui/card";
 import { PageHeader } from "@fleetapp/ui/page-header";
 
@@ -9,6 +10,9 @@ import { listCarChoices } from "../../../../lib/vehicles/paperwork-queries";
 import { AppShell } from "../../../app-shell";
 import { PolicyForm } from "../../policy-form";
 import { createPolicyAction } from "../actions";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "New insurance policy" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

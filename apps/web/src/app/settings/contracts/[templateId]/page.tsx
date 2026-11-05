@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import {
   CONTRACT_TEMPLATE_KIND_LABELS,
   formatDateTimeInTimeZone,
@@ -24,6 +25,9 @@ import { requireUser } from "../../../../lib/require-user";
 import { AppShell } from "../../../app-shell";
 import { archiveTemplateAction, makeTemplateDefaultAction, saveTemplateAction } from "../actions";
 import { TemplateEditorForm } from "./template-editor-form";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Contract template" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

@@ -171,18 +171,20 @@ export async function updateChargeType(
   });
 }
 
-/** Stops one of the business's own types being used for new charges; lines keep it. */
-export async function archiveChargeType(
+/** Archives one of the business's own types, or brings one back (review G4-4); built-in types stay. */
+async function setChargeTypeArchived(
   database: AnyDatabase,
   actor: ActingUser,
   chargeTypeId: string,
-): Promise<"archived" | "not_found" | "built_in"> {
+  shouldArchive: boolean,
+): Promise<"changed" | "not_found" | "built_in"> {
   return withTenant(database, actor.operatorId, async (tx) => {
     const [row] = await tx
       .select()
       .from(chargeTypes)
-      .where(and(eq(chargeTypes.id, chargeTypeId), eq(chargeTypes.operatorId, actor.operatorId)));
-    if (!row || row.archivedAt) {
+      .where(and(eq(chargeTypes.id, chargeTypeId), eq(chargeTypes.operatorId, actor.operatorId)))
+      .for("update");
+    if (!row || (row.archivedAt !== null) === shouldArchive) {
       return "not_found";
     }
     if (row.builtIn) {
@@ -191,13 +193,33 @@ export async function archiveChargeType(
     const now = new Date();
     await tx
       .update(chargeTypes)
-      .set({ archivedAt: now, updatedAt: now })
+      .set({ archivedAt: shouldArchive ? now : null, updatedAt: now })
       .where(eq(chargeTypes.id, chargeTypeId));
     await recordUserChange(tx, actor, {
       entityType: ACTIVITY_ENTITY_TYPES.chargeType,
       entityId: chargeTypeId,
-      action: ACTIVITY_ACTIONS.archived,
+      action: shouldArchive ? ACTIVITY_ACTIONS.archived : ACTIVITY_ACTIONS.restored,
     });
-    return "archived";
+    return "changed";
   });
+}
+
+/** Stops one of the business's own types being used for new charges; lines keep it. */
+export async function archiveChargeType(
+  database: AnyDatabase,
+  actor: ActingUser,
+  chargeTypeId: string,
+): Promise<"archived" | "not_found" | "built_in"> {
+  const result = await setChargeTypeArchived(database, actor, chargeTypeId, true);
+  return result === "changed" ? "archived" : result;
+}
+
+/** Brings back a type archived by mistake, for new charges again. */
+export async function restoreChargeType(
+  database: AnyDatabase,
+  actor: ActingUser,
+  chargeTypeId: string,
+): Promise<"restored" | "not_found"> {
+  const result = await setChargeTypeArchived(database, actor, chargeTypeId, false);
+  return result === "changed" ? "restored" : "not_found";
 }

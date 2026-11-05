@@ -23,6 +23,8 @@ const TOO_MANY_MESSAGE = `We have sent ${MAXIMUM_LINK_CODES_PER_HOUR} codes in t
 const INCOMPLETE_MESSAGE = `Type all ${LINK_CODE_DIGITS} digits of the code.`;
 const EXPIRED_CODE_MESSAGE = "That code has run out. Press Email me a code for a new one.";
 const FAILED_MESSAGE = "Something went wrong. Try again in a moment.";
+/** The email didn't go: nothing was used up, so trying again is fine (review G7-2). */
+const NOT_SENT_MESSAGE = "We couldn't send the code just now. Try again in a moment.";
 
 /** Bound to the link's secret by its page. Emails a fresh code to the address the link went to. */
 export async function sendCodeAction(
@@ -40,6 +42,9 @@ export async function sendCodeAction(
     );
     if (result === "locked") {
       return { status: "problem", message: LOCKED_MESSAGE };
+    }
+    if (result === "not_sent") {
+      return { status: "problem", message: NOT_SENT_MESSAGE };
     }
     return result === "too_many"
       ? { status: "problem", message: TOO_MANY_MESSAGE }

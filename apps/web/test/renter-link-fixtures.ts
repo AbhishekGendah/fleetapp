@@ -131,6 +131,7 @@ export function linkTestKit(web: TestConnection, actor: ActingUser): LinkTestKit
       now: () => new Date(),
       appUrl: "https://app.example.test",
       describeDay: (moment) => moment.toISOString().slice(0, 10),
+      describeMoment: (moment) => moment.toISOString().slice(0, 16),
     },
   };
 }

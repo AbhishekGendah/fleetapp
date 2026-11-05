@@ -15,7 +15,8 @@ const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope", displa
 // jscpd:ignore-end
 
 export const metadata: Metadata = {
-  title: BRAND.adminName,
+  // Each page names itself, so tabs can be told apart (review A10-2).
+  title: { default: BRAND.adminName, template: `%s · ${BRAND.adminName}` },
   description: "Altus Global Solutions platform admin.",
 };
 

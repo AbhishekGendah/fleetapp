@@ -9,16 +9,24 @@
 import { describeErrorForLog } from "@fleetapp/core";
 import { inArray } from "drizzle-orm";
 import { createDb } from "@fleetapp/db/client";
-import { operators } from "@fleetapp/db/schema";
-import { ADMIN_APP_ROLE, ADMIN_AUTH_ROLE, APPLICATION_ROLES } from "@fleetapp/db/tenancy";
+import { operators, vehicles } from "@fleetapp/db/schema";
+import {
+  ADMIN_APP_ROLE,
+  ADMIN_AUTH_ROLE,
+  APPLICATION_ROLES,
+  WEB_APP_ROLE,
+} from "@fleetapp/db/tenancy";
+import { withTenant } from "@fleetapp/db/tenant-context";
 import { migrateTestDatabase, startTestPostgres } from "@fleetapp/db/testing";
-import { runToEnd, startNextApp } from "@fleetapp/e2e/processes";
+import { removeRunLeftovers, runToEnd, startNextApp } from "@fleetapp/e2e/processes";
 
 import { createAdminAuth } from "../src/lib/auth-options";
 import { createFirstAdmin } from "../src/lib/create-first-admin";
-import { E2E_ADMIN, E2E_BASE_URL, E2E_OPERATORS, E2E_PORT } from "./e2e-settings";
+import { E2E_ADMIN, E2E_BASE_URL, E2E_OPERATORS, E2E_PORT, E2E_TYPED_CARS } from "./e2e-settings";
 
 const EXIT_FAILURE = 1;
+/** The app's folder, one up from this file. */
+const APP_DIRECTORY = new URL("..", import.meta.url);
 const TEST_SECRET = "an-e2e-only-signing-secret-of-32-chars-or-more";
 
 function appEnv(databaseUrl: string, authDatabaseUrl: string): NodeJS.ProcessEnv {
@@ -55,7 +63,7 @@ async function seedAdmin(authDatabaseUrl: string): Promise<void> {
 }
 
 /** A few made-up Operators for the list tests, one of them suspended. */
-async function seedOperators(adminDatabaseUrl: string): Promise<void> {
+async function seedOperators(adminDatabaseUrl: string): Promise<Map<string, string>> {
   const database = createDb(adminDatabaseUrl);
   // Made with a name, then paused, as the admin app does it (review A9-3).
   const made = await database
@@ -72,25 +80,53 @@ async function seedOperators(adminDatabaseUrl: string): Promise<void> {
       .set({ suspendedAt: new Date() })
       .where(inArray(operators.id, pausedIds));
   }
+  return new Map(made.map((row) => [row.legalName, row.id]));
+}
+
+/** Cars an Operator typed that are not in the list, made as the Operator app makes them. */
+async function seedTypedCars(webDatabaseUrl: string, operatorId: string): Promise<void> {
+  await withTenant(createDb(webDatabaseUrl), operatorId, (tx) =>
+    tx.insert(vehicles).values(
+      E2E_TYPED_CARS.regos.map((rego) => ({
+        operatorId,
+        rego,
+        regoState: "WA" as const,
+        make: E2E_TYPED_CARS.make,
+        model: E2E_TYPED_CARS.model,
+        year: 2024,
+      })),
+    ),
+  );
 }
 
 async function main(): Promise<void> {
   const postgres = await startTestPostgres(APPLICATION_ROLES);
   let server: { stop(): void } | null = null;
+  // Only a full pass removes the results; a failure keeps them to look into.
+  let isPassed = false;
   try {
     await migrateTestDatabase(postgres.ownerUrl);
     const authDatabaseUrl = postgres.urlForRole(ADMIN_AUTH_ROLE);
     await seedAdmin(authDatabaseUrl);
     const adminDatabaseUrl = postgres.urlForRole(ADMIN_APP_ROLE);
-    await seedOperators(adminDatabaseUrl);
+    const operatorIds = await seedOperators(adminDatabaseUrl);
+    await seedTypedCars(
+      postgres.urlForRole(WEB_APP_ROLE),
+      operatorIds.get(E2E_TYPED_CARS.operatorLegalName)!,
+    );
     const env = appEnv(adminDatabaseUrl, authDatabaseUrl);
     server = await startNextApp({ port: E2E_PORT, env });
     await runToEnd("pnpm", ["exec", "playwright", "test", ...process.argv.slice(2)], {
       env: { ...env, E2E_OWNER_URL: postgres.ownerUrl },
     });
+    isPassed = true;
   } finally {
-    server?.stop();
-    await postgres.stop();
+    try {
+      server?.stop();
+      await postgres.stop();
+    } finally {
+      await removeRunLeftovers({ appDirectory: APP_DIRECTORY, isPassed });
+    }
   }
 }
 

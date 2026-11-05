@@ -63,6 +63,8 @@ export type CarNameField = (typeof CAR_NAME_FIELDS)[number];
 /** Which button sent the Typed by Operators form: just fix the car, or add to the list too. */
 export const FIX_INTENT_FIELD = "intent";
 export const ADD_AND_FIX_INTENT = "add_and_fix";
+/** Every car typed the same way, fixed at once (batch 7 decision 13). */
+export const FIX_ALL_INTENT = "fix_all";
 
 /** Nicknames back into their box, as typed. */
 export function nicknamesForEditing(aliases: readonly string[]): string {

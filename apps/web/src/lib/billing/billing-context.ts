@@ -1,4 +1,4 @@
-import { GST_START_DATE, todayInTimeZone } from "@fleetapp/core";
+import { GST_START_DATE, todayInTimeZone, operatorDisplayName } from "@fleetapp/core";
 import type { EmailSender } from "@fleetapp/email";
 
 import { loadPdfBranding } from "../contracts/contract-pdf";
@@ -49,6 +49,6 @@ export async function loadBillingContext(
       : null,
     howToPay: settings.howToPay,
     isEmailedAutomatically: settings.isInvoiceEmailedAutomatically,
-    operatorName: business.tradingName ?? business.legalName ?? "",
+    operatorName: operatorDisplayName(business),
   };
 }

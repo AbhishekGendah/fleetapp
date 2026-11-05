@@ -4,6 +4,7 @@ import {
   formatCalendarDate,
   formatDateTimeInTimeZone,
   formatDayInTimeZone,
+  formatLinkExpiryInTimeZone,
 } from "./format-date-time";
 
 describe("formatting a moment in the Operator's timezone", () => {
@@ -33,6 +34,13 @@ describe("a day in words", () => {
     // 2026-11-05 at 20:00 UTC is already Friday 6 November in Perth.
     expect(formatDayInTimeZone(new Date("2026-11-05T20:00:00Z"), "Australia/Perth")).toBe(
       "Friday 6 November",
+    );
+  });
+
+  it("says the time and day a link stops working (review A11-5)", () => {
+    // 3:15 pm in Sydney on Friday 13 November 2026, daylight time.
+    expect(formatLinkExpiryInTimeZone(new Date("2026-11-13T04:15:00Z"), "Australia/Sydney")).toBe(
+      "3:15 pm AEDT, Friday 13 November",
     );
   });
 });

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { pageOfRows, parseListQuery } from "@fleetapp/core";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { DataList } from "@fleetapp/ui/data-list";
@@ -11,6 +12,9 @@ import { AdminShell } from "../admin-shell";
 import { createMakeAction } from "./actions";
 import { CatalogueEntryForm } from "./catalogue-entry-form";
 import { MAKE_LIST, MAKE_LIST_RULES } from "./catalogue-lists";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Car models" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

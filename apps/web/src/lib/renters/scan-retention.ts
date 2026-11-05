@@ -23,9 +23,14 @@ import { loadOperatorSettings } from "../settings/operator-settings";
  * a fine or dispute) is still open.
  */
 export interface RetentionHolds {
-  lastRentalEnds: (tx: AnyTransaction, renterIds: readonly string[]) => Promise<Map<string, Date>>;
+  lastRentalEnds: (
+    tx: AnyTransaction,
+    operatorId: string,
+    renterIds: readonly string[],
+  ) => Promise<Map<string, Date>>;
   rentersWithOpenMatters: (
     tx: AnyTransaction,
+    operatorId: string,
     renterIds: readonly string[],
   ) => Promise<ReadonlySet<string>>;
 }
@@ -64,8 +69,8 @@ async function findScansDue(
     .from(files)
     .where(licenceScanInUse(operatorId));
   const renterIds = [...new Set(scans.flatMap((scan) => (scan.renterId ? [scan.renterId] : [])))];
-  const lastRentalEnds = await holds.lastRentalEnds(tx, renterIds);
-  const held = await holds.rentersWithOpenMatters(tx, renterIds);
+  const lastRentalEnds = await holds.lastRentalEnds(tx, operatorId, renterIds);
+  const held = await holds.rentersWithOpenMatters(tx, operatorId, renterIds);
   return scans.flatMap((scan) => {
     if (!scan.renterId || !scan.addedAt || held.has(scan.renterId)) {
       return [];
@@ -167,8 +172,8 @@ export async function loadRenterScanHold(
 ): Promise<RenterScanHold> {
   return withTenant(database, operatorId, async (tx) => {
     const [held, lastEnds] = await Promise.all([
-      holds.rentersWithOpenMatters(tx, [renterId]),
-      holds.lastRentalEnds(tx, [renterId]),
+      holds.rentersWithOpenMatters(tx, operatorId, [renterId]),
+      holds.lastRentalEnds(tx, operatorId, [renterId]),
     ]);
     return { isHeld: held.has(renterId), lastRentalEndedAt: lastEnds.get(renterId) ?? null };
   });

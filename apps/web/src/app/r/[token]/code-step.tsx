@@ -4,7 +4,8 @@ import { LINK_CODE_DIGITS } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { CodeInput } from "@fleetapp/ui/code-input";
 import { FormError } from "@fleetapp/ui/form-message";
-import { FormField } from "@fleetapp/ui/form-field";
+import { fieldErrorId, FormField } from "@fleetapp/ui/form-field";
+import { RequiredFieldsNote } from "@fleetapp/ui/input";
 import { Mail } from "lucide-react";
 import { startTransition, useActionState, useState } from "react";
 
@@ -52,7 +53,9 @@ export function CodeStep(props: {
           {isSending ? "Sending…" : isCodeSent ? "Email me a new code" : "Email me a code"}
         </Button>
         {sendState.status === "code_sent" ? (
-          <p className="text-teal text-sm font-medium">Sent. Check your email (and junk folder).</p>
+          <p role="status" className="text-teal text-sm font-medium">
+            Sent. Check your email (and junk folder).
+          </p>
         ) : null}
         {sendState.status === "problem" ? <FormError message={sendState.message} /> : null}
       </form>
@@ -65,6 +68,7 @@ export function CodeStep(props: {
           }}
           className="flex flex-col gap-3"
         >
+          <RequiredFieldsNote />
           <FormField htmlFor="code" label="Type the code" isRequired>
             <CodeInput
               id="code"
@@ -77,7 +81,10 @@ export function CodeStep(props: {
               onComplete={submitCode}
             />
           </FormField>
-          {checkState.status === "problem" ? <FormError message={checkState.message} /> : null}
+          {checkState.status === "problem" ? (
+            // Announced as it appears, and read again with the box (review).
+            <FormError id={fieldErrorId("code")} message={checkState.message} />
+          ) : null}
           <Button
             type="submit"
             disabled={isChecking || code.length < LINK_CODE_DIGITS}

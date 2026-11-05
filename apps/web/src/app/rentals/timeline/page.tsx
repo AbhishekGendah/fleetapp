@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { addDays, startOfDayIn, timelineWindow } from "@fleetapp/core";
 import { Card, CardContent } from "@fleetapp/ui/card";
 import { PageHeader } from "@fleetapp/ui/page-header";
@@ -11,6 +12,9 @@ import { AppShell } from "../../app-shell";
 import { carGlanceOf } from "./car-glance";
 import { holdBarOf, pastBarOf, workshopBarOf, type BarContext } from "./timeline-bars";
 import { TimelineScreen } from "./timeline-screen";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Fleet timeline" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

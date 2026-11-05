@@ -7,6 +7,7 @@ import { appDb } from "../../../lib/app-db";
 import {
   addChargeType,
   archiveChargeType,
+  restoreChargeType,
   updateChargeType,
 } from "../../../lib/ledger/charge-types";
 import {
@@ -80,5 +81,20 @@ export async function archiveChargeTypeAction(chargeTypeId: string): Promise<Cha
         ? savedState("Archived. Charges already added keep it.")
         : failedState(NOT_FOUND_MESSAGE);
     },
+  });
+}
+
+/** Brings back a charge type archived by mistake (review G4-4). */
+export async function restoreChargeTypeAction(chargeTypeId: string): Promise<ChangeFormState> {
+  if (!isRecordId(chargeTypeId)) {
+    return failedState(NOT_FOUND_MESSAGE);
+  }
+  return runUserChange({
+    description: "Bringing back a charge type",
+    pagesToRefresh: [CHARGE_TYPES_PATH],
+    change: async (actor) =>
+      (await restoreChargeType(appDb, actor, chargeTypeId)) === "restored"
+        ? savedState("Brought back: it can be used for new charges again.")
+        : failedState(NOT_FOUND_MESSAGE),
   });
 }

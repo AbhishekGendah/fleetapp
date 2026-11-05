@@ -12,6 +12,7 @@ describe("small text helpers", () => {
   it("calls an Operator by its trading name if it has one", () => {
     expect(operatorDisplayName({ legalName: "A Pty Ltd", tradingName: "A Cars" })).toBe("A Cars");
     expect(operatorDisplayName({ legalName: "A Pty Ltd", tradingName: null })).toBe("A Pty Ltd");
+    expect(operatorDisplayName(null)).toBe("");
   });
 });
 

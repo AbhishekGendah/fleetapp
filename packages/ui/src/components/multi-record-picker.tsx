@@ -48,7 +48,7 @@ export function MultiRecordPicker({
       }}
       {...RECORD_ITEM_PROPS}
     >
-      <Combobox.Chips className="border-input bg-background focus-within:ring-ring flex min-h-11 flex-wrap items-center gap-1 rounded-md border px-2 py-1 focus-within:ring-2">
+      <Combobox.Chips className="border-input bg-background focus-within:ring-ring flex min-h-11 flex-wrap items-center gap-x-1 gap-y-3 rounded-md border px-2 py-1 focus-within:ring-2">
         <Combobox.Value>
           {(picked: PickableRecord[]) =>
             picked.map((record) => (
@@ -59,7 +59,9 @@ export function MultiRecordPicker({
                 {record.label}
                 <Combobox.ChipRemove
                   aria-label={`Remove ${record.label}`}
-                  className="hover:bg-background flex h-6 w-6 items-center justify-center rounded"
+                  // Drawn small, but pressed over 44px, as fingers need (rule 24, review A10-12);
+                  // rows sit far enough apart that one chip's press area never covers the next.
+                  className="hover:bg-background relative flex h-6 w-6 items-center justify-center rounded after:absolute after:-inset-2.5"
                 >
                   <X aria-hidden="true" className="h-4 w-4" />
                 </Combobox.ChipRemove>

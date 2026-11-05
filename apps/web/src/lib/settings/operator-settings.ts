@@ -74,6 +74,12 @@ export async function saveOperatorSettings(
   changes: Partial<OperatorSettings>,
 ): Promise<void> {
   await withTenant(database, actor.operatorId, async (tx) => {
+    // The row first, all defaults, so the lock below always has a row to hold:
+    // two first saves at once then go one after the other (review A8-3).
+    await tx
+      .insert(operatorSettings)
+      .values({ operatorId: actor.operatorId, settings: {}, version: DEFAULT_SETTINGS_VERSION })
+      .onConflictDoNothing({ target: operatorSettings.operatorId });
     const row = await readStoredSettings(tx, actor.operatorId, true);
     const before = readSettings(operatorSettingsSchema, row?.stored ?? {});
     const { document, settings: after } = applySettingsChanges(
@@ -86,16 +92,13 @@ export async function saveOperatorSettings(
       return;
     }
     await tx
-      .insert(operatorSettings)
-      .values({ operatorId: actor.operatorId, settings: document })
-      .onConflictDoUpdate({
-        target: operatorSettings.operatorId,
-        set: {
-          settings: document,
-          version: sql`${operatorSettings.version} + 1`,
-          updatedAt: new Date(),
-        },
-      });
+      .update(operatorSettings)
+      .set({
+        settings: document,
+        version: sql`${operatorSettings.version} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(operatorSettings.operatorId, actor.operatorId));
     await recordUserChange(tx, actor, {
       entityType: ACTIVITY_ENTITY_TYPES.operatorSettings,
       entityId: actor.operatorId,

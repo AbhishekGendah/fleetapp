@@ -185,7 +185,11 @@ describe("the Operator's review of what a Renter sent", () => {
     await sendEverything(kit, visit, { residentialAddress: "9 Typo St, Perth WA 6000" });
     const submissionId = await waitingId(visit);
 
-    expect(await sendBack(visit, submissionId)).toEqual({ status: "sent_back", isEmailed: true });
+    expect(await sendBack(visit, submissionId)).toEqual({
+      status: "sent_back",
+      isEmailed: true,
+      linkWorksUntil: expect.any(Date),
+    });
     expect(kit.sentEmails.at(-1)).toMatchObject({ to: "sam@example.test" });
     expect(kit.sentEmails.at(-1)!.text).toContain("The back photo is blurry");
 

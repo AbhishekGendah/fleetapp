@@ -23,6 +23,7 @@ import {
   addModels,
   createMake,
   fixCarMakeAndModel,
+  fixCarsTypedLike,
   setCatalogueEntryHidden,
   updateCatalogueEntry,
 } from "../src/lib/car-models/car-model-records";
@@ -208,5 +209,72 @@ describe("car models", () => {
         model: "Seal",
       }),
     ).toBe("not_found");
+  });
+
+  it("leaves a car its business archived as it is (review A9-9)", async () => {
+    const carId = await addOperatorCar("Hyundai", `Archived ${randomUUID().slice(0, 4)}`);
+    await withTenant(web.db, operatorId, (tx) =>
+      tx.update(vehicles).set({ archivedAt: new Date() }).where(eq(vehicles.id, carId)),
+    );
+
+    expect(
+      await fixCarMakeAndModel(admin.db, ADMIN_USER_ID, carId, { make: "Hyundai", model: "i30" }),
+    ).toBe("not_found");
+  });
+
+  it("logs hiding once, however often it is pressed (review A9-9)", async () => {
+    const created = await createMake(admin.db, ADMIN_USER_ID, {
+      name: `Twice ${randomUUID().slice(0, 6)}`,
+      aliases: [],
+    });
+    const makeId = created === "duplicate" ? "" : created.makeId;
+
+    expect(await setCatalogueEntryHidden(admin.db, ADMIN_USER_ID, "make", makeId, true)).toBe(
+      "changed",
+    );
+    expect(await setCatalogueEntryHidden(admin.db, ADMIN_USER_ID, "make", makeId, true)).toBe(
+      "unchanged",
+    );
+    const hides = await admin.db
+      .select()
+      .from(adminActivityLog)
+      .where(and(eq(adminActivityLog.entityId, makeId), eq(adminActivityLog.action, "hidden")));
+    expect(hides).toHaveLength(1);
+  });
+
+  it("fixes every current car typed the same way at once, each logged (decision 13)", async () => {
+    const typed = { make: "Mitsubishi", model: `Outlandr ${randomUUID().slice(0, 4)}` };
+    const first = await addOperatorCar(typed.make, typed.model);
+    const second = await addOperatorCar(typed.make, typed.model);
+
+    const fixed = await fixCarsTypedLike(admin.db, ADMIN_USER_ID, first, {
+      make: "Mitsubishi",
+      model: "Outlander",
+    });
+    const operatorHistory = await withTenant(web.db, operatorId, (tx) =>
+      tx
+        .select({ id: activityLog.entityId })
+        .from(activityLog)
+        .where(eq(activityLog.actorType, "admin")),
+    );
+
+    expect(fixed).toBe(2);
+    expect(operatorHistory.map((line) => line.id)).toEqual(expect.arrayContaining([first, second]));
+  });
+
+  it("changes nothing, and logs nothing, when the new name is how the cars already read (review)", async () => {
+    const typed = { make: "Haval", model: `Jolion ${randomUUID().slice(0, 4)}` };
+    const car = await addOperatorCar(typed.make, typed.model);
+
+    const fixed = await fixCarsTypedLike(admin.db, ADMIN_USER_ID, car, { ...typed });
+    const lines = await withTenant(web.db, operatorId, (tx) =>
+      tx
+        .select({ id: activityLog.id })
+        .from(activityLog)
+        .where(and(eq(activityLog.entityId, car), eq(activityLog.actorType, "admin"))),
+    );
+
+    expect(fixed).toBe(0);
+    expect(lines).toHaveLength(0);
   });
 });

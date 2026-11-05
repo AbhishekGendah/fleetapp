@@ -4,11 +4,12 @@ import { describeErrorForLog, formTextValues, isRecordId } from "@fleetapp/core"
 import { failedState, savedState, type ChangeFormState } from "@fleetapp/ui/change-form-state";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { z } from "zod";
+import { z } from "zod";
 
 import { appDb } from "../../lib/app-db";
 import {
   ADD_AND_FIX_INTENT,
+  FIX_ALL_INTENT,
   ADD_MODELS_FIELDS,
   addModelsInputSchema,
   CAR_NAME_FIELDS,
@@ -22,12 +23,16 @@ import {
   addModels,
   createMake,
   fixCarMakeAndModel,
+  fixCarsTypedLike,
   setCatalogueEntryHidden,
   updateCatalogueEntry,
   type CatalogueEntryKind,
 } from "../../lib/car-models/car-model-records";
 import { CAR_MODELS_PATH, carMakePath, TYPED_BY_OPERATORS_PATH } from "../../lib/paths";
 import { requireAdmin } from "../../lib/require-admin";
+
+/** The two kinds of catalogue entry, as a bound argument must be one of. */
+const entryKindSchema = z.enum(["make", "model"]);
 
 const UNEXPECTED_ERROR_MESSAGE = "Something went wrong and nothing was saved. Try again.";
 const INVALID_MESSAGE = "That is not right, so nothing was saved. Check it and try again.";
@@ -91,7 +96,8 @@ export async function updateEntryAction(
   formData: FormData,
 ): Promise<ChangeFormState> {
   const input = parsed(catalogueEntryInputSchema, formData, CATALOGUE_ENTRY_FIELDS);
-  if (!input || !isRecordId(entryId)) {
+  // Bound arguments come back from the browser as sent: checked like any input (review A9-10).
+  if (!input || !isRecordId(entryId) || !entryKindSchema.safeParse(kind).success) {
     return failedState(INVALID_MESSAGE);
   }
   return runCatalogueChange(`Changing a ${kind}`, async (adminUserId) => {
@@ -110,15 +116,22 @@ export async function setEntryHiddenAction(
   isHidden: boolean,
   _previous: ChangeFormState,
 ): Promise<ChangeFormState> {
-  if (!isRecordId(entryId)) {
-    return failedState(NOT_FOUND_MESSAGE);
+  if (
+    !isRecordId(entryId) ||
+    !entryKindSchema.safeParse(kind).success ||
+    !z.boolean().safeParse(isHidden).success
+  ) {
+    return failedState(INVALID_MESSAGE);
   }
   return runCatalogueChange(
     isHidden ? `Hiding a ${kind}` : `Showing a ${kind}`,
-    async (adminUserId) =>
-      (await setCatalogueEntryHidden(appDb, adminUserId, kind, entryId, isHidden)) === "changed"
-        ? savedState(isHidden ? "Hidden from suggestions." : "Shown in suggestions again.")
-        : failedState(NOT_FOUND_MESSAGE),
+    async (adminUserId) => {
+      const result = await setCatalogueEntryHidden(appDb, adminUserId, kind, entryId, isHidden);
+      if (result === "not_found") {
+        return failedState(NOT_FOUND_MESSAGE);
+      }
+      return savedState(isHidden ? "Hidden from suggestions." : "Shown in suggestions again.");
+    },
   );
 }
 
@@ -160,8 +173,13 @@ export async function fixCarAction(
   if (!car || !isRecordId(vehicleId)) {
     return failedState(INVALID_MESSAGE);
   }
-  const shouldAdd = formData.get(FIX_INTENT_FIELD) === ADD_AND_FIX_INTENT;
+  const intent = formData.get(FIX_INTENT_FIELD);
+  const shouldAdd = intent === ADD_AND_FIX_INTENT;
   const state = await runCatalogueChange("Fixing an Operator's car", async (adminUserId) => {
+    if (intent === FIX_ALL_INTENT) {
+      const fixed = await fixCarsTypedLike(appDb, adminUserId, vehicleId, car);
+      return savedState(`Fixed ${fixed} ${fixed === 1 ? "car" : "cars"} typed this way.`);
+    }
     if (shouldAdd) {
       await addMakeAndModel(appDb, adminUserId, car);
     }

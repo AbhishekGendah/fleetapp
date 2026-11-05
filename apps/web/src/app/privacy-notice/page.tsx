@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { PageHeader } from "@fleetapp/ui/page-header";
 
 import { RenterPrivacyNotice } from "../../components/renter-privacy-notice";
@@ -6,6 +7,9 @@ import { RENTERS_PATH } from "../../lib/paths";
 import { loadNoticeBusiness } from "../../lib/privacy/notice-business";
 import { requireUser } from "../../lib/require-user";
 import { AppShell } from "../app-shell";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Privacy notice" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

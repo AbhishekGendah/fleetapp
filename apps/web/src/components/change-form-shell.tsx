@@ -49,7 +49,7 @@ export function useChangeForm<Field extends string>(
       }
       // In a pop-up, a plain save closes it; a warning stays up to be read.
       if (closeDialog && !result.isWarning) {
-        closeDialog();
+        closeDialog(result.message);
       } else if (options.shouldClearOnSave) {
         fields.clear();
       }

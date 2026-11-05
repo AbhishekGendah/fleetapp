@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Card, CardContent } from "@fleetapp/ui/card";
 import { PageHeader } from "@fleetapp/ui/page-header";
 import { redirect } from "next/navigation";
@@ -11,6 +12,9 @@ import { AppShell } from "../../../app-shell";
 import { editCarAction } from "../../actions";
 import { CarForm } from "../../car-form";
 import { loadCarOrNotFound } from "../load-car";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Edit car" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

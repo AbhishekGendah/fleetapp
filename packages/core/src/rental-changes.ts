@@ -1,4 +1,5 @@
-import { MILLISECONDS_PER_DAY } from "./time-units";
+import { TZDate } from "@date-fns/tz";
+import { differenceInCalendarDays } from "date-fns";
 import type { RentalStatus, RentalType } from "./rentals";
 
 /**
@@ -66,12 +67,17 @@ export function endChangeProblem(
 export function noticeDaysShort(
   newEnd: Date,
   rental: { type: RentalType },
-  now: Date,
+  clock: { now: Date; timeZone: string },
   noticeDays: number,
 ): number {
   if (rental.type !== "ongoing") {
     return 0;
   }
-  const daysGiven = Math.floor((newEnd.getTime() - now.getTime()) / MILLISECONDS_PER_DAY);
+  // Calendar days on the business's clock (batch 7 decision 9): the end's date
+  // less today's, so a 23-hour day or an earlier time of day takes none away (review A11-6).
+  const daysGiven = differenceInCalendarDays(
+    new TZDate(newEnd, clock.timeZone),
+    new TZDate(clock.now, clock.timeZone),
+  );
   return Math.max(noticeDays - daysGiven, 0);
 }

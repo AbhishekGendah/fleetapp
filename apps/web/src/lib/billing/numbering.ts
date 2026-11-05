@@ -7,6 +7,7 @@ import {
 } from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, documentNumbering } from "@fleetapp/db/schema";
+import { recordActivity } from "@fleetapp/db/activity";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, sql } from "drizzle-orm";
 
@@ -19,16 +20,30 @@ export interface TakenNumber {
   numberText: string;
 }
 
-/** The business's numbering for a series, made with the defaults the first time (rule 27). */
+/**
+ * The business's numbering for a series, made with the defaults the first
+ * time (rule 27), with its history line by the system (rule 19, review A4-12).
+ */
 async function ensureNumbering(
   tx: AnyTransaction,
   operatorId: string,
   series: NumberingSeries,
 ): Promise<void> {
-  await tx
+  const [added] = await tx
     .insert(documentNumbering)
     .values({ operatorId, series, ...DEFAULT_NUMBERING[series] })
-    .onConflictDoNothing();
+    .onConflictDoNothing()
+    .returning({ prefix: documentNumbering.prefix, nextNumber: documentNumbering.nextNumber });
+  if (added) {
+    await recordActivity(tx, {
+      operatorId,
+      actor: { type: "system", id: null },
+      entityType: ACTIVITY_ENTITY_TYPES.documentNumbering,
+      entityId: operatorId,
+      action: ACTIVITY_ACTIONS.created,
+      valuesAfter: { series, prefix: added.prefix, nextNumber: added.nextNumber },
+    });
+  }
 }
 
 const ofSeries = (operatorId: string, series: NumberingSeries) =>

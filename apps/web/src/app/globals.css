@@ -8,3 +8,16 @@
 body {
   @apply bg-background text-foreground;
 }
+
+/* The phone's tab bar sits over the page's foot: moving focus keeps the box
+   or button reached clear of it (WCAG 2.4.11, review A10-7). Its height plus
+   the phone's own safe area; from md up there is no tab bar. */
+html {
+  scroll-padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 48rem) {
+  html {
+    scroll-padding-bottom: 0;
+  }
+}

@@ -16,7 +16,7 @@ import {
   vehicles,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, sql, isNull } from "drizzle-orm";
 
 import { BOND_OPEN_STATUSES } from "../bonds/bond-account";
 import { STRIPE_RETURN_PATH } from "../paths";
@@ -114,6 +114,8 @@ export async function findPaymentsRental(
         eq(rentals.id, target.rentalId),
         eq(rentals.operatorId, target.operatorId),
         target.renterId ? eq(rentals.renterId, target.renterId) : undefined,
+        // An archived Renter's links are stopped: no new one, and none opens (review A3-13).
+        isNull(renters.archivedAt),
       ),
     );
   return rental && BOND_OPEN_STATUSES.has(rental.status) ? rental : null;

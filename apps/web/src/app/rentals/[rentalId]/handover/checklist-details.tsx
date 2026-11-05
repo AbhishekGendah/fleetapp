@@ -13,7 +13,7 @@ import { Button } from "@fleetapp/ui/button";
 import { FormField } from "@fleetapp/ui/form-field";
 import { FormError } from "@fleetapp/ui/form-message";
 import { FormattedInput } from "@fleetapp/ui/formatted-input";
-import { Input } from "@fleetapp/ui/input";
+import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
 import { Select } from "@fleetapp/ui/select";
 import { Textarea } from "@fleetapp/ui/textarea";
 import { useFormFields } from "@fleetapp/ui/use-form-fields";
@@ -118,6 +118,7 @@ export function ChecklistDetails(props: {
         props.onUnsavedChange?.(true);
       }}
     >
+      <RequiredFieldsNote />
       <FormField
         htmlFor={form.idFor("odometerKm")}
         label="Odometer (km)"

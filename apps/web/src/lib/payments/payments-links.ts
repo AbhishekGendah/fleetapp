@@ -7,6 +7,7 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { renderRenterPaymentsLinkEmail, type EmailMessage } from "@fleetapp/email";
 import { eq } from "drizzle-orm";
 
+import { isRentalRenterArchived } from "../renters/renter-archived";
 import type { ActingUser } from "../acting-user";
 import { cancelLinksAs } from "../renter-links/cancel-links";
 import {
@@ -122,7 +123,7 @@ async function preparePaymentsLinkEmail(
       rentalStart: deps.describeDay(to.rental.plannedStart),
     }),
     linkUrl: renterLinkUrl(deps.appUrl, issued.token),
-    validUntil: deps.describeDay(issued.expiresAt),
+    validUntil: deps.describeMoment(issued.expiresAt),
   });
 }
 
@@ -143,7 +144,7 @@ async function sendPrepared(
 
 export type SendPaymentsLinkResult =
   | { status: "sent"; url: string; expiresAt: Date; isEmailed: boolean }
-  | { status: "not_offered" | "not_found" | "no_email" };
+  | { status: "not_offered" | "not_found" | "no_email" | "renter_archived" };
 
 /**
  * The Operator sends the Renter their payments link: emailed, or shown on
@@ -168,7 +169,9 @@ export async function sendPaymentsLink(
       renterId: null,
     });
     if (!rental) {
-      return { status: "not_found" as const };
+      return (await isRentalRenterArchived(tx, actor.operatorId, rentalId))
+        ? { status: "renter_archived" as const }
+        : { status: "not_found" as const };
     }
     if (!rental.renterEmail) {
       return { status: "no_email" as const };

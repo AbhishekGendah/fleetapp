@@ -100,7 +100,8 @@ test.describe.serial("the fleet timeline", () => {
       await expect(
         page.getByRole("link", { name: new RegExp(`^${RETURNED.name}, `) }),
       ).toBeAttached();
-      await expect(page.getByLabel(/^In service: New clutch, expected back/)).toBeAttached();
+      // Read out as the bar's own words (review A10-12).
+      await expect(page.getByText(/^In service: New clutch, expected back/).first()).toBeAttached();
       await expect(page.getByRole("list", { name: "What the colours mean" })).toBeVisible();
       await page.waitForLoadState("networkidle");
       expect(await scriptKilobytes(page)).toBeLessThanOrEqual(TIMELINE_PAGE_BUDGET_KB);

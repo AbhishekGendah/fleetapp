@@ -119,6 +119,7 @@ export function DetailsForm(props: DetailsFormProps) {
           preferredName: "What you like to be called.",
         }}
         addressLookup={addressLookup}
+        isRenterOwnForm
       />
       <FormSection title="Your licence">
         <LicenceFields form={form} />

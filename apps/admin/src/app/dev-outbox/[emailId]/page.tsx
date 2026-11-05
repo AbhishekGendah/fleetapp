@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { PageHeader } from "@fleetapp/ui/page-header";
 import { notFound } from "next/navigation";
 import { z } from "zod";
@@ -9,6 +10,9 @@ import { formatAdminDateTime } from "../../../lib/format";
 import { requireAdmin } from "../../../lib/require-admin";
 import { AdminShell } from "../../admin-shell";
 import { DEV_OUTBOX_PATH } from "../../../lib/paths";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Test email" };
 
 export const runtime = "nodejs";
 

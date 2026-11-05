@@ -1,19 +1,29 @@
+import type { Metadata } from "next";
 import { GST_TREATMENT_LABELS } from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
 import { Badge } from "@fleetapp/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
+import { FormSection } from "@fleetapp/ui/form-section";
 import { PageHeader } from "@fleetapp/ui/page-header";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
-import { Archive, Pencil, Plus } from "lucide-react";
+import { Archive, Pencil, Plus, Undo2 } from "lucide-react";
 
 import { appDb } from "../../../lib/app-db";
 import { listChargeTypes, type ChargeType } from "../../../lib/ledger/charge-types";
 import { SETTINGS_PATH } from "../../../lib/paths";
 import { requireUser } from "../../../lib/require-user";
 import { AppShell } from "../../app-shell";
-import { addChargeTypeAction, archiveChargeTypeAction, updateChargeTypeAction } from "./actions";
+import {
+  addChargeTypeAction,
+  archiveChargeTypeAction,
+  restoreChargeTypeAction,
+  updateChargeTypeAction,
+} from "./actions";
 import { ChargeTypeForm, GstTreatmentForm } from "./charge-type-form";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Charges" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,7 +63,9 @@ function ChargeTypeActions({ type }: { type: ChargeType }) {
 /** What the business charges Renters for, each with its GST treatment (rule 9). */
 export default async function ChargeTypesPage() {
   const user = await requireUser();
-  const types = (await listChargeTypes(appDb, user.operatorId)).filter((type) => !type.isArchived);
+  const allTypes = await listChargeTypes(appDb, user.operatorId);
+  const types = allTypes.filter((type) => !type.isArchived);
+  const archived = allTypes.filter((type) => type.isArchived);
 
   return (
     <AppShell user={user}>
@@ -79,6 +91,27 @@ export default async function ChargeTypesPage() {
               />
             ))}
           </RecordList>
+          {archived.length > 0 ? (
+            <FormSection title="Archived">
+              <RecordList label="Archived charge types">
+                {archived.map((type) => (
+                  <RecordItem
+                    key={type.id}
+                    title={type.label}
+                    details={GST_TREATMENT_LABELS[type.gstTreatment]}
+                    actions={
+                      <ActionButton
+                        action={restoreChargeTypeAction.bind(null, type.id)}
+                        label={`Bring back ${type.label}`}
+                        pendingLabel="Bringing back…"
+                        icon={<Undo2 aria-hidden />}
+                      />
+                    }
+                  />
+                ))}
+              </RecordList>
+            </FormSection>
+          ) : null}
           <FormDialog
             triggerLabel="Add a charge type"
             title="Add a charge type"

@@ -74,6 +74,7 @@ describe("signing a contract through a link", () => {
     now: () => new Date(),
     appUrl: "https://app.example.test",
     describeDay: () => "Friday 6 November",
+    describeMoment: () => "3:15 pm AWST, Friday 6 November",
   });
 
   async function addRenterWithEmail(): Promise<string> {

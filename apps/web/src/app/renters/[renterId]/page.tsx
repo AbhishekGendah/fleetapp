@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import {
   ageOn,
   DETAIL_NEEDED_LABELS,
@@ -67,6 +68,9 @@ import { MoneyTab } from "./money-tab";
 import { NotesTab } from "./notes-tab";
 import { loadRenterOrNotFound } from "./load-renter";
 import { RenterStatusForm } from "./status-form";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Renter" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

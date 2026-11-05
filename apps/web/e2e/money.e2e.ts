@@ -134,7 +134,15 @@ test.describe.serial("a rental's money", () => {
       const fuel = page.getByRole("listitem").filter({ hasText: "Fuel top-up" });
       await expect(fuel).toBeVisible();
       await fuel.getByRole("button", { name: "Archive" }).click();
-      await expect(page.getByRole("listitem").filter({ hasText: "Fuel top-up" })).toHaveCount(0);
+      // Off the list in use, and on the archived list to bring back (review G4-4).
+      await expect(
+        page.getByRole("list", { name: "Charge types" }).getByRole("listitem").filter({
+          hasText: "Fuel top-up",
+        }),
+      ).toHaveCount(0);
+      await expect(
+        page.getByRole("list", { name: "Archived charge types" }).getByText("Fuel top-up"),
+      ).toBeVisible();
     });
   });
 });

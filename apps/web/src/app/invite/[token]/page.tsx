@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Button } from "@fleetapp/ui/button";
 import Link from "next/link";
 import { AuthPageLayout } from "@fleetapp/ui/auth-page-layout";
@@ -7,6 +8,9 @@ import { authDb } from "../../../lib/auth";
 import { findUsableInvite } from "../../../lib/invites/find-invite";
 import { SIGN_IN_PATH } from "../../../lib/paths";
 import { AcceptInviteForm } from "./accept-invite-form";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Set up your login" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { DEFAULT_NUMBERING, documentNumberText, NUMBERING_SERIES_LABELS } from "@fleetapp/core";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { RequiredFieldsNote } from "@fleetapp/ui/input";
@@ -13,6 +14,9 @@ import { AppShell } from "../../app-shell";
 import { ChoiceSettingForm } from "../choice-setting-form";
 import { saveHowToPayAction, saveNumberingAction } from "./actions";
 import { HowToPayForm, NumberingForm } from "./invoice-setting-forms";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Invoices" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

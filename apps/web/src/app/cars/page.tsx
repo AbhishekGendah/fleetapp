@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import {
   listQueryString,
   parseListQuery,
@@ -31,6 +32,9 @@ import {
 } from "../../lib/vehicles/vehicle-queries";
 import { AppShell } from "../app-shell";
 import { CAR_LIST } from "./car-list";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Cars" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

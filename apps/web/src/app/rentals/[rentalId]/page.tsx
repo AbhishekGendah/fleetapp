@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import {
   formatCents,
   formatDateTimeInTimeZone,
@@ -268,6 +269,21 @@ async function RentalLogTab({ rental, user }: { rental: RentalDetail; user: Sign
       describeValue={describeRentalValue}
     />
   );
+}
+
+/** The tab is named by the car, never the Renter (batch 7 decision 8). */
+export async function generateMetadata(props: {
+  params: Promise<{ rentalId: string }>;
+}): Promise<Metadata> {
+  const user = await requireUser();
+  const { rentalId } = await props.params;
+  const rental = isRecordId(rentalId)
+    ? await loadRental(appDb, user.operatorId, rentalId, {
+        timeZone: user.operatorTimezone,
+        now: new Date(),
+      })
+    : null;
+  return { title: rental ? `Rental · ${rental.rego}` : "Rental" };
 }
 
 /** One rental: who, which car, when, for how much, what is still needed, and its Log. */

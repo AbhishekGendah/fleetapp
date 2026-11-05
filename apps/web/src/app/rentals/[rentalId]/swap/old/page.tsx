@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Button } from "@fleetapp/ui/button";
 import { PageHeader } from "@fleetapp/ui/page-header";
 import { ArrowRight } from "lucide-react";
@@ -13,6 +14,9 @@ import { HandoverChecklist } from "../../handover/handover-checklist";
 import { OfflineReady } from "../../handover/offline-ready";
 import { comparisonWith } from "../../return/comparison";
 import { loadSwapPage } from "../load-swap-page";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Swap: car back" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

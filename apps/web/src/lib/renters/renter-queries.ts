@@ -57,11 +57,17 @@ export interface RenterSummary {
   isWaitingReview: boolean;
 }
 
+/** The phone as typed without spaces, e.g. "0491570006" (phones are kept "0491 570 006"). */
+const phoneDigits = sql`regexp_replace(${renters.phone}, '[^0-9]', '', 'g')`;
+
 export const RENTER_LIST_RULES: DatabaseListRules = {
   searchIn: [
     renters.fullName,
     renters.preferredName,
     renters.phone,
+    // Found as copied from a call log or text too: no spaces, or +61 (review A8-9).
+    phoneDigits,
+    sql`'+61' || substr(${phoneDigits}, 2)`,
     renters.email,
     renters.licenceNumber,
   ],

@@ -29,8 +29,23 @@ describe("changes of terms", () => {
   });
 
   it("counts notice short only when an ongoing rental is given an end", () => {
-    expect(noticeDaysShort(daysFromNow(3), { type: "ongoing" }, NOW, 7)).toBe(4);
-    expect(noticeDaysShort(daysFromNow(7), { type: "ongoing" }, NOW, 7)).toBe(0);
-    expect(noticeDaysShort(daysFromNow(3), { type: "fixed_term" }, NOW, 7)).toBe(0);
+    const clock = { now: NOW, timeZone: "Australia/Perth" };
+    expect(noticeDaysShort(daysFromNow(3), { type: "ongoing" }, clock, 7)).toBe(4);
+    expect(noticeDaysShort(daysFromNow(7), { type: "ongoing" }, clock, 7)).toBe(0);
+    expect(noticeDaysShort(daysFromNow(3), { type: "fixed_term" }, clock, 7)).toBe(0);
+  });
+
+  it("counts notice in calendar days on the business's clock (review A11-6)", () => {
+    const sydney = "Australia/Sydney";
+    // 5pm on 30 March 2027 in Sydney; the clocks go back on 4 April.
+    const now = new Date("2027-03-30T06:00:00Z");
+    // 9am on 6 April: seven calendar days on, though under 7 × 24 hours.
+    const earlierInTheDay = new Date("2027-04-05T23:00:00Z");
+    expect(
+      noticeDaysShort(earlierInTheDay, { type: "ongoing" }, { now, timeZone: sydney }, 7),
+    ).toBe(0);
+    // 5pm on 5 April: six days, one short.
+    const sixDays = new Date("2027-04-05T07:00:00Z");
+    expect(noticeDaysShort(sixDays, { type: "ongoing" }, { now, timeZone: sydney }, 7)).toBe(1);
   });
 });

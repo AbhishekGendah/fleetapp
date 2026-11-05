@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { formatCents, handoverBlockers, type BookingProblem } from "@fleetapp/core";
 import { PageHeader } from "@fleetapp/ui/page-header";
 
@@ -29,6 +30,9 @@ import { AcceptanceForm, type OverrideAsked } from "./acceptance-form";
 import { OVERRIDE_REASON_NEEDED } from "./handover-state";
 import { HandoverChecklist } from "./handover-checklist";
 import { OfflineReady } from "./offline-ready";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Handover" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

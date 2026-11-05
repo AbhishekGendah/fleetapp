@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import {
   CLAIM_STATUS_LABELS,
   DAMAGE_STATUS_LABELS,
@@ -49,6 +50,9 @@ import { addChargeAction } from "../../../../rentals/[rentalId]/money-actions";
 import { LedgerLineList } from "../../../../rentals/ledger-line-list";
 import { ClaimForm } from "./claim-form";
 import { DamageStatusForm } from "./damage-status-form";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Damage" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

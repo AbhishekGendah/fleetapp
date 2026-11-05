@@ -119,8 +119,10 @@ function handleBeforeEventDomAdd(args: DayPilot.SchedulerBeforeEventDomAddArgs):
       {text}
     </a>
   ) : (
-    <span className="fleet-timeline-bar" aria-label={tags.label}>
-      {text}
+    // A plain block has no role to carry a label, so its words are read instead (review A10-12).
+    <span className="fleet-timeline-bar">
+      <span className="sr-only">{tags.label}</span>
+      <span aria-hidden="true">{text}</span>
     </span>
   );
 }

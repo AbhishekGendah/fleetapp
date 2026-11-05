@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { todayInTimeZone } from "@fleetapp/core";
 import { Card, CardContent } from "@fleetapp/ui/card";
 import { PageHeader } from "@fleetapp/ui/page-header";
@@ -8,6 +9,9 @@ import { emptyRenterForm } from "../../../lib/renters/renter-input";
 import { AppShell } from "../../app-shell";
 import { addRenterAction } from "../actions";
 import { RenterForm } from "../renter-form";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "New Renter" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

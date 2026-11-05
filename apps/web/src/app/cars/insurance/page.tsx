@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { expiryStatus, parseListQuery } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { PageHeader } from "@fleetapp/ui/page-header";
@@ -12,6 +13,9 @@ import { loadExpiryContext } from "../../../lib/vehicles/expiry-context";
 import { listPolicyPage } from "../../../lib/vehicles/paperwork-queries";
 import { AppShell } from "../../app-shell";
 import { POLICY_LIST } from "./policy-list";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Insurance" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

@@ -1,6 +1,10 @@
+import type { Metadata } from "next";
 import { requireAdmin } from "../../lib/require-admin";
 import { AdminShell } from "../admin-shell";
 import { ComponentCatalogue } from "./component-catalogue";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Components" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

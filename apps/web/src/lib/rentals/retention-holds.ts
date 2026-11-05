@@ -1,6 +1,6 @@
 import type { AnyTransaction } from "@fleetapp/db/client";
 import { rentals } from "@fleetapp/db/schema";
-import { and, inArray, isNotNull, max } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, max } from "drizzle-orm";
 
 import type { RetentionHolds } from "../renters/scan-retention";
 
@@ -19,6 +19,7 @@ const OPEN_RENTAL_STATUSES = ["booked", "active"] as const;
  */
 async function lastRentalEnds(
   tx: AnyTransaction,
+  operatorId: string,
   renterIds: readonly string[],
 ): Promise<Map<string, Date>> {
   if (renterIds.length === 0) {
@@ -27,7 +28,14 @@ async function lastRentalEnds(
   const rows = await tx
     .select({ renterId: rentals.renterId, lastReturnedAt: max(rentals.returnedAt) })
     .from(rentals)
-    .where(and(inArray(rentals.renterId, [...renterIds]), isNotNull(rentals.returnedAt)))
+    // Named, not left to row-level security alone (rule 1, review G8-9).
+    .where(
+      and(
+        eq(rentals.operatorId, operatorId),
+        inArray(rentals.renterId, [...renterIds]),
+        isNotNull(rentals.returnedAt),
+      ),
+    )
     .groupBy(rentals.renterId);
   return new Map(
     rows.flatMap((row) => (row.lastReturnedAt ? [[row.renterId, row.lastReturnedAt]] : [])),
@@ -37,6 +45,7 @@ async function lastRentalEnds(
 /** Renters with a booking, or a car out. */
 async function rentersWithOpenRentals(
   tx: AnyTransaction,
+  operatorId: string,
   renterIds: readonly string[],
 ): Promise<ReadonlySet<string>> {
   if (renterIds.length === 0) {
@@ -47,6 +56,7 @@ async function rentersWithOpenRentals(
     .from(rentals)
     .where(
       and(
+        eq(rentals.operatorId, operatorId),
         inArray(rentals.renterId, [...renterIds]),
         inArray(rentals.status, [...OPEN_RENTAL_STATUSES]),
       ),

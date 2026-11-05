@@ -60,7 +60,7 @@ export function RenterLinkSender(props: {
       {state.status === "sent" && isCurrent ? (
         <div className="flex flex-col gap-2">
           {state.isEmailed ? (
-            <p className="text-teal text-sm font-medium">
+            <p role="status" className="text-teal text-sm font-medium">
               Emailed. It works until {state.expiresText}.
             </p>
           ) : (

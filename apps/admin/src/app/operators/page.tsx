@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { listQueryString, pageOfRows, parseListQuery } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { DataList } from "@fleetapp/ui/data-list";
@@ -14,6 +15,9 @@ import {
 import { requireAdmin } from "../../lib/require-admin";
 import { AdminShell } from "../admin-shell";
 import { OPERATOR_LIST, OPERATOR_LIST_RULES } from "./operator-list";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Operators" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

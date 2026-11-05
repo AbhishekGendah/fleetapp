@@ -17,7 +17,8 @@ const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope", displa
 // jscpd:ignore-end
 
 export const metadata: Metadata = {
-  title: BRAND.productName,
+  // Each page names itself, so tabs can be told apart (review A10-2).
+  title: { default: BRAND.productName, template: `%s · ${BRAND.productName}` },
   description: APP_DESCRIPTION,
   // iPhones ignore most of the manifest: these make a home-screen copy open full screen.
   appleWebApp: { capable: true, title: BRAND.productName, statusBarStyle: "default" },

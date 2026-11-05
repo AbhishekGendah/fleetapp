@@ -10,6 +10,7 @@ import {
   type MergeFieldKey,
   type StorageArea,
   type TemplateDocument,
+  operatorDisplayName,
 } from "@fleetapp/core";
 import { files } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
@@ -103,7 +104,7 @@ async function businessNameOf(
   operatorId: string,
 ): Promise<string> {
   const business = await loadBusinessDetails(database, operatorId);
-  return business?.tradingName ?? business?.legalName ?? "";
+  return operatorDisplayName(business);
 }
 
 /** The business's name and logo, as every PDF it issues shows them. */

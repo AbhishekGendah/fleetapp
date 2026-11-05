@@ -28,6 +28,7 @@ function sendDocument(vehicleId: string, label: string, file: File): Promise<str
 }
 
 const DOCUMENT_FIELDS = ["documentLabel"] as const;
+const ADDED_MESSAGE = "Document added.";
 const documentInputSchema = z.object({ documentLabel: requiredLine });
 
 /** "Add a document": a name and a PDF or image. Saving closes the pop-up. */
@@ -58,7 +59,7 @@ export function DocumentUploadForm({ vehicleId }: { vehicleId: string }) {
       return;
     }
     router.refresh();
-    closeDialog?.();
+    closeDialog?.(ADDED_MESSAGE);
   }
 
   return (

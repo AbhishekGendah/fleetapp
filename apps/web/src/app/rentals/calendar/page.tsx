@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { isRecordId, RENTAL_STATUS_LABELS } from "@fleetapp/core";
 import { AutoSubmitSelect } from "@fleetapp/ui/auto-submit-select";
 import type { CalendarEntry } from "@fleetapp/ui/bookings-calendar";
@@ -14,6 +15,9 @@ import { requireUser } from "../../../lib/require-user";
 import { AppShell } from "../../app-shell";
 import { CalendarView } from "./calendar-view";
 import { CAR_PARAM, chosenMonth, MONTH_PARAM, monthWindow } from "./calendar-window";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Calendar" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

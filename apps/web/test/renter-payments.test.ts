@@ -78,6 +78,7 @@ describe("a Renter's direct debit and bond", () => {
       now: () => new Date(),
       appUrl: APP_URL,
       describeDay: (moment) => moment.toISOString().slice(0, 10),
+      describeMoment: (moment) => moment.toISOString().slice(0, 16),
       payments: stripe,
       canHearRenterPayments: true,
       ...changes,

@@ -72,3 +72,25 @@ export async function startNextApp(options: {
   await waitUntilReady(`http://localhost:${options.port}/api/health`, "The app");
   return { stop: () => server.kill() };
 }
+
+/** Where a run keeps its sign-in files: the test login's cookies and authenticator key. */
+const RUN_STATE_DIRECTORY = "e2e/.state";
+/** Playwright's traces and screenshots: kept after a failure to look into, removed after a pass. */
+const RESULTS_DIRECTORY = "test-results";
+
+/**
+ * What a run leaves in the app's folder, removed (review KL-8: "leave nothing
+ * behind"): the sign-in files always, the results only once every test passed.
+ */
+export async function removeRunLeftovers(options: {
+  appDirectory: URL;
+  isPassed: boolean;
+}): Promise<void> {
+  const { rm } = await import("node:fs/promises");
+  // From the app's own folder, never wherever the run happened to start.
+  const inApp = (directory: string) => new URL(`${directory}/`, options.appDirectory);
+  await rm(inApp(RUN_STATE_DIRECTORY), { recursive: true, force: true });
+  if (options.isPassed) {
+    await rm(inApp(RESULTS_DIRECTORY), { recursive: true, force: true });
+  }
+}

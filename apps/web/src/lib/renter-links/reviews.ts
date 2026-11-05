@@ -253,7 +253,9 @@ export async function approveSubmission(
 
 /** "link_ended": the Renter has no working details link (expired, cancelled or locked); send a new one first. */
 export type SendBackResult =
-  { status: "sent_back"; isEmailed: boolean } | { status: "link_ended" } | { status: "not_found" };
+  | { status: "sent_back"; isEmailed: boolean; linkWorksUntil: Date }
+  | { status: "link_ended" }
+  | { status: "not_found" };
 
 /**
  * Returns what the Renter sent, with the Operator's note, for them to fix
@@ -261,7 +263,7 @@ export type SendBackResult =
  * so they only retake one if asked. The note is emailed, never logged.
  */
 export async function sendBackSubmission(
-  deps: Pick<LinkDependencies, "database" | "emailSender" | "now" | "describeDay">,
+  deps: Pick<LinkDependencies, "database" | "emailSender" | "now" | "describeMoment">,
   actor: ActingUser,
   renterId: string,
   input: { submissionId: string; note: string },
@@ -308,11 +310,15 @@ export async function sendBackSubmission(
   if (outcome.status !== "sent_back") {
     return outcome;
   }
-  return { status: "sent_back", isEmailed: await emailSentBack(deps, outcome, input.note) };
+  return {
+    status: "sent_back",
+    isEmailed: await emailSentBack(deps, outcome, input.note),
+    linkWorksUntil: outcome.link.expiresAt,
+  };
 }
 
 async function emailSentBack(
-  deps: Pick<LinkDependencies, "emailSender" | "describeDay">,
+  deps: Pick<LinkDependencies, "emailSender" | "describeMoment">,
   outcome: {
     link: typeof renterLinks.$inferSelect;
     sender: Awaited<ReturnType<typeof loadLinkSender>>;
@@ -326,7 +332,7 @@ async function emailSentBack(
         operatorName: outcome.sender.operatorName,
         replyTo: outcome.sender.replyTo,
         note,
-        linkWorksUntil: deps.describeDay(outcome.link.expiresAt),
+        linkWorksUntil: deps.describeMoment(outcome.link.expiresAt),
       }),
     );
     return true;

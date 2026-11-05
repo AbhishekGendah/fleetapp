@@ -1,9 +1,13 @@
+import type { Metadata } from "next";
 import { AuthPageLayout } from "@fleetapp/ui/auth-page-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 
 import { requireSuspendedUser } from "../../lib/require-user";
 import { PhoneSignOutButton } from "../../components/phone-sign-out-button";
 import { PhoneWeekLimit } from "../../components/phone-week-limit";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Account paused" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { listQueryString, parseListQuery } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
@@ -12,6 +13,9 @@ import { hasAnyRenter, listRenterPage } from "../../lib/renters/renter-queries";
 import { AppShell } from "../app-shell";
 import { loadExpiryContext } from "../../lib/vehicles/expiry-context";
 import { RENTER_LIST, withLicenceStatuses } from "./renter-list";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Renters" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

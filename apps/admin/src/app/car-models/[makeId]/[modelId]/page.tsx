@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { isRecordId } from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
 import { PageHeader } from "@fleetapp/ui/page-header";
@@ -13,6 +14,9 @@ import { requireAdmin } from "../../../../lib/require-admin";
 import { AdminShell } from "../../../admin-shell";
 import { setEntryHiddenAction, updateEntryAction } from "../../actions";
 import { CatalogueEntryForm } from "../../catalogue-entry-form";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Car model" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

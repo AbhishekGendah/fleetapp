@@ -9,6 +9,9 @@ import { z } from "zod";
 const PREFIX_MESSAGE = `Use up to ${NUMBER_PREFIX_MAX_LENGTH} capital letters, digits, dashes, dots or slashes.`;
 const NUMBER_MESSAGE = `Enter a whole number from 1 to ${MAXIMUM_DOCUMENT_NUMBER.toLocaleString("en-AU")}.`;
 
+/** Digits, with or without commas every three, as the number box shows them. */
+const WHOLE_NUMBER_PATTERN = /^\d{1,3}(,\d{3})*$|^\d+$/;
+
 /**
  * A series' prefix and next number. The prefix is put in capitals on the
  * server too (rule 31); an empty prefix prints the number alone.
@@ -28,6 +31,8 @@ export const numberingInputSchema = z.object({
     .string(REQUIRED_MESSAGE)
     .trim()
     .min(1, REQUIRED_MESSAGE)
+    // Digits, and commas as the box adds them: never "1e3" or "0x10" (review A4-12).
+    .regex(WHOLE_NUMBER_PATTERN, NUMBER_MESSAGE)
     .transform((digits) => Number(digits.replaceAll(",", "")))
     .pipe(
       z

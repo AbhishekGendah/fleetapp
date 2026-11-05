@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { parseListQuery } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
@@ -17,6 +18,9 @@ import { hasAnyRental, listRentalPage } from "../../lib/rentals/rental-queries";
 import { requireUser } from "../../lib/require-user";
 import { AppShell } from "../app-shell";
 import { rentalList } from "./rental-list";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Rentals" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

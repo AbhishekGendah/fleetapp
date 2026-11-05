@@ -23,6 +23,8 @@ export interface LinkDependencies {
   appUrl: string;
   /** "Friday 6 November", in the Operator's timezone. */
   describeDay: (moment: Date) => string;
+  /** "3:15 pm AEDT, Friday 13 November": when a link stops working (review A11-5). */
+  describeMoment: (moment: Date) => string;
 }
 
 export function renterLinkUrl(appUrl: string, token: string): string {
@@ -103,7 +105,7 @@ export async function sendDetailsLink(
         operatorName: prepared.sender.operatorName,
         replyTo: prepared.sender.replyTo,
         linkUrl: url,
-        validUntil: deps.describeDay(expiresAt),
+        validUntil: deps.describeMoment(expiresAt),
       }),
     );
   } catch (error) {

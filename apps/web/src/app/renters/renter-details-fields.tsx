@@ -26,7 +26,22 @@ interface RenterDetailsFieldsProps {
   nameHints: { fullName: string; preferredName: string };
   /** The Renter link's own, limited address lookup; the signed-in User's otherwise. */
   addressLookup?: AddressLookup;
+  /**
+   * The Renter filling in their own details: their phone may fill in their
+   * name, phone, email and birthday (WCAG 1.3.5, review A10-4). Never on the
+   * business's form, where they'd be the User's own.
+   */
+  isRenterOwnForm?: boolean;
 }
+
+/** What the phone may fill each of the Renter's own boxes with (HTML autocomplete). */
+const OWN_DETAILS_AUTOFILL = {
+  fullName: "name",
+  preferredName: "nickname",
+  phone: "tel",
+  email: "email",
+  dateOfBirth: "bday",
+} as const;
 
 /**
  * A Renter's details, address and emergency contact: the same boxes on the
@@ -35,6 +50,8 @@ interface RenterDetailsFieldsProps {
 export function RenterDetailsFields(props: RenterDetailsFieldsProps) {
   const { form } = props;
   const isPostalSameAsHome = form.values.isPostalSameAsHome === TICKED_VALUE;
+  const autoFill = (field: keyof typeof OWN_DETAILS_AUTOFILL): string =>
+    props.isRenterOwnForm ? OWN_DETAILS_AUTOFILL[field] : "off";
 
   function fieldProps(field: RenterFormField) {
     return {
@@ -63,10 +80,10 @@ export function RenterDetailsFields(props: RenterDetailsFieldsProps) {
     <>
       <FormSection title={props.title}>
         <FormField {...fieldProps("fullName")} hint={props.nameHints.fullName}>
-          <Input {...form.textBoxProps("fullName")} autoComplete="off" />
+          <Input {...form.textBoxProps("fullName")} autoComplete={autoFill("fullName")} />
         </FormField>
         <FormField {...fieldProps("preferredName")} hint={props.nameHints.preferredName}>
-          <Input {...form.textBoxProps("preferredName")} autoComplete="off" />
+          <Input {...form.textBoxProps("preferredName")} autoComplete={autoFill("preferredName")} />
         </FormField>
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField {...fieldProps("phone")} hint={CONTACT_HINT}>
@@ -74,7 +91,7 @@ export function RenterDetailsFields(props: RenterDetailsFieldsProps) {
               {...form.formattedBoxProps("phone", formatAustralianPhone)}
               type="tel"
               inputMode="tel"
-              autoComplete="off"
+              autoComplete={autoFill("phone")}
             />
           </FormField>
           <FormField {...fieldProps("email")}>
@@ -84,12 +101,17 @@ export function RenterDetailsFields(props: RenterDetailsFieldsProps) {
               type="email"
               inputMode="email"
               autoCapitalize="none"
-              autoComplete="off"
+              autoComplete={autoFill("email")}
             />
           </FormField>
         </div>
         <FormField {...fieldProps("dateOfBirth")}>
-          <Input {...form.textBoxProps("dateOfBirth")} type="date" max={props.today} />
+          <Input
+            {...form.textBoxProps("dateOfBirth")}
+            type="date"
+            max={props.today}
+            autoComplete={autoFill("dateOfBirth")}
+          />
         </FormField>
       </FormSection>
 

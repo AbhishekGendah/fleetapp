@@ -5,6 +5,7 @@ import {
   storedAccountStatus,
   type PaymentAccountState,
   type PaymentAccountStatus,
+  operatorDisplayName,
 } from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { recordActivity } from "@fleetapp/db/activity";
@@ -123,7 +124,7 @@ export async function startStripeOnboarding(
   const business = await loadBusinessDetails(deps.database, actor.operatorId);
   const created = await deps.payments.createAccount({
     operatorId: actor.operatorId,
-    businessName: business?.tradingName ?? business?.legalName ?? "",
+    businessName: operatorDisplayName(business),
     email: business?.email ?? null,
   });
   await withTenant(deps.database, actor.operatorId, async (tx) => {

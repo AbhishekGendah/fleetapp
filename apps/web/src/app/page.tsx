@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getGreeting, getSetupChecklist, isSetupComplete } from "@fleetapp/core";
 import { InstallAppHint } from "@fleetapp/ui/install-app-hint";
 import { redirect } from "next/navigation";
@@ -15,6 +16,9 @@ import {
 } from "./dashboard/dashboard-cards";
 import { SetupChecklistCard } from "./setup-checklist-card";
 import { appDb } from "../lib/app-db";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Dashboard" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

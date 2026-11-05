@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { RequiredFieldsNote } from "@fleetapp/ui/input";
@@ -27,6 +28,9 @@ import { ChoiceSettingForm } from "./choice-setting-form";
 import { NumberSettingForm } from "./number-setting-form";
 import { PhotoListForm } from "./photo-list-form";
 import { LogoUpload } from "./logo-upload";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Settings" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

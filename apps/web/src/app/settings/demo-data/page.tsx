@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { PageHeader } from "@fleetapp/ui/page-header";
 import { notFound } from "next/navigation";
@@ -8,6 +9,9 @@ import { SETTINGS_PATH } from "../../../lib/paths";
 import { requireUser } from "../../../lib/require-user";
 import { AppShell } from "../../app-shell";
 import { DemoDataRunner } from "./demo-data-runner";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Demo data" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

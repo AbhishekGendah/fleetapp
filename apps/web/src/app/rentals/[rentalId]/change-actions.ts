@@ -60,7 +60,13 @@ const END_REFUSALS: Record<Exclude<EndChangeResult["status"], "changed" | "clash
 const RATE_REFUSALS: Record<
   Exclude<
     RateChangeSendResult["status"],
-    "sent" | "missing" | "not_signable" | "no_email" | "no_template" | "already_signed"
+    | "sent"
+    | "missing"
+    | "not_signable"
+    | "no_email"
+    | "renter_archived"
+    | "no_template"
+    | "already_signed"
   >,
   string
 > = {

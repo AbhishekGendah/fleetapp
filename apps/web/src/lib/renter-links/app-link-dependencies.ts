@@ -1,4 +1,4 @@
-import { formatDayInTimeZone } from "@fleetapp/core";
+import { formatDayInTimeZone, formatLinkExpiryInTimeZone } from "@fleetapp/core";
 
 import { env } from "../../env";
 import { appDb } from "../app-db";
@@ -13,5 +13,6 @@ export function appLinkDependencies(timeZone: string): LinkDependencies {
     now: () => new Date(),
     appUrl: env.APP_URL,
     describeDay: (moment) => formatDayInTimeZone(moment, timeZone),
+    describeMoment: (moment) => formatLinkExpiryInTimeZone(moment, timeZone),
   };
 }

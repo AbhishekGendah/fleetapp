@@ -6,7 +6,7 @@ import {
   vehicleMakes,
   vehicleModels,
 } from "@fleetapp/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { recordAdminChange } from "./admin-change";
@@ -102,16 +102,20 @@ export async function setCatalogueEntryHidden(
   kind: CatalogueEntryKind,
   entryId: string,
   isHidden: boolean,
-): Promise<"changed" | "not_found"> {
+): Promise<"changed" | "unchanged" | "not_found"> {
   const { table, entityType } = ENTRY_KINDS[kind];
   return database.transaction(async (tx) => {
+    // Only a real change is made and logged: hiding twice logs once (review A9-9).
     const [changed] = await tx
       .update(table)
       .set({ hiddenAt: isHidden ? new Date() : null, updatedAt: new Date() })
-      .where(eq(table.id, entryId))
+      .where(
+        and(eq(table.id, entryId), isHidden ? isNull(table.hiddenAt) : isNotNull(table.hiddenAt)),
+      )
       .returning({ id: table.id });
     if (!changed) {
-      return "not_found";
+      const [exists] = await tx.select({ id: table.id }).from(table).where(eq(table.id, entryId));
+      return exists ? "unchanged" : "not_found";
     }
     await recordAdminChange(tx, adminUserId, {
       action: isHidden ? ADMIN_ACTIVITY_ACTIONS.hidden : ADMIN_ACTIVITY_ACTIONS.shown,
@@ -251,5 +255,37 @@ export async function fixCarMakeAndModel(
       valuesAfter: car,
     });
     return "fixed";
+  });
+}
+
+const fixedCarsSchema = z.object({ rows: z.array(z.object({ vehicle_id: z.uuid() })) });
+
+/**
+ * "Fix all N cars typed this way" (batch 7 decision 13): every current car
+ * typed like this one and not in the list, corrected one at a time by the
+ * database function, each logged in its own Operator's history and in AGS's.
+ * The spelling is read from the car itself, never from the request. How many
+ * were changed.
+ */
+export async function fixCarsTypedLike(
+  database: AnyDatabase,
+  adminUserId: string,
+  exampleVehicleId: string,
+  car: { make: string; model: string },
+): Promise<number> {
+  return database.transaction(async (tx) => {
+    const result = await tx.execute(
+      sql`select app.correct_vehicles_typed_like(${exampleVehicleId}::uuid, ${car.make}, ${car.model}, ${adminUserId}::uuid) as vehicle_id`,
+    );
+    const fixed = fixedCarsSchema.parse(result).rows;
+    for (const { vehicle_id: vehicleId } of fixed) {
+      await recordAdminChange(tx, adminUserId, {
+        action: ADMIN_ACTIVITY_ACTIONS.vehicleCorrected,
+        entityType: ADMIN_ACTIVITY_ENTITY_TYPES.vehicle,
+        entityId: vehicleId,
+        valuesAfter: car,
+      });
+    }
+    return fixed.length;
   });
 }

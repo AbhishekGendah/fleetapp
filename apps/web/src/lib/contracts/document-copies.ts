@@ -4,6 +4,7 @@ import {
   type DocumentEmailOutcome,
   type DocumentEmailRecipient,
   type DocumentEmailState,
+  operatorDisplayName,
 } from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { documentEmails } from "@fleetapp/db/schema";
@@ -109,7 +110,7 @@ export async function emailDocumentCopies(
     renderDocumentCopyEmail({
       kind: copies.kind,
       renterName: copies.renterName,
-      operatorName: business?.tradingName ?? business?.legalName ?? "",
+      operatorName: operatorDisplayName(business),
       rentalSummary: copies.rentalSummary,
       at: copies.atText,
       attachment: {

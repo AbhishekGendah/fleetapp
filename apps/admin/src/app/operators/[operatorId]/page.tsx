@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { operatorDisplayName } from "@fleetapp/core";
 import { describeActivity } from "@fleetapp/db/activity";
 import { Card, CardContent, CardHeader, CardTitle } from "@fleetapp/ui/card";
@@ -15,6 +16,9 @@ import { AdminShell } from "../../admin-shell";
 import { OperatorStatusBadge } from "../../status-badge";
 import { INVITE_RESULT_PARAM, INVITE_RESULTS } from "../invite-result";
 import { OperatorActions } from "./operator-actions";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Operator" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

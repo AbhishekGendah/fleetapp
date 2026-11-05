@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { isCalendarDate, isRecordId } from "@fleetapp/core";
 import { Card, CardContent } from "@fleetapp/ui/card";
 import { PageHeader } from "@fleetapp/ui/page-header";
@@ -15,6 +16,9 @@ import { loadOperatorSettings } from "../../../lib/settings/operator-settings";
 import { AppShell } from "../../app-shell";
 import { createRentalAction } from "../actions";
 import { RentalForm } from "../rental-form";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "New rental" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

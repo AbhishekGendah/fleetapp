@@ -10,6 +10,7 @@ import { Button } from "@fleetapp/ui/button";
 import { INITIAL_CHANGE_STATE, type ChangeFormState } from "@fleetapp/ui/change-form-state";
 import { ComboBox } from "@fleetapp/ui/combo-box";
 import { FormField } from "@fleetapp/ui/form-field";
+import { RequiredFieldsNote } from "@fleetapp/ui/input";
 import { FormResult } from "@fleetapp/ui/form-result";
 import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import { useActionState, useId } from "react";
@@ -18,6 +19,7 @@ import {
   ADD_AND_FIX_INTENT,
   CAR_NAME_FIELDS,
   carNameInputSchema,
+  FIX_ALL_INTENT,
   FIX_INTENT_FIELD,
 } from "../../../lib/car-models/car-model-input";
 
@@ -29,6 +31,8 @@ import {
 export function FixCarForm(props: {
   typed: { make: string; model: string };
   catalogue: VehicleCatalogue;
+  /** How many cars, across every Operator, are typed exactly this way. */
+  typedTheSameWay: number;
   action: (state: ChangeFormState, formData: FormData) => Promise<ChangeFormState>;
 }) {
   const idPrefix = useId();
@@ -38,25 +42,34 @@ export function FixCarForm(props: {
     initialValues: inCatalogueSpelling(props.catalogue, props.typed),
     validate: (values) => fieldErrorsOf(carNameInputSchema.safeParse(values)),
     isRequired: () => true,
+    // Each car's own ids, so its boxes and their messages stay linked (review A10-10).
+    idPrefix: `${idPrefix}-`,
   });
-  const makeId = `${idPrefix}-make`;
-  const modelId = `${idPrefix}-model`;
 
   return (
     <form action={formAction} className="flex flex-col gap-3">
+      <RequiredFieldsNote />
       <div className="grid gap-3 sm:grid-cols-2">
-        <FormField htmlFor={makeId} label="Make" isRequired error={form.errorFor("make")}>
+        <FormField
+          htmlFor={form.idFor("make")}
+          label="Make"
+          isRequired
+          error={form.errorFor("make")}
+        >
           <ComboBox
             {...form.boxProps("make")}
-            id={makeId}
             options={props.catalogue}
             onValueChange={(value) => form.setValue("make", value)}
           />
         </FormField>
-        <FormField htmlFor={modelId} label="Model" isRequired error={form.errorFor("model")}>
+        <FormField
+          htmlFor={form.idFor("model")}
+          label="Model"
+          isRequired
+          error={form.errorFor("model")}
+        >
           <ComboBox
             {...form.boxProps("model")}
-            id={modelId}
             options={catalogueModels(props.catalogue, form.values.make)}
             onValueChange={(value) => form.setValue("model", value)}
           />
@@ -75,6 +88,17 @@ export function FixCarForm(props: {
         >
           Add to list and fix
         </Button>
+        {props.typedTheSameWay > 1 ? (
+          <Button
+            type="submit"
+            variant="outline"
+            name={FIX_INTENT_FIELD}
+            value={FIX_ALL_INTENT}
+            disabled={isPending}
+          >
+            Fix all {props.typedTheSameWay} cars typed this way
+          </Button>
+        ) : null}
       </div>
     </form>
   );

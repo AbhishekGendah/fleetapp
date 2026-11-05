@@ -2,6 +2,7 @@ import { mergeFieldLabel } from "@fleetapp/core";
 
 import type { LinkSendState } from "../renter-links/link-send-state";
 import type { SendSigningLinkResult } from "./signing-links";
+import { RENTER_ARCHIVED_MESSAGE } from "../renters/renter-archived";
 
 /** What the message names: "contract" or "change of terms". */
 type DocumentName = "contract" | "change of terms";
@@ -30,6 +31,7 @@ export function signingLinkNotSentState(
         ? "Only a draft or booked rental’s contract can be sent for signing."
         : "This change can no longer be signed: it was withdrawn, or the rental is over.",
     no_email: "Add the Renter’s email first: the link and its codes are sent there.",
+    renter_archived: RENTER_ARCHIVED_MESSAGE,
     no_template: `Set up ${SETTINGS_TEMPLATE_NAMES[name]} first, in Settings → Contracts.`,
     already_signed: `This ${name} is already signed.`,
   };

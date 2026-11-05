@@ -239,7 +239,7 @@ export async function changeRentalEnd(
     }
     const { ongoingNoticeDays } = readSettings(operatorSettingsSchema, rental.settingsSnapshot);
     const daysShort = request.newEnd
-      ? noticeDaysShort(request.newEnd, rental, clock.now, ongoingNoticeDays)
+      ? noticeDaysShort(request.newEnd, rental, clock, ongoingNoticeDays)
       : 0;
     try {
       await tx.transaction(async (savepoint) => {

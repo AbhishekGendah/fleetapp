@@ -15,6 +15,7 @@ import { rentalPath } from "../../../lib/paths";
 import { cancelRentalLink } from "../../../lib/renter-links/cancel-links";
 import { linkSentState, type LinkSendState } from "../../../lib/renter-links/link-send-state";
 import { requireUser } from "../../../lib/require-user";
+import { RENTER_ARCHIVED_MESSAGE } from "../../../lib/renters/renter-archived";
 import { runUserChange } from "../../../lib/run-change";
 
 const NOT_SENT_MESSAGES: Readonly<
@@ -24,6 +25,7 @@ const NOT_SENT_MESSAGES: Readonly<
   not_found: "That rental could not be found, or it is closed.",
   no_email:
     "The Renter has no email on file, and the one-time code goes there. Add one on their page.",
+  renter_archived: RENTER_ARCHIVED_MESSAGE,
 };
 const FAILED_MESSAGE = "The link could not be made. Try again in a moment.";
 

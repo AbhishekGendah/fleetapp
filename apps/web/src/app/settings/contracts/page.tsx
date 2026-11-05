@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { CONTRACT_TEMPLATE_KIND_LABELS, formatDayInTimeZone } from "@fleetapp/core";
 import { Badge } from "@fleetapp/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
@@ -12,6 +13,9 @@ import { requireUser } from "../../../lib/require-user";
 import { AppShell } from "../../app-shell";
 import { addTemplateAction } from "./actions";
 import { AddTemplateForm } from "./add-template-form";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Contracts" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

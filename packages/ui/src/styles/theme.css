@@ -12,7 +12,8 @@
   --animate-caret-blink: caret-blink 1s step-end infinite;
 
   --color-border: #e2e8f0;
-  --color-input: #e2e8f0;
+  /* Box, select and signature outlines: 3:1 against white, readable in sun (WCAG 1.4.11, review A10-3). */
+  --color-input: #64748b;
   --color-ring: #167884;
 
   --color-background: #f8fafc;

@@ -68,6 +68,7 @@ describe("changes of terms during a rental", () => {
     ...kit.handoverDeps(),
     appUrl: "https://app.example.test",
     describeDay: () => "Friday 6 November",
+    describeMoment: () => "3:15 pm AWST, Friday 6 November",
   });
 
   /** A second booking of the same car, from `start` to `end` (Perth local times). */

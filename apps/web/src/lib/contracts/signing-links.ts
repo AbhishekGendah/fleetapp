@@ -44,7 +44,15 @@ import { loadDefaultTemplate } from "./templates";
 export type SendSigningLinkResult =
   | { status: "sent"; url: string; expiresAt: Date; isEmailed: boolean }
   | { status: "missing"; fields: MergeFieldKey[] }
-  | { status: "not_found" | "not_signable" | "no_email" | "no_template" | "already_signed" };
+  | {
+      status:
+        | "not_found"
+        | "not_signable"
+        | "no_email"
+        | "renter_archived"
+        | "no_template"
+        | "already_signed";
+    };
 
 /** "1ABC234 Toyota Corolla, from 1 June 2027": the rental in a few words, for emails. */
 export function rentalSummaryText(data: {
@@ -110,9 +118,13 @@ async function sendLinkFor(
         email: renters.email,
         fullName: renters.fullName,
         preferredName: renters.preferredName,
+        archivedAt: renters.archivedAt,
       })
       .from(renters)
-      .where(and(eq(renters.id, rental.renterId), isNull(renters.archivedAt)));
+      .where(and(eq(renters.id, rental.renterId), eq(renters.operatorId, actor.operatorId)));
+    if (renter?.archivedAt) {
+      return { status: "renter_archived" as const };
+    }
     if (!renter?.email) {
       return { status: "no_email" as const };
     }
@@ -178,7 +190,7 @@ async function sendLinkFor(
         replyTo: prepared.sender.replyTo,
         rentalSummary: rentalSummaryText(subject.filled.data),
         linkUrl: url,
-        validUntil: deps.describeDay(expiresAt),
+        validUntil: deps.describeMoment(expiresAt),
       }),
     );
   } catch (error) {

@@ -23,6 +23,14 @@ export const RENTER_LINK_PURPOSE_LABELS: Readonly<Record<RenterLinkPurpose, stri
   set_up_payments: "Direct debit and bond",
 };
 
+/** What the link opens, as the code email says it to the Renter (review G7-3, batch 7 decision 12). */
+export const RENTER_LINK_PURPOSE_WORDS: Readonly<Record<RenterLinkPurpose, string>> = {
+  details_form: "fill in your details",
+  sign_contract: "sign your rental contract",
+  sign_change: "sign the change to your rental",
+  set_up_payments: "set up your direct debit and bond",
+};
+
 /** How long a details form link lasts: an Operator setting (rule 27). */
 export const DEFAULT_RENTER_LINK_DAYS = 7;
 export const MINIMUM_RENTER_LINK_DAYS = 1;

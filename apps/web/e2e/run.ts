@@ -21,7 +21,7 @@ import {
 import { migrateTestDatabase, startTestPostgres } from "@fleetapp/db/testing";
 import { startFakePlaces } from "@fleetapp/e2e/fake-places";
 import { startLocalS3 } from "@fleetapp/e2e/local-s3";
-import { runToEnd, startNextApp } from "@fleetapp/e2e/processes";
+import { removeRunLeftovers, runToEnd, startNextApp } from "@fleetapp/e2e/processes";
 
 import {
   E2E_BASE_URL,
@@ -33,6 +33,8 @@ import {
 } from "./e2e-settings";
 
 const EXIT_FAILURE = 1;
+/** The app's folder, one up from this file. */
+const APP_DIRECTORY = new URL("..", import.meta.url);
 const TEST_SECRET = "an-e2e-only-signing-secret-of-32-chars-or-more";
 
 /** One made-up business with one invited User; returns the invite's secret for the address. */
@@ -67,6 +69,8 @@ async function main(): Promise<void> {
   const postgres = await startTestPostgres(APPLICATION_ROLES);
   const places = await startFakePlaces();
   const stops: Array<() => unknown> = [() => postgres.stop(), () => places.stop()];
+  // Only a full pass removes the results; a failure keeps them to look into.
+  let isPassed = false;
   try {
     await migrateTestDatabase(postgres.ownerUrl);
     const inviteToken = await seedInvitedUser({
@@ -114,9 +118,14 @@ async function main(): Promise<void> {
         E2E_SUPERUSER_URL: postgres.superuserUrl,
       },
     });
+    isPassed = true;
   } finally {
-    for (const stop of stops.reverse()) {
-      await stop();
+    try {
+      for (const stop of stops.reverse()) {
+        await stop();
+      }
+    } finally {
+      await removeRunLeftovers({ appDirectory: APP_DIRECTORY, isPassed });
     }
   }
 }

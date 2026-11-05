@@ -171,7 +171,7 @@ test.describe.serial("handing a car over", () => {
         .fill("Scratch on rear bumper");
       await page.getByRole("button", { name: "Add damage mark" }).click();
       await expect(
-        page.getByRole("button", { name: "Damage 1: Scratch on rear bumper" }),
+        page.getByLabel("Damage 1: Scratch on rear bumper", { exact: true }),
       ).toBeVisible();
       await expect(page.getByRole("button", { name: "Remove mark 1" })).toBeVisible();
       await takePhoto(page, "Take photo: damage 1");
@@ -274,7 +274,7 @@ test.describe.serial("handing a car over", () => {
       // photo chosen after the save lands: it must not be lost.
       const saving = holdMarkSave(page, "Dent on bonnet");
       await page.getByRole("button", { name: "Add damage mark" }).click();
-      await expect(page.getByRole("button", { name: "Damage 1: Dent on bonnet" })).toBeVisible();
+      await expect(page.getByLabel("Damage 1: Dent on bonnet", { exact: true })).toBeVisible();
       const openPicker = await page
         .getByRole("listitem")
         .filter({ has: page.getByRole("button", { name: "Take photo: damage 1" }) })
@@ -373,7 +373,7 @@ test.describe.serial("handing a car over", () => {
       const form = page.getByRole("dialog");
       await form.getByRole("textbox", { name: /^What is damaged/ }).fill("Chip in windscreen");
       await form.getByLabel(/^Where on the car/).selectOption("windscreen");
-      await expect(form.getByRole("button", { name: "Damage 1: the place marked" })).toBeVisible();
+      await expect(form.getByLabel("Damage 1: the place marked", { exact: true })).toBeVisible();
       await expectAccessible(page);
       await form.getByRole("button", { name: "Record damage" }).click();
       await expect(form).toBeHidden();

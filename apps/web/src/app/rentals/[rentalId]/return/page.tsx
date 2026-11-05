@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { operatorSettingsSchema, readSettings } from "@fleetapp/core";
 import { PageHeader } from "@fleetapp/ui/page-header";
 import { redirect } from "next/navigation";
@@ -17,6 +18,9 @@ import { LazyReturnForm } from "./lazy-return-form";
 import { NoBusinessEmailWarning } from "../../../../components/no-business-email-warning";
 import { RenterPrivacyLine } from "../../../../components/renter-privacy-notice";
 import { loadNoticeBusiness } from "../../../../lib/privacy/notice-business";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Return" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

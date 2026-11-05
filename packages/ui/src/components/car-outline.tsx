@@ -109,27 +109,44 @@ export function CarOutline({
           <CarDrawing />
         </div>
       )}
-      {marks.map((mark, index) => (
+      {marks.map((mark, index) => {
         // Lettered marks (badge) do not take a number, so new damage still counts from 1.
-        <button
-          key={mark.id}
-          type="button"
-          aria-label={mark.label}
-          onClick={() => onSelectMark?.(mark.id)}
-          className={cn(
-            "focus-visible:ring-ring absolute flex size-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-sm font-bold shadow focus-visible:ring-2 focus-visible:outline-none",
-            mark.tone === "existing"
-              ? "bg-muted text-foreground border-foreground/40 border-2"
-              : "bg-destructive text-destructive-foreground",
-          )}
-          style={{
-            left: `${(mark.x / CAR_OUTLINE_SCALE) * 100}%`,
-            top: `${(mark.y / CAR_OUTLINE_SCALE) * 100}%`,
-          }}
-        >
-          {mark.badge ?? marks.slice(0, index + 1).filter((other) => !other.badge).length}
-        </button>
-      ))}
+        const number =
+          mark.badge ?? marks.slice(0, index + 1).filter((other) => !other.badge).length;
+        const className = cn(
+          "focus-visible:ring-ring absolute flex size-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-sm font-bold shadow focus-visible:ring-2 focus-visible:outline-none",
+          mark.tone === "existing"
+            ? "bg-muted text-foreground border-foreground/40 border-2"
+            : "bg-destructive text-destructive-foreground",
+        );
+        const style = {
+          left: `${(mark.x / CAR_OUTLINE_SCALE) * 100}%`,
+          top: `${(mark.y / CAR_OUTLINE_SCALE) * 100}%`,
+        };
+        // A mark that does nothing when pressed is not a button (review A10-12).
+        return onSelectMark ? (
+          <button
+            key={mark.id}
+            type="button"
+            aria-label={mark.label}
+            onClick={() => onSelectMark(mark.id)}
+            className={className}
+            style={style}
+          >
+            {number}
+          </button>
+        ) : (
+          <span
+            key={mark.id}
+            role="img"
+            aria-label={mark.label}
+            className={className}
+            style={style}
+          >
+            {number}
+          </span>
+        );
+      })}
     </div>
   );
 }

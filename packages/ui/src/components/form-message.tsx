@@ -1,9 +1,9 @@
-export function FormError({ message }: { message: string | null }) {
+export function FormError({ id, message }: { id?: string; message: string | null }) {
   if (!message) {
     return null;
   }
   return (
-    <p className="text-destructive text-sm" role="alert">
+    <p id={id} className="text-destructive text-sm" role="alert">
       {message}
     </p>
   );

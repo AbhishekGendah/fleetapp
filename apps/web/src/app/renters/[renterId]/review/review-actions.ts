@@ -1,6 +1,6 @@
 "use server";
 
-import { formatDayInTimeZone, formTextValues, isRecordId } from "@fleetapp/core";
+import { formatLinkExpiryInTimeZone, formTextValues, isRecordId } from "@fleetapp/core";
 import { failedState, savedState, type ChangeFormState } from "@fleetapp/ui/change-form-state";
 import { redirect } from "next/navigation";
 
@@ -78,7 +78,7 @@ export async function sendBackSubmissionAction(
           database: appDb,
           emailSender: appEmailSender,
           now: () => new Date(),
-          describeDay: (moment) => formatDayInTimeZone(moment, user.operatorTimezone),
+          describeMoment: (moment) => formatLinkExpiryInTimeZone(moment, user.operatorTimezone),
         },
         actor,
         renterId,
@@ -87,10 +87,19 @@ export async function sendBackSubmissionAction(
       if (result.status === "link_ended") {
         return failedState(LINK_ENDED_MESSAGE);
       }
-      return result.status === "sent_back" ? savedState("Sent back.") : failedState(GONE_MESSAGE);
+      if (result.status !== "sent_back") {
+        return failedState(GONE_MESSAGE);
+      }
+      // Said plainly, and the page stays, so nobody thinks the Renter was told (review G7-5).
+      return result.isEmailed
+        ? savedState("Sent back.")
+        : savedState(
+            `Sent back, but the email to the Renter didn't go. Ask them to open their details link again: it works until ${formatLinkExpiryInTimeZone(result.linkWorksUntil, user.operatorTimezone)}.`,
+            true,
+          );
     },
   });
-  if (state.status === "saved") {
+  if (state.status === "saved" && !state.isWarning) {
     redirect(renterPath(renterId));
   }
   return state;

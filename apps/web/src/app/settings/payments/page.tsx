@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import {
   describeErrorForLog,
   PAYMENT_ACCOUNT_STATE_LABELS,
@@ -21,6 +22,9 @@ import { SETTINGS_PATH } from "../../../lib/paths";
 import { requireUser } from "../../../lib/require-user";
 import { AppShell } from "../../app-shell";
 import { connectStripeAction } from "./actions";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Payments" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

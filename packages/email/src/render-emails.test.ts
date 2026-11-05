@@ -140,15 +140,30 @@ describe("Renter emails", () => {
     expect(message.html).toContain("https://sunny.example.com.au/privacy");
   });
 
-  it("put the code in the subject and the body", async () => {
+  it("puts the code in the body, never the subject", async () => {
     const message = await renderRenterLinkCodeEmail({
       to: "sam@example.test",
       operatorName: "Sunny Rentals",
       code: "042917",
       validFor: "10 minutes",
+      purposeWords: "fill in your details",
     });
     expect(message.subject).not.toContain("042917");
     expect(message.text).toContain("042917");
+  });
+
+  it("says what the link is for (review G7-3)", async () => {
+    const message = await renderRenterLinkCodeEmail({
+      to: "sam@example.test",
+      operatorName: "Sunny Rentals",
+      code: "042917",
+      validFor: "10 minutes",
+      purposeWords: "sign your rental contract",
+    });
+    expect(message.text).toContain(
+      "Type this code to sign your rental contract with Sunny Rentals",
+    );
+    expect(message.text).not.toContain("details form");
   });
 });
 

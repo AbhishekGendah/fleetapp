@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { formatDateTimeInTimeZone } from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
 import { Badge } from "@fleetapp/ui/badge";
@@ -18,6 +19,9 @@ import { loadRenterOrNotFound } from "../load-renter";
 import { approveSubmissionAction, sendBackSubmissionAction } from "./review-actions";
 import { SendBackForm } from "./send-back-form";
 import { SubmittedPhotos } from "./submitted-photos";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Renter details to review" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

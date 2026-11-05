@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { PageHeader } from "@fleetapp/ui/page-header";
 
 import { AppShell } from "../../../../app-shell";
@@ -13,6 +14,9 @@ import { NoBusinessEmailWarning } from "../../../../../components/no-business-em
 import { RenterPrivacyLine } from "../../../../../components/renter-privacy-notice";
 import { loadNoticeBusiness } from "../../../../../lib/privacy/notice-business";
 import { loadSwapPage } from "../load-swap-page";
+
+/** Its own tab name: the layout adds the product's (review A10-2). */
+export const metadata: Metadata = { title: "Swap: new car" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

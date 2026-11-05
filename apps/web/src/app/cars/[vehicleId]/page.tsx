@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import {
   formatCalendarDate,
   formatCents,
@@ -332,6 +333,15 @@ function CarHeader({ vehicle }: { vehicle: VehicleDetail }) {
       ) : null}
     </>
   );
+}
+
+/** The tab is named by the car's rego (review A10-2). */
+export async function generateMetadata(props: {
+  params: Promise<{ vehicleId: string }>;
+}): Promise<Metadata> {
+  const user = await requireUser();
+  const vehicle = await loadCarOrNotFound(user, (await props.params).vehicleId);
+  return { title: vehicle.rego };
 }
 
 /** One car: its details and status, paperwork, costs, odometer readings and history, each on its own tab. */

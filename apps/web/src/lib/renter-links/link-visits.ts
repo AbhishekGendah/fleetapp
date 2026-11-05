@@ -1,5 +1,7 @@
 import {
+  describeErrorForLog,
   LINK_CODE_VALID_MINUTES,
+  RENTER_LINK_PURPOSE_WORDS,
   maskEmail,
   MILLISECONDS_PER_MINUTE,
   LINK_CODE_DIGITS,
@@ -194,11 +196,14 @@ async function lockLink(tx: AnyTransaction, linkId: string) {
   return link;
 }
 
-export type SendCodeResult = "sent" | "too_many" | "locked";
+/** "not_sent": the email failed, so nothing was used up and the code before still works (review G7-2). */
+export type SendCodeResult = "sent" | "too_many" | "locked" | "not_sent";
 
 /**
  * Emails a fresh code to the address the link went to, replacing any code
- * not yet used. At most 3 an hour, so a link cannot flood an inbox.
+ * not yet used. At most 3 an hour, so a link cannot flood an inbox. If the
+ * email fails the link is put back as it was: the earlier code still works,
+ * none of the hour's three is used, and the Log says no code was sent.
  */
 export async function sendLinkCode(
   deps: { database: AnyDatabase; emailSender: EmailSender; now: () => Date },
@@ -228,26 +233,70 @@ export async function sendLinkCode(
         updatedAt: now,
       })
       .where(eq(renterLinks.id, link.id));
-    await logLink(tx, visit, ACTIVITY_ACTIONS.codeSent);
     return {
       status: "send" as const,
       email: link.sentToEmail,
       sender: await loadLinkSender(tx, link.operatorId),
+      before: {
+        codeHash: link.codeHash,
+        codeExpiresAt: link.codeExpiresAt,
+        codesWindowStartedAt: link.codesWindowStartedAt,
+        codesInWindow: link.codesInWindow,
+      },
     };
   });
   if (outcome.status !== "send") {
     return outcome.status;
   }
-  await deps.emailSender.send(
-    await renderRenterLinkCodeEmail({
-      to: outcome.email,
-      operatorName: outcome.sender.operatorName,
-      replyTo: outcome.sender.replyTo,
-      code,
-      validFor: CODE_VALID_FOR,
-    }),
-  );
+  try {
+    await deps.emailSender.send(
+      await renderRenterLinkCodeEmail({
+        to: outcome.email,
+        operatorName: outcome.sender.operatorName,
+        replyTo: outcome.sender.replyTo,
+        code,
+        validFor: CODE_VALID_FOR,
+        purposeWords: RENTER_LINK_PURPOSE_WORDS[visit.purpose],
+      }),
+    );
+  } catch (error) {
+    console.error("Emailing a link code failed", describeErrorForLog(error));
+    await putCodeBack(deps, visit, {
+      newHash: hashLinkCode(visit.linkId, code),
+      ...outcome.before,
+    });
+    return "not_sent";
+  }
+  try {
+    await withTenant(deps.database, visit.operatorId, (tx) =>
+      logLink(tx, visit, ACTIVITY_ACTIONS.codeSent),
+    );
+  } catch (error) {
+    // The code is already in their inbox: saying it failed would only send another.
+    console.error("Logging a sent link code failed", describeErrorForLog(error));
+  }
   return "sent";
+}
+
+/** The link as it was before a code whose email failed, unless another has been sent since. */
+async function putCodeBack(
+  deps: { database: AnyDatabase; now: () => Date },
+  visit: LinkVisit,
+  before: {
+    newHash: string;
+    codeHash: string | null;
+    codeExpiresAt: Date | null;
+    codesWindowStartedAt: Date | null;
+    codesInWindow: number;
+  },
+): Promise<void> {
+  const { newHash, ...earlier } = before;
+  await withTenant(deps.database, visit.operatorId, (tx) =>
+    tx
+      .update(renterLinks)
+      .set({ ...earlier, updatedAt: deps.now() })
+      .where(and(eq(renterLinks.id, visit.linkId), eq(renterLinks.codeHash, newHash))),
+  );
 }
 
 export type CheckCodeResult =
