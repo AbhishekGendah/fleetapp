@@ -14,7 +14,7 @@ import { createAdminAuth } from "./auth-options";
  * Operator list or a report has no connection on which a password hash is
  * readable.
  */
-const authDb = createDb(env.AUTH_DATABASE_URL);
+export const authDb = createDb(env.AUTH_DATABASE_URL);
 
 export const auth = createAdminAuth({
   database: authDb,

@@ -13,7 +13,8 @@
     "./tenancy": "./src/tenancy.ts",
     "./tenant-context": "./src/tenant-context.ts",
     "./testing": "./src/testing/index.ts",
-    "./vehicle-catalogue": "./src/vehicle-catalogue.ts"
+    "./vehicle-catalogue": "./src/vehicle-catalogue.ts",
+    "./role-check": "./src/role-check.ts"
   },
   "scripts": {
     "lint": "eslint .",
