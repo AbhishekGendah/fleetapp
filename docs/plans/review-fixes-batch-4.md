@@ -283,3 +283,31 @@ embedded in documents, but it isn't one of the code licences rule 32
 lists, so it needs your say-so. The alternative is to keep the built-in
 fonts and warn the business before signing when a name can't be printed,
 which leaves those Renters' papers wrong.
+
+## As built (5 Nov 2026)
+
+- **Font:** Noto Sans 2.015 (SIL OFL, allowed by Abhi for fonts), copied as
+  files into apps/web/assets/fonts from @expo-google-fonts/noto-sans 0.4.2;
+  not a dependency. Covers Latin, Greek and Cyrillic.
+- **Photos:** made into JPEG on the phone, only JPEG or PNG stored. A photo
+  that fails to load (tried twice) stops the report. A photo stored before
+  this batch in WebP is named with a note ("its format can't be printed")
+  instead of blocking a return for good (found in the deep review).
+- **Signature method:** kept on the checklist itself (inspections
+  signature_method and typed_name), not in the contracts' signing record.
+- **Swap:** signed only for the swap, both checklists and the filled-in
+  swap form the Renter read (its own fingerprint, with the date of issue
+  fixed to the swap's start), not just the template version (deep review).
+- **Unprinted email history:** documents issued before this batch have no
+  email record and show none (nothing claimed either way).
+- **History:** possession, car holds and swap checklists have their own
+  lines, shown in the rental's Log with the car's rego.
+- **A change replaced while being signed:** the later change stops its
+  link, so the Renter is told the business stopped it (true); a change
+  whose rent week begins mid-signing says it can no longer be signed.
+- **Deep review:** one reviewer, each finding checked by two independent
+  checkers. Seven findings, all confirmed to exist; one (the swap form)
+  harmful, the rest small. All seven fixed, each with a test.
+- **Known, not done here:** the handover return browser test (a damage
+  photo taken right after its mark is added is sometimes lost) still
+  fails in some runs, as before this batch. To be looked at on its own.
