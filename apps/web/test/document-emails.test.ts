@@ -85,6 +85,11 @@ describe("emailed copies of fixed documents", () => {
     expect(sentEmails).toHaveLength(1);
     expect(sentEmails[0]?.attachments?.[0]?.content).toBeDefined();
     expect(await stateOf(documentId)).toEqual({ renter: "sent", business: "no_address" });
+
+    // Pressed again from an old page: what went already is not sent twice.
+    sentEmails.length = 0;
+    await emailDocumentAgain(kit.handoverDeps(), actor, documentId, TEST_TIME_ZONE);
+    expect(sentEmails).toHaveLength(0);
   });
 
   it("never sends or shows another Operator's document", async () => {

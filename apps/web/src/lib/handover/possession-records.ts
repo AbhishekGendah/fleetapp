@@ -1,5 +1,11 @@
-import type { AnyTransaction } from "@fleetapp/db/client";
-import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, possessions } from "@fleetapp/db/schema";
+import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
+import {
+  ACTIVITY_ACTIONS,
+  ACTIVITY_ENTITY_TYPES,
+  carHolds,
+  possessions,
+} from "@fleetapp/db/schema";
+import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, isNull } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
@@ -19,6 +25,7 @@ export async function startPossession(
     startedAt: Date;
     handoverInspectionId: string;
   },
+  carRego: string,
 ): Promise<void> {
   const [started] = await tx
     .insert(possessions)
@@ -28,11 +35,7 @@ export async function startPossession(
     entityType: ACTIVITY_ENTITY_TYPES.possession,
     entityId: started!.id,
     action: ACTIVITY_ACTIONS.started,
-    valuesAfter: {
-      vehicleId: possession.vehicleId,
-      renterId: possession.renterId,
-      startedAt: possession.startedAt.toISOString(),
-    },
+    valuesAfter: { carRego, startedAt: possession.startedAt.toISOString() },
   });
 }
 
@@ -40,7 +43,7 @@ export async function startPossession(
 export async function endPossession(
   tx: AnyTransaction,
   actor: ActingUser,
-  ending: { rentalId: string; endedAt: Date; returnInspectionId: string },
+  ending: { rentalId: string; endedAt: Date; returnInspectionId: string; carRego: string },
 ): Promise<void> {
   const ended = await tx
     .update(possessions)
@@ -56,13 +59,30 @@ export async function endPossession(
         isNull(possessions.endedAt),
       ),
     )
-    .returning({ id: possessions.id, vehicleId: possessions.vehicleId });
+    .returning({ id: possessions.id });
   for (const possession of ended) {
     await recordUserChange(tx, actor, {
       entityType: ACTIVITY_ENTITY_TYPES.possession,
       entityId: possession.id,
       action: ACTIVITY_ACTIONS.ended,
-      valuesAfter: { vehicleId: possession.vehicleId, endedAt: ending.endedAt.toISOString() },
+      valuesAfter: { carRego: ending.carRego, endedAt: ending.endedAt.toISOString() },
     });
   }
+}
+
+/** A rental's possessions and car holds, for its Log. */
+export async function possessionAndHoldIdsOf(
+  database: AnyDatabase,
+  operatorId: string,
+  rentalId: string,
+): Promise<{ possessionIds: string[]; holdIds: string[] }> {
+  return withTenant(database, operatorId, async (tx) => {
+    const ofRental = (table: typeof possessions | typeof carHolds) =>
+      and(eq(table.operatorId, operatorId), eq(table.rentalId, rentalId));
+    const [held, holds] = await Promise.all([
+      tx.select({ id: possessions.id }).from(possessions).where(ofRental(possessions)),
+      tx.select({ id: carHolds.id }).from(carHolds).where(ofRental(carHolds)),
+    ]);
+    return { possessionIds: held.map((row) => row.id), holdIds: holds.map((row) => row.id) };
+  });
 }

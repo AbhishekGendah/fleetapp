@@ -228,6 +228,8 @@ export interface PdfPhoto {
   caption: string;
   /** Missing when it could not be printed; the caption says it is kept with the rental. */
   image?: PdfImage | undefined;
+  /** What is said in its place when there is no image, if not the usual note. */
+  missingNote?: string;
 }
 
 function PhotoGrid({ heading, photos }: { heading: string; photos: readonly PdfPhoto[] }) {
@@ -242,7 +244,9 @@ function PhotoGrid({ heading, photos }: { heading: string; photos: readonly PdfP
               <Image src={photo.image} style={styles.photoImage} />
             ) : null}
             <Text style={styles.photoCaption}>
-              {photo.image ? photo.caption : `${photo.caption} (photo kept with the rental)`}
+              {photo.image
+                ? photo.caption
+                : `${photo.caption} ${photo.missingNote ?? "(photo kept with the rental)"}`}
             </Text>
           </View>
         ))}

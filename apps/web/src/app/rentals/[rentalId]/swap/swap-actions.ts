@@ -72,6 +72,7 @@ function shownSwapFrom(formData: FormData): ShownSwap {
     returnFingerprint: text("returnFingerprint"),
     handoverFingerprint: text("handoverFingerprint"),
     swapTemplateVersionId: text("swapTemplateVersionId"),
+    swapFormFingerprint: text("swapFormFingerprint"),
   };
 }
 

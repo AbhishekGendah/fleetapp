@@ -13,7 +13,8 @@ export function DocumentEmailStatus(props: {
   documentId: string;
   state: DocumentEmailState | undefined;
 }) {
-  if (!props.state) {
+  // No record at all (issued before copies were recorded): nothing is claimed either way.
+  if (!props.state || (props.state.renter === null && props.state.business === null)) {
     return null;
   }
   return (

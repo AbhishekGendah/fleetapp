@@ -95,13 +95,13 @@ export async function releaseCarHolds(
         onlyVehicleId ? eq(carHolds.vehicleId, onlyVehicleId) : undefined,
       ),
     )
-    .returning({ id: carHolds.id, vehicleId: carHolds.vehicleId });
+    .returning({ id: carHolds.id });
   for (const hold of released) {
     await recordUserChange(tx, actor, {
       entityType: ACTIVITY_ENTITY_TYPES.carHold,
       entityId: hold.id,
       action: ACTIVITY_ACTIONS.released,
-      valuesAfter: { vehicleId: hold.vehicleId, releasedAt: releasedAt.toISOString() },
+      valuesAfter: { releasedAt: releasedAt.toISOString() },
     });
   }
 }

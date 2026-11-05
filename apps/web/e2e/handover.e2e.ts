@@ -14,7 +14,6 @@ import {
   type TypedMoment,
 } from "./rental-steps";
 import { samplePhoto } from "./sample-photo";
-import { drawRenterSignature } from "./signing-steps";
 import { recordSignedContract } from "./test-records";
 
 /**
@@ -160,9 +159,29 @@ test.describe.serial("handing a car over", () => {
       const accept = page.getByRole("button", { name: "The Renter accepts the car" });
       await expect(accept).toBeVisible();
 
+      // A changed detail not yet saved holds the signing back (review G9-2).
+      const odometer = page.getByRole("textbox", { name: /^Odometer/ });
+      await odometer.fill("");
+      await odometer.pressSequentially("1600");
+      await expect(page.getByText(/press Save details before the Renter signs/)).toBeVisible();
+      await expect(accept).toHaveCount(0);
+      await page.getByRole("button", { name: "Save details" }).click();
+      await expect(page.getByText("Saved.", { exact: true })).toBeVisible();
+
+      // The Renter reads what is saved, in the report's own words.
+      await expect(
+        page.getByText(/I received this car on the date and time I sign, with 1,600 km/),
+      ).toBeVisible();
       await accept.click();
       await expect(page.getByText("Ask the Renter to sign in the box.")).toBeVisible();
-      await drawRenterSignature(page);
+
+      // They can type their name instead of drawing (review G9-10).
+      await page.getByLabel(/^How .* signs/).selectOption("typed");
+      const typedName = page.getByRole("textbox", { name: /full name/ });
+      await typedName.fill("Someone Else");
+      await accept.click();
+      await expect(page.getByText(/type their full name exactly as shown/)).toBeVisible();
+      await typedName.fill(RENTER.name);
       await page
         .getByRole("textbox", { name: /Why does the car go anyway/ })
         .fill("Bond paid Friday");
@@ -175,6 +194,8 @@ test.describe.serial("handing a car over", () => {
       const response = await page.request.get((await report.getAttribute("href")) ?? "");
       expect(response.headers()["content-type"]).toBe("application/pdf");
       await expect(page.getByRole("button", { name: "Start handover" })).toHaveCount(0);
+      // Whether the copies really went, from their own record (review G9-9).
+      await expect(page.getByText(/^Emailed to the Renter/)).toBeVisible();
       await expectAccessible(page);
     });
 

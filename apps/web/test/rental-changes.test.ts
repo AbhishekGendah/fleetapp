@@ -482,6 +482,56 @@ describe("changes of terms during a rental", () => {
     expect(await wasLinkUsed(web.db, token)).toBe(true);
   });
 
+  it("signs nothing when the change is replaced while it is being signed (review A3-12)", async () => {
+    const { rentalId } = await kit.rentalOut(new Date(Date.now() - DAY_MS));
+    const ended = await changeRentalEnd(
+      web.db,
+      actor,
+      rentalId,
+      { newEnd: await endAfterStart(rentalId, 60), reason: REASON },
+      clock(),
+    );
+    await sendChangeForSigning(
+      linkDeps(),
+      actor,
+      ended.status === "changed" ? ended.changeId : "",
+      clock(),
+    );
+    expect(ended.status).toBe("changed");
+    const visit = (await openLink(web.db, lastToken()))!;
+    const deps = linkDeps();
+    // The business makes the rental ongoing in the moment the signed form is being stored.
+    const save = deps.storage.save.bind(deps.storage);
+    deps.storage.save = async (area, key, bytes, contentType) => {
+      await changeRentalEnd(web.db, actor, rentalId, { newEnd: null, reason: REASON }, clock());
+      return save(area, key, bytes, contentType);
+    };
+
+    const result = await signContract(
+      deps,
+      visit,
+      {
+        areDetailsConfirmed: "on",
+        hasConsented: "on",
+        method: "typed",
+        typedName: "Rory Ready",
+        drawnSignature: "",
+        contractFingerprint: visit.signing!.contractFingerprint,
+      },
+      META,
+    );
+
+    // The business replaced it, which stops its link: nothing is signed, and the Renter is told so.
+    expect(result).toEqual({ status: "link_stopped" });
+    const [change] = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx
+        .select({ documentId: rentalChanges.documentId })
+        .from(rentalChanges)
+        .where(eq(rentalChanges.id, ended.status === "changed" ? ended.changeId : "")),
+    );
+    expect(change?.documentId).toBeNull();
+  });
+
   it("withdraws a rate change not signed in time when the next one is proposed (review A3-1)", async () => {
     const { rentalId } = await kit.rentalOut(new Date(Date.now() - 2 * DAY_MS));
     const first = await changeWeeklyRate(

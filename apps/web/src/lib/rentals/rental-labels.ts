@@ -31,6 +31,10 @@ const RENTAL_FIELD_LABELS: Readonly<Record<string, string>> = {
   kind: "Bond entry",
   amountCents: "Amount",
   method: "How",
+  carRego: "Car",
+  startedAt: "From",
+  endedAt: "Until",
+  releasedAt: "Let go at",
 };
 
 /** A warning a booking went ahead with, in a few words, for the Log. */
@@ -47,7 +51,7 @@ const BOOKING_PROBLEM_LABELS: Readonly<Record<BookingProblem["code"], string>> =
   licence_expires_during: "licence expires during the rental",
 };
 
-const MOMENT_FIELDS = new Set(["plannedStart", "plannedEnd"]);
+const MOMENT_FIELDS = new Set(["plannedStart", "plannedEnd", "startedAt", "endedAt", "releasedAt"]);
 const CENTS_FIELDS = new Set(["weeklyRateCents", "bondCents", "amountCents"]);
 /** Other records, shown on the rental's page; the Log only says they were set. */
 const RECORD_FIELDS = new Set(["renterId", "vehicleId"]);

@@ -66,11 +66,6 @@ const lookupSchema = z.object({
   rows: z.array(z.object({ operator_id: z.uuid(), link_id: z.uuid() })),
 });
 
-/**
- * The live link behind the secret in an address, or null. No one is signed
- * in (rule 3): the narrow database function turns the fingerprint into its
- * Operator, and everything after runs inside that Operator's data only.
- */
 const usedSchema = z.object({ rows: z.array(z.object({ used: z.boolean() })) });
 
 /**
@@ -85,6 +80,11 @@ export async function wasLinkUsed(database: AnyDatabase, token: string): Promise
   return usedSchema.parse(result).rows[0]?.used ?? false;
 }
 
+/**
+ * The live link behind the secret in an address, or null. No one is signed
+ * in (rule 3): the narrow database function turns the fingerprint into its
+ * Operator, and everything after runs inside that Operator's data only.
+ */
 export async function openLink(database: AnyDatabase, token: string): Promise<LinkVisit | null> {
   const result = await database.execute(
     sql`select operator_id, link_id from app.renter_link_for_token(${hashSecretToken(token)})`,

@@ -173,6 +173,10 @@ export async function emailDocumentAgain(
   );
   // Only the copies that haven't gone are sent again; both, if neither has.
   const unsent = DOCUMENT_EMAIL_RECIPIENTS.filter((recipient) => before?.[recipient] !== "sent");
+  if (before && unsent.length === 0) {
+    // Both went already (a second press, or an old page): nothing is sent twice.
+    return { status: "sent", state: before };
+  }
   const onlyTo = unsent.length === 1 ? unsent[0] : undefined;
   const pdf = await readStoredPdf(deps.storage, document.objectKey);
   if (!pdf) {

@@ -59,7 +59,8 @@ export function RenterSignatureFields(props: {
           name="method"
           required
           value={signature.method}
-          onChange={(event) => change({ method: event.target.value })}
+          // A new way of signing starts afresh: the box that comes back is empty.
+          onChange={(event) => change({ ...NO_SIGNATURE, method: event.target.value })}
         >
           {SIGNATURE_METHOD_CHOICES.map((choice) => (
             <option key={choice.method} value={choice.method}>

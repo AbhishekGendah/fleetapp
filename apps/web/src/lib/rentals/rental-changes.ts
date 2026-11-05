@@ -318,7 +318,7 @@ async function cancelReplacedChangeLinks(
       ),
     );
   for (const change of replaced) {
-    await cancelReplacedLink(tx, actor, rentalId, change.id, now);
+    await cancelChangeLinkIn(tx, actor, rentalId, change.id, now);
   }
 }
 
@@ -465,7 +465,6 @@ export async function lockChange(
   return change ?? null;
 }
 
-/** Withdraws a change still waiting for the Renter's signature; its link is cancelled by the caller. */
 /**
  * A rate change still waiting after its rent week began can never be
  * signed (review A3-1): it is withdrawn by the system, logged, so it no
@@ -503,12 +502,12 @@ async function withdrawOutOfTimeRateChanges(
       action: ACTIVITY_ACTIONS.withdrawn,
       valuesAfter: { rentalId: rental.id, reason: "not_signed_in_time" },
     });
-    await cancelReplacedLink(tx, actor, rental.id, change.id, now);
+    await cancelChangeLinkIn(tx, actor, rental.id, change.id, now);
   }
 }
 
 /** Stops one change's form link inside the caller's transaction. */
-async function cancelReplacedLink(
+async function cancelChangeLinkIn(
   tx: AnyTransaction,
   actor: ActingUser,
   rentalId: string,
@@ -528,6 +527,7 @@ async function cancelReplacedLink(
   }
 }
 
+/** Withdraws a change still waiting for the Renter's signature; its link is cancelled by the caller. */
 export async function withdrawWaitingChange(
   tx: AnyTransaction,
   actor: ActingUser,

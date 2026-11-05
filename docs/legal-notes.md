@@ -725,6 +725,31 @@ of service) and the countries.
   other links stop. Consumer law: a Renter isn't blocked from paying
   what they owe.
 
+## Signing and documents (review fixes batch 4, 5 Nov 2026, built)
+
+- **What is signed is what was shown (Electronic Transactions Act s 10,
+  reliable method; consumer law, unfair terms):** at a handover, return or
+  swap the Renter sees the saved kilometres, fuel and keys and the exact
+  sentence the report keeps; the swap form is shown in full, with the
+  damage found on the car handed back. A fingerprint of what was shown is
+  checked under the lock that issues the report; anything changed in
+  between is refused, not signed.
+- **Signing by typing a name (accessibility, WCAG 2.1.1):** offered on the
+  business's phone too; the typed name must be the Renter's own, and the
+  report says it was typed.
+- **Copies (record keeping, consumer law):** every emailed copy of a fixed
+  document is recorded (sent, failed, or no email on file); nobody is told
+  a copy went when it didn't, and the business can email it again (the
+  same stored PDF, never a new one).
+- **Who had the car (record keeping, fines):** possession starting and
+  ending is its own line in the history.
+- **Font licence:** Noto Sans is under the SIL Open Font License 1.1,
+  allowed for fonts by Abhi (5 Nov 2026). It may be embedded in documents
+  freely; the licence text is kept with the font files
+  (apps/web/assets/fonts/OFL.txt). Nothing to disclose to Renters.
+- **Not in this batch:** the signing pages' privacy notice and the other
+  privacy items there (A3-9, A3-10, A3-11) come with batch 5.
+
 ## Logs
 
 - Error logs (Vercel) hold only the kind of error and, for a database

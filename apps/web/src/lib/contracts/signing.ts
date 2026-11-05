@@ -492,6 +492,9 @@ export async function signContract(
     if (error instanceof LinkStoppedError) {
       return "link_stopped" as const;
     }
+    if (error instanceof NoLongerSignableError) {
+      return "not_signable" as const;
+    }
     throw error;
   });
   if (typeof result === "string") {
@@ -531,6 +534,15 @@ async function recordSigned(
     if (await isSigned(tx, visit.operatorId, signing.rentalId, signed.documentId)) {
       throw new SignedAlreadyError();
     }
+    // The shared rule, again under the lock: only before the car goes out (review A3-15).
+    const [rental] = await tx
+      .select({ status: rentals.status })
+      .from(rentals)
+      .where(and(eq(rentals.id, signing.rentalId), eq(rentals.operatorId, visit.operatorId)))
+      .for("share");
+    if (!rental || !isContractSignable(rental.status)) {
+      throw new NoLongerSignableError();
+    }
     await recordActivity(tx, {
       operatorId: visit.operatorId,
       actor,
@@ -556,7 +568,8 @@ async function recordSigned(
       ? await changeSigningProblemNow(tx, visit.operatorId, change, rental, signed.at)
       : "withdrawn";
   if (!change || problem) {
-    throw new LinkStoppedError();
+    // Withdrawn by the business, or no longer signable (replaced, its rent week begun).
+    throw problem === "withdrawn" || !change ? new LinkStoppedError() : new NoLongerSignableError();
   }
   await recordChangeSigned(tx, visit.operatorId, change, signed);
   await recordActivity(tx, {
@@ -577,6 +590,13 @@ async function recordSigned(
 class SignedAlreadyError extends Error {
   constructor() {
     super("The contract was already signed through this link.");
+  }
+}
+
+/** Thrown inside the issuing transaction when the paper can no longer be signed, by nobody's act. */
+class NoLongerSignableError extends Error {
+  constructor() {
+    super("The paper can no longer be signed.");
   }
 }
 

@@ -168,13 +168,18 @@ async function recordHandedOver(
     .update(rentals)
     .set({ status: "active", handedOverAt: accepted.at, updatedAt: accepted.at })
     .where(eq(rentals.id, view.rentalId));
-  await startPossession(tx, actor, {
-    rentalId: view.rentalId,
-    vehicleId: view.vehicleId,
-    renterId: view.renterId,
-    startedAt: accepted.at,
-    handoverInspectionId: view.inspectionId,
-  });
+  await startPossession(
+    tx,
+    actor,
+    {
+      rentalId: view.rentalId,
+      vehicleId: view.vehicleId,
+      renterId: view.renterId,
+      startedAt: accepted.at,
+      handoverInspectionId: view.inspectionId,
+    },
+    view.carRego,
+  );
   await tx
     .update(vehicles)
     .set({ status: "rented", statusReason: null, statusExpectedBack: null, updatedAt: accepted.at })

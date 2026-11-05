@@ -77,6 +77,7 @@ export function SwapSigningStep(props: {
           returnFingerprint: checklistFingerprint(signing.returned),
           handoverFingerprint: checklistFingerprint(signing.handedOver),
           swapTemplateVersionId: signing.form.templateVersionId,
+          swapFormFingerprint: signing.form.fingerprint,
         }}
       />
     </div>

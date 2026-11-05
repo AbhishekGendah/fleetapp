@@ -25,6 +25,11 @@ import { renderDocumentPdf, type DocumentPdfInput, type PdfImage } from "./docum
 const PDF_IMAGE_TIMEOUT_MS = 15_000;
 
 /** react-pdf prints PNG and JPEG images; a WebP one is left off the PDF. */
+/** Whether a stored image's type is one a PDF can hold at all (PNG or JPEG). */
+export function isPrintableImageType(contentType: string): boolean {
+  return Object.hasOwn(PDF_IMAGE_FORMATS, contentType);
+}
+
 const PDF_IMAGE_FORMATS: Readonly<Record<string, PdfImage["format"]>> = {
   "image/png": "png",
   "image/jpeg": "jpg",

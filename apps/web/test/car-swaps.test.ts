@@ -53,6 +53,7 @@ const NOTHING_SHOWN = {
   returnFingerprint: "",
   handoverFingerprint: "",
   swapTemplateVersionId: "",
+  swapFormFingerprint: "",
 };
 
 describe("swapping the Renter's car", () => {
@@ -177,6 +178,10 @@ describe("swapping the Renter's car", () => {
     expect(await finish({ swapId: randomUUID() })).toEqual({ status: "changed" });
     expect(await finish({ returnFingerprint: "0".repeat(64) })).toEqual({ status: "changed" });
     expect(await finish({ swapTemplateVersionId: randomUUID() })).toEqual({
+      status: "form_changed",
+    });
+    // The same template, but a filled-in form other than the one read (review G9-1).
+    expect(await finish({ swapFormFingerprint: "e".repeat(64) })).toEqual({
       status: "form_changed",
     });
     expect((await finish({})).status).toBe("completed");

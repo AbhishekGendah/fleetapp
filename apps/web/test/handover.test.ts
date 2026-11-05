@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { DEFAULT_HANDOVER_PHOTOS, drawnSignatureInput } from "@fleetapp/core";
 import {
   files,
@@ -11,7 +13,7 @@ import {
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import type { EmailMessage } from "@fleetapp/email";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import type { ActingUser } from "../src/lib/acting-user";
@@ -342,6 +344,52 @@ describe("handing a car over", () => {
       expect(typed.status).toBe("completed");
       expect(kept).toEqual({ method: "typed", typedName: TEST_RENTER_NAME });
     });
+  });
+
+  it("names an old photo it can't print rather than blocking the handover for good", async () => {
+    const { rentalId, vehicleId } = await readyRental();
+    const inspectionId = await filledHandover(rentalId);
+    const front = (await loadHandover(web.db, actor.operatorId, inspectionId))?.photos.get("Front");
+    // A WebP photo stored before the phone made every photo JPEG.
+    await withTenant(web.db, actor.operatorId, async (tx) => {
+      await tx
+        .update(files)
+        .set({ deletedAt: new Date() })
+        .where(
+          inArray(
+            files.id,
+            [front!.fileId, front!.thumbnailFileId].filter((id) => id !== null),
+          ),
+        );
+      await tx.insert(files).values({
+        operatorId: actor.operatorId,
+        purpose: "vehicle_photo",
+        storageArea: "general",
+        objectKey: `test/${randomUUID()}`,
+        contentType: "image/webp",
+        sizeBytes: 1000,
+        vehicleId,
+        label: "Front",
+        inspectionId,
+        inspectionPhotoName: "Front",
+        confirmedAt: new Date(),
+      });
+    });
+
+    const result = await completeHandover(
+      handoverDeps(),
+      actor,
+      inspectionId,
+      {
+        shownFingerprint: await kit.shown(inspectionId),
+        signature: drawnSignatureInput(TEST_SIGNATURE),
+        bondOverrideReason: null,
+        directDebitOverrideReason: null,
+      },
+      clock(),
+    );
+
+    expect(result.status).toBe("completed");
   });
 
   it("takes a damage mark off, and a cancelled checklist makes way for a new one", async () => {

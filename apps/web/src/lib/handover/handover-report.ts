@@ -9,7 +9,7 @@ import { files } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, inArray } from "drizzle-orm";
 
-import { loadPdfBranding, loadPdfImage } from "../contracts/contract-pdf";
+import { isPrintableImageType, loadPdfBranding, loadPdfImage } from "../contracts/contract-pdf";
 import { renderDocumentPdf, type PdfPhoto } from "../contracts/document-pdf";
 import type { FileDependencies } from "../files/stored-files";
 import type { ChecklistPhoto, HandoverView } from "./handover-queries";
@@ -122,11 +122,24 @@ export async function reportOrPhotoMissing<T>(
   }
 }
 
-/** Tries a photo twice: one dropped fetch on poor signal shouldn't stop a handover. */
+/** Said in a report beside a photo stored in a format a PDF can't hold (taken before 5 Nov 2026). */
+const UNPRINTABLE_PHOTO_NOTE = "(photo kept with the rental: its format can't be printed)";
+
+/**
+ * A photo for the report, tried twice: one dropped fetch on poor signal
+ * shouldn't stop a handover, but a photo that still won't load stops it
+ * (review G9-7). A photo stored in a format no PDF holds (WebP, from before
+ * the phone made every photo JPEG) can never print: it is named with a note
+ * rather than blocking the checklist for good.
+ */
 async function loadReportPhoto(
   storage: FileDependencies["storage"],
+  caption: string,
   file: Parameters<typeof loadPdfImage>[1] | undefined,
-): Promise<NonNullable<Awaited<ReturnType<typeof loadPdfImage>>>> {
+): Promise<PdfPhoto> {
+  if (file && !isPrintableImageType(file.contentType)) {
+    return { caption, missingNote: UNPRINTABLE_PHOTO_NOTE };
+  }
   const image = file
     ? ((await loadPdfImage(storage, file, "checklist photo")) ??
       (await loadPdfImage(storage, file, "checklist photo")))
@@ -134,7 +147,7 @@ async function loadReportPhoto(
   if (!image) {
     throw new ReportPhotoMissingError();
   }
-  return image;
+  return { caption, image };
 }
 
 /**
@@ -164,7 +177,7 @@ export async function printablePhotos(
   return Promise.all(
     wanted.map(async ({ caption, photo }) => {
       const file = stored.find((row) => row.id === (photo.thumbnailFileId ?? photo.fileId));
-      return { caption, image: await loadReportPhoto(deps.storage, file) };
+      return loadReportPhoto(deps.storage, caption, file);
     }),
   );
 }

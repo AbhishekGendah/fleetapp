@@ -646,10 +646,7 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
     Contract card on rentals. Browser tests, axe, budgets.
   - New libraries pinned: @tiptap/react, @tiptap/pm, @tiptap/starter-kit,
     @tiptap/core 3.32.0; @react-pdf/renderer 4.9.0.
-  - Known limit: PDFs use the built-in Helvetica, which covers English and
-    Western European accents only. Names in other scripts need an embedded
-    font; a font's licence (usually SIL OFL) is outside rule 32's list, so
-    that is Abhi's decision when it matters.
+  - (Since batch 4: PDFs embed Noto Sans, so every European name prints.)
   - Fine admin fee merge field comes with fines (Phase 6).
 
 - Phase 3 slice 3 — signing the contract on the Renter's phone:
@@ -1095,15 +1092,36 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
   - The handover return browser test that failed earlier passed in the
     full run after these fixes: it fails only sometimes. To look at on its own.
 
+- **Review fixes batch 4: signing and documents** (plan:
+  docs/plans/review-fixes-batch-4.md, approved 5 Nov 2026). Migration 0045.
+  - Signatures keep every stroke; the Renter can type their name on the
+    business's phone too. Accented names (Ł, ő, ș) print in every PDF
+    (Noto Sans embedded; Abhi allowed its font licence).
+  - A photo is never silently left out of a signed report: photos are
+    stored as JPEG, and a photo that can't be added stops the signing.
+  - What the Renter signs at handover, return and swap is exactly what was
+    shown: the saved details and sentence on screen, signing blocked while
+    a detail is unsaved, and a fingerprint checked under the lock. The swap
+    shows its form in full and the returned car's damage.
+  - Every emailed copy is recorded; the rental page says what happened and
+    offers Email again. Report buttons open their own document (swaps'
+    reports can be opened again). Possession has its own history lines.
+  - Contract and change links: one per change, Cancel link for every link,
+    "Changed since it was sent", replaced changes can't be signed, a
+    stopped link says nothing was signed, a signed link says it's signed.
+  - Known: the handover return browser test still fails in short runs (a
+    damage photo taken right after its mark is added is lost); it passed
+    in the last full run. To look at on its own.
+
 ## Next
 
 Abhi: add OPS_ALERT_EMAIL in Vercel (fleetapp-web) before this branch is
 merged (still to do), and APP_STAGE=development in both dev Vercel projects
 (the test inbox now needs it, or the dev site won't start). Check the dev
 database logins with the query in docs/runbooks/database-roles.md before
-merging too. Batch 4 plan (signing and documents) written, waiting for Abhi: docs/plans/review-fixes-batch-4.md. Abhi: add batch 2's new Stripe event types to both event
-destinations (list in docs/launch-checklist.md). Then review batch 4
-(signing and documents), plan first. Abhi: add the second Stripe event destination (connected
+merging too. Abhi: add batch 2's new Stripe event types to both event
+destinations (list in docs/launch-checklist.md). Next: review batch 5
+(privacy and records), plan first. Abhi: add the second Stripe event destination (connected
 accounts) and its secret, then try slice 4 on the dev site. Then Phase 4
 slice 5 (weekly debits).
 Open idea: trim the phone rules to Australia only with libphonenumber's

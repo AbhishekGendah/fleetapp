@@ -19,6 +19,7 @@ import { notFound } from "next/navigation";
 
 import { DetailLines } from "../../../components/detail-lines";
 import { HistoryCard } from "../../../components/history-card";
+import { possessionAndHoldIdsOf } from "../../../lib/handover/possession-records";
 import { appDb } from "../../../lib/app-db";
 import { loadBondAccount } from "../../../lib/bonds/bond-account";
 import { carPath, rentalPath, RENTALS_PATH, renterPath } from "../../../lib/paths";
@@ -242,9 +243,12 @@ async function RentalDamageCard({ rental, user }: { rental: RentalDetail; user: 
   );
 }
 
-/** The rental's own changes and its bond entries. */
+/** The rental's own changes, its bond entries, and who had which car when. */
 async function RentalLogTab({ rental, user }: { rental: RentalDetail; user: SignedInUser }) {
-  const bond = await loadBondAccount(appDb, user.operatorId, rental);
+  const [bond, held] = await Promise.all([
+    loadBondAccount(appDb, user.operatorId, rental),
+    possessionAndHoldIdsOf(appDb, user.operatorId, rental.id),
+  ]);
   return (
     <HistoryCard
       user={user}
@@ -254,6 +258,9 @@ async function RentalLogTab({ rental, user }: { rental: RentalDetail; user: Sign
           entityType: ACTIVITY_ENTITY_TYPES.bondMovement,
           entityIds: bond.movements.map((movement) => movement.id),
         },
+        // Who had which car, and when (review A6-12).
+        { entityType: ACTIVITY_ENTITY_TYPES.possession, entityIds: held.possessionIds },
+        { entityType: ACTIVITY_ENTITY_TYPES.carHold, entityIds: held.holdIds },
       ]}
       fieldLabel={rentalFieldLabel}
       describeValue={describeRentalValue}

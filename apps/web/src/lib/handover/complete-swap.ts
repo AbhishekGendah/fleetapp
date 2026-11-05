@@ -75,6 +75,8 @@ export interface ShownSwap {
   handoverFingerprint: string;
   /** The swap form's template version the Renter read. */
   swapTemplateVersionId: string;
+  /** The fingerprint of the filled-in swap form the Renter read (review G9-1). */
+  swapFormFingerprint: string;
 }
 
 export interface CompleteSwapInput {
@@ -163,7 +165,7 @@ const carText = (view: HandoverView): string => `${view.carRego} ${view.carMakeM
 export const SWAP_AT_SIGNING_TEXT = "the date and time the Renter signs";
 
 type FilledSwapForm =
-  | { status: "filled"; document: TemplateDocument; templateVersionId: string }
+  | { status: "filled"; document: TemplateDocument; templateVersionId: string; fingerprint: string }
   | { status: "no_template" }
   | { status: "missing"; fields: MergeFieldKey[] };
 
@@ -172,7 +174,7 @@ async function fillSwapForm(
   deps: Pick<HandoverDependencies, "database">,
   operatorId: string,
   views: SwapViews,
-  clock: { timeZone: string; now: Date; atText: string },
+  clock: { timeZone: string; atText: string },
 ): Promise<FilledSwapForm> {
   const template = await loadDefaultTemplate(deps.database, operatorId, "swap_form");
   if (!template) {
@@ -183,7 +185,8 @@ async function fillSwapForm(
     operatorId,
     views.swap.rentalId,
     template.content,
-    { timeZone: clock.timeZone, now: clock.now },
+    // Dated from the swap's start, so the form shown and the form printed read the same.
+    { timeZone: clock.timeZone, now: views.swap.createdAt },
     {
       swapOldCar: carText(views.old),
       swapNewCar: carText(views.new),
@@ -198,6 +201,7 @@ async function fillSwapForm(
     status: "filled",
     document: filled.document,
     templateVersionId: template.latestVersionId,
+    fingerprint: filled.fingerprint,
   };
 }
 
@@ -220,7 +224,7 @@ export async function loadSwapSigningView(
     return null;
   }
   const form = await fillSwapForm(deps, operatorId, views, {
-    ...clock,
+    timeZone: clock.timeZone,
     atText: SWAP_AT_SIGNING_TEXT,
   });
   return { swapId: views.swap.id, form, returned: views.old, handedOver: views.new };
@@ -242,6 +246,7 @@ export async function currentShownSwap(
     returnFingerprint: checklistFingerprint(view.returned),
     handoverFingerprint: checklistFingerprint(view.handedOver),
     swapTemplateVersionId: view.form.templateVersionId,
+    swapFormFingerprint: view.form.fingerprint,
   };
 }
 
@@ -250,19 +255,28 @@ async function renderSwapForm(
   deps: HandoverDependencies,
   operatorId: string,
   views: SwapViews,
-  moment: SwapMoment & { shownTemplateVersionId: string },
+  moment: SwapMoment & { shown: ShownSwap },
 ) {
+  // The form as the Renter read it (time still in words): it must be the same now (review G9-1).
+  const asRead = await fillSwapForm(deps, operatorId, views, {
+    timeZone: moment.timeZone,
+    atText: SWAP_AT_SIGNING_TEXT,
+  });
+  if (asRead.status !== "filled") {
+    return asRead;
+  }
+  if (
+    asRead.templateVersionId !== moment.shown.swapTemplateVersionId ||
+    asRead.fingerprint !== moment.shown.swapFormFingerprint
+  ) {
+    return { status: "form_changed" as const };
+  }
   const form = await fillSwapForm(deps, operatorId, views, {
     timeZone: moment.timeZone,
-    now: moment.at,
     atText: moment.atText,
   });
   if (form.status !== "filled") {
     return form;
-  }
-  if (form.templateVersionId !== moment.shownTemplateVersionId) {
-    // The business changed its swap form after the Renter read it (review G9-1).
-    return { status: "form_changed" as const };
   }
   const pdf = await renderDocumentPdf({
     ...(await loadPdfBranding(deps, operatorId)),
@@ -290,7 +304,7 @@ async function renderSwapDocuments(
   deps: HandoverDependencies,
   operatorId: string,
   views: SwapViews,
-  moment: SwapMoment & { shownTemplateVersionId: string },
+  moment: SwapMoment & { shown: ShownSwap },
 ): Promise<SwapPdfs | Exclude<CompleteSwapResult, { status: "completed" }>> {
   const form = await renderSwapForm(deps, operatorId, views, moment);
   if (form.status !== "ready") {
@@ -374,14 +388,20 @@ async function movePossession(
     rentalId: views.swap.rentalId,
     endedAt: at,
     returnInspectionId: views.old.inspectionId,
+    carRego: views.old.carRego,
   });
-  await startPossession(tx, actor, {
-    rentalId: views.swap.rentalId,
-    vehicleId: views.new.vehicleId,
-    renterId: views.new.renterId,
-    startedAt: at,
-    handoverInspectionId: views.new.inspectionId,
-  });
+  await startPossession(
+    tx,
+    actor,
+    {
+      rentalId: views.swap.rentalId,
+      vehicleId: views.new.vehicleId,
+      renterId: views.new.renterId,
+      startedAt: at,
+      handoverInspectionId: views.new.inspectionId,
+    },
+    views.new.carRego,
+  );
 }
 
 /**
@@ -413,7 +433,7 @@ async function moveHold(
       entityType: ACTIVITY_ENTITY_TYPES.carHold,
       entityId: held!.id,
       action: ACTIVITY_ACTIONS.created,
-      valuesAfter: { vehicleId: views.new.vehicleId },
+      valuesAfter: { carRego: views.new.carRego },
     });
   } catch (error) {
     if (isCarAlreadyHeld(error)) {
@@ -660,7 +680,7 @@ export async function completeSwap(
   const pdfs = await reportOrPhotoMissing(() =>
     renderSwapDocuments(deps, actor.operatorId, views, {
       ...moment,
-      shownTemplateVersionId: input.shown.swapTemplateVersionId,
+      shown: input.shown,
     }),
   );
   if ("status" in pdfs) {

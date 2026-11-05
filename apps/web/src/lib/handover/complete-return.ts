@@ -133,6 +133,7 @@ async function recordReturned(
     rentalId: view.rentalId,
     endedAt: returned.at,
     returnInspectionId: view.inspectionId,
+    carRego: view.carRego,
   });
   await tx
     .update(rentals)
