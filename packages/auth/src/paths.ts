@@ -4,3 +4,6 @@
  * spot an enrolment finishing.
  */
 export const VERIFY_CODE_PATH = "/two-factor/verify-totp";
+
+/** Better Auth's route for the password step of signing in. */
+export const EMAIL_SIGN_IN_PATH = "/sign-in/email";

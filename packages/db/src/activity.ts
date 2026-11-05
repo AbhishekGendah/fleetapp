@@ -90,6 +90,7 @@ const ACTIVITY_ACTION_LABELS = {
   [ACTIVITY_ACTIONS.signedIn]: "signed in",
   [ACTIVITY_ACTIONS.signInFailed]: "sign-in failed",
   [ACTIVITY_ACTIONS.lockedOut]: "locked out",
+  [ACTIVITY_ACTIONS.twoFactorFailed]: "wrong authenticator code",
   [ACTIVITY_ACTIONS.twoFactorEnrolled]: "authenticator set up",
   [ACTIVITY_ACTIONS.passwordReset]: "password reset",
   [ACTIVITY_ACTIONS.updated]: "changed",

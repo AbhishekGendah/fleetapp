@@ -1,7 +1,7 @@
 import type { BetterAuthPlugin } from "better-auth";
 import { APIError, createAuthMiddleware, isAPIError } from "better-auth/api";
 
-const EMAIL_SIGN_IN_PATH = "/sign-in/email";
+import { EMAIL_SIGN_IN_PATH } from "./paths";
 
 /**
  * Exactly what Better Auth answers for a wrong password. A locked login gets
@@ -19,8 +19,11 @@ const INVALID_EMAIL_OR_PASSWORD = {
  * cannot slip past the limit together.
  */
 export interface SignInLockoutStore {
-  /** Counts an attempt; false when the login is locked or has no attempts left. */
-  claimAttempt(userId: string, now: Date): Promise<{ isAllowed: boolean }>;
+  /**
+   * Counts an attempt; not allowed when the login is locked or has no
+   * attempts left, and says whether this attempt is the one that locked it.
+   */
+  claimAttempt(userId: string, now: Date): Promise<{ isAllowed: boolean; isNowLocked: boolean }>;
   /** After a wrong password: locks the login if it has used its attempts; says whether this did. */
   lockIfOutOfAttempts(userId: string, now: Date): Promise<{ isNowLocked: boolean }>;
   clearFailures(userId: string): Promise<void>;
@@ -60,6 +63,23 @@ async function findUserId(ctx: SignInContext): Promise<string | null> {
   return found?.user.id ?? null;
 }
 
+/**
+ * Only a well-formed sign-in counts towards the five tries (review A2-6):
+ * one missing its password, or with one that is not text, is refused by
+ * Better Auth's own checks without using up a try.
+ */
+function isWellFormed(body: unknown): boolean {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    typeof Reflect.get(body, "email") === "string" &&
+    typeof Reflect.get(body, "password") === "string"
+  );
+}
+
+/** The right password, but the login may not sign in (switched off, or its business paused). */
+const REFUSED_AFTER_PASSWORD = "FAILED_TO_CREATE_SESSION";
+
 function isWrongPassword(returned: unknown): boolean {
   return isAPIError(returned) && returned.body?.code === INVALID_EMAIL_OR_PASSWORD.code;
 }
@@ -85,13 +105,17 @@ export function signInLockout(options: SignInLockoutOptions): BetterAuthPlugin {
         {
           matcher: isEmailSignIn,
           handler: createAuthMiddleware(async (ctx) => {
-            const userId = await findUserId(ctx);
+            const userId = isWellFormed(ctx.body) ? await findUserId(ctx) : null;
             if (!userId) {
               return;
             }
-            const { isAllowed } = await options.store.claimAttempt(userId, now());
+            const { isAllowed, isNowLocked } = await options.store.claimAttempt(userId, now());
             if (isAllowed) {
               return;
+            }
+            if (isNowLocked) {
+              // A lock is always recorded, however it was reached (review A2-6).
+              await options.onLockedOut?.(userId);
             }
             // Hashing anyway keeps a locked login exactly as slow to answer
             // as a wrong password, so timing does not give the lockout away.
@@ -105,10 +129,12 @@ export function signInLockout(options: SignInLockoutOptions): BetterAuthPlugin {
           matcher: isEmailSignIn,
           handler: createAuthMiddleware(async (ctx) => {
             const returned: unknown = ctx.context.returned;
-            if (isAPIError(returned) && !isWrongPassword(returned)) {
+            const isRefusedAfterPassword =
+              isAPIError(returned) && returned.body?.code === REFUSED_AFTER_PASSWORD;
+            if (isAPIError(returned) && !isWrongPassword(returned) && !isRefusedAfterPassword) {
               return;
             }
-            const userId = await findUserId(ctx);
+            const userId = isWellFormed(ctx.body) ? await findUserId(ctx) : null;
             if (!userId) {
               return;
             }

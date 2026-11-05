@@ -2,11 +2,15 @@ import { describeErrorForLog, joinUrl } from "@fleetapp/core";
 import type { SignInLockoutStore } from "@fleetapp/auth";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, userVerifications } from "@fleetapp/db/schema";
-import { renderPasswordResetEmail, type EmailSender } from "@fleetapp/email";
+import {
+  renderPasswordChangedEmail,
+  renderPasswordResetEmail,
+  type EmailSender,
+} from "@fleetapp/email";
 import { eq } from "drizzle-orm";
 
 import { RESET_LINK_LIFETIME_SECONDS, RESET_LINK_LIFETIME_WORDS } from "./password-reset-policy";
-import { RESET_PASSWORD_PATH } from "./paths";
+import { FORGOT_PASSWORD_PATH, RESET_PASSWORD_PATH } from "./paths";
 import { isAllowedToSignIn } from "./sign-in-eligibility";
 import type { RecordUserActivity } from "./user-activity";
 
@@ -34,6 +38,15 @@ export interface PasswordResetDependencies {
   appUrl: string;
   lockoutStore: SignInLockoutStore;
   record: RecordUserActivity;
+}
+
+/** One step after a reset; a failure is logged (never its details) and the rest go on. */
+async function afterReset(step: string, work: () => Promise<unknown>): Promise<void> {
+  try {
+    await work();
+  } catch (error) {
+    console.error(`${step} after a password reset failed`, describeErrorForLog(error));
+  }
 }
 
 interface ResetUser {
@@ -81,12 +94,27 @@ export function createPasswordResetOptions(deps: PasswordResetDependencies): Pas
       }
     },
 
+    // Nothing here may throw: the login system signs every other browser out
+    // only once this returns, so a database hiccup here must not stop that
+    // (review A2-10). Each step's failure is logged instead.
     onPasswordReset: async ({ user }: { user: ResetUser }) => {
-      await forgetRememberedDevices(deps.database, user.id);
+      await afterReset("Forgetting remembered devices", () =>
+        forgetRememberedDevices(deps.database, user.id),
+      );
       // A new password starts the wrong-password count afresh, so a User
       // locked out by a guesser can get back in by resetting.
-      await deps.lockoutStore.clearFailures(user.id);
+      await afterReset("Clearing failed sign-ins", () => deps.lockoutStore.clearFailures(user.id));
       await deps.record(user.id, ACTIVITY_ACTIONS.passwordReset, "user");
+      // A reset the owner didn't make is seen (review A2-1).
+      await afterReset("Emailing a password change", async () =>
+        deps.emailSender.send(
+          await renderPasswordChangedEmail({
+            to: user.email,
+            name: user.name,
+            resetPasswordUrl: joinUrl(deps.appUrl, FORGOT_PASSWORD_PATH),
+          }),
+        ),
+      );
     },
   };
 }

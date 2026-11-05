@@ -6,6 +6,7 @@ import {
   NewDeviceSignInEmail,
   type NewDeviceSignInEmailProps,
 } from "./templates/new-device-sign-in";
+import { PasswordChangedEmail, type PasswordChangedEmailProps } from "./templates/password-changed";
 import {
   NightlyRunAlertEmail,
   type NightlyRunAlertEmailProps,
@@ -79,6 +80,13 @@ export function renderNewDeviceSignInEmail(
 ): Promise<EmailMessage> {
   const { to, ...props } = input;
   return renderEmail(to, "New sign-in to your account", createElement(NewDeviceSignInEmail, props));
+}
+
+export function renderPasswordChangedEmail(
+  input: WithRecipient<PasswordChangedEmailProps>,
+): Promise<EmailMessage> {
+  const { to, ...props } = input;
+  return renderEmail(to, "Your password was changed", createElement(PasswordChangedEmail, props));
 }
 
 /** To AGS, when the nightly run did not finish cleanly (review G3-4). */

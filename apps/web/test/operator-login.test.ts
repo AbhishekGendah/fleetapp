@@ -327,6 +327,71 @@ describe("the Operator login", () => {
     });
   });
 
+  describe("the login guard", () => {
+    const countOf = async (operatorId: string, entry: string) =>
+      (await historyOf(operatorId)).filter((line) => line === entry).length;
+
+    it("refuses the login actions the app never uses (review A2-1)", async () => {
+      const seeded = await seedAcceptedUser();
+      const signedIn = await auth.api.signInEmail({
+        body: { email: seeded.email, password: TEST_PASSWORD },
+        asResponse: true,
+      });
+      const headers = new Headers({ cookie: cookiesFrom(signedIn) });
+      const refusals = await Promise.allSettled([
+        auth.api.disableTwoFactor({ body: { password: TEST_PASSWORD }, headers }),
+        auth.api.getTOTPURI({ body: { password: TEST_PASSWORD }, headers }),
+        auth.api.generateBackupCodes({ body: { password: TEST_PASSWORD }, headers }),
+        auth.api.changePassword({
+          body: { currentPassword: TEST_PASSWORD, newPassword: NEW_PASSWORD },
+          headers,
+        }),
+      ]);
+      expect(refusals.map((outcome) => outcome.status)).toEqual(Array(4).fill("rejected"));
+      for (const outcome of refusals) {
+        expect(outcome.status === "rejected" && String(outcome.reason)).toMatch(/not found/i);
+      }
+    });
+
+    it("records a sign-in once, only after the authenticator code (review A2-5)", async () => {
+      const seeded = await seedAcceptedUser();
+      await enrolAndTrustDevice(seeded.email);
+      const before = await countOf(seeded.operatorId, "user signed_in");
+      // The sign-in before enrolment, and the one with the code: never the password step too.
+      expect(before).toBe(2);
+
+      const passwordStep = await auth.api.signInEmail({
+        body: { email: seeded.email, password: TEST_PASSWORD },
+        asResponse: true,
+      });
+      expect(await countOf(seeded.operatorId, "user signed_in")).toBe(before);
+
+      await expect(
+        auth.api.verifyTOTP({
+          body: { code: "000000" },
+          headers: new Headers({ cookie: cookiesFrom(passwordStep) }),
+        }),
+      ).rejects.toThrow();
+      expect(await historyOf(seeded.operatorId)).toContain("user two_factor_failed");
+      expect(await countOf(seeded.operatorId, "user signed_in")).toBe(before);
+    });
+
+    it("counts no broken sign-in request towards the lock (review A2-6)", async () => {
+      const seeded = await seedAcceptedUser();
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        await expect(
+          auth.api.signInEmail({
+            body: { email: seeded.email, password: 12_345 as unknown as string },
+          }),
+        ).rejects.toThrow();
+      }
+      await expect(
+        auth.api.signInEmail({ body: { email: seeded.email, password: TEST_PASSWORD } }),
+      ).resolves.toBeDefined();
+      expect(await historyOf(seeded.operatorId)).not.toContain("user locked_out");
+    });
+  });
+
   describe("resetting a password", () => {
     function emailsTo(email: string): EmailMessage[] {
       return sender.messages.filter((message) => message.to === email);
@@ -340,6 +405,13 @@ describe("the Operator login", () => {
 
     const signInWith = (email: string, password: string) =>
       auth.api.signInEmail({ body: { email, password } });
+
+    it("tells the owner by email that their password was changed (review A2-1)", async () => {
+      const seeded = await seedAcceptedUser();
+      const token = await requestReset(seeded.email);
+      await auth.api.resetPassword({ body: { newPassword: NEW_PASSWORD, token: token! } });
+      expect(emailsTo(seeded.email).at(-1)?.subject).toBe("Your password was changed");
+    });
 
     it("emails a link that sets a new password once, keeping only its fingerprint", async () => {
       const seeded = await seedAcceptedUser();

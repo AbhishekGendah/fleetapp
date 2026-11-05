@@ -369,4 +369,38 @@ describe("the admin login", () => {
       await refusalOf(signInWith(TEST_PASSWORD));
     });
   });
+
+  describe("a switched-off Admin", () => {
+    it("can't sign in, even with the right password, and nothing says it did (review A9-5)", async () => {
+      const context = await auth.$context;
+      const offEmail = `${randomUUID()}@example.test`;
+      const offAdmin = await context.internalAdapter.createUser(
+        {
+          email: offEmail,
+          name: "Former Admin",
+          emailVerified: true,
+        },
+        { method: "admin" },
+      );
+      await context.internalAdapter.linkAccount({
+        userId: offAdmin.id,
+        providerId: "credential",
+        accountId: offAdmin.id,
+        password: await context.password.hash(TEST_PASSWORD),
+      });
+      await connection.db
+        .update(adminUsers)
+        .set({ archivedAt: new Date() })
+        .where(eq(adminUsers.id, offAdmin.id));
+
+      await expect(
+        auth.api.signInEmail({ body: { email: offEmail, password: TEST_PASSWORD } }),
+      ).rejects.toThrow();
+      const entries = await connection.db
+        .select({ action: adminActivityLog.action })
+        .from(adminActivityLog)
+        .where(eq(adminActivityLog.adminUserId, offAdmin.id));
+      expect(entries.map((entry) => entry.action)).not.toContain("signed_in");
+    });
+  });
 });

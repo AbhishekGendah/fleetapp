@@ -13,6 +13,8 @@ import {
   MAXIMUM_PASSWORD_LENGTH,
   MINIMUM_PASSWORD_LENGTH,
   RECOVERY_CODES,
+  loginGuard,
+  safeAuthLogger,
   sessionMaxAge,
   signInLockout,
   TWO_FACTOR_LOCKOUT,
@@ -22,6 +24,16 @@ import type { AnyDatabase } from "@fleetapp/db/client";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { twoFactor } from "better-auth/plugins";
+import { and, eq, isNull } from "drizzle-orm";
+
+/** Whether an Admin account is still switched on (not archived). */
+async function isAdminStillActive(database: AnyDatabase, adminUserId: string): Promise<boolean> {
+  const [admin] = await database
+    .select({ id: adminUsers.id })
+    .from(adminUsers)
+    .where(and(eq(adminUsers.id, adminUserId), isNull(adminUsers.archivedAt)));
+  return admin !== undefined;
+}
 
 /**
  * "Remember this device" is deliberately switched off for Admins: an Admin
@@ -67,6 +79,8 @@ function buildAdminAuthOptions(config: AdminAuthConfig) {
     appName: config.issuerName,
     baseURL: config.baseURL,
     secret: config.secret,
+    // Never the error's own words: they repeat the query's values (review A2-2).
+    logger: safeAuthLogger,
 
     database: drizzleAdapter(config.database, {
       provider: "pg",
@@ -105,6 +119,19 @@ function buildAdminAuthOptions(config: AdminAuthConfig) {
     },
 
     plugins: [
+      loginGuard({
+        onSignedIn: (adminUserId, ipAddress) =>
+          config.recordActivity({
+            adminUserId,
+            action: ADMIN_ACTIVITY_ACTIONS.signedIn,
+            ipAddress,
+          }),
+        onCodeFailed: (adminUserId) =>
+          config.recordActivity({ adminUserId, action: ADMIN_ACTIVITY_ACTIONS.twoFactorFailed }),
+        onCodeLockedOut: (adminUserId) =>
+          config.recordActivity({ adminUserId, action: ADMIN_ACTIVITY_ACTIONS.lockedOut }),
+        isAllowed: (adminUserId) => isAdminStillActive(config.database, adminUserId),
+      }),
       sessionMaxAge({ maxAgeSeconds: ADMIN_SESSION.maxAgeSeconds, now: config.now }),
       signInLockout({
         store: createDrizzleLockoutStore(config.database, {
@@ -138,12 +165,11 @@ function buildAdminAuthOptions(config: AdminAuthConfig) {
     databaseHooks: {
       session: {
         create: {
-          after: async (session: { userId: string; ipAddress?: string | null }) => {
-            await config.recordActivity({
-              adminUserId: session.userId,
-              action: ADMIN_ACTIVITY_ACTIONS.signedIn,
-              ipAddress: session.ipAddress,
-            });
+          // A switched-off Admin can't sign in at all (review A9-5). Sign-ins are
+          // recorded by loginGuard, once the Admin is fully in.
+          before: async (session: { userId: string }) => {
+            const isActive = await isAdminStillActive(config.database, session.userId);
+            return isActive ? undefined : false;
           },
         },
       },

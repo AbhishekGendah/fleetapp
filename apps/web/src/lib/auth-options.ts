@@ -4,6 +4,8 @@ import {
   MAXIMUM_PASSWORD_LENGTH,
   MINIMUM_PASSWORD_LENGTH,
   RECOVERY_CODES,
+  loginGuard,
+  safeAuthLogger,
   sessionMaxAge,
   signInLockout,
   TWO_FACTOR_LOCKOUT,
@@ -73,6 +75,8 @@ function buildUserAuthOptions(config: UserAuthConfig) {
     appName: config.issuerName,
     baseURL: config.baseURL,
     secret: config.secret,
+    // Never the error's own words: they repeat the query's values (review A2-2).
+    logger: safeAuthLogger,
 
     database: drizzleAdapter(config.database, {
       provider: "pg",
@@ -125,6 +129,12 @@ function buildUserAuthOptions(config: UserAuthConfig) {
     },
 
     plugins: [
+      loginGuard({
+        onSignedIn: (userId) => record(userId, ACTIVITY_ACTIONS.signedIn, "user"),
+        onCodeFailed: (userId) => record(userId, ACTIVITY_ACTIONS.twoFactorFailed, "system"),
+        onCodeLockedOut: (userId) => record(userId, ACTIVITY_ACTIONS.lockedOut, "system"),
+        isAllowed: (userId) => isAllowedToSignIn(config.database, userId),
+      }),
       sessionMaxAge({ maxAgeSeconds: USER_SESSION.maxAgeSeconds, now: config.now }),
       signInLockout({
         store: lockoutStore,
@@ -151,12 +161,10 @@ function buildUserAuthOptions(config: UserAuthConfig) {
     databaseHooks: {
       session: {
         create: {
+          // Sign-ins are recorded by loginGuard, once the person is fully in.
           before: async (session: { userId: string }) => {
             const isAllowed = await isAllowedToSignIn(config.database, session.userId);
             return isAllowed ? undefined : false;
-          },
-          after: async (session: { userId: string }) => {
-            await record(session.userId, ACTIVITY_ACTIONS.signedIn, "user");
           },
         },
       },

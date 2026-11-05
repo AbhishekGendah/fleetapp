@@ -75,9 +75,11 @@ export function createDrizzleLockoutStore(
             ELSE attempt_state.locked_until END
         FROM attempt_state
         WHERE ${matchesLogin(userId)}
-        RETURNING (${isLocked} OR ${isOutOfAttempts}) AS is_refused
+        RETURNING (${isLocked} OR ${isOutOfAttempts}) AS is_refused,
+          (NOT (${isLocked}) AND ${isOutOfAttempts}) AS is_now_locked
       `);
-      return { isAllowed: firstRow(result)?.is_refused !== true };
+      const row = firstRow(result);
+      return { isAllowed: row?.is_refused !== true, isNowLocked: row?.is_now_locked === true };
     },
 
     // Locking resets the count, so the next five wrong guesses after it ends

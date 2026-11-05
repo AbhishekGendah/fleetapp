@@ -102,6 +102,8 @@ export const ACTIVITY_ACTIONS = {
   signedIn: "signed_in",
   signInFailed: "sign_in_failed",
   lockedOut: "locked_out",
+  /** A wrong authenticator or recovery code at sign-in. */
+  twoFactorFailed: "two_factor_failed",
   twoFactorEnrolled: "two_factor_enrolled",
   passwordReset: "password_reset",
   updated: "updated",
