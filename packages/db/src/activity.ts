@@ -69,6 +69,8 @@ const ACTIVITY_ENTITY_LABELS = {
   [ACTIVITY_ENTITY_TYPES.insuranceClaim]: "Insurance claim",
   [ACTIVITY_ENTITY_TYPES.rentalChange]: "Change of terms",
   [ACTIVITY_ENTITY_TYPES.carSwap]: "Car swap",
+  [ACTIVITY_ENTITY_TYPES.possession]: "Renter's time with the car",
+  [ACTIVITY_ENTITY_TYPES.carHold]: "Car kept for the rental",
   [ACTIVITY_ENTITY_TYPES.chargeType]: "Charge type",
   [ACTIVITY_ENTITY_TYPES.ledgerLine]: "Ledger line",
   [ACTIVITY_ENTITY_TYPES.billingDocument]: "Invoice or receipt",
@@ -82,6 +84,9 @@ const ACTIVITY_ENTITY_LABELS = {
 /** What each action reads as after the record's name: "Car archived". */
 const ACTIVITY_ACTION_LABELS = {
   [ACTIVITY_ACTIONS.created]: "added",
+  [ACTIVITY_ACTIONS.started]: "started",
+  [ACTIVITY_ACTIONS.ended]: "ended",
+  [ACTIVITY_ACTIONS.released]: "let go",
   [ACTIVITY_ACTIONS.sent]: "sent",
   [ACTIVITY_ACTIONS.revoked]: "cancelled",
   [ACTIVITY_ACTIONS.suspended]: "suspended",

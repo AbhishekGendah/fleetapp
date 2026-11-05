@@ -14,7 +14,6 @@ import {
   ACTIVITY_ACTIONS,
   ACTIVITY_ENTITY_TYPES,
   inspections,
-  possessions,
   rentals,
   vehicles,
 } from "@fleetapp/db/schema";
@@ -31,6 +30,7 @@ import { addReading } from "../vehicles/odometer";
 import { checklistRefusal, FinishedAlreadyError, issueChecklistReport } from "./checklist-report";
 import { checklistFingerprint } from "./checklist-fingerprint";
 import { lockOpenInspection } from "./handover-records";
+import { startPossession } from "./possession-records";
 import { loadHandover, type HandoverView } from "./handover-queries";
 import { signatureColumns } from "./phone-signature";
 import {
@@ -168,8 +168,7 @@ async function recordHandedOver(
     .update(rentals)
     .set({ status: "active", handedOverAt: accepted.at, updatedAt: accepted.at })
     .where(eq(rentals.id, view.rentalId));
-  await tx.insert(possessions).values({
-    operatorId: actor.operatorId,
+  await startPossession(tx, actor, {
     rentalId: view.rentalId,
     vehicleId: view.vehicleId,
     renterId: view.renterId,

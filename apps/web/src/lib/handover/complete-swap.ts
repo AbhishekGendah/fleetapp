@@ -18,12 +18,11 @@ import {
   carHolds,
   carSwaps,
   inspections,
-  possessions,
   rentals,
   vehicles,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
 import { loadPdfBranding } from "../contracts/contract-pdf";
@@ -38,7 +37,7 @@ import {
 import { rentalSummaryText } from "../contracts/signing-links";
 import { loadDefaultTemplate } from "../contracts/templates";
 import { recordDamageFromReturn } from "../damage/damage-records";
-import { heldRange, isCarAlreadyHeld } from "../rentals/car-holds";
+import { heldRange, isCarAlreadyHeld, releaseCarHolds } from "../rentals/car-holds";
 import { swapUnderWay, type CarSwap } from "../rentals/car-swaps";
 import type { RentalClock } from "../rentals/rental-records";
 import type { VehicleStatusInput } from "../vehicles/vehicle-input";
@@ -57,6 +56,7 @@ import {
   reportOrPhotoMissing,
 } from "./handover-report";
 import { phoneSignature, signatureColumns } from "./phone-signature";
+import { endPossession, startPossession } from "./possession-records";
 import { lockOpenInspection } from "./handover-records";
 import {
   loadCompletedHandover,
@@ -366,22 +366,16 @@ async function completeChecklists(
 /** Possession moves from one car to the other at the same moment (rule 15). */
 async function movePossession(
   tx: AnyTransaction,
-  operatorId: string,
+  actor: ActingUser,
   views: SwapViews,
   at: Date,
 ): Promise<void> {
-  await tx
-    .update(possessions)
-    .set({ endedAt: at, returnInspectionId: views.old.inspectionId, updatedAt: at })
-    .where(
-      and(
-        eq(possessions.operatorId, operatorId),
-        eq(possessions.rentalId, views.swap.rentalId),
-        isNull(possessions.endedAt),
-      ),
-    );
-  await tx.insert(possessions).values({
-    operatorId,
+  await endPossession(tx, actor, {
+    rentalId: views.swap.rentalId,
+    endedAt: at,
+    returnInspectionId: views.old.inspectionId,
+  });
+  await startPossession(tx, actor, {
     rentalId: views.swap.rentalId,
     vehicleId: views.new.vehicleId,
     renterId: views.new.renterId,
@@ -397,31 +391,30 @@ async function movePossession(
  */
 async function moveHold(
   tx: AnyTransaction,
-  operatorId: string,
+  actor: ActingUser,
   views: SwapViews,
   at: Date,
 ): Promise<void> {
-  await tx
-    .update(carHolds)
-    .set({ releasedAt: at, updatedAt: at })
-    .where(
-      and(
-        eq(carHolds.operatorId, operatorId),
-        eq(carHolds.rentalId, views.swap.rentalId),
-        eq(carHolds.vehicleId, views.old.vehicleId),
-        isNull(carHolds.releasedAt),
-      ),
-    );
+  await releaseCarHolds(tx, actor, views.swap.rentalId, at, views.old.vehicleId);
   const end = views.new.plannedEnd && views.new.plannedEnd > at ? views.new.plannedEnd : null;
   try {
-    await tx.transaction((savepoint) =>
-      savepoint.insert(carHolds).values({
-        operatorId,
-        vehicleId: views.new.vehicleId,
-        rentalId: views.swap.rentalId,
-        heldDuring: heldRange(at, end),
-      }),
+    const [held] = await tx.transaction((savepoint) =>
+      savepoint
+        .insert(carHolds)
+        .values({
+          operatorId: actor.operatorId,
+          vehicleId: views.new.vehicleId,
+          rentalId: views.swap.rentalId,
+          heldDuring: heldRange(at, end),
+        })
+        .returning({ id: carHolds.id }),
     );
+    await recordUserChange(tx, actor, {
+      entityType: ACTIVITY_ENTITY_TYPES.carHold,
+      entityId: held!.id,
+      action: ACTIVITY_ACTIONS.created,
+      valuesAfter: { vehicleId: views.new.vehicleId },
+    });
   } catch (error) {
     if (isCarAlreadyHeld(error)) {
       throw new SwapClashError();
@@ -522,8 +515,8 @@ async function recordSwapped(
   // Under the locks: the checklists are still the ones the reports were made from (review A6-10).
   await assertChecklistUnchanged(tx, actor.operatorId, views.old);
   await assertChecklistUnchanged(tx, actor.operatorId, views.new);
-  await movePossession(tx, actor.operatorId, views, done.at);
-  await moveHold(tx, actor.operatorId, views, done.at);
+  await movePossession(tx, actor, views, done.at);
+  await moveHold(tx, actor, views, done.at);
   await moveCars(tx, actor, views, { at: done.at, oldCarAfter: done.input.oldCarAfter });
   await recordDamageFromReturn(tx, actor, {
     inspectionId: views.old.inspectionId,

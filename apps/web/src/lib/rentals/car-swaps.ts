@@ -87,6 +87,12 @@ async function addSwapChecklist(
       startedByUserId: actor.userId,
     })
     .returning({ id: inspections.id });
+  await recordUserChange(tx, actor, {
+    entityType: ACTIVITY_ENTITY_TYPES.inspection,
+    entityId: started!.id,
+    action: ACTIVITY_ACTIONS.created,
+    valuesAfter: { kind: checklist.kind, vehicleId: checklist.vehicleId, isForSwap: true },
+  });
   return started!.id;
 }
 

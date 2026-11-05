@@ -9,11 +9,12 @@ import {
   possessions,
   rentals,
   vehicles,
+  activityLog,
 } from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import type { EmailMessage } from "@fleetapp/email";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, gte, isNull } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import type { ActingUser } from "../src/lib/acting-user";
@@ -179,6 +180,33 @@ describe("swapping the Renter's car", () => {
       status: "form_changed",
     });
     expect((await finish({})).status).toBe("completed");
+  });
+
+  it("writes who had which car, and when, into the history (review A6-12, G9-8)", async () => {
+    const { rentalId, swap } = await swapUnderWayFor();
+    await kit.fillChecklist(swap.returnInspectionId, OLD_CAR_KM);
+    await kit.fillChecklist(swap.handoverInspectionId, NEW_CAR_KM);
+    const before = new Date();
+
+    await completeSwap(kit.handoverDeps(), actor, rentalId, await swapInput(rentalId), clock());
+    const lines = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx
+        .select({ entityType: activityLog.entityType, action: activityLog.action })
+        .from(activityLog)
+        .where(
+          and(eq(activityLog.operatorId, actor.operatorId), gte(activityLog.occurredAt, before)),
+        ),
+    );
+    const said = lines.map((line) => `${line.entityType} ${line.action}`);
+
+    expect(said).toEqual(
+      expect.arrayContaining([
+        "possession ended",
+        "possession started",
+        "car_hold released",
+        "car_hold created",
+      ]),
+    );
   });
 
   it("swaps: three documents, possession and holds moved at one moment, cars and rental moved", async () => {

@@ -294,7 +294,7 @@ export async function cancelRental(
     if (rental.status !== "draft" && rental.status !== "booked") {
       return "not_allowed";
     }
-    await releaseCarHolds(tx, actor.operatorId, rental.id, now);
+    await releaseCarHolds(tx, actor, rental.id, now);
     // Nobody should sign the contract of a rental that is not going ahead.
     await cancelLiveLinks(tx, actor, rental.renterId, now, { rentalId: rental.id });
     await tx

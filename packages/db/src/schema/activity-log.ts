@@ -80,6 +80,10 @@ export const ACTIVITY_ENTITY_TYPES = {
   insuranceClaim: "insurance_claim",
   rentalChange: "rental_change",
   carSwap: "car_swap",
+  /** Who had the car, and when: what fines are matched to (rule 15, review A6-12). */
+  possession: "possession",
+  /** A car kept for a rental's time, so it can't be booked twice (rule 18). */
+  carHold: "car_hold",
   chargeType: "charge_type",
   ledgerLine: "ledger_line",
   billingDocument: "billing_document",
@@ -94,6 +98,9 @@ export const ACTIVITY_ENTITY_TYPES = {
 /** What happened to it. No free text at call sites. */
 export const ACTIVITY_ACTIONS = {
   created: "created",
+  started: "started",
+  ended: "ended",
+  released: "released",
   sent: "sent",
   revoked: "revoked",
   suspended: "suspended",

@@ -1,7 +1,9 @@
 import { isExclusionViolation } from "@fleetapp/core";
 import type { AnyTransaction } from "@fleetapp/db/client";
-import { carHolds, rentals } from "@fleetapp/db/schema";
+import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, carHolds, rentals } from "@fleetapp/db/schema";
 import { and, eq, isNull, ne, sql } from "drizzle-orm";
+
+import { recordUserChange, type ActingUser } from "../acting-user";
 
 /** The database rule that keeps two holds on one car apart (migration 0028). */
 const CAR_HOLDS_NO_OVERLAP = "car_holds_no_overlap";
@@ -74,23 +76,34 @@ export async function holdCar(
   });
 }
 
-/** Lets the car go: the rental no longer keeps it for any time. */
+/** Lets the car go: the rental no longer keeps it for any time. Each let go is logged (review A6-12). */
 export async function releaseCarHolds(
   tx: AnyTransaction,
-  operatorId: string,
+  actor: ActingUser,
   rentalId: string,
   releasedAt: Date,
+  onlyVehicleId?: string,
 ): Promise<void> {
-  await tx
+  const released = await tx
     .update(carHolds)
     .set({ releasedAt })
     .where(
       and(
-        eq(carHolds.operatorId, operatorId),
+        eq(carHolds.operatorId, actor.operatorId),
         eq(carHolds.rentalId, rentalId),
         isNull(carHolds.releasedAt),
+        onlyVehicleId ? eq(carHolds.vehicleId, onlyVehicleId) : undefined,
       ),
-    );
+    )
+    .returning({ id: carHolds.id, vehicleId: carHolds.vehicleId });
+  for (const hold of released) {
+    await recordUserChange(tx, actor, {
+      entityType: ACTIVITY_ENTITY_TYPES.carHold,
+      entityId: hold.id,
+      action: ACTIVITY_ACTIONS.released,
+      valuesAfter: { vehicleId: hold.vehicleId, releasedAt: releasedAt.toISOString() },
+    });
+  }
 }
 
 /** True if the database refused a hold because another booking took the car first. */

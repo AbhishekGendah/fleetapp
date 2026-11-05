@@ -18,11 +18,10 @@ import {
   ACTIVITY_ACTIONS,
   ACTIVITY_ENTITY_TYPES,
   inspections,
-  possessions,
   rentals,
   vehicles,
 } from "@fleetapp/db/schema";
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
 import { emailDocumentCopies } from "../contracts/document-copies";
@@ -39,6 +38,7 @@ import { loadCompletedHandover, loadReturn, type HandoverView } from "./handover
 import { checklistFingerprint } from "./checklist-fingerprint";
 import { isPhotoMissing, PHOTO_MISSING, reportOrPhotoMissing } from "./handover-report";
 import { signatureColumns } from "./phone-signature";
+import { endPossession } from "./possession-records";
 import { RETURN_REPORT_TITLE, renderReturnReport } from "./return-report";
 
 /** Where a returned car may go: back for rent, or off for repair. Never Sold from here. */
@@ -129,21 +129,16 @@ async function recordReturned(
       updatedAt: now,
     })
     .where(eq(inspections.id, view.inspectionId));
-  await tx
-    .update(possessions)
-    .set({ endedAt: returned.at, returnInspectionId: view.inspectionId, updatedAt: now })
-    .where(
-      and(
-        eq(possessions.operatorId, actor.operatorId),
-        eq(possessions.rentalId, view.rentalId),
-        isNull(possessions.endedAt),
-      ),
-    );
+  await endPossession(tx, actor, {
+    rentalId: view.rentalId,
+    endedAt: returned.at,
+    returnInspectionId: view.inspectionId,
+  });
   await tx
     .update(rentals)
     .set({ status: "returned", returnedAt: returned.at, updatedAt: now })
     .where(eq(rentals.id, view.rentalId));
-  await releaseCarHolds(tx, actor.operatorId, view.rentalId, returned.at);
+  await releaseCarHolds(tx, actor, view.rentalId, returned.at);
   await tx
     .update(vehicles)
     .set({ ...returned.carAfter, updatedAt: now })
