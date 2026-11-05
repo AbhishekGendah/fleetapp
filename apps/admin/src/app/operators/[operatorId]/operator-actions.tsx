@@ -13,8 +13,9 @@ import {
 const INITIAL_STATE: ActionState = {};
 
 const SUSPEND_CONFIRMATION =
-  "Suspend this Operator? Its Users will not be able to sign in and its Renter links will stop " +
-  "working. Renter payments carry on.";
+  "Suspend this Operator? Its Users will not be able to sign in: they are told the account is " +
+  "paused. Its Renter links stop working, except payments links: Renters can still pay their " +
+  "bond and set up their direct debit, which go to the Operator's own Stripe.";
 
 type ServerAction = (previous: ActionState, formData: FormData) => Promise<ActionState>;
 

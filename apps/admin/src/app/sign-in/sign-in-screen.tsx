@@ -29,6 +29,7 @@ export function SignInScreen(props: { notice?: string }) {
       // No trusted devices for Admins: no tick box, so a code on every sign-in.
       verifyCode={(code) => verifyAuthenticatorCode(code)}
       verifyRecoveryCode={(code) => verifyRecoveryCode(code)}
+      pausedMessage="This account has been switched off, so it can't sign in. Ask AGS if that's wrong."
       onSignedIn={handleSignedIn}
     />
   );

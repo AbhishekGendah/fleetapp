@@ -13,43 +13,99 @@ export const authClient = createAuthClient({
   plugins: [twoFactorClient()],
 });
 
-/** What the first sign-in step leads to. The sign-in screen takes these too. */
-export type PasswordStepResult = "refused" | "needs_code" | "signed_in";
+/**
+ * What the first sign-in step leads to. The sign-in screen takes these too.
+ * "paused": the right password, but the login may not sign in now (its
+ * business paused, or an Admin switched off). "unreachable": the request
+ * never got an answer (a dropped connection). "too_many": too many tries.
+ */
+export type PasswordStepResult =
+  "refused" | "paused" | "unreachable" | "too_many" | "needs_code" | "signed_in";
+
+/** What an authenticator or recovery code step leads to. */
+export type CodeStepResult = "verified" | "wrong" | "locked" | "unreachable" | "too_many";
 
 export interface AuthenticatorEnrolment {
   totpURI: string;
   backupCodes: string[];
 }
 
+const TOO_MANY_REQUESTS_STATUS = 429;
+/** Better Auth's answer when the right password's login may not sign in now. */
+const LOGIN_PAUSED_CODE = "FAILED_TO_CREATE_SESSION";
+/** Better Auth's answer once five wrong codes locked the login. */
+const CODE_LOCK_CODE = "ACCOUNT_TEMPORARILY_LOCKED";
+
+interface ClientError {
+  status?: number;
+  code?: string;
+}
+
+/** A request that got no answer at all, rather than a refusal (review A10-6). */
+function isUnanswered(error: ClientError): boolean {
+  return !error.status;
+}
+
+/** Runs a login request, turning a dropped connection into an answer instead of a stuck screen. */
+async function answered<T>(
+  request: () => Promise<{ data: T | null; error: ClientError | null }>,
+): Promise<{ data: T | null; error: ClientError | null }> {
+  try {
+    return await request();
+  } catch {
+    return { data: null, error: {} };
+  }
+}
+
 export async function signInWithPassword(
   email: string,
   password: string,
 ): Promise<PasswordStepResult> {
-  const { data, error } = await authClient.signIn.email({ email, password });
+  const { data, error } = await answered(() => authClient.signIn.email({ email, password }));
   if (error) {
-    return "refused";
+    if (isUnanswered(error)) {
+      return "unreachable";
+    }
+    if (error.status === TOO_MANY_REQUESTS_STATUS) {
+      return "too_many";
+    }
+    return error.code === LOGIN_PAUSED_CODE ? "paused" : "refused";
   }
   // A trusted device skips the code; otherwise every login has one to enter.
   return data && "twoFactorRedirect" in data && data.twoFactorRedirect ? "needs_code" : "signed_in";
 }
 
+function codeStepResultOf(error: ClientError | null): CodeStepResult {
+  if (!error) {
+    return "verified";
+  }
+  if (isUnanswered(error)) {
+    return "unreachable";
+  }
+  if (error.status === TOO_MANY_REQUESTS_STATUS) {
+    return "too_many";
+  }
+  return error.code === CODE_LOCK_CODE ? "locked" : "wrong";
+}
+
 export async function verifyAuthenticatorCode(
   code: string,
   shouldTrustDevice = false,
-): Promise<boolean> {
-  const { error } = await authClient.twoFactor.verifyTotp({ code, trustDevice: shouldTrustDevice });
-  return !error;
+): Promise<CodeStepResult> {
+  const { error } = await answered(() =>
+    authClient.twoFactor.verifyTotp({ code, trustDevice: shouldTrustDevice }),
+  );
+  return codeStepResultOf(error);
 }
 
 export async function verifyRecoveryCode(
   code: string,
   shouldTrustDevice = false,
-): Promise<boolean> {
-  const { error } = await authClient.twoFactor.verifyBackupCode({
-    code,
-    trustDevice: shouldTrustDevice,
-  });
-  return !error;
+): Promise<CodeStepResult> {
+  const { error } = await answered(() =>
+    authClient.twoFactor.verifyBackupCode({ code, trustDevice: shouldTrustDevice }),
+  );
+  return codeStepResultOf(error);
 }
 
 /** Starts enrolment: the QR code's address and the recovery codes, or null if the password was wrong. */
@@ -65,4 +121,9 @@ export async function enableAuthenticator(
 
 export async function signOut(): Promise<void> {
   await authClient.signOut();
+}
+
+/** Whether a code just typed while setting up the authenticator is right. */
+export async function isSetUpCodeRight(code: string): Promise<boolean> {
+  return (await verifyAuthenticatorCode(code)) === "verified";
 }

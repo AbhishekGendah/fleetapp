@@ -1,6 +1,6 @@
 "use client";
 
-import type { PasswordStepResult } from "@fleetapp/auth/client";
+import type { CodeStepResult, PasswordStepResult } from "@fleetapp/auth/client";
 import { useState } from "react";
 
 import { AuthPageLayout } from "./auth-page-layout";
@@ -21,6 +21,10 @@ import { Input, RequiredFieldsNote } from "./input";
 const SIGN_IN_FAILED_MESSAGE = "That email address and password did not match.";
 const CODE_FAILED_MESSAGE = "That code was not right. Check your authenticator app and try again.";
 const RECOVERY_CODE_FAILED_MESSAGE = "That recovery code was not right, or has been used.";
+const UNREACHABLE_MESSAGE = "Couldn't reach us. Check your connection and try again.";
+const TOO_MANY_MESSAGE = "Too many tries. Wait a few minutes, then try again.";
+const CODE_LOCKED_MESSAGE =
+  "Too many wrong codes, so this login is locked for 15 minutes. Wait, then sign in again.";
 
 export interface SignInFormProps {
   description: string;
@@ -29,8 +33,10 @@ export interface SignInFormProps {
   /** Shown beside the logo, e.g. "Admin". */
   logoLabel?: string;
   signInWithPassword(email: string, password: string): Promise<PasswordStepResult>;
-  verifyCode(code: string, shouldTrustDevice: boolean): Promise<boolean>;
-  verifyRecoveryCode(code: string, shouldTrustDevice: boolean): Promise<boolean>;
+  verifyCode(code: string, shouldTrustDevice: boolean): Promise<CodeStepResult>;
+  verifyRecoveryCode(code: string, shouldTrustDevice: boolean): Promise<CodeStepResult>;
+  /** Shown when the right password's login may not sign in now (its business paused, or switched off). */
+  pausedMessage: string;
   /** Shown as a tickbox on the code step. Left out, the device is never trusted. */
   trustDeviceLabel?: string;
   forgotPasswordHref?: string;
@@ -44,19 +50,21 @@ function useSubmission() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  /** Runs a submit; `messageFor` gives what to show for its result, or null when it went through. */
   async function run<Result>(
     attempt: () => Promise<Result>,
-    isSuccess: (result: Result) => boolean,
-    failureMessage: string,
+    messageFor: (result: Result) => string | null,
   ): Promise<Result> {
     setErrorMessage(null);
     setIsSubmitting(true);
-    const result = await attempt();
-    setIsSubmitting(false);
-    if (!isSuccess(result)) {
-      setErrorMessage(failureMessage);
+    try {
+      const result = await attempt();
+      setErrorMessage(messageFor(result));
+      return result;
+    } finally {
+      // Never left on "Signing in…", whatever happened (review A10-6).
+      setIsSubmitting(false);
     }
-    return result;
   }
 
   return { errorMessage, isSubmitting, run };
@@ -113,18 +121,23 @@ function PasswordStep(props: SignInFormProps & { onNeedsCode(): void }) {
     const typedEmail = String(formData.get("email") ?? "");
     const typedPassword = String(formData.get("password") ?? "");
     setEmail(typedEmail);
+    const passwordMessages: Partial<Record<PasswordStepResult, string>> = {
+      refused: SIGN_IN_FAILED_MESSAGE,
+      paused: props.pausedMessage,
+      unreachable: UNREACHABLE_MESSAGE,
+      too_many: TOO_MANY_MESSAGE,
+    };
     const result = await run(
       () => props.signInWithPassword(typedEmail, typedPassword),
-      (outcome) => outcome !== "refused",
-      SIGN_IN_FAILED_MESSAGE,
+      (outcome) => passwordMessages[outcome] ?? null,
     );
 
-    if (result === "refused") {
-      setPassword("");
-    } else if (result === "needs_code") {
+    if (result === "needs_code") {
       props.onNeedsCode();
-    } else {
+    } else if (result === "signed_in") {
       props.onSignedIn();
+    } else if (result !== "unreachable") {
+      setPassword("");
     }
   }
 
@@ -173,15 +186,20 @@ function CodeStep(props: CodeStepProps) {
     if (isSubmitting) {
       return;
     }
-    const isSuccessful = await run(
+    const codeMessages: Partial<Record<CodeStepResult, string>> = {
+      wrong: props.isRecoveryCode ? RECOVERY_CODE_FAILED_MESSAGE : CODE_FAILED_MESSAGE,
+      locked: CODE_LOCKED_MESSAGE,
+      unreachable: UNREACHABLE_MESSAGE,
+      too_many: TOO_MANY_MESSAGE,
+    };
+    const result = await run(
       () =>
         props.isRecoveryCode
           ? props.verifyRecoveryCode(submittedCode.trim(), shouldTrustDevice)
           : props.verifyCode(submittedCode, shouldTrustDevice),
-      (isVerified) => isVerified,
-      props.isRecoveryCode ? RECOVERY_CODE_FAILED_MESSAGE : CODE_FAILED_MESSAGE,
+      (outcome) => codeMessages[outcome] ?? null,
     );
-    if (isSuccessful) {
+    if (result === "verified") {
       props.onSignedIn();
       return;
     }

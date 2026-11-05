@@ -28,6 +28,7 @@ export function SignInScreen(props: { notice?: string }) {
       verifyRecoveryCode={verifyRecoveryCode}
       trustDeviceLabel={`Remember this device for ${TRUSTED_DEVICE_DAYS} days`}
       forgotPasswordHref={FORGOT_PASSWORD_PATH}
+      pausedMessage="Your account is paused, so you can't sign in right now. Contact AGS to find out more."
       onSignedIn={handleSignedIn}
     />
   );

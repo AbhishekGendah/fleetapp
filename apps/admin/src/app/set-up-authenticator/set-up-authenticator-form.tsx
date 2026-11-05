@@ -1,6 +1,6 @@
 "use client";
 
-import { enableAuthenticator, verifyAuthenticatorCode } from "@fleetapp/auth/client";
+import { enableAuthenticator, isSetUpCodeRight } from "@fleetapp/auth/client";
 import { AuthenticatorSetup } from "@fleetapp/ui/authenticator-setup";
 import { useRouter } from "next/navigation";
 
@@ -19,7 +19,7 @@ export function SetUpAuthenticatorForm() {
     <AuthenticatorSetup
       logoLabel={ADMIN_LABEL}
       enableAuthenticator={enableAuthenticator}
-      verifyCode={(code) => verifyAuthenticatorCode(code)}
+      verifyCode={isSetUpCodeRight}
       onFinish={handleFinish}
     />
   );
