@@ -173,13 +173,54 @@ const listSchema = z
  * italic, underline and merge fields. Anything else (links, pictures,
  * code) is refused, so a template can only ever print as text.
  */
-export const templateDocumentSchema = z
+const documentShapeSchema = z
   .object({ type: z.literal("doc"), content: z.array(blockSchema).min(1) })
   .strict()
   .refine(
     (document) => JSON.stringify(document).length <= MAXIMUM_TEMPLATE_CHARACTERS,
     `A template can hold at most ${MAXIMUM_TEMPLATE_CHARACTERS.toLocaleString("en-AU")} characters.`,
   );
+
+/** Lists inside lists, at most this deep: far more than any contract needs (review G5-3). */
+export const MAXIMUM_LIST_NESTING = 20;
+/** However it nests, the stored document goes no deeper than this. */
+const MAXIMUM_DOCUMENT_DEPTH = 8 * MAXIMUM_LIST_NESTING;
+const LIST_TYPES: ReadonlySet<unknown> = new Set(["bulletList", "orderedList"]);
+export const TEMPLATE_TOO_NESTED_MESSAGE = `This template is too complex: lists can be nested at most ${MAXIMUM_LIST_NESTING} deep.`;
+
+/**
+ * Whether a document nests too deeply to check or print safely. Walked
+ * without recursion, so a doctored, very deep document can't exhaust the
+ * server's stack before it is refused (review G5-3).
+ */
+function isTooNested(document: unknown): boolean {
+  const waiting: { value: unknown; depth: number; lists: number }[] = [
+    { value: document, depth: 0, lists: 0 },
+  ];
+  for (let next = waiting.pop(); next; next = waiting.pop()) {
+    const { value, depth, lists } = next;
+    if (depth > MAXIMUM_DOCUMENT_DEPTH || lists > MAXIMUM_LIST_NESTING) {
+      return true;
+    }
+    if (typeof value !== "object" || value === null) {
+      continue;
+    }
+    const isList = !Array.isArray(value) && LIST_TYPES.has(Reflect.get(value, "type"));
+    for (const child of Object.values(value)) {
+      waiting.push({ value: child, depth: depth + 1, lists: lists + (isList ? 1 : 0) });
+    }
+  }
+  return false;
+}
+
+export const templateDocumentSchema = z
+  .unknown()
+  .superRefine((document, context) => {
+    if (isTooNested(document)) {
+      context.addIssue({ code: "custom", message: TEMPLATE_TOO_NESTED_MESSAGE, fatal: true });
+    }
+  })
+  .pipe(documentShapeSchema);
 export type TemplateDocument = z.infer<typeof templateDocumentSchema>;
 
 function mapInlines(

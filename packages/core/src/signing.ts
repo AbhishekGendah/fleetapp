@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { MAXIMUM_LINE_LENGTH, REQUIRED_MESSAGE } from "./form-text";
+import { DRAWN_SIGNATURE_LIMITS, isPictureWithin } from "./picture-size";
 
 /**
  * Signing a contract on the Renter's phone (docs/design/05), made to meet
@@ -40,7 +41,10 @@ export const MAXIMUM_DRAWN_SIGNATURE_BYTES = 200_000;
 const PNG_DATA_URL_PREFIX = "data:image/png;base64,";
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
-/** The PNG of a drawn signature from the pad's data URL, or null if it is not a small PNG. */
+/**
+ * The PNG of a drawn signature from the pad's data URL, or null if it is
+ * not a small PNG of a sensible size.
+ */
 export function decodeDrawnSignature(dataUrl: string): Uint8Array | null {
   if (!dataUrl.startsWith(PNG_DATA_URL_PREFIX)) {
     return null;
@@ -58,7 +62,9 @@ export function decodeDrawnSignature(dataUrl: string): Uint8Array | null {
     return null;
   }
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-  return PNG_SIGNATURE.every((byte, index) => bytes[index] === byte) ? bytes : null;
+  const isPng = PNG_SIGNATURE.every((byte, index) => bytes[index] === byte);
+  // A doctored PNG can claim huge dimensions in very few bytes (review G5-1).
+  return isPng && isPictureWithin(bytes, DRAWN_SIGNATURE_LIMITS) ? bytes : null;
 }
 
 /** Capitals, spaces and punctuation aside, the same name. */

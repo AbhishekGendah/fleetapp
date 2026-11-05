@@ -1,5 +1,7 @@
 import {
   describeErrorForLog,
+  isPictureWithin,
+  PDF_PICTURE_LIMITS,
   fillMergeFields,
   MERGE_FIELDS,
   mergeFieldLabel,
@@ -78,7 +80,13 @@ export async function loadPdfImage(
       console.error(`Loading the ${describedAs} for a PDF failed`, { status: response.status });
       return undefined;
     }
-    return { data: Buffer.from(await response.arrayBuffer()), format };
+    const data = Buffer.from(await response.arrayBuffer());
+    if (!isPictureWithin(data, PDF_PICTURE_LIMITS)) {
+      // A doctored file could freeze the PDF maker for every business (review G5-2).
+      console.error(`The ${describedAs} for a PDF was too big to print, so it was left out`);
+      return undefined;
+    }
+    return { data, format };
   } catch (error) {
     console.error(`Loading the ${describedAs} for a PDF failed`, describeErrorForLog(error));
     return undefined;

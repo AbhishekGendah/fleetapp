@@ -21,17 +21,20 @@ export const emailEnvShape = {
 
 /**
  * The test inbox holds working Renter links, codes and invite links, and the
- * admin site shows it: production must never start on it (fail fast).
+ * admin site shows it: it runs only where APP_STAGE=development is set
+ * outright, so a live site with the setting forgotten fails at start-up
+ * instead of sending real Renters' emails to it (review A9-7, fail fast).
  */
 export function refuseTestInboxInProduction(
   env: { EMAIL_TRANSPORT: string; APP_STAGE?: string | undefined },
   context: z.RefinementCtx,
 ): void {
-  if (env.APP_STAGE === "production" && env.EMAIL_TRANSPORT === "dev_outbox") {
+  if (env.EMAIL_TRANSPORT === "dev_outbox" && env.APP_STAGE !== "development") {
     context.addIssue({
       code: "custom",
-      path: ["EMAIL_TRANSPORT"],
-      message: "EMAIL_TRANSPORT=dev_outbox must never be used in production.",
+      path: ["APP_STAGE"],
+      message:
+        "EMAIL_TRANSPORT=dev_outbox (the test inbox) is for development only: set APP_STAGE=development.",
     });
   }
 }

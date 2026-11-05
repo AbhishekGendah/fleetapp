@@ -18,8 +18,9 @@ import type { MemoryFileStorage } from "../src/lib/storage/memory-file-storage";
 import { addRenterReadyToRent, bookTestRental, TEST_TIME_ZONE } from "./rental-fixtures";
 import { recordingEmailSender } from "./renter-link-fixtures";
 
-const PNG_HEADER = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-export const TEST_SIGNATURE = `data:image/png;base64,${btoa(String.fromCharCode(...PNG_HEADER, 1, 2, 3))}`;
+/** A real one-pixel PNG: a signature must be a picture of a sensible size (review G5-1). */
+export const TEST_SIGNATURE =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 const PHOTO_SIZES = { contentType: "image/jpeg", sizeBytes: 300_000 };
 export const TEST_DETAILS = {
   fuelLevel: "full" as const,

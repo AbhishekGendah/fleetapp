@@ -1,6 +1,8 @@
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 
+import { installSafeErrorLogging } from "@fleetapp/core/server";
+
 import type { AnyDatabase } from "./client";
 
 const roleRowSchema = z.object({
@@ -54,5 +56,17 @@ export async function assertSafeDatabaseRole(database: AnyDatabase, which: strin
     throw new Error(
       `The ${which} database login is unsafe: ${problems.join(", ")}. See docs/runbooks/database-roles.md.`,
     );
+  }
+}
+
+/**
+ * What each app does as its server starts: makes server error logging safe
+ * (review A7-1), then refuses to start if any of its database logins could
+ * skip the tenant lock (review G1-4).
+ */
+export async function prepareServer(databases: Record<string, AnyDatabase>): Promise<void> {
+  installSafeErrorLogging();
+  for (const [which, database] of Object.entries(databases)) {
+    await assertSafeDatabaseRole(database, which);
   }
 }

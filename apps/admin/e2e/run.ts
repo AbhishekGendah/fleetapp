@@ -7,6 +7,7 @@
  * Only made-up data, on a database that exists for this run only.
  */
 import { describeErrorForLog } from "@fleetapp/core";
+import { inArray } from "drizzle-orm";
 import { createDb } from "@fleetapp/db/client";
 import { operators } from "@fleetapp/db/schema";
 import { ADMIN_APP_ROLE, ADMIN_AUTH_ROLE, APPLICATION_ROLES } from "@fleetapp/db/tenancy";
@@ -30,6 +31,7 @@ function appEnv(databaseUrl: string, authDatabaseUrl: string): NodeJS.ProcessEnv
     BETTER_AUTH_SECRET: TEST_SECRET,
     AUTH_ISSUER_NAME: "E2E",
     EMAIL_TRANSPORT: "dev_outbox",
+    APP_STAGE: "development",
     EMAIL_FROM: "E2E <no-reply@example.test>",
     NEXT_TELEMETRY_DISABLED: "1",
   };
@@ -54,14 +56,22 @@ async function seedAdmin(authDatabaseUrl: string): Promise<void> {
 
 /** A few made-up Operators for the list tests, one of them suspended. */
 async function seedOperators(adminDatabaseUrl: string): Promise<void> {
-  await createDb(adminDatabaseUrl)
+  const database = createDb(adminDatabaseUrl);
+  // Made with a name, then paused, as the admin app does it (review A9-3).
+  const made = await database
     .insert(operators)
-    .values(
-      E2E_OPERATORS.map((operator) => ({
-        legalName: operator.legalName,
-        suspendedAt: operator.isSuspended ? new Date() : null,
-      })),
-    );
+    .values(E2E_OPERATORS.map((operator) => ({ legalName: operator.legalName })))
+    .returning({ id: operators.id, legalName: operators.legalName });
+  const pausedNames = new Set<string>(
+    E2E_OPERATORS.filter((operator) => operator.isSuspended).map((operator) => operator.legalName),
+  );
+  const pausedIds = made.filter((row) => pausedNames.has(row.legalName)).map((row) => row.id);
+  if (pausedIds.length > 0) {
+    await database
+      .update(operators)
+      .set({ suspendedAt: new Date() })
+      .where(inArray(operators.id, pausedIds));
+  }
 }
 
 async function main(): Promise<void> {

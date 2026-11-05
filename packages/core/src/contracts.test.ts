@@ -8,6 +8,8 @@ import {
   STARTER_CHANGE_OF_TERMS,
   STARTER_CONTRACT,
   STARTER_SWAP_FORM,
+  MAXIMUM_LIST_NESTING,
+  TEMPLATE_TOO_NESTED_MESSAGE,
   templateDocumentSchema,
   type ContractData,
   type TemplateDocument,
@@ -100,6 +102,31 @@ describe("document fingerprints", () => {
     expect(documentFingerprint(bytes)).not.toBe(documentFingerprint(changed));
     expect(documentFingerprint(new Uint8Array())).toBe(
       "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    );
+  });
+});
+
+describe("a template's lists inside lists", () => {
+  /** A document with lists nested `depth` deep, one item each. */
+  function nested(depth: number): unknown {
+    let block: unknown = { type: "paragraph", content: [{ type: "text", text: "Deepest" }] };
+    for (let level = 0; level < depth; level += 1) {
+      block = { type: "bulletList", content: [{ type: "listItem", content: [block] }] };
+    }
+    return { type: "doc", content: [block] };
+  }
+
+  it("takes a contract's usual few levels", () => {
+    expect(templateDocumentSchema.safeParse(nested(5)).success).toBe(true);
+  });
+
+  it("refuses deeper than the limit with a clear message, before checking the rest (review G5-3)", () => {
+    const tooDeep = templateDocumentSchema.safeParse(nested(MAXIMUM_LIST_NESTING + 1));
+    expect(tooDeep.success).toBe(false);
+    expect(tooDeep.error?.issues[0]?.message).toBe(TEMPLATE_TOO_NESTED_MESSAGE);
+    // Hundreds deep, as a doctored request would send: refused the same way, quickly.
+    expect(templateDocumentSchema.safeParse(nested(500)).error?.issues[0]?.message).toBe(
+      TEMPLATE_TOO_NESTED_MESSAGE,
     );
   });
 });

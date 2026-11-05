@@ -49,6 +49,7 @@ jobs:
           BETTER_AUTH_SECRET: placeholder-placeholder-placeholder-32
           AUTH_ISSUER_NAME: CI
           EMAIL_TRANSPORT: dev_outbox
+          APP_STAGE: development
           EMAIL_FROM: ci@example.test
           GOOGLE_PLACES_API_KEY: placeholder
           GOOGLE_PLACES_API_URL: http://localhost:3999

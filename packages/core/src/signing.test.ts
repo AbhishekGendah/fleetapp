@@ -26,6 +26,10 @@ function signing(changes: Record<string, string> = {}) {
   });
 }
 
+/** A real one-pixel PNG. */
+const ONE_PIXEL_PNG_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+
 describe("signing", () => {
   it("checks a typed name even before the boxes are ticked, so it shows as it is typed", () => {
     const result = signing({ areDetailsConfirmed: "", hasConsented: "", typedName: "Someone" });
@@ -46,7 +50,10 @@ describe("signing", () => {
   });
 
   it("takes a drawn signature only as a small PNG", () => {
-    expect(decodeDrawnSignature(pngDataUrl([...PNG_HEADER, 1, 2, 3]))).toHaveLength(11);
+    const onePixel = `data:image/png;base64,${ONE_PIXEL_PNG_BASE64}`;
+    expect(decodeDrawnSignature(onePixel)?.length).toBeGreaterThan(PNG_HEADER.length);
+    // Not a real picture, just its first bytes.
+    expect(decodeDrawnSignature(pngDataUrl([...PNG_HEADER, 1, 2, 3]))).toBeNull();
     expect(decodeDrawnSignature(pngDataUrl([0xff, 0xd8, 0xff]))).toBeNull();
     expect(decodeDrawnSignature("data:image/svg+xml;base64,PHN2Zz4=")).toBeNull();
     expect(decodeDrawnSignature("data:image/png;base64,%%%")).toBeNull();
@@ -54,6 +61,28 @@ describe("signing", () => {
     tooBig.set(PNG_HEADER);
     const huge = `data:image/png;base64,${Buffer.from(tooBig).toString("base64")}`;
     expect(decodeDrawnSignature(huge)).toBeNull();
+  });
+
+  it("refuses a doctored signature claiming a huge size in a few bytes (review G5-1)", () => {
+    const ihdr = [0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52];
+    const size = (pixels: number) => [
+      (pixels >>> 24) & 0xff,
+      (pixels >>> 16) & 0xff,
+      (pixels >>> 8) & 0xff,
+      pixels & 0xff,
+    ];
+    const doctored = pngDataUrl([
+      ...PNG_HEADER,
+      ...ihdr,
+      ...size(100_000),
+      ...size(100_000),
+      8,
+      6,
+      0,
+      0,
+      0,
+    ]);
+    expect(decodeDrawnSignature(doctored)).toBeNull();
   });
 
   it("needs both ticks, and a signature by the chosen method", () => {

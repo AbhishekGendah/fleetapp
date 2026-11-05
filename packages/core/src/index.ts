@@ -57,3 +57,4 @@ export * from "./handover";
 export * from "./rental-changes";
 export * from "./car-swaps";
 export * from "./direct-debits";
+export * from "./picture-size";
