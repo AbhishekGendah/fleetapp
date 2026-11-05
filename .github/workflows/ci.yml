@@ -61,6 +61,72 @@ jobs:
           CRON_SECRET: placeholder-placeholder-placeholder-32
           OPS_ALERT_EMAIL: ops@example.test
 
+  # "Update a filled database" (review G1-2): the database updates in this
+  # change, run on a database as main has it now, filled with main's demo
+  # data, the way the real databases already hold data. An update that only
+  # works on an empty database (say, a new required column with no default)
+  # fails here, not on the dev site. Skipped when no update changed.
+  update-filled-database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Find the code this change starts from
+        id: base
+        env:
+          PUSHED_FROM: ${{ github.event.before }}
+          PULL_REQUEST_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          base="${PULL_REQUEST_BASE:-$PUSHED_FROM}"
+          if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            base="$(git merge-base origin/main HEAD)"
+          fi
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
+          if git diff --quiet "$base" HEAD -- packages/db/migrations; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No database update changed: nothing to check."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: pnpm/action-setup@v4
+        if: steps.base.outputs.changed == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.base.outputs.changed == 'true'
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+
+      - name: Start a throwaway Postgres
+        if: steps.base.outputs.changed == 'true'
+        run: |
+          docker run -d --name filled-db -e POSTGRES_PASSWORD=throwaway -p 55432:5432 postgres:17-alpine
+          for attempt in $(seq 1 30); do docker exec filled-db pg_isready -U postgres && break; sleep 2; done
+
+      - name: Build and fill it as main has it
+        if: steps.base.outputs.changed == 'true'
+        env:
+          TEST_POSTGRES_SUPERUSER_URL: postgres://postgres:throwaway@localhost:55432/postgres
+        run: |
+          git worktree add ../base "${{ steps.base.outputs.sha }}"
+          cd ../base
+          pnpm install --frozen-lockfile
+          pnpm --filter web exec vitest run test/demo-data.test.ts
+
+      - name: Run this change's updates on it
+        if: steps.base.outputs.changed == 'true'
+        env:
+          TEST_POSTGRES_SUPERUSER_URL: postgres://postgres:throwaway@localhost:55432/postgres
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter @fleetapp/db db:update-filled-database
+
+      - if: always()
+        run: docker rm -f filled-db || true
+
   # Each app used in a real browser: keyboard, screen-reader names and phone
   # width. Runs against a throwaway Postgres (and, for the Operator app, a
   # local S3 and a Google Places stand-in) in Docker, with made-up data only.

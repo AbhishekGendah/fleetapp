@@ -22,7 +22,8 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:update-filled-database": "tsx scripts/update-filled-database.ts"
   },
   "dependencies": {
     "@fleetapp/core": "workspace:*",
