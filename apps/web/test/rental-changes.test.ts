@@ -11,6 +11,7 @@ import { signContract } from "../src/lib/contracts/signing";
 import { loadSigningStatus } from "../src/lib/contracts/signing-links";
 import { createTemplate, saveTemplate } from "../src/lib/contracts/templates";
 import {
+  cancelChangeLink,
   changeWeeklyRate,
   listRentalChanges,
   sendChangeForSigning,
@@ -19,7 +20,7 @@ import {
 import { changeRentalEnd, rentTermsAfterEndChange } from "../src/lib/rentals/rental-changes";
 import { emptyRentalForm, parseRentalForm } from "../src/lib/rentals/rental-input";
 import { createRental } from "../src/lib/rentals/rental-records";
-import { openLink } from "../src/lib/renter-links/link-visits";
+import { openLink, wasLinkUsed } from "../src/lib/renter-links/link-visits";
 import {
   createMemoryFileStorage,
   type MemoryFileStorage,
@@ -376,6 +377,138 @@ describe("changes of terms during a rental", () => {
       tx.select().from(rentalChanges).where(eq(rentalChanges.id, changeId)),
     );
     expect(change?.status).toBe("withdrawn");
+  });
+
+  /** An end some days after the rental's own start (a test rental starts well ahead). */
+  const endAfterStart = async (rentalId: string, days: number): Promise<Date> =>
+    new Date((await rentalOf(rentalId)).plannedStart.getTime() + days * DAY_MS);
+
+  /** The newest emailed link's secret. */
+  const lastToken = () => TOKEN_PATTERN.exec(sentEmails.at(-1)?.html ?? "")?.[1] ?? "";
+  const typedSign = (visit: NonNullable<Awaited<ReturnType<typeof openLink>>>) =>
+    signContract(
+      linkDeps(),
+      visit,
+      {
+        areDetailsConfirmed: "on",
+        hasConsented: "on",
+        method: "typed",
+        typedName: "Rory Ready",
+        drawnSignature: "",
+        contractFingerprint: visit.signing!.contractFingerprint,
+      },
+      META,
+    );
+
+  it("keeps one change's link working when another change is sent or withdrawn (review A3-2)", async () => {
+    const { rentalId } = await kit.rentalOut(new Date(Date.now() - DAY_MS));
+    const rate = await changeWeeklyRate(
+      linkDeps(),
+      actor,
+      rentalId,
+      { weeklyRateCents: 410_00, fromBlock: NEXT_WEEK, reason: REASON },
+      clock(),
+    );
+    const rateToken = lastToken();
+    const ended = await changeRentalEnd(
+      web.db,
+      actor,
+      rentalId,
+      { newEnd: await endAfterStart(rentalId, 40), reason: REASON },
+      clock(),
+    );
+    const endChangeId = ended.status === "changed" ? ended.changeId : "";
+    await sendChangeForSigning(linkDeps(), actor, endChangeId, clock());
+    const endToken = lastToken();
+
+    expect(await openLink(web.db, rateToken)).not.toBeNull();
+    await withdrawChange(web.db, actor, rate.status === "sent" ? rate.changeId : "", new Date());
+    expect(await openLink(web.db, rateToken)).toBeNull();
+    expect(await openLink(web.db, endToken)).not.toBeNull();
+    // Its own link can be cancelled on its own; the change stays in effect (review A3-3).
+    expect(await cancelChangeLink(web.db, actor, endChangeId, new Date())).toBe("cancelled");
+    expect(await openLink(web.db, endToken)).toBeNull();
+    const [kept] = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx.select().from(rentalChanges).where(eq(rentalChanges.id, endChangeId)),
+    );
+    expect(kept?.status).toBe("applied");
+  });
+
+  it("refuses an end change a later one replaced, and stops its link (review A3-12)", async () => {
+    const { rentalId } = await kit.rentalOut(new Date(Date.now() - DAY_MS));
+    const first = await changeRentalEnd(
+      web.db,
+      actor,
+      rentalId,
+      { newEnd: await endAfterStart(rentalId, 30), reason: REASON },
+      clock(),
+    );
+    const firstId = first.status === "changed" ? first.changeId : "";
+    await sendChangeForSigning(linkDeps(), actor, firstId, clock());
+    const firstToken = lastToken();
+
+    await changeRentalEnd(web.db, actor, rentalId, { newEnd: null, reason: REASON }, clock());
+
+    expect(await openLink(web.db, firstToken)).toBeNull();
+    expect(await sendChangeForSigning(linkDeps(), actor, firstId, clock())).toEqual({
+      status: "not_signable",
+    });
+    const replaced = (await listRentalChanges(web.db, actor.operatorId, rentalId, new Date())).find(
+      (change) => change.id === firstId,
+    );
+    expect(replaced?.signingProblem).toBe("replaced");
+  });
+
+  it("tells a stopped link from a signed one (review A3-7)", async () => {
+    const { rentalId } = await kit.rentalOut(new Date(Date.now() - DAY_MS));
+    const ended = await changeRentalEnd(
+      web.db,
+      actor,
+      rentalId,
+      { newEnd: await endAfterStart(rentalId, 50), reason: REASON },
+      clock(),
+    );
+    const changeId = ended.status === "changed" ? ended.changeId : "";
+    await sendChangeForSigning(linkDeps(), actor, changeId, clock());
+    const stopped = (await openLink(web.db, lastToken()))!;
+    await cancelChangeLink(web.db, actor, changeId, new Date());
+
+    expect(await typedSign(stopped)).toMatchObject({ status: "link_stopped" });
+
+    await sendChangeForSigning(linkDeps(), actor, changeId, clock());
+    const token = lastToken();
+    expect((await typedSign((await openLink(web.db, token))!)).status).toBe("signed");
+    expect(await openLink(web.db, token)).toBeNull();
+    expect(await wasLinkUsed(web.db, token)).toBe(true);
+  });
+
+  it("withdraws a rate change not signed in time when the next one is proposed (review A3-1)", async () => {
+    const { rentalId } = await kit.rentalOut(new Date(Date.now() - 2 * DAY_MS));
+    const first = await changeWeeklyRate(
+      linkDeps(),
+      actor,
+      rentalId,
+      { weeklyRateCents: 420_00, fromBlock: NEXT_WEEK, reason: REASON },
+      clock(),
+    );
+    const later = { timeZone: TEST_TIME_ZONE, now: new Date(Date.now() + 6 * DAY_MS) };
+
+    const next = await changeWeeklyRate(
+      { ...linkDeps(), now: () => later.now },
+      actor,
+      rentalId,
+      { weeklyRateCents: 430_00, fromBlock: 2 * NEXT_WEEK, reason: REASON },
+      later,
+    );
+    const [firstNow] = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx
+        .select()
+        .from(rentalChanges)
+        .where(eq(rentalChanges.id, first.status === "sent" ? first.changeId : "")),
+    );
+
+    expect(next.status).toBe("sent");
+    expect(firstNow?.status).toBe("withdrawn");
   });
 
   it("moves a booking between short hire and long-term as its end moves, before the handover", async () => {

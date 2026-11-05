@@ -1,6 +1,7 @@
 import { recordActivity, type ActivityEntry } from "@fleetapp/db/activity";
-import type { AnyTransaction } from "@fleetapp/db/client";
-import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, renterLinks } from "@fleetapp/db/schema";
+import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
+import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, renterLinks, rentals } from "@fleetapp/db/schema";
+import { withTenant } from "@fleetapp/db/tenant-context";
 import type { RenterLinkPurpose } from "@fleetapp/core";
 import { and, eq, isNull } from "drizzle-orm";
 
@@ -10,6 +11,8 @@ import type { ActingUser } from "../acting-user";
 export interface LinksToCancel {
   purpose?: RenterLinkPurpose;
   rentalId?: string;
+  /** One change of terms' own form link, leaving the rental's other changes' links alone (review A3-2). */
+  rentalChangeId?: string;
 }
 
 /** Only the Renter's details form link: a new one, or its submission approved, leaves signing alone. */
@@ -59,6 +62,7 @@ export async function cancelLinksAs(
         eq(renterLinks.renterId, renterId),
         which.purpose ? eq(renterLinks.purpose, which.purpose) : undefined,
         which.rentalId ? eq(renterLinks.rentalId, which.rentalId) : undefined,
+        which.rentalChangeId ? eq(renterLinks.rentalChangeId, which.rentalChangeId) : undefined,
         isNull(renterLinks.cancelledAt),
       ),
     )
@@ -74,4 +78,26 @@ export async function cancelLinksAs(
     });
   }
   return cancelled.length > 0;
+}
+
+/**
+ * The business's "Cancel link" for one of a rental's links (its contract's
+ * signing link, or its payments link): it stops working at once (review A3-3).
+ */
+export async function cancelRentalLink(
+  database: AnyDatabase,
+  actor: ActingUser,
+  link: { rentalId: string; purpose: RenterLinkPurpose },
+  now: Date,
+): Promise<"cancelled" | "none"> {
+  return withTenant(database, actor.operatorId, async (tx) => {
+    const [rental] = await tx
+      .select({ renterId: rentals.renterId })
+      .from(rentals)
+      .where(and(eq(rentals.id, link.rentalId), eq(rentals.operatorId, actor.operatorId)));
+    if (!rental) {
+      return "none";
+    }
+    return (await cancelLiveLinks(tx, actor, rental.renterId, now, link)) ? "cancelled" : "none";
+  });
 }

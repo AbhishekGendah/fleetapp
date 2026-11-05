@@ -27,6 +27,7 @@ import {
 import {
   changeWeeklyRate,
   sendChangeForSigning,
+  cancelChangeLink,
   withdrawChange,
   type RateChangeSendResult,
 } from "../../../lib/rentals/change-signing";
@@ -210,6 +211,22 @@ export async function withdrawChangeAction(
     (await withdrawChange(appDb, actor, changeId, new Date())) === "withdrawn"
       ? savedState("Withdrawn. The link no longer works.")
       : failedState("Only a change still waiting for the Renter can be withdrawn."),
+  );
+}
+
+/** Stops a change's form link working; the change itself stays as it is (review A3-3). */
+export async function cancelChangeLinkAction(
+  rentalId: string,
+  changeId: string,
+  _previous: ChangeFormState,
+): Promise<ChangeFormState> {
+  if (!isRecordId(changeId)) {
+    return failedState(NOT_FOUND_MESSAGE);
+  }
+  return changeRental(rentalId, "Cancelling a change form's link", async (actor) =>
+    (await cancelChangeLink(appDb, actor, changeId, new Date())) === "cancelled"
+      ? savedState("Link cancelled.")
+      : failedState("There is no link to cancel."),
   );
 }
 

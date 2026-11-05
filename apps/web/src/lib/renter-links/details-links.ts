@@ -133,6 +133,8 @@ export interface RenterLinkInPlay {
   expiresAt: Date;
   isExpired: boolean;
   isLocked: boolean;
+  /** A signing link whose paper no longer matches the rental: it can't be signed (review A3-6). */
+  isPaperChanged?: boolean;
 }
 
 /** The columns a link in play is read from. */

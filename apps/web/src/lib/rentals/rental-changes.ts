@@ -7,7 +7,6 @@ import {
   canChangeRate,
   DAYS_PER_WEEK,
   endChangeProblem,
-  isBlockRateChangeSignable,
   isLongTermBooking,
   rateForBlock,
   formatCalendarDate,
@@ -23,7 +22,11 @@ import {
   type RentalStatus,
   type RentModel,
   type RentalType,
+  changeSigningProblem,
+  isRateChangeOutOfTime,
+  type ChangeSigningProblem,
 } from "@fleetapp/core";
+import { recordActivity } from "@fleetapp/db/activity";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import {
   ACTIVITY_ACTIONS,
@@ -34,9 +37,10 @@ import {
   rentals,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
+import { cancelLiveLinks } from "../renter-links/cancel-links";
 import { isChecklistUnderWay } from "../handover/handover-records";
 import type { ChangeFields } from "../contracts/contract-data";
 import { loadBlockRates } from "./block-rates";
@@ -286,8 +290,36 @@ export async function changeRentalEnd(
       valuesBefore: { type: rental.type, plannedEnd: rental.plannedEnd?.toISOString() ?? null },
       valuesAfter: { type: typeAfter, plannedEnd: request.newEnd?.toISOString() ?? null },
     });
+    await cancelReplacedChangeLinks(tx, actor, rental.id, change!.id, clock.now);
     return { status: "changed", changeId: change!.id, noticeDaysShort: daysShort };
   });
+}
+
+/**
+ * A new end replaces every earlier end change: their form links stop, so a
+ * Renter can't sign an end the rental no longer has (review A3-12).
+ */
+async function cancelReplacedChangeLinks(
+  tx: AnyTransaction,
+  actor: ActingUser,
+  rentalId: string,
+  newChangeId: string,
+  now: Date,
+): Promise<void> {
+  const replaced = await tx
+    .select({ id: rentalChanges.id })
+    .from(rentalChanges)
+    .where(
+      and(
+        eq(rentalChanges.operatorId, actor.operatorId),
+        eq(rentalChanges.rentalId, rentalId),
+        inArray(rentalChanges.kind, ["end_date", "make_ongoing"]),
+        ne(rentalChanges.id, newChangeId),
+      ),
+    );
+  for (const change of replaced) {
+    await cancelReplacedLink(tx, actor, rentalId, change.id, now);
+  }
 }
 
 function logChange(
@@ -388,6 +420,7 @@ export async function proposeRateChange(
     if (problem) {
       return { status: problem };
     }
+    await withdrawOutOfTimeRateChanges(tx, actor, rental, clock.now);
     const rateBeforeCents = weeklyPriceOf(rateForBlock(rate.terms.rates, request.fromBlock));
     const [change] = await tx
       .insert(rentalChanges)
@@ -433,6 +466,68 @@ export async function lockChange(
 }
 
 /** Withdraws a change still waiting for the Renter's signature; its link is cancelled by the caller. */
+/**
+ * A rate change still waiting after its rent week began can never be
+ * signed (review A3-1): it is withdrawn by the system, logged, so it no
+ * longer blocks the next one, and its link stops.
+ */
+async function withdrawOutOfTimeRateChanges(
+  tx: AnyTransaction,
+  actor: ActingUser,
+  rental: { id: string; status: RentalStatus; handedOverAt: Date | null },
+  now: Date,
+): Promise<void> {
+  const waiting = await tx
+    .select()
+    .from(rentalChanges)
+    .where(
+      and(
+        eq(rentalChanges.operatorId, actor.operatorId),
+        eq(rentalChanges.rentalId, rental.id),
+        eq(rentalChanges.status, "waiting_for_signature"),
+      ),
+    )
+    .for("update");
+  for (const change of waiting.filter((candidate) =>
+    isRateChangeOutOfTime(candidate, rental, now),
+  )) {
+    await tx
+      .update(rentalChanges)
+      .set({ status: "withdrawn", withdrawnAt: now })
+      .where(eq(rentalChanges.id, change.id));
+    await recordActivity(tx, {
+      operatorId: actor.operatorId,
+      actor: { type: "system", id: null },
+      entityType: ACTIVITY_ENTITY_TYPES.rentalChange,
+      entityId: change.id,
+      action: ACTIVITY_ACTIONS.withdrawn,
+      valuesAfter: { rentalId: rental.id, reason: "not_signed_in_time" },
+    });
+    await cancelReplacedLink(tx, actor, rental.id, change.id, now);
+  }
+}
+
+/** Stops one change's form link inside the caller's transaction. */
+async function cancelReplacedLink(
+  tx: AnyTransaction,
+  actor: ActingUser,
+  rentalId: string,
+  changeId: string,
+  now: Date,
+): Promise<void> {
+  const [rental] = await tx
+    .select({ renterId: rentals.renterId })
+    .from(rentals)
+    .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, actor.operatorId)));
+  if (rental) {
+    await cancelLiveLinks(tx, actor, rental.renterId, now, {
+      rentalId,
+      purpose: "sign_change",
+      rentalChangeId: changeId,
+    });
+  }
+}
+
 export async function withdrawWaitingChange(
   tx: AnyTransaction,
   actor: ActingUser,
@@ -504,26 +599,29 @@ async function addSignedRate(
 }
 
 /**
- * Whether the change can still be signed: not withdrawn, not signed, its
- * rental not finished, and a rate change's rent week not yet begun (no
- * backdating, review A3-1).
+ * Why the change can't be sent or signed now, from the shared rules
+ * (review A3-1, A3-12, A3-15), with the rental's other changes read in the
+ * same transaction.
  */
-export function isChangeSignable(
+export async function changeSigningProblemNow(
+  tx: AnyTransaction,
+  operatorId: string,
   change: RentalChange,
   rental: { status: RentalStatus; handedOverAt: Date | null },
   now: Date,
-): boolean {
-  const isWeekStillAhead =
-    change.appliesFromBlock === null ||
-    rental.handedOverAt === null ||
-    change.status !== "waiting_for_signature" ||
-    isBlockRateChangeSignable(rental.handedOverAt, change.appliesFromBlock, now);
-  return (
-    change.status !== "withdrawn" &&
-    change.documentId === null &&
-    canChangeEnd(rental.status) &&
-    isWeekStillAhead
-  );
+): Promise<ChangeSigningProblem | null> {
+  const others = await tx
+    .select({
+      id: rentalChanges.id,
+      kind: rentalChanges.kind,
+      status: rentalChanges.status,
+      createdAt: rentalChanges.createdAt,
+    })
+    .from(rentalChanges)
+    .where(
+      and(eq(rentalChanges.operatorId, operatorId), eq(rentalChanges.rentalId, change.rentalId)),
+    );
+  return changeSigningProblem(change, rental, others, now);
 }
 
 /** When a rate change starts, in words: its rent week's start on the business's clock, or its date. */

@@ -25,7 +25,10 @@ const NOT_SIGNED_MESSAGES: Record<
   Exclude<SignContractResult["status"], "signed" | "invalid">,
   string
 > = {
-  signed_already: "This is already signed. A copy was emailed to you.",
+  // Never "a copy was emailed": whether it was is shown on the business's page (review A3-7).
+  signed_already: "This is already signed. Nothing more is needed from you.",
+  link_stopped:
+    "This link was stopped by the business before you signed, so nothing was signed. Ask them for a new link.",
   changed:
     "This has changed since the page was opened, so it was not signed. Reload the page to read it again.",
   not_signable: SHUT_MESSAGE,

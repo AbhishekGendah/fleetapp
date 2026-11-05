@@ -8,7 +8,12 @@ import { and, asc, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import type { ActingUser } from "../src/lib/acting-user";
-import { loadSigningView, recordSigningEvidence, signContract } from "../src/lib/contracts/signing";
+import {
+  loadSigningView,
+  recordSigningEvidence,
+  signContract,
+  withPaperCheck,
+} from "../src/lib/contracts/signing";
 import { loadSigningStatus, sendSigningLink } from "../src/lib/contracts/signing-links";
 import { createTemplate, saveTemplate } from "../src/lib/contracts/templates";
 import { cancelRental } from "../src/lib/rentals/rental-records";
@@ -267,10 +272,22 @@ describe("signing a contract through a link", () => {
       });
     });
 
-    it("refuses to sign a contract that changed after the link was sent", async () => {
-      const { renterId, visit } = await sentLink();
+    it("refuses to sign a contract that changed after the link was sent, and the rental page says so (review A3-6)", async () => {
+      const { rentalId, renterId, visit } = await sentLink();
       const view = await loadSigningView(web.db, visit);
       const fingerprint = view.status === "ready" ? view.fingerprint : "";
+      const onRentalPage = async () => {
+        const status = await loadSigningStatus(web.db, actor.operatorId, rentalId, new Date());
+        return withPaperCheck(web.db, actor.operatorId, {
+          link: status.link,
+          sentPaper: status.sentPaper,
+          rentalId,
+          change: null,
+          handedOverAt: null,
+          timeZone: TEST_TIME_ZONE,
+        });
+      };
+      expect((await onRentalPage())?.isPaperChanged).toBe(false);
       const renamed = parseRenterForm(
         { ...emptyRenterForm(), fullName: "Sam Changed", email: "sam.signer@example.test" },
         "2026-10-30",
@@ -278,6 +295,7 @@ describe("signing a contract through a link", () => {
       await updateRenter(web.db, actor, renterId, renamed.data!);
 
       expect((await loadSigningView(web.db, visit)).status).toBe("changed");
+      expect((await onRentalPage())?.isPaperChanged).toBe(true);
       expect(await signContract(deps(), visit, typedSigning(fingerprint), META)).toEqual({
         status: "changed",
       });

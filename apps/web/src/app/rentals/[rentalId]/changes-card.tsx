@@ -12,6 +12,7 @@ import {
   RENTAL_CHANGE_STATUS_LABELS,
   utcToLocalDateTime,
   type RentalChangeStatus,
+  CHANGE_SIGNING_PROBLEM_LABELS,
   type DocumentEmailState,
 } from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
@@ -19,13 +20,14 @@ import { Badge, type BadgeTone } from "@fleetapp/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
-import { CalendarClock, Infinity as InfinityIcon, Undo2, Wallet } from "lucide-react";
+import { CalendarClock, XCircle, Infinity as InfinityIcon, Undo2, Wallet } from "lucide-react";
 import Link from "next/link";
 
 import { RenterLinkSender } from "../../../components/renter-link-sender";
 import { RenterLinkStatus } from "../../../components/renter-link-status";
 import { appDb } from "../../../lib/app-db";
 import { loadDocumentEmailStates } from "../../../lib/contracts/document-emails";
+import { withPaperCheck } from "../../../lib/contracts/signing";
 import { loadDefaultTemplate } from "../../../lib/contracts/templates";
 import { CONTRACTS_PATH } from "../../../lib/paths";
 import { listRentalChanges, type RentalChangeRow } from "../../../lib/rentals/change-signing";
@@ -39,6 +41,7 @@ import {
   changeRateAction,
   makeOngoingAction,
   sendChangeAction,
+  cancelChangeLinkAction,
   withdrawChangeAction,
 } from "./change-actions";
 import { LazyEndChangeForm, LazyOngoingChangeForm, LazyRateChangeForm } from "./lazy-change-forms";
@@ -76,7 +79,12 @@ function ChangeItem(props: {
 }) {
   const { change, rentalId, timeZone } = props;
   const isWaiting = change.status === "waiting_for_signature";
-  const canSend = change.status !== "withdrawn" && change.documentId === null;
+  // The shared rules decide (review A3-12, A3-15): not withdrawn, signed, replaced or out of time.
+  const canSend = change.signingProblem === null;
+  const shownProblem =
+    change.signingProblem === "replaced" || change.signingProblem === "out_of_time"
+      ? CHANGE_SIGNING_PROBLEM_LABELS[change.signingProblem]
+      : null;
   return (
     <RecordItem
       title={`${RENTAL_CHANGE_KIND_LABELS[change.kind]}: ${changeTitle(change, timeZone, props.handedOverAt)}`}
@@ -87,6 +95,7 @@ function ChangeItem(props: {
           </Badge>
           {change.isShortNotice ? <Badge tone="attention">Short notice</Badge> : null}
           {change.documentId ? <Badge tone="good">Signed</Badge> : null}
+          {shownProblem ? <Badge tone="attention">{shownProblem}</Badge> : null}
         </span>
       }
       details={
@@ -113,6 +122,15 @@ function ChangeItem(props: {
               hasLink={change.link !== null}
               sendLabel="Send for signing"
               urlFieldId={`change-link-${change.id}`}
+            />
+          ) : null}
+          {change.link ? (
+            <ActionButton
+              action={cancelChangeLinkAction.bind(null, rentalId, change.id)}
+              label="Cancel link"
+              pendingLabel="Cancelling…"
+              variant="outline"
+              icon={<XCircle aria-hidden />}
             />
           ) : null}
           {isWaiting ? (
@@ -215,6 +233,19 @@ export async function ChangesCard(props: {
   if (!isChangeable && changes.length === 0) {
     return null;
   }
+  const shownChanges = await Promise.all(
+    changes.map(async (change) => ({
+      ...change,
+      link: await withPaperCheck(appDb, user.operatorId, {
+        link: change.link,
+        sentPaper: change.sentPaper,
+        rentalId: rental.id,
+        change,
+        handedOverAt: rental.handedOverAt,
+        timeZone: user.operatorTimezone,
+      }),
+    })),
+  );
   const emails = await loadDocumentEmailStates(
     appDb,
     user.operatorId,
@@ -250,7 +281,7 @@ export async function ChangesCard(props: {
           <p className="text-muted-foreground text-sm">No changes yet.</p>
         ) : (
           <RecordList label="Changes">
-            {changes.map((change) => (
+            {shownChanges.map((change) => (
               <ChangeItem
                 key={change.id}
                 change={change}

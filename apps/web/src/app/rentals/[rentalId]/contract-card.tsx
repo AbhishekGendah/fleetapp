@@ -1,4 +1,9 @@
-import { formatDateTimeInTimeZone, mergeFieldLabel, missingMergeFields } from "@fleetapp/core";
+import {
+  formatDateTimeInTimeZone,
+  isContractSignable,
+  mergeFieldLabel,
+  missingMergeFields,
+} from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
 import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
@@ -12,6 +17,7 @@ import { appDb } from "../../../lib/app-db";
 import { loadContractData } from "../../../lib/contracts/contract-data";
 import { loadDocumentEmailStates } from "../../../lib/contracts/document-emails";
 import { loadSigningStatus, type SigningStatus } from "../../../lib/contracts/signing-links";
+import { withPaperCheck } from "../../../lib/contracts/signing";
 import { loadDefaultTemplate } from "../../../lib/contracts/templates";
 import { CONTRACTS_PATH, rentalContractPreviewPath } from "../../../lib/paths";
 import type { RentalDetail } from "../../../lib/rentals/rental-queries";
@@ -19,9 +25,6 @@ import type { RentalClock } from "../../../lib/rentals/rental-records";
 import type { SignedInUser } from "../../../lib/require-user";
 import { IssuedPaper } from "./issued-paper";
 import { cancelSigningLinkAction, sendSigningLinkAction } from "./signing-actions";
-
-/** Until it is handed over, the contract can still be previewed and its gaps filled. */
-const BEFORE_SIGNING = new Set(["draft", "booked"]);
 
 async function SignedContractCard({
   rentalId,
@@ -129,7 +132,7 @@ export async function ContractCard({
   if (signing.signed) {
     return <SignedContractCard rentalId={rental.id} signed={signing.signed} user={user} />;
   }
-  if (!BEFORE_SIGNING.has(rental.status)) {
+  if (!isContractSignable(rental.status)) {
     return null;
   }
   const template = await loadDefaultTemplate(appDb, user.operatorId, "contract");
@@ -170,7 +173,14 @@ export async function ContractCard({
         {missing.length === 0 ? (
           <SigningControls
             rentalId={rental.id}
-            link={signing.link}
+            link={await withPaperCheck(appDb, user.operatorId, {
+              link: signing.link,
+              sentPaper: signing.sentPaper,
+              rentalId: rental.id,
+              change: null,
+              handedOverAt: rental.handedOverAt,
+              timeZone: user.operatorTimezone,
+            })}
             timeZone={user.operatorTimezone}
           />
         ) : null}

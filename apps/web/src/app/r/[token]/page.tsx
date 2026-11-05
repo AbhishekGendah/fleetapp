@@ -8,7 +8,7 @@ import type { RenterLinkPurpose } from "@fleetapp/core";
 
 import { appDb } from "../../../lib/app-db";
 import { detailsFormStart } from "../../../lib/renter-links/details-form-input";
-import { isPhoneRemembered, openLink } from "../../../lib/renter-links/link-visits";
+import { isPhoneRemembered, openLink, wasLinkUsed } from "../../../lib/renter-links/link-visits";
 import { STRIPE_RETURN_STEPS } from "../../../lib/payments/renter-checkout";
 import { loadFormStart } from "../../../lib/renter-links/submissions";
 import { checkCodeAction, sendCodeAction } from "./actions";
@@ -65,6 +65,16 @@ export default async function RenterLinkPage(props: {
 }) {
   const [{ token }, searchParams] = await Promise.all([props.params, props.searchParams]);
   const visit = await openLink(appDb, token);
+  if (!visit && (await wasLinkUsed(appDb, token))) {
+    return (
+      <LinkPage title="This is already signed">
+        <CardDescription>
+          Nothing more is needed from you on this link. If you need a copy, ask the business that
+          sent it.
+        </CardDescription>
+      </LinkPage>
+    );
+  }
   if (!visit) {
     return (
       <LinkPage title="This link no longer works">

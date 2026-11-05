@@ -3,6 +3,8 @@ import {
   MILLISECONDS_PER_DAY,
   SIGNING_LINK_DAYS,
   type MergeFieldKey,
+  isContractSignable,
+  type RentalStatus,
 } from "@fleetapp/core";
 import { generateSecretToken, hashSecretToken } from "@fleetapp/core/server";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
@@ -19,9 +21,14 @@ import { renderRenterSigningLinkEmail } from "@fleetapp/email";
 import { and, desc, eq, isNull } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
-import { changeFieldsOf, lockChange, type RentalChange } from "../rentals/rental-changes";
+import {
+  changeFieldsOf,
+  changeSigningProblemNow,
+  lockChange,
+  type RentalChange,
+} from "../rentals/rental-changes";
 import type { RentalClock } from "../rentals/rental-records";
-import { cancelLiveLinks } from "../renter-links/cancel-links";
+import { cancelLiveLinks, cancelRentalLink } from "../renter-links/cancel-links";
 import {
   LINK_IN_PLAY_COLUMNS,
   linkInPlay,
@@ -33,11 +40,6 @@ import { loadLinkSender } from "../renter-links/link-email";
 import type { ChangeFields } from "./contract-data";
 import { fillContract, type FilledContract } from "./filled-contract";
 import { loadDefaultTemplate } from "./templates";
-
-/** A contract can be sent for signing until the car is handed over. */
-const SIGNABLE_STATUSES: ReadonlySet<string> = new Set(["draft", "booked"]);
-/** A change of terms, while the rental is booked or out. */
-const CHANGE_SIGNABLE_STATUSES: ReadonlySet<string> = new Set(["booked", "active"]);
 
 export type SendSigningLinkResult =
   | { status: "sent"; url: string; expiresAt: Date; isEmailed: boolean }
@@ -59,12 +61,13 @@ interface SigningLinkSubject {
   purpose: "sign_contract" | "sign_change";
   rentalId: string;
   rentalChangeId: string | null;
-  /** The rental statuses it can be signed in. */
-  signableStatuses: ReadonlySet<string>;
   template: { latestVersionId: string; latestVersion: number };
   filled: FilledContract;
-  /** Why it cannot be sent after all, checked with the rental locked: already signed, withdrawn. */
-  refusal: (tx: AnyTransaction) => Promise<SendSigningLinkRefusal | null>;
+  /** Why it cannot be sent after all, checked with the rental locked (the shared signing rules). */
+  refusal: (
+    tx: AnyTransaction,
+    rental: { status: RentalStatus; handedOverAt: Date | null },
+  ) => Promise<SendSigningLinkRefusal | null>;
 }
 
 type SendSigningLinkRefusal = "already_signed" | "not_signable";
@@ -87,17 +90,18 @@ async function sendLinkFor(
   const expiresAt = new Date(clock.now.getTime() + SIGNING_LINK_DAYS * MILLISECONDS_PER_DAY);
   const prepared = await withTenant(deps.database, actor.operatorId, async (tx) => {
     const [rental] = await tx
-      .select({ status: rentals.status, renterId: rentals.renterId })
+      .select({
+        status: rentals.status,
+        renterId: rentals.renterId,
+        handedOverAt: rentals.handedOverAt,
+      })
       .from(rentals)
       .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, actor.operatorId)))
       .for("update");
     if (!rental) {
       return { status: "not_found" as const };
     }
-    if (!subject.signableStatuses.has(rental.status)) {
-      return { status: "not_signable" as const };
-    }
-    const refusal = await subject.refusal(tx);
+    const refusal = await subject.refusal(tx, rental);
     if (refusal) {
       return { status: refusal };
     }
@@ -112,9 +116,11 @@ async function sendLinkFor(
     if (!renter?.email) {
       return { status: "no_email" as const };
     }
+    // Only this paper's own link: another change's form keeps working (review A3-2).
     await cancelLiveLinks(tx, actor, rental.renterId, clock.now, {
       rentalId,
       purpose: subject.purpose,
+      rentalChangeId: subject.rentalChangeId ?? undefined,
     });
     const [link] = await tx
       .insert(renterLinks)
@@ -236,10 +242,12 @@ export async function sendSigningLink(
       purpose: "sign_contract",
       rentalId,
       rentalChangeId: null,
-      signableStatuses: SIGNABLE_STATUSES,
       template: ready.template,
       filled: ready.filled,
-      refusal: async (tx) => {
+      refusal: async (tx, rental) => {
+        if (!isContractSignable(rental.status)) {
+          return "not_signable";
+        }
         const [signed] = await tx
           .select({ id: issuedDocuments.id })
           .from(issuedDocuments)
@@ -284,15 +292,24 @@ export async function sendChangeSigningLink(
       purpose: "sign_change",
       rentalId: change.rentalId,
       rentalChangeId: change.id,
-      signableStatuses: CHANGE_SIGNABLE_STATUSES,
       template: ready.template,
       filled: ready.filled,
-      refusal: async (tx) => {
+      refusal: async (tx, rental) => {
         const locked = await lockChange(tx, actor.operatorId, change.id);
-        if (!locked || locked.status === "withdrawn") {
+        if (!locked) {
           return "not_signable";
         }
-        return locked.documentId ? "already_signed" : null;
+        const problem = await changeSigningProblemNow(
+          tx,
+          actor.operatorId,
+          locked,
+          rental,
+          clock.now,
+        );
+        if (problem === "signed") {
+          return "already_signed";
+        }
+        return problem ? "not_signable" : null;
       },
     },
     clock,
@@ -300,32 +317,47 @@ export async function sendChangeSigningLink(
 }
 
 /** Stops the rental's signing link working at once. */
-export async function cancelSigningLink(
+export function cancelSigningLink(
   database: AnyDatabase,
   actor: ActingUser,
   rentalId: string,
   now: Date,
 ): Promise<"cancelled" | "none"> {
-  return withTenant(database, actor.operatorId, async (tx) => {
-    const [rental] = await tx
-      .select({ renterId: rentals.renterId })
-      .from(rentals)
-      .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, actor.operatorId)));
-    if (!rental) {
-      return "none";
-    }
-    return (await cancelLiveLinks(tx, actor, rental.renterId, now, {
-      rentalId,
-      purpose: "sign_contract",
-    }))
-      ? "cancelled"
-      : "none";
-  });
+  return cancelRentalLink(database, actor, { rentalId, purpose: "sign_contract" }, now);
 }
 
 export interface SigningStatus {
   signed: { documentId: string; version: number; issuedAt: Date } | null;
   link: RenterLinkInPlay | null;
+  /** What the live link was sent with, to check it still matches the rental. */
+  sentPaper: SentPaperOfLink | null;
+}
+
+/** What a signing link was sent with: its template version and its text's fingerprint. */
+export interface SentPaperOfLink {
+  templateVersionId: string;
+  contractFingerprint: string;
+  sentAt: Date;
+}
+
+/** The sent-paper columns of a signing link, read with the link. */
+export const SENT_PAPER_COLUMNS = {
+  templateVersionId: renterLinks.templateVersionId,
+  contractFingerprint: renterLinks.contractFingerprint,
+};
+
+export function sentPaperOf(link: {
+  templateVersionId: string | null;
+  contractFingerprint: string | null;
+  sentAt: Date;
+}): SentPaperOfLink | null {
+  return link.templateVersionId && link.contractFingerprint
+    ? {
+        templateVersionId: link.templateVersionId,
+        contractFingerprint: link.contractFingerprint,
+        sentAt: link.sentAt,
+      }
+    : null;
 }
 
 /** Whether the rental's contract is signed, and the signing link in play if not. */
@@ -353,7 +385,7 @@ export async function loadSigningStatus(
       .orderBy(desc(issuedDocuments.version))
       .limit(1);
     const [link] = await tx
-      .select(LINK_IN_PLAY_COLUMNS)
+      .select({ ...LINK_IN_PLAY_COLUMNS, ...SENT_PAPER_COLUMNS })
       .from(renterLinks)
       .where(
         and(
@@ -367,6 +399,7 @@ export async function loadSigningStatus(
     return {
       signed: signed ?? null,
       link: link ? linkInPlay(link, now) : null,
+      sentPaper: link ? sentPaperOf(link) : null,
     };
   });
 }

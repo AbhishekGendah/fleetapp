@@ -71,6 +71,20 @@ const lookupSchema = z.object({
  * in (rule 3): the narrow database function turns the fingerprint into its
  * Operator, and everything after runs inside that Operator's data only.
  */
+const usedSchema = z.object({ rows: z.array(z.object({ used: z.boolean() })) });
+
+/**
+ * Whether a link that no longer opens was used to sign: from its secret
+ * alone, so a Renter reopening a signed link is told it is signed rather
+ * than that it "may have expired" (review A3-7). Says nothing else (rule 26).
+ */
+export async function wasLinkUsed(database: AnyDatabase, token: string): Promise<boolean> {
+  const result = await database.execute(
+    sql`select app.renter_link_was_used(${hashSecretToken(token)}) as used`,
+  );
+  return usedSchema.parse(result).rows[0]?.used ?? false;
+}
+
 export async function openLink(database: AnyDatabase, token: string): Promise<LinkVisit | null> {
   const result = await database.execute(
     sql`select operator_id, link_id from app.renter_link_for_token(${hashSecretToken(token)})`,

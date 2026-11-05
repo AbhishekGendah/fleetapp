@@ -10,6 +10,7 @@ import {
   type SignContractInput,
   type SigningEvidenceStep,
   type TemplateDocument,
+  isContractSignable,
 } from "@fleetapp/core";
 import { recordActivity } from "@fleetapp/db/activity";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
@@ -23,28 +24,26 @@ import {
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import type { EmailSender } from "@fleetapp/email";
-import { and, asc, eq, isNull, ne } from "drizzle-orm";
+import { and, asc, eq, ne } from "drizzle-orm";
 
 import type { FileDependencies } from "../files/stored-files";
 import type { LinkVisit } from "../renter-links/link-visits";
 import type { RequestMeta } from "../request-meta";
 import {
   changeFieldsOf,
-  isChangeSignable,
+  changeSigningProblemNow,
   lockChange,
   recordChangeSigned,
   type RentalChange,
 } from "../rentals/rental-changes";
 import { loadPdfBranding } from "./contract-pdf";
 import { emailDocumentCopies } from "./document-copies";
+import type { RenterLinkInPlay } from "../renter-links/details-links";
 import { renderDocumentPdf, type PdfSignature, type PdfSigningRecord } from "./document-pdf";
-import { fillContract } from "./filled-contract";
+import { fillContract, type FilledContract } from "./filled-contract";
 import { issueDocument } from "./issued-documents";
-import { rentalSummaryText } from "./signing-links";
+import { rentalSummaryText, type SentPaperOfLink } from "./signing-links";
 import { loadTemplateVersion } from "./templates";
-
-/** Until the car is handed over, the contract can still be signed. */
-const SIGNABLE_STATUSES = new Set(["draft", "booked"]);
 
 /** What a signing link signs: the rental's contract, or one change of terms. */
 export type SignedDocumentKind = "contract" | "change_of_terms";
@@ -133,20 +132,92 @@ async function signingStateOf(
     if (change?.documentId) {
       return { kind: "change_of_terms", status: "signed", change, handedOverAt };
     }
-    const isOpen = change !== null && rental !== undefined && isChangeSignable(change, rental, now);
+    const isOpen =
+      change !== null &&
+      rental !== undefined &&
+      (await changeSigningProblemNow(tx, operatorId, change, rental, now)) === null;
     const status = isOpen ? "open" : "not_signable";
     return { kind: "change_of_terms", status, change, handedOverAt };
   }
   if (await isSigned(tx, operatorId, signing.rentalId)) {
     return { kind: "contract", status: "signed", change: null, handedOverAt };
   }
-  const isOpen = rental !== undefined && SIGNABLE_STATUSES.has(rental.status);
+  const isOpen = rental !== undefined && isContractSignable(rental.status);
   return {
     kind: "contract",
     status: isOpen ? "open" : "not_signable",
     change: null,
     handedOverAt,
   };
+}
+
+/** A sent paper as it would read now: the link's own template version, as of when it was sent. */
+interface SentPaper {
+  rentalId: string;
+  templateVersionId: string;
+  sentAt: Date;
+  change: RentalChange | null;
+  handedOverAt: Date | null;
+  timeZone: string;
+}
+
+async function fillSentPaper(
+  database: AnyDatabase,
+  operatorId: string,
+  sent: SentPaper,
+): Promise<FilledContract | null> {
+  const version = await loadTemplateVersion(database, operatorId, sent.templateVersionId);
+  return version
+    ? fillContract(
+        database,
+        operatorId,
+        sent.rentalId,
+        version.content,
+        { timeZone: sent.timeZone, now: sent.sentAt },
+        sent.change ? changeFieldsOf(sent.change, sent.timeZone, sent.handedOverAt) : undefined,
+      )
+    : null;
+}
+
+/**
+ * Whether a sent contract or change form no longer matches the rental (its
+ * end, the Renter's address, the excess changed since): the Renter can't
+ * sign that link, so the rental page says so (review A3-6). The same check
+ * the Renter's signing page makes, so the two always agree.
+ */
+export async function isSentPaperChanged(
+  database: AnyDatabase,
+  operatorId: string,
+  sent: SentPaper & { contractFingerprint: string },
+): Promise<boolean> {
+  const filled = await fillSentPaper(database, operatorId, sent);
+  return !filled || filled.fingerprint !== sent.contractFingerprint;
+}
+
+/** A link as the rental page shows it, marked if its paper no longer matches the rental. */
+export async function withPaperCheck(
+  database: AnyDatabase,
+  operatorId: string,
+  shown: {
+    link: RenterLinkInPlay | null;
+    sentPaper: SentPaperOfLink | null;
+    rentalId: string;
+    change: RentalChange | null;
+    handedOverAt: Date | null;
+    timeZone: string;
+  },
+): Promise<RenterLinkInPlay | null> {
+  if (!shown.link || !shown.sentPaper) {
+    return shown.link;
+  }
+  const isPaperChanged = await isSentPaperChanged(database, operatorId, {
+    ...shown.sentPaper,
+    rentalId: shown.rentalId,
+    change: shown.change,
+    handedOverAt: shown.handedOverAt,
+    timeZone: shown.timeZone,
+  });
+  return { ...shown.link, isPaperChanged };
 }
 
 /**
@@ -171,17 +242,14 @@ export async function loadSigningView(
   if (state.status !== "open") {
     return { status: state.status };
   }
-  const version = await loadTemplateVersion(database, visit.operatorId, signing.templateVersionId);
-  const filled = version
-    ? await fillContract(
-        database,
-        visit.operatorId,
-        signing.rentalId,
-        version.content,
-        { timeZone: visit.timeZone, now: visit.sentAt },
-        state.change ? changeFieldsOf(state.change, visit.timeZone, state.handedOverAt) : undefined,
-      )
-    : null;
+  const filled = await fillSentPaper(database, visit.operatorId, {
+    rentalId: signing.rentalId,
+    templateVersionId: signing.templateVersionId,
+    sentAt: visit.sentAt,
+    change: state.change,
+    handedOverAt: state.handedOverAt,
+    timeZone: visit.timeZone,
+  });
   if (
     !filled ||
     filled.fingerprint !== signing.contractFingerprint ||
@@ -280,7 +348,7 @@ export type SignContractResult =
       isCopyEmailed: boolean;
     }
   | { status: "invalid"; fieldErrors: Record<string, string[] | undefined> }
-  | { status: "signed_already" | "changed" | "not_signable" };
+  | { status: "signed_already" | "link_stopped" | "changed" | "not_signable" };
 
 interface SigningDependencies extends FileDependencies {
   emailSender: EmailSender;
@@ -382,13 +450,17 @@ export async function signContract(
       templateVersionId,
       pdf,
       onIssued: async (tx, documentId) => {
-        const [liveLink] = await tx
-          .select({ id: renterLinks.id })
+        const [link] = await tx
+          .select({ cancelledAt: renterLinks.cancelledAt, usedAt: renterLinks.usedAt })
           .from(renterLinks)
-          .where(and(eq(renterLinks.id, visit.linkId), isNull(renterLinks.cancelledAt)))
+          .where(eq(renterLinks.id, visit.linkId))
           .for("update");
-        if (!liveLink) {
+        if (link?.usedAt) {
           throw new SignedAlreadyError();
+        }
+        if (!link || link.cancelledAt) {
+          // Re-sent, cancelled or withdrawn by the business meanwhile: nothing is signed (review A3-7).
+          throw new LinkStoppedError();
         }
         await recordSigned(tx, visit, {
           documentId,
@@ -409,18 +481,21 @@ export async function signContract(
         });
         await tx
           .update(renterLinks)
-          .set({ cancelledAt: signedAt, updatedAt: signedAt })
+          .set({ cancelledAt: signedAt, usedAt: signedAt, updatedAt: signedAt })
           .where(eq(renterLinks.id, visit.linkId));
       },
     },
   ).catch((error: unknown) => {
     if (error instanceof SignedAlreadyError) {
-      return null;
+      return "signed_already" as const;
+    }
+    if (error instanceof LinkStoppedError) {
+      return "link_stopped" as const;
     }
     throw error;
   });
-  if (!result) {
-    return { status: "signed_already" };
+  if (typeof result === "string") {
+    return { status: result };
   }
   if (result.status !== "issued") {
     return { status: "not_signable" };
@@ -467,8 +542,21 @@ async function recordSigned(
     return;
   }
   const change = await lockChange(tx, visit.operatorId, signing.rentalChangeId ?? "");
-  if (!change || change.documentId || change.status === "withdrawn") {
+  if (change?.documentId) {
     throw new SignedAlreadyError();
+  }
+  // Checked again under the lock: withdrawn, replaced, or its rent week begun since the
+  // page was opened means it is not signed (review A3-1, A3-12).
+  const [rental] = await tx
+    .select({ status: rentals.status, handedOverAt: rentals.handedOverAt })
+    .from(rentals)
+    .where(and(eq(rentals.id, signing.rentalId), eq(rentals.operatorId, visit.operatorId)));
+  const problem =
+    change && rental
+      ? await changeSigningProblemNow(tx, visit.operatorId, change, rental, signed.at)
+      : "withdrawn";
+  if (!change || problem) {
+    throw new LinkStoppedError();
   }
   await recordChangeSigned(tx, visit.operatorId, change, signed);
   await recordActivity(tx, {
@@ -489,5 +577,12 @@ async function recordSigned(
 class SignedAlreadyError extends Error {
   constructor() {
     super("The contract was already signed through this link.");
+  }
+}
+
+/** Thrown inside the issuing transaction when the business stopped the link or the change first. */
+class LinkStoppedError extends Error {
+  constructor() {
+    super("The link was stopped before it was signed.");
   }
 }

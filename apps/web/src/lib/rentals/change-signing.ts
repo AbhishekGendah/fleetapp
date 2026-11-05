@@ -1,10 +1,17 @@
+import { changeSigningProblem, type ChangeSigningProblem } from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { rentalChanges, renterLinks, rentals } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, desc, eq, isNull } from "drizzle-orm";
 
 import type { ActingUser } from "../acting-user";
-import { sendChangeSigningLink, type SendSigningLinkResult } from "../contracts/signing-links";
+import {
+  SENT_PAPER_COLUMNS,
+  sendChangeSigningLink,
+  sentPaperOf,
+  type SendSigningLinkResult,
+  type SentPaperOfLink,
+} from "../contracts/signing-links";
 import { loadDefaultTemplate } from "../contracts/templates";
 import { cancelLiveLinks } from "../renter-links/cancel-links";
 import {
@@ -84,12 +91,48 @@ export async function withdrawChange(
       .from(rentals)
       .where(and(eq(rentals.id, change.rentalId), eq(rentals.operatorId, actor.operatorId)));
     if (rental) {
+      // Only this change's own link: another change's form keeps working (review A3-2).
       await cancelLiveLinks(tx, actor, rental.renterId, now, {
         rentalId: change.rentalId,
         purpose: "sign_change",
+        rentalChangeId: change.id,
       });
     }
     return "withdrawn";
+  });
+}
+
+/**
+ * Stops one change's form link working, leaving the change itself as it is
+ * (an end change stays in effect) and every other link alone (review A3-3).
+ */
+export async function cancelChangeLink(
+  database: AnyDatabase,
+  actor: ActingUser,
+  changeId: string,
+  now: Date,
+): Promise<"cancelled" | "none"> {
+  return withTenant(database, actor.operatorId, async (tx) => {
+    const [change] = await tx
+      .select({ rentalId: rentalChanges.rentalId, renterId: rentals.renterId })
+      .from(rentalChanges)
+      .innerJoin(
+        rentals,
+        and(
+          eq(rentals.id, rentalChanges.rentalId),
+          eq(rentals.operatorId, rentalChanges.operatorId),
+        ),
+      )
+      .where(and(eq(rentalChanges.id, changeId), eq(rentalChanges.operatorId, actor.operatorId)));
+    if (!change) {
+      return "none";
+    }
+    const isCancelled = await cancelLiveLinks(tx, actor, change.renterId, now, {
+      rentalId: change.rentalId,
+      purpose: "sign_change",
+      rentalChangeId: changeId,
+    });
+    return isCancelled ? "cancelled" : "none";
   });
 }
 
@@ -110,6 +153,10 @@ async function loadChange(
 export interface RentalChangeRow extends RentalChange {
   /** The live signing link for this change, if one is out. */
   link: RenterLinkInPlay | null;
+  /** What that link was sent with, to check it still matches the rental. */
+  sentPaper: SentPaperOfLink | null;
+  /** Why it can't be sent or signed now (shared rules), or null. */
+  signingProblem: ChangeSigningProblem | null;
 }
 
 /** A rental's changes of terms, newest first, each with its signing link if one is out. */
@@ -126,7 +173,11 @@ export async function listRentalChanges(
       .where(and(eq(rentalChanges.operatorId, operatorId), eq(rentalChanges.rentalId, rentalId)))
       .orderBy(desc(rentalChanges.createdAt));
     const links = await tx
-      .select({ rentalChangeId: renterLinks.rentalChangeId, ...LINK_IN_PLAY_COLUMNS })
+      .select({
+        rentalChangeId: renterLinks.rentalChangeId,
+        ...LINK_IN_PLAY_COLUMNS,
+        ...SENT_PAPER_COLUMNS,
+      })
       .from(renterLinks)
       .where(
         and(
@@ -136,11 +187,17 @@ export async function listRentalChanges(
           isNull(renterLinks.cancelledAt),
         ),
       );
+    const [rental] = await tx
+      .select({ status: rentals.status, handedOverAt: rentals.handedOverAt })
+      .from(rentals)
+      .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, operatorId)));
     return changes.map((change) => {
       const link = links.find((candidate) => candidate.rentalChangeId === change.id);
       return {
         ...change,
         link: link ? linkInPlay(link, now) : null,
+        sentPaper: link ? sentPaperOf(link) : null,
+        signingProblem: rental ? changeSigningProblem(change, rental, changes, now) : "rental_over",
       };
     });
   });

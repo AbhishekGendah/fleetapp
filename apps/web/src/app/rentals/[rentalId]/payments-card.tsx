@@ -6,11 +6,12 @@ import {
   PAYMENT_STATUS_LABELS,
   type DirectDebitState,
 } from "@fleetapp/core";
+import { ActionButton } from "@fleetapp/ui/action-button";
 import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
-import { Settings } from "lucide-react";
+import { Settings, XCircle } from "lucide-react";
 import Link from "next/link";
 
 import { LinkSendChoices } from "../../../components/link-send-choices";
@@ -28,7 +29,11 @@ import { PAYMENT_SETTINGS_PATH } from "../../../lib/paths";
 import type { RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { RentalClock } from "../../../lib/rentals/rental-records";
 import type { SignedInUser } from "../../../lib/require-user";
-import { emailPaymentsLinkAction, showPaymentsLinkAction } from "./payments-actions";
+import {
+  cancelPaymentsLinkAction,
+  emailPaymentsLinkAction,
+  showPaymentsLinkAction,
+} from "./payments-actions";
 
 const STATE_TONES: Readonly<Record<DirectDebitState, "good" | "attention" | "danger" | undefined>> =
   {
@@ -106,6 +111,15 @@ async function PaymentsLinkActions(props: { rentalId: string; user: SignedInUser
   return (
     <>
       {link ? <RenterLinkStatus link={link} timeZone={props.user.operatorTimezone} /> : null}
+      {link ? (
+        <ActionButton
+          action={cancelPaymentsLinkAction.bind(null, props.rentalId)}
+          label="Cancel link"
+          pendingLabel="Cancelling…"
+          variant="outline"
+          icon={<XCircle aria-hidden />}
+        />
+      ) : null}
       <LinkSendChoices
         emailAction={emailPaymentsLinkAction.bind(null, props.rentalId)}
         onTheSpotAction={showPaymentsLinkAction.bind(null, props.rentalId)}

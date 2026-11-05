@@ -28,7 +28,7 @@ function closedMessage(
   name: string,
 ): string {
   if (status === "signed") {
-    return `This ${name} is signed. A copy was emailed to you; ask ${operatorName} if you need it again.`;
+    return `This ${name} is signed. Ask ${operatorName} if you need a copy.`;
   }
   if (status === "changed") {
     return `The ${name} has changed since this link was sent, so it can no longer be signed here. Ask ${operatorName} to send you the new version.`;

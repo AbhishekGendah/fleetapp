@@ -1,8 +1,10 @@
 "use server";
 
 import { describeErrorForLog, isRecordId } from "@fleetapp/core";
+import { failedState, savedState, type ChangeFormState } from "@fleetapp/ui/change-form-state";
 import { revalidatePath } from "next/cache";
 
+import { appDb } from "../../../lib/app-db";
 import { appPaymentsLinkDependencies } from "../../../lib/payments/app-payments-links";
 import {
   sendPaymentsLink,
@@ -10,8 +12,10 @@ import {
   type SendPaymentsLinkResult,
 } from "../../../lib/payments/payments-links";
 import { rentalPath } from "../../../lib/paths";
+import { cancelRentalLink } from "../../../lib/renter-links/cancel-links";
 import { linkSentState, type LinkSendState } from "../../../lib/renter-links/link-send-state";
 import { requireUser } from "../../../lib/require-user";
+import { runUserChange } from "../../../lib/run-change";
 
 const NOT_SENT_MESSAGES: Readonly<
   Record<Exclude<SendPaymentsLinkResult["status"], "sent">, string>
@@ -63,4 +67,27 @@ export async function showPaymentsLinkAction(
   _previous: LinkSendState,
 ): Promise<LinkSendState> {
   return makePaymentsLink(rentalId, "on_the_spot");
+}
+
+/** Stops the payments link working, emailed or shown as a code (review A3-3). */
+export async function cancelPaymentsLinkAction(
+  rentalId: string,
+  _previous: ChangeFormState,
+): Promise<ChangeFormState> {
+  if (!isRecordId(rentalId)) {
+    return failedState(NOT_SENT_MESSAGES.not_found);
+  }
+  return runUserChange({
+    description: "Cancelling a payments link",
+    pagesToRefresh: [rentalPath(rentalId)],
+    change: async (actor) =>
+      (await cancelRentalLink(
+        appDb,
+        actor,
+        { rentalId, purpose: "set_up_payments" },
+        new Date(),
+      )) === "cancelled"
+        ? savedState("Link cancelled.")
+        : failedState("There is no link to cancel."),
+  });
 }

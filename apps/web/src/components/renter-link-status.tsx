@@ -13,6 +13,14 @@ export function RenterLinkStatus({ link, timeZone }: { link: RenterLinkInPlay; t
       </p>
     );
   }
+  if (link.isPaperChanged) {
+    return (
+      <p className="text-sm">
+        {sent} <Badge tone="attention">Changed since it was sent</Badge> The Renter can&apos;t sign
+        this link: send it again.
+      </p>
+    );
+  }
   if (link.isExpired) {
     return (
       <p className="text-sm">
