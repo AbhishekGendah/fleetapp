@@ -334,3 +334,91 @@ finished checklist stay (the database keeps those as they are); removed
 policy papers have no Bring back yet (launch checklist); only the return
 form asks about the repeated hour (bookings, changes and sales still take
 the first).
+
+## As built: slices D and E (5 Nov 2026)
+
+- **21 (A8-3).** The first settings save makes the row (all defaults, version
+  0) before locking it, so two first saves go one after the other; both kept.
+- **22 (A4-12).** The next number takes digits and commas only; the
+  numbering's first set-up is logged by the system.
+- **23 (G4-4).** Settings → Charges lists archived types with Bring back.
+- **24 (G8-9).** The licence-scan clean-up's look-ups name the business.
+- **25 (G7-2).** A failed code email puts the link back as it was: the earlier
+  code works, the hour's count is unused, the Log says no code was sent, and
+  the page says to try again.
+- **26 (G7-3).** The code email says what the link is for, in the four
+  approved phrases.
+- **27 (A11-5).** Link emails give the exact time ("3:15 pm AEDT, Friday 13
+  November"), as does the sent-back email.
+- **28 (A3-13).** No payments, contract or change link for an archived
+  Renter; "This Renter is archived" is said.
+- **29 (G7-5).** Sent back with the email failed says so, with how long the
+  link still works, and the page stays.
+- **30 (G7-9).** One rule for the business's name everywhere; the mistitled
+  test renamed.
+- **31 (A11-6).** Notice counted in the business's calendar days.
+- **A8-9.** Renter search finds a phone typed without spaces or as +61.
+- **33 (A10-2).** Every page names its tab; a car's by its rego, a rental's
+  "Rental · rego"; never a Renter's name.
+- **34 (A10-3).** Box, select and signature outlines darkened to slate
+  (#64748b, over 3:1 on white).
+- **35 (A10-4).** The Renter's own details form lets the phone fill in
+  their name, phone, email and birthday.
+- **36 (A10-7).** The page leaves room for the phone's tab bar when focus
+  moves.
+- **37 (A10-8).** A pop-up's confirmation is shown, and read out, beside its
+  button once it closes.
+- **38 (A10-10).** The required note on the handover details, the code step
+  and the admin car fix; the car fix's messages linked to their boxes. (The
+  handover's override reasons are said under their own boxes: slice A.)
+- **39 (A10-12).** "Sent" and "Emailed" read out; workshop bars' dates read;
+  marks that can't be pressed are not buttons; chip crosses pressed over
+  44px.
+- **40 (A9-9).** Migration 0051: an archived car is never corrected; hiding
+  or showing twice logs once; "Fix all N cars typed this way", each car
+  logged in its business's history and AGS's.
+- **41 (A9-10).** The admin's shared timezone for "added" dates; bound
+  arguments checked with Zod.
+- **42 (A10-9, A9-6, KL-8).** Page checks (accessibility at desktop and phone
+  width) for the rest of Settings, the timeline, the privacy notice, the
+  insurance form and password reset (both ways it shows); a record-pages test
+  (car and Renter edit pages at phone width, Stripe's return page, tab names,
+  Bring back a charge type by keyboard); the admin's car models list and
+  test inbox. Both runners remove their sign-in files, and their results
+  after a pass.
+
+Not reached in this batch, on the launch checklist: browser tests for the
+Renter's submitted-details review, the insurance policy page, the damage
+page on its own, the admin business page's Suspend and Reactivate, the
+Renter's details form sent at phone width, and the "Account paused" page
+(it needs a test login whose business is paused).
+
+### Review (one quick pass each for D and E, links deeply) and fixes
+
+- The "couldn't send" message no longer promises an earlier code still works
+  (it may have run out).
+- If the code email went but its Log line failed, the Renter is still told
+  it was sent (otherwise they would ask again and get a second code).
+  Tested.
+- "Fix all" reads the spelling from the car itself, never the request, only
+  touches cars not in the list, and skips cars that already read the new
+  way, so nothing is logged for a change that isn't one (function renamed
+  correct_vehicles_typed_like in 0051, not yet applied anywhere). Tested,
+  plus an admin browser test that seeds two misspelt cars and fixes both by
+  keyboard at phone width.
+- A pop-up's closing message keeps its place for screen readers
+  (`empty:sr-only`); "Add a document" now says "Document added." as it
+  closes.
+- The wrong-code message on the Renter's code step is linked to the code
+  box; "Forgot password" names its tab.
+- Outline buttons keep their light border (the darker one is for boxes).
+- Chip rows sit far enough apart that a cross's press area never covers the
+  next row.
+- The signed-in User is read once per page, not twice (page plus tab title).
+- The suspended page check was removed: it was really checking the
+  dashboard. On the launch checklist instead.
+- Both browser-test runners clean up from the app's own folder, and still
+  clean up if stopping a server fails.
+- Comments tidied (settings row, number box pattern, page descriptions).
+- Launch checklist: once Postmark is in, tell a refused address apart from
+  "unknown" for link codes, and give failed sends their own limit.

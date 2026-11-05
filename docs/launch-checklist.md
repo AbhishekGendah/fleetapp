@@ -103,6 +103,17 @@ Add to this list whenever something is relaxed or put off "until launch".
       itself with storage class GLACIER_IR (the nightly move of year-old
       checklist photos, batch 7). Check the first night's run on dev
       (`longTerm` in the clean-up's answer) once dev has a year-old rental.
+- [ ] Browser tests still to add (batch 7, review A10-9): the Renter's
+      submitted-details review, the insurance policy page, the damage page on
+      its own, the admin business page's Suspend and Reactivate, and the
+      Renter's details form filled in and sent at phone width, and the
+      "Account paused" page checked for accessibility by a test login whose
+      business is paused.
+- [ ] Link codes (batch 7 review): once Postmark is in, tell an address it
+      refused (bounced or blocked) apart from "we don't know", so the Renter
+      can be told to ask for a new link rather than to try again; and give
+      failed sends their own limit, since a failed send now hands its code
+      back and does not count toward the 3 an hour.
 - [ ] Removed insurance-policy papers (not on a car's record) can't yet be
       brought back from a screen: they are kept 5 years, recoverable only
       by AGS. Add a Bring back on the policy page (batch 7, left for later).

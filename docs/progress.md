@@ -1166,6 +1166,25 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
     papers kept 5 years; damage photos behind a charge or claim stay; old
     checklist photos move to cheaper storage after a year.
 
+- **Review fixes batch 7, slices D and E.** Migration 0051 (admin car-model
+  fixes).
+  - Renter links: exact expiry times in emails; the code email says what the
+    link is for; a failed code email uses nothing up; no links for an
+    archived Renter; a failed sent-back email is said.
+  - Money and settings: two first settings saves both kept; the next invoice
+    number digits only, its set-up logged; archived charge types can come
+    back; notice counted in calendar days; phone search without spaces.
+  - Screens: tab names; darker outlines; auto-fill on the Renter's form; room
+    for the tab bar; pop-up messages kept; required notes; screen-reader
+    fixes; more pages checked by the browser tests.
+  - Admin: archived cars never corrected; "Fix all N cars typed this way"
+    (only cars not in the list, the spelling read from the car, no-op fixes
+    skipped).
+  - Review fixes: honest "couldn't send" wording; a sent code still counts
+    as sent if its Log line fails; "Document added." message; code-step
+    error linked to its box; outline buttons keep their light border;
+    test runners clean up from the app folder even if a stop fails.
+
 ## Next
 
 Abhi: add OPS_ALERT_EMAIL in Vercel (fleetapp-web) before this branch is
@@ -1177,8 +1196,8 @@ destinations (list in docs/launch-checklist.md). Batch 5 done (5 Nov 2026). Batc
 (docs/plans/review-fixes-batch-6.md); Abhi: add the Vercel token and project
 IDs to GitHub so the apps go live after their database updates. Batch 7 (everything
 left from the review, docs/plans/review-fixes-batch-7.md, approved 5 Nov):
-slices A to C built (handovers, swaps, cars and files); D (money, settings,
-links, dates) and E (screens, admin, browser tests) next. Abhi: the S3
+all five slices built (handovers, swaps, cars and files, money and links,
+screens and admin). Next: Phase 4 slice 5 (weekly debits). Abhi: the S3
 `incoming/` clean-up rule (A7-6), one step at a time when we get there. Abhi: add the second Stripe event destination (connected
 accounts) and its secret, then try slice 4 on the dev site. Then Phase 4
 slice 5 (weekly debits).
