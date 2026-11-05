@@ -76,6 +76,7 @@ describe("the ledger", () => {
       actor,
       returnId,
       {
+        shownFingerprint: await kit.shown(returnId),
         returnedAt,
         signature: drawnSignatureInput(TEST_SIGNATURE),
         carAfter: { status: "available", statusReason: null, statusExpectedBack: null },

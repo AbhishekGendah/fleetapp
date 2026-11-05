@@ -1,6 +1,6 @@
 "use client";
 
-import { fieldErrorsOf } from "@fleetapp/core";
+import { AT_RETURN_TIME_WORDS, fieldErrorsOf } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { Checkbox } from "@fleetapp/ui/checkbox";
 import { DateTimePicker } from "@fleetapp/ui/date-time-picker";
@@ -19,7 +19,9 @@ import {
   TICKED,
   type ReturnFormValues,
 } from "../../../../lib/handover/return-input";
+import type { ShownChecklist } from "../../../../lib/handover/checklist-fingerprint";
 import { CarStatusFields } from "../../../cars/[vehicleId]/car-status-fields";
+import { AcceptanceSummary } from "../handover/acceptance-summary";
 import {
   NO_SIGNATURE,
   RenterSignatureFields,
@@ -43,6 +45,7 @@ export function ReturnForm(props: {
   initialValues: ReturnFormValues;
   /** The rental's settings want the Renter's signature: "not here" is not offered. */
   isSignatureRequired: boolean;
+  shown: ShownChecklist;
 }) {
   const complete = useMemo(
     () => completeReturnAction.bind(null, props.rentalId, props.inspectionId),
@@ -106,10 +109,13 @@ export function ReturnForm(props: {
       )}
       {isRenterPresent ? (
         <>
-          <p className="bg-muted rounded-md p-3 text-sm">
-            {props.renterName}: by signing, you agree you returned {props.summary} at the time
-            above, in the condition shown in this checklist.
-          </p>
+          <p className="text-sm">{props.renterName}: by signing, you hand this car back and say:</p>
+          <AcceptanceSummary
+            car={props.summary}
+            verb="returned"
+            atText={AT_RETURN_TIME_WORDS}
+            shown={props.shown}
+          />
           <RenterSignatureFields
             id="renter-signature"
             renterName={props.renterName}
@@ -121,6 +127,7 @@ export function ReturnForm(props: {
           The report will say the Renter was not here, and that you recorded the return.
         </p>
       )}
+      <input type="hidden" name="checklistFingerprint" value={props.shown.fingerprint} />
       <FormError
         message={problem ?? (state.status === "problem" && !isPending ? state.message : null)}
       />

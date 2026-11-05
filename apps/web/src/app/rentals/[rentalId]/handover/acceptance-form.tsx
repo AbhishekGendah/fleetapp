@@ -1,10 +1,12 @@
 "use client";
 
-import { formatCents } from "@fleetapp/core";
+import { AT_SIGNING_WORDS, formatCents } from "@fleetapp/core";
 import { FormField } from "@fleetapp/ui/form-field";
 import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
 import { useActionState, useMemo, useState } from "react";
 
+import type { ShownChecklist } from "../../../../lib/handover/checklist-fingerprint";
+import { AcceptanceSummary } from "./acceptance-summary";
 import { completeHandoverAction } from "./actions";
 import { useForgetWhenDone } from "./use-forget-when-done";
 import { INITIAL_COMPLETE_STATE } from "./handover-state";
@@ -51,6 +53,7 @@ export function AcceptanceForm(props: {
   inspectionId: string;
   renterName: string;
   summary: string;
+  shown: ShownChecklist;
   bondShortCents: number | null;
   isDirectDebitMissing: boolean;
 }) {
@@ -84,10 +87,14 @@ export function AcceptanceForm(props: {
   return (
     <form action={formAction} onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
       <RequiredFieldsNote />
-      <p className="bg-muted rounded-md p-3 text-sm">
-        {props.renterName}: by signing, you accept {props.summary}, in the condition shown in this
-        checklist. The time is recorded when you sign.
-      </p>
+      <p className="text-sm">{props.renterName}: by signing, you accept this car and say:</p>
+      <AcceptanceSummary
+        car={props.summary}
+        verb="received"
+        atText={AT_SIGNING_WORDS}
+        shown={props.shown}
+      />
+      <input type="hidden" name="checklistFingerprint" value={props.shown.fingerprint} />
       {props.bondShortCents !== null ? (
         <OverrideReason
           name="bondOverrideReason"

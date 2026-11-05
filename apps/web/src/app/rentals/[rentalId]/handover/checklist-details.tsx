@@ -44,6 +44,8 @@ export function ChecklistDetails(props: {
   lastKilometres: number | null;
   /** At a return: the handover's fuel, shown beside the box to compare. */
   handoverFuel?: string | null;
+  /** Told when a detail is changed and not yet saved, and again once it is (review G9-2). */
+  onUnsavedChange?: (isUnsaved: boolean) => void;
 }) {
   const form = useFormFields({
     fields: HANDOVER_DETAIL_FIELDS,
@@ -70,6 +72,9 @@ export function ChecklistDetails(props: {
     const result = await saveHandoverDetailsAction(props.rentalId, props.inspectionId, values);
     setProblem(result.status === "problem" ? result.message : null);
     setSaveState(result.status === "saved" ? "saved" : "idle");
+    if (result.status === "saved") {
+      props.onUnsavedChange?.(false);
+    }
   }
 
   useEffect(() => {
@@ -86,7 +91,10 @@ export function ChecklistDetails(props: {
       onSubmit={form.submitHandler(() => void save())}
       noValidate
       className="flex flex-col gap-4"
-      onChange={() => setSaveState("idle")}
+      onChange={() => {
+        setSaveState("idle");
+        props.onUnsavedChange?.(true);
+      }}
     >
       <FormField
         htmlFor={form.idFor("odometerKm")}

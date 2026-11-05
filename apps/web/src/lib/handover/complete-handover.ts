@@ -1,6 +1,7 @@
 import { chargeRentNow } from "../ledger/rent-job";
 import {
   readRenterSignature,
+  type RenterSignature,
   type RenterSignatureInput,
   formatDateTimeInTimeZone,
   handoverAcceptanceText,
@@ -29,8 +30,10 @@ import type { RentalClock } from "../rentals/rental-records";
 import { loadBusinessDetails } from "../settings/business-details";
 import { addReading } from "../vehicles/odometer";
 import { checklistRefusal, FinishedAlreadyError, issueChecklistReport } from "./checklist-report";
+import { checklistFingerprint } from "./checklist-fingerprint";
 import { lockOpenInspection } from "./handover-records";
 import { loadHandover, type HandoverView } from "./handover-queries";
+import { signatureColumns } from "./phone-signature";
 import {
   HANDOVER_REPORT_TITLE,
   isPhotoMissing,
@@ -40,6 +43,8 @@ import {
 } from "./handover-report";
 
 export interface CompleteHandoverInput {
+  /** The fingerprint of the checklist the signing screen showed (review A6-10, G9-2). */
+  shownFingerprint: string;
   /** The Renter's signature on the Operator's phone, drawn or typed, as the form sent it. */
   signature: RenterSignatureInput;
   /** Why the car goes before the full bond is held, when the rental's rules want it first. */
@@ -57,7 +62,12 @@ export type CompleteHandoverResult =
   | { status: "lower"; lastKilometres: number }
   | {
       status:
-        "not_found" | "contract_unsigned" | "no_signature" | "finished_already" | "photo_missing";
+        | "not_found"
+        | "contract_unsigned"
+        | "no_signature"
+        | "finished_already"
+        | "photo_missing"
+        | "changed";
     };
 
 export interface HandoverDependencies extends FileDependencies, Partial<PaymentsReach> {
@@ -135,7 +145,10 @@ async function recordHandedOver(
   tx: AnyTransaction,
   actor: ActingUser,
   view: HandoverView,
-  accepted: { at: Date; acceptanceText: string } & Omit<CompleteHandoverInput, "signature">,
+  accepted: { at: Date; acceptanceText: string; signature: RenterSignature } & Pick<
+    CompleteHandoverInput,
+    "bondOverrideReason" | "directDebitOverrideReason"
+  >,
 ): Promise<void> {
   if (!(await lockOpenInspection(tx, actor.operatorId, view.inspectionId))) {
     throw new FinishedAlreadyError();
@@ -146,6 +159,7 @@ async function recordHandedOver(
       status: "completed",
       completedAt: accepted.at,
       acceptanceText: accepted.acceptanceText,
+      ...signatureColumns(accepted.signature),
       bondOverrideReason: accepted.bondOverrideReason,
       directDebitOverrideReason: accepted.directDebitOverrideReason,
       updatedAt: accepted.at,
@@ -230,6 +244,9 @@ export async function completeHandover(
   if (view.status !== "in_progress") {
     return { status: "finished_already" };
   }
+  if (checklistFingerprint(view) !== input.shownFingerprint) {
+    return { status: "changed" };
+  }
   const checked = await checkAcceptance(deps, actor.operatorId, view, input, clock);
   if (checked.status !== "accepted") {
     return checked;
@@ -260,6 +277,7 @@ export async function completeHandover(
       recordHandedOver(tx, actor, view, {
         at,
         acceptanceText,
+        signature,
         bondOverrideReason: checked.bondOverrideReason,
         directDebitOverrideReason: checked.directDebitOverrideReason,
       }),

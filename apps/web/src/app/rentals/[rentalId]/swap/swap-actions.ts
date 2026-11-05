@@ -8,7 +8,7 @@ import { redirect } from "next/navigation";
 import { appDb } from "../../../../lib/app-db";
 import { appEmailSender } from "../../../../lib/email-sender";
 import { fileDependencies } from "../../../../lib/files/file-action-support";
-import { completeSwap } from "../../../../lib/handover/complete-swap";
+import { completeSwap, type ShownSwap } from "../../../../lib/handover/complete-swap";
 import { renterSignatureFrom } from "../../../../lib/handover/renter-signature-form";
 import { rentalPath, rentalSwapPath } from "../../../../lib/paths";
 import { cancelSwap, startSwap } from "../../../../lib/rentals/car-swaps";
@@ -64,6 +64,17 @@ export async function cancelSwapAction(rentalId: string): Promise<void> {
   redirect(rentalPath(rentalId));
 }
 
+/** What the signing step showed, as it sent it back: checked against the swap as it stands. */
+function shownSwapFrom(formData: FormData): ShownSwap {
+  const text = (name: keyof ShownSwap): string => String(formData.get(name) ?? "");
+  return {
+    swapId: text("swapId"),
+    returnFingerprint: text("returnFingerprint"),
+    handoverFingerprint: text("handoverFingerprint"),
+    swapTemplateVersionId: text("swapTemplateVersionId"),
+  };
+}
+
 /** The Renter signs the swap on this phone: both cars and the rental move, three documents are issued. */
 export async function completeSwapAction(
   rentalId: string,
@@ -80,7 +91,11 @@ export async function completeSwapAction(
       { ...fileDependencies(), emailSender: appEmailSender },
       { userId: user.id, operatorId: user.operatorId },
       rentalId,
-      { signature: renterSignatureFrom(formData), oldCarAfter: parsed.data },
+      {
+        shown: shownSwapFrom(formData),
+        signature: renterSignatureFrom(formData),
+        oldCarAfter: parsed.data,
+      },
       { timeZone: user.operatorTimezone, now: new Date() },
     );
     revalidatePath(rentalPath(rentalId));

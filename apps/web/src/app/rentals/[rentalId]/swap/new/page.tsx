@@ -7,7 +7,8 @@ import { rentalSwapPath } from "../../../../../lib/paths";
 import { checklistData } from "../../handover/checklist-page-data";
 import { HandoverChecklist } from "../../handover/handover-checklist";
 import { OfflineReady } from "../../handover/offline-ready";
-import { LazySwapForm } from "../lazy-swap-form";
+import { loadSwapSigningView } from "../../../../../lib/handover/complete-swap";
+import { SwapSigningStep } from "../swap-signing-step";
 import { loadSwapPage } from "../load-swap-page";
 
 export const runtime = "nodejs";
@@ -16,7 +17,13 @@ export const dynamic = "force-dynamic";
 /** A swap's second step: the new car checked out as a handover, then the Renter signs. */
 export default async function SwapNewCarPage(props: { params: Promise<{ rentalId: string }> }) {
   const { user, rentalId, swap, view } = await loadSwapPage(props.params, "new");
-  const oldCar = await loadReturn(appDb, user.operatorId, swap.returnInspectionId);
+  const [oldCar, signing] = await Promise.all([
+    loadReturn(appDb, user.operatorId, swap.returnInspectionId),
+    loadSwapSigningView({ database: appDb }, user.operatorId, rentalId, {
+      timeZone: user.operatorTimezone,
+      now: new Date(),
+    }),
+  ]);
   const oldCarText = oldCar ? `${oldCar.carRego} · ${oldCar.carMakeModel}` : "the old car";
   const oldCarGaps = oldCar?.gaps.length ?? 0;
   return (
@@ -41,10 +48,9 @@ export default async function SwapNewCarPage(props: { params: Promise<{ rentalId
           finalStep={{
             title: "The Renter signs the swap",
             form: (
-              <LazySwapForm
+              <SwapSigningStep
                 rentalId={rentalId}
-                returnInspectionId={swap.returnInspectionId}
-                handoverInspectionId={swap.handoverInspectionId}
+                signing={signing}
                 renterName={view.renterFullName}
                 oldCar={oldCarText}
                 newCar={`${view.carRego} · ${view.carMakeModel}`}

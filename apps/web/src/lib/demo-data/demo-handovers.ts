@@ -1,6 +1,7 @@
 import { CAR_AREAS, FUEL_LEVELS, drawnSignatureInput } from "@fleetapp/core";
 
 import { loadSigningStatus } from "../contracts/signing-links";
+import { checklistFingerprint } from "../handover/checklist-fingerprint";
 import { completeHandover } from "../handover/complete-handover";
 import { startChecklistPhotoUpload, type ChecklistPhotoTarget } from "../handover/handover-photos";
 import { loadHandover, type HandoverView } from "../handover/handover-queries";
@@ -168,6 +169,7 @@ export async function handOverDemoRental(
     context.actor,
     started.inspectionId,
     {
+      shownFingerprint: checklistFingerprint(await loadDemoHandover(context, started.inspectionId)),
       signature: drawnSignatureInput(DEMO_SIGNATURE),
       bondOverrideReason: plan.bondOverrideReason ?? null,
       directDebitOverrideReason: null,

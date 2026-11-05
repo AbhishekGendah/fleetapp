@@ -1,6 +1,7 @@
 import { chargeRentNow } from "../ledger/rent-job";
 import {
   readRenterSignature,
+  type RenterSignature,
   type RenterSignatureInput,
   formatDateTimeInTimeZone,
   operatorSettingsSchema,
@@ -36,7 +37,9 @@ import type { HandoverDependencies } from "./complete-handover";
 import { checklistRefusal, FinishedAlreadyError, issueChecklistReport } from "./checklist-report";
 import { lockOpenInspection } from "./handover-records";
 import { loadCompletedHandover, loadReturn, type HandoverView } from "./handover-queries";
+import { checklistFingerprint } from "./checklist-fingerprint";
 import { isPhotoMissing, PHOTO_MISSING, reportOrPhotoMissing } from "./handover-report";
+import { signatureColumns } from "./phone-signature";
 import { RETURN_REPORT_TITLE, renderReturnReport } from "./return-report";
 
 /** Where a returned car may go: back for rent, or off for repair. Never Sold from here. */
@@ -47,6 +50,8 @@ const STATUSES_AFTER_RETURN: readonly VehicleStatusInput["status"][] = [
 ];
 
 export interface CompleteReturnInput {
+  /** The fingerprint of the checklist the signing screen showed (review A6-10, G9-2). */
+  shownFingerprint: string;
   /** When the car came back: now, or the real time of an after-hours drop-off. */
   returnedAt: Date;
   /** The Renter's signature, drawn or typed; null when they were not there. */
@@ -67,7 +72,8 @@ export type CompleteReturnResult =
         | "no_signature"
         | "signature_required"
         | "car_status"
-        | "photo_missing";
+        | "photo_missing"
+        | "changed";
     };
 
 /** What stops the return being finished now. */
@@ -90,6 +96,7 @@ function returnRefusal(
 interface Returned {
   at: Date;
   acceptanceText: string;
+  signature: RenterSignature | null;
   isRenterAbsent: boolean;
   carAfter: VehicleStatusInput;
   /** The return's day on the business's calendar: when its new damage was found. */
@@ -118,6 +125,7 @@ async function recordReturned(
       status: "completed",
       completedAt: now,
       acceptanceText: returned.acceptanceText,
+      ...signatureColumns(returned.signature),
       isRenterAbsent: returned.isRenterAbsent,
       updatedAt: now,
     })
@@ -231,6 +239,9 @@ export async function completeReturn(
   if (!view.handedOverAt) {
     return { status: "not_found" };
   }
+  if (checklistFingerprint(view) !== requested.shownFingerprint) {
+    return { status: "changed" };
+  }
   const recorded = recordedReturnTime(requested.returnedAt, {
     handedOverAt: view.handedOverAt,
     now: clock.now,
@@ -282,6 +293,7 @@ export async function completeReturn(
       recordReturned(tx, actor, view, {
         at: input.returnedAt,
         acceptanceText,
+        signature,
         isRenterAbsent: signature === null,
         carAfter: input.carAfter,
         foundOn: todayInTimeZone(input.returnedAt, clock.timeZone),

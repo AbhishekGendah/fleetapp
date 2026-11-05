@@ -12,6 +12,7 @@ import { HandoverChecklist } from "../handover/handover-checklist";
 import { loadChecklistPage } from "../handover/load-checklist-page";
 import { OfflineReady } from "../handover/offline-ready";
 import { comparisonWith } from "./comparison";
+import { shownChecklistOf } from "../../../../lib/handover/checklist-fingerprint";
 import { LazyReturnForm } from "./lazy-return-form";
 
 export const runtime = "nodejs";
@@ -28,6 +29,7 @@ export default async function ReturnPage(props: { params: Promise<{ rentalId: st
     redirect(rentalPath(rentalId));
   }
   const settings = readSettings(operatorSettingsSchema, view.settingsSnapshot);
+  const shown = shownChecklistOf(view);
   return (
     <AppShell user={user}>
       <PageHeader
@@ -47,7 +49,7 @@ export default async function ReturnPage(props: { params: Promise<{ rentalId: st
           damageTitle="New damage"
           finalStep={{
             title: "The car is back",
-            form: (
+            form: shown ? (
               <LazyReturnForm
                 rentalId={rentalId}
                 inspectionId={view.inspectionId}
@@ -56,8 +58,9 @@ export default async function ReturnPage(props: { params: Promise<{ rentalId: st
                 timeZone={user.operatorTimezone}
                 initialValues={initialReturnValues(new Date(), user.operatorTimezone)}
                 isSignatureRequired={settings.isRenterSignatureAtReturnRequired}
+                shown={shown}
               />
-            ),
+            ) : null,
           }}
         />
       </OfflineReady>

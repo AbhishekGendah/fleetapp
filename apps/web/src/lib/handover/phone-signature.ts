@@ -20,3 +20,14 @@ export function phoneSignature(
         typedName: signature.typedName,
       };
 }
+
+/** How the Renter signed, as kept with the checklist; nothing when they weren't there. */
+export function signatureColumns(signature: RenterSignature | null): {
+  signatureMethod: RenterSignature["method"] | null;
+  typedName: string | null;
+} {
+  return {
+    signatureMethod: signature?.method ?? null,
+    typedName: signature?.method === "typed" ? signature.typedName : null,
+  };
+}

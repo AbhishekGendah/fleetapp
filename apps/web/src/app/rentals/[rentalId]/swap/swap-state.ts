@@ -2,7 +2,12 @@ import { formatKilometres, mergeFieldLabel } from "@fleetapp/core";
 
 import type { CompleteSwapResult } from "../../../../lib/handover/complete-swap";
 import type { StartSwapResult } from "../../../../lib/rentals/car-swaps";
-import { gapsMessage, PHOTO_MISSING_MESSAGE, SIGNATURE_NEEDED } from "../handover/handover-state";
+import {
+  gapsMessage,
+  CHECKLIST_CHANGED_MESSAGE,
+  PHOTO_MISSING_MESSAGE,
+  SIGNATURE_NEEDED,
+} from "../handover/handover-state";
 
 /** What finishing the swap came back with, for its form. */
 export type CompleteSwapState =
@@ -28,6 +33,10 @@ export function swapRefusalMessage(
       return SWAP_FORM_SETUP;
     case "photo_missing":
       return PHOTO_MISSING_MESSAGE;
+    case "changed":
+      return CHECKLIST_CHANGED_MESSAGE;
+    case "form_changed":
+      return "Your car swap form changed since this page opened, so nothing was signed. Reload the page, then the Renter reads it again.";
     case "no_signature":
       return SIGNATURE_NEEDED;
     case "car_status":

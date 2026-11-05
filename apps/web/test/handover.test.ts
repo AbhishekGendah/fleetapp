@@ -32,7 +32,10 @@ import {
 } from "../src/lib/storage/memory-file-storage";
 import { seedOperatorWithUser } from "./car-fixtures";
 import { TEST_TIME_ZONE } from "./rental-fixtures";
-import { checklistKit, TEST_DETAILS, TEST_SIGNATURE } from "./handover-fixtures";
+import { checklistKit, HANDOVER_KM, TEST_DETAILS, TEST_SIGNATURE } from "./handover-fixtures";
+
+/** The name the ready Renter is added with (addRenterReadyToRent). */
+const TEST_RENTER_NAME = "Rory Ready";
 
 describe("handing a car over", () => {
   let admin: TestConnection;
@@ -114,9 +117,21 @@ describe("handing a car over", () => {
       directDebitOverrideReason: null,
     };
 
-    const withGap = await completeHandover(handoverDeps(), actor, inspectionId, input, clock());
+    const withGap = await completeHandover(
+      handoverDeps(),
+      actor,
+      inspectionId,
+      { ...input, shownFingerprint: await kit.shown(inspectionId) },
+      clock(),
+    );
     await takePhoto(inspectionId, { damageMarkId: added.status === "added" ? added.markId : "" });
-    const bondShort = await completeHandover(handoverDeps(), actor, inspectionId, input, clock());
+    const bondShort = await completeHandover(
+      handoverDeps(),
+      actor,
+      inspectionId,
+      { ...input, shownFingerprint: await kit.shown(inspectionId) },
+      clock(),
+    );
 
     expect(withGap).toEqual({ status: "gaps", gaps: [{ kind: "damage_photo" }] });
     expect(bondShort).toEqual({ status: "bond_short", owingCents: 500_00, onItsWayCents: 0 });
@@ -132,6 +147,7 @@ describe("handing a car over", () => {
       actor,
       inspectionId,
       {
+        shownFingerprint: await kit.shown(inspectionId),
         signature: drawnSignatureInput(TEST_SIGNATURE),
         bondOverrideReason: null,
         directDebitOverrideReason: null,
@@ -143,6 +159,7 @@ describe("handing a car over", () => {
       actor,
       inspectionId,
       {
+        shownFingerprint: await kit.shown(inspectionId),
         signature: drawnSignatureInput(TEST_SIGNATURE),
         bondOverrideReason: null,
         directDebitOverrideReason: null,
@@ -218,6 +235,7 @@ describe("handing a car over", () => {
       actor,
       inspectionId,
       {
+        shownFingerprint: await kit.shown(inspectionId),
         signature: drawnSignatureInput(TEST_SIGNATURE),
         bondOverrideReason: null,
         directDebitOverrideReason: null,
@@ -229,6 +247,101 @@ describe("handing a car over", () => {
     expect((await loadHandover(web.db, actor.operatorId, inspectionId))?.status).toBe(
       "in_progress",
     );
+  });
+
+  describe("what the Renter was shown is what is signed (review A6-10, G9-2, G9-10)", () => {
+    const signInput = (shownFingerprint: string, method: "drawn" | "typed" = "drawn") => ({
+      shownFingerprint,
+      signature:
+        method === "drawn"
+          ? drawnSignatureInput(TEST_SIGNATURE)
+          : { method, typedName: TEST_RENTER_NAME, drawnSignature: "" },
+      bondOverrideReason: null,
+      directDebitOverrideReason: null,
+    });
+
+    it("refuses a signature for a checklist changed after the screen showed it", async () => {
+      const { rentalId } = await readyRental();
+      const inspectionId = await filledHandover(rentalId);
+      const shownBefore = await kit.shown(inspectionId);
+      await saveHandoverDetails(web.db, actor, inspectionId, {
+        ...TEST_DETAILS,
+        odometerKm: HANDOVER_KM + 10,
+      });
+
+      const result = await completeHandover(
+        handoverDeps(),
+        actor,
+        inspectionId,
+        signInput(shownBefore),
+        clock(),
+      );
+
+      expect(result).toEqual({ status: "changed" });
+    });
+
+    it("signs nothing when the checklist changes while its report is being made", async () => {
+      const { rentalId } = await readyRental();
+      const inspectionId = await filledHandover(rentalId);
+      const deps = handoverDeps();
+      // Another phone adds a mark in the moment between the report being made and kept.
+      const save = deps.storage.save.bind(deps.storage);
+      deps.storage.save = async (area, key, bytes, contentType) => {
+        await addDamageMark(web.db, actor, inspectionId, {
+          x: 10,
+          y: 10,
+          description: "Late dent",
+        });
+        return save(area, key, bytes, contentType);
+      };
+
+      const result = await completeHandover(
+        deps,
+        actor,
+        inspectionId,
+        signInput(await kit.shown(inspectionId)),
+        clock(),
+      );
+
+      expect(result).toEqual({ status: "changed" });
+      expect((await loadHandover(web.db, actor.operatorId, inspectionId))?.status).toBe(
+        "in_progress",
+      );
+    });
+
+    it("keeps a typed signature with the checklist, and refuses someone else's name", async () => {
+      const { rentalId } = await readyRental();
+      const inspectionId = await filledHandover(rentalId);
+      const shown = await kit.shown(inspectionId);
+      const wrongName = await completeHandover(
+        handoverDeps(),
+        actor,
+        inspectionId,
+        {
+          ...signInput(shown),
+          signature: { method: "typed", typedName: "Someone Else", drawnSignature: "" },
+        },
+        clock(),
+      );
+
+      const typed = await completeHandover(
+        handoverDeps(),
+        actor,
+        inspectionId,
+        signInput(shown, "typed"),
+        clock(),
+      );
+      const [kept] = await withTenant(web.db, actor.operatorId, (tx) =>
+        tx
+          .select({ method: inspections.signatureMethod, typedName: inspections.typedName })
+          .from(inspections)
+          .where(eq(inspections.id, inspectionId)),
+      );
+
+      expect(wrongName).toEqual({ status: "no_signature" });
+      expect(typed.status).toBe("completed");
+      expect(kept).toEqual({ method: "typed", typedName: TEST_RENTER_NAME });
+    });
   });
 
   it("takes a damage mark off, and a cancelled checklist makes way for a new one", async () => {
@@ -257,6 +370,7 @@ describe("handing a car over", () => {
       actor,
       inspectionId,
       {
+        shownFingerprint: await kit.shown(inspectionId),
         signature: drawnSignatureInput(TEST_SIGNATURE),
         bondOverrideReason: "Paying the bond on Friday",
         directDebitOverrideReason: null,
@@ -276,6 +390,7 @@ describe("handing a car over", () => {
       actor,
       inspectionId,
       {
+        shownFingerprint: await kit.shown(inspectionId),
         signature: drawnSignatureInput(TEST_SIGNATURE),
         bondOverrideReason: "Typed before the bond came in",
         directDebitOverrideReason: "Typed before the direct debit was set up",

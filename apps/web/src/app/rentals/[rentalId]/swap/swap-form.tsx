@@ -17,6 +17,7 @@ import {
   signatureProblemOf,
 } from "../handover/renter-signature-step";
 import { useForgetWhenDone } from "../handover/use-forget-when-done";
+import type { ShownSwap } from "../../../../lib/handover/complete-swap";
 import { completeSwapAction } from "./swap-actions";
 import { INITIAL_SWAP_STATE } from "./swap-state";
 
@@ -34,7 +35,7 @@ export function SwapForm(props: {
   handoverInspectionId: string;
   renterName: string;
   oldCar: string;
-  newCar: string;
+  shown: ShownSwap;
 }) {
   const complete = useMemo(() => completeSwapAction.bind(null, props.rentalId), [props.rentalId]);
   const [state, formAction, isPending] = useActionState(complete, INITIAL_SWAP_STATE);
@@ -73,11 +74,9 @@ export function SwapForm(props: {
         statuses={STATUSES_AFTER_SWAP}
         label={`Where does ${props.oldCar} go now?`}
       />
-      <p className="bg-muted rounded-md p-3 text-sm">
-        {props.renterName}: by signing, you hand back {props.oldCar} and accept {props.newCar}, each
-        in the condition shown in its checklist. The rest of your rental stays the same. The time is
-        recorded when you sign.
-      </p>
+      {(Object.keys(props.shown) as (keyof ShownSwap)[]).map((name) => (
+        <input key={name} type="hidden" name={name} value={props.shown[name]} />
+      ))}
       <RenterSignatureStep
         id="swap-signature"
         renterName={props.renterName}

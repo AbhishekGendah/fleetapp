@@ -1,4 +1,5 @@
 import { drawnSignatureInput } from "@fleetapp/core";
+import { checklistFingerprint } from "../handover/checklist-fingerprint";
 import { completeReturn } from "../handover/complete-return";
 import { loadReturn, type HandoverView } from "../handover/handover-queries";
 import { startReturn } from "../handover/handover-records";
@@ -70,6 +71,7 @@ export async function returnDemoRental(
     context.actor,
     started.inspectionId,
     {
+      shownFingerprint: checklistFingerprint(await loadDemoReturn(context, started.inspectionId)),
       returnedAt: momentOf(context, dayFrom(context, plan.returned.days), plan.returned.time),
       signature: plan.returned.isRenterAbsent ? null : drawnSignatureInput(DEMO_SIGNATURE),
       carAfter: carAfter(context, plan.returned),

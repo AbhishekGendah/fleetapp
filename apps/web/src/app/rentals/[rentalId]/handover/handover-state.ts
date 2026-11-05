@@ -5,6 +5,9 @@ import { bookingProblemMessage } from "../../../../lib/rentals/rental-messages";
 
 /** Said whenever the Renter is to sign on the phone and has not. */
 export const SIGNATURE_NEEDED = "Ask the Renter to sign in the box.";
+/** Said when the checklist changed after the screen showed it: nothing was signed (review A6-10). */
+export const CHECKLIST_CHANGED_MESSAGE =
+  "Something on the checklist changed, so nothing was signed. Check it again, then sign.";
 /** Said when a checklist photo couldn't be put in the report: nothing was signed (review G9-7). */
 export const PHOTO_MISSING_MESSAGE =
   "Couldn't add every photo to the report, so nothing was signed. Check your signal and try again.";
@@ -57,6 +60,8 @@ export function completionMessage(
       return "The Renter has not signed the contract yet. Send it for signing from the rental's page.";
     case "photo_missing":
       return PHOTO_MISSING_MESSAGE;
+    case "changed":
+      return CHECKLIST_CHANGED_MESSAGE;
     case "no_signature":
       return SIGNATURE_NEEDED;
     case "finished_already":

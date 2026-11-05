@@ -44,12 +44,13 @@ describe("taking a car back", () => {
     return { ...out, inspectionId };
   }
 
-  function finish(inspectionId: string, input: Partial<CompleteReturnInput> = {}) {
+  async function finish(inspectionId: string, input: Partial<CompleteReturnInput> = {}) {
     return completeReturn(
       kit.handoverDeps(),
       actor,
       inspectionId,
       {
+        shownFingerprint: await kit.shown(inspectionId),
         returnedAt: new Date(),
         signature: drawnSignatureInput(TEST_SIGNATURE),
         carAfter: AVAILABLE,
@@ -180,6 +181,7 @@ describe("taking a car back", () => {
       otherOperator,
       inspectionId,
       {
+        shownFingerprint: await kit.shown(inspectionId),
         returnedAt: new Date(),
         signature: drawnSignatureInput(TEST_SIGNATURE),
         carAfter: AVAILABLE,

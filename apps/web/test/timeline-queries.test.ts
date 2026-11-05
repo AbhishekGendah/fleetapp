@@ -55,6 +55,7 @@ describe("the timeline's past", () => {
       actor,
       returnId,
       {
+        shownFingerprint: await kit.shown(returnId),
         returnedAt: new Date(Date.now() - DAY_MS),
         signature: drawnSignatureInput(TEST_SIGNATURE),
         carAfter: { status: "available", statusReason: null, statusExpectedBack: null },

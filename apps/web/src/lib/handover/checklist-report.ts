@@ -4,10 +4,33 @@ import type { AnyTransaction } from "@fleetapp/db/client";
 import type { ActingUser } from "../acting-user";
 import { issueDocument } from "../contracts/issued-documents";
 import type { FileDependencies } from "../files/stored-files";
-import type { HandoverView } from "./handover-queries";
+import { checklistFingerprint } from "./checklist-fingerprint";
+import { loadHandover, loadReturn, type HandoverView } from "./handover-queries";
 
 /** Thrown inside the issuing transaction when the checklist was finished elsewhere: nothing is kept. */
 export class FinishedAlreadyError extends Error {}
+
+/**
+ * Thrown inside the issuing transaction when the checklist changed after
+ * its report was made: nothing is signed (review A6-10).
+ */
+export class ChecklistChangedError extends Error {}
+
+/** Refuses the issue if the locked checklist isn't the one the report was made from. */
+export async function assertChecklistUnchanged(
+  tx: AnyTransaction,
+  operatorId: string,
+  rendered: HandoverView,
+): Promise<void> {
+  const locked = await (rendered.kind === "return" ? loadReturn : loadHandover)(
+    tx,
+    operatorId,
+    rendered.inspectionId,
+  );
+  if (!locked || checklistFingerprint(locked) !== checklistFingerprint(rendered)) {
+    throw new ChecklistChangedError();
+  }
+}
 
 /** What stops any checklist being finished: something missing, or kilometres gone down. */
 export function checklistRefusal(
@@ -23,7 +46,8 @@ export function checklistRefusal(
 }
 
 export type IssuedReport =
-  { status: "issued"; documentId: string } | { status: "finished_already" | "not_found" };
+  | { status: "issued"; documentId: string }
+  | { status: "finished_already" | "not_found" | "changed" };
 
 /**
  * Issues a checklist's report for good (rule 12) in the same transaction
@@ -46,15 +70,21 @@ export async function issueChecklistReport(
     templateVersionId: null,
     inspectionId: request.view.inspectionId,
     pdf: request.pdf,
-    onIssued: request.onIssued,
+    onIssued: async (tx) => {
+      await request.onIssued(tx);
+      await assertChecklistUnchanged(tx, actor.operatorId, request.view);
+    },
   }).catch((error: unknown) => {
     if (error instanceof FinishedAlreadyError) {
-      return null;
+      return "finished_already" as const;
+    }
+    if (error instanceof ChecklistChangedError) {
+      return "changed" as const;
     }
     throw error;
   });
-  if (!issued) {
-    return { status: "finished_already" };
+  if (typeof issued === "string") {
+    return { status: issued };
   }
   return issued.status === "issued"
     ? { status: "issued", documentId: issued.documentId }

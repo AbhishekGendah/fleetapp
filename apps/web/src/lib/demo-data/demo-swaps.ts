@@ -1,7 +1,7 @@
 import { drawnSignatureInput } from "@fleetapp/core";
 import type { TemplateDocument } from "@fleetapp/core";
 
-import { completeSwap } from "../handover/complete-swap";
+import { completeSwap, currentShownSwap } from "../handover/complete-swap";
 import { loadHandover, loadReturn, type HandoverView } from "../handover/handover-queries";
 import { listRentalSwaps, startSwap } from "../rentals/car-swaps";
 import { findCarId, demoCar } from "./demo-cars";
@@ -109,6 +109,7 @@ export async function addDemoSwap(context: DemoContext): Promise<number> {
     context.actor,
     rental.id,
     {
+      shown: (await currentShownSwap(context.deps, context.actor.operatorId, rental.id, clock))!,
       signature: drawnSignatureInput(DEMO_SIGNATURE),
       oldCarAfter: {
         status: "in_service",

@@ -162,10 +162,31 @@ export interface AcceptanceFacts {
   fuelLevel: FuelLevel;
 }
 
+/** When the phone shows the sentence before signing: the time is put in as they sign. */
+export const AT_SIGNING_WORDS = "the date and time I sign";
+/** The return's sentence on the phone: the time is the one entered above it. */
+export const AT_RETURN_TIME_WORDS = "the return time above";
+
+/**
+ * The accepted sentence, made one way for the phone (with words for the
+ * time) and for the report (with the time itself), so the two never differ
+ * (review G9-11).
+ */
+export function acceptanceSentence(
+  verb: "received" | "returned",
+  facts: { atText: string; odometerKm: number; fuelLevel: FuelLevel },
+): string {
+  const kilometres = facts.odometerKm.toLocaleString(AUSTRALIAN_LOCALE);
+  return `I ${verb} this car on ${facts.atText}, with ${kilometres} km on the odometer and ${FUEL_LEVEL_LABELS[facts.fuelLevel]} fuel, in the condition shown in this report.`;
+}
+
 /** The accepted words, the same at both ends of a rental but for "received" or "returned". */
 export function acceptanceWording(verb: "received" | "returned", facts: AcceptanceFacts): string {
-  const kilometres = facts.odometerKm.toLocaleString(AUSTRALIAN_LOCALE);
-  return `I ${verb} this car on ${formatDateTimeInTimeZone(facts.at, facts.timeZone)}, with ${kilometres} km on the odometer and ${FUEL_LEVEL_LABELS[facts.fuelLevel]} fuel, in the condition shown in this report.`;
+  return acceptanceSentence(verb, {
+    atText: formatDateTimeInTimeZone(facts.at, facts.timeZone),
+    odometerKm: facts.odometerKm,
+    fuelLevel: facts.fuelLevel,
+  });
 }
 
 /**

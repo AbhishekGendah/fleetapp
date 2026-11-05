@@ -9,6 +9,7 @@ import {
   todayInTimeZone,
   type HandoverGap,
   type MergeFieldKey,
+  type TemplateDocument,
 } from "@fleetapp/core";
 import type { AnyTransaction } from "@fleetapp/db/client";
 import {
@@ -43,14 +44,20 @@ import type { RentalClock } from "../rentals/rental-records";
 import { loadBusinessDetails } from "../settings/business-details";
 import type { VehicleStatusInput } from "../vehicles/vehicle-input";
 import { addReading } from "../vehicles/odometer";
-import { checklistRefusal, FinishedAlreadyError } from "./checklist-report";
+import {
+  assertChecklistUnchanged,
+  ChecklistChangedError,
+  checklistRefusal,
+  FinishedAlreadyError,
+} from "./checklist-report";
+import { checklistFingerprint } from "./checklist-fingerprint";
 import type { HandoverDependencies } from "./complete-handover";
 import {
   HANDOVER_REPORT_TITLE,
   renderHandoverReport,
   reportOrPhotoMissing,
 } from "./handover-report";
-import { phoneSignature } from "./phone-signature";
+import { phoneSignature, signatureColumns } from "./phone-signature";
 import { lockOpenInspection } from "./handover-records";
 import {
   loadCompletedHandover,
@@ -62,7 +69,17 @@ import { RETURN_REPORT_TITLE, renderReturnReport } from "./return-report";
 
 export const SWAP_FORM_TITLE = "Car swap";
 
+/** What the swap's signing step showed, sent back with the signature (review A6-10, A6-11, G9-1). */
+export interface ShownSwap {
+  swapId: string;
+  returnFingerprint: string;
+  handoverFingerprint: string;
+  /** The swap form's template version the Renter read. */
+  swapTemplateVersionId: string;
+}
+
 export interface CompleteSwapInput {
+  shown: ShownSwap;
   /** The Renter's signature on the Operator's phone, drawn or typed, as the form sent it. */
   signature: RenterSignatureInput;
   /** Where the old car goes: Available, In service or Off road. */
@@ -84,7 +101,9 @@ export type CompleteSwapResult =
         | "car_status"
         | "clash"
         | "finished_already"
-        | "photo_missing";
+        | "photo_missing"
+        | "changed"
+        | "form_changed";
     };
 
 /** The swap's two checklists as they stand. */
@@ -95,7 +114,7 @@ interface SwapViews {
 }
 
 async function loadSwapViews(
-  deps: HandoverDependencies,
+  deps: Pick<HandoverDependencies, "database">,
   operatorId: string,
   rentalId: string,
 ): Promise<SwapViews | null> {
@@ -112,8 +131,15 @@ async function loadSwapViews(
   return oldView && newView ? { swap, old: oldView, new: newView } : null;
 }
 
-/** What stops the swap being finished: either checklist unfinished, or the old car's next status. */
+/** What stops the swap being finished: another swap or checklist than the one shown, either checklist unfinished, or the old car's next status. */
 function swapRefusal(views: SwapViews, input: CompleteSwapInput): CompleteSwapResult | null {
+  const isAsShown =
+    views.swap.id === input.shown.swapId &&
+    checklistFingerprint(views.old) === input.shown.returnFingerprint &&
+    checklistFingerprint(views.new) === input.shown.handoverFingerprint;
+  if (!isAsShown) {
+    return { status: "changed" };
+  }
   for (const car of ["old", "new"] as const) {
     const refusal = checklistRefusal(views[car]);
     if (refusal) {
@@ -134,44 +160,122 @@ interface SwapMoment {
 
 const carText = (view: HandoverView): string => `${view.carRego} ${view.carMakeModel}`;
 
-/** The swap form, filled from the business's template, with the Renter's signature. */
-async function renderSwapForm(
-  deps: HandoverDependencies,
+/** Said in the swap form's "when" before the Renter signs: the time is put in as they sign. */
+export const SWAP_AT_SIGNING_TEXT = "the date and time the Renter signs";
+
+type FilledSwapForm =
+  | { status: "filled"; document: TemplateDocument; templateVersionId: string }
+  | { status: "no_template" }
+  | { status: "missing"; fields: MergeFieldKey[] };
+
+/** The business's swap form, filled in for this swap: what is shown before signing and printed after. */
+async function fillSwapForm(
+  deps: Pick<HandoverDependencies, "database">,
   operatorId: string,
   views: SwapViews,
-  moment: SwapMoment,
-) {
+  clock: { timeZone: string; now: Date; atText: string },
+): Promise<FilledSwapForm> {
   const template = await loadDefaultTemplate(deps.database, operatorId, "swap_form");
   if (!template) {
-    return { status: "no_template" as const };
+    return { status: "no_template" };
   }
   const filled = await fillContract(
     deps.database,
     operatorId,
     views.swap.rentalId,
     template.content,
-    { timeZone: moment.timeZone, now: moment.at },
+    { timeZone: clock.timeZone, now: clock.now },
     {
       swapOldCar: carText(views.old),
       swapNewCar: carText(views.new),
-      swapAt: moment.atText,
+      swapAt: clock.atText,
       swapReason: views.swap.reason,
     },
   );
   if (!filled || filled.missing.length > 0) {
-    return { status: "missing" as const, fields: filled?.missing ?? [] };
+    return { status: "missing", fields: filled?.missing ?? [] };
+  }
+  return {
+    status: "filled",
+    document: filled.document,
+    templateVersionId: template.latestVersionId,
+  };
+}
+
+/** What the swap's signing step shows: the filled swap form, and the checklists as saved. */
+export interface SwapSigningView {
+  swapId: string;
+  form: FilledSwapForm;
+  returned: HandoverView;
+  handedOver: HandoverView;
+}
+
+export async function loadSwapSigningView(
+  deps: Pick<HandoverDependencies, "database">,
+  operatorId: string,
+  rentalId: string,
+  clock: RentalClock,
+): Promise<SwapSigningView | null> {
+  const views = await loadSwapViews(deps, operatorId, rentalId);
+  if (!views) {
+    return null;
+  }
+  const form = await fillSwapForm(deps, operatorId, views, {
+    ...clock,
+    atText: SWAP_AT_SIGNING_TEXT,
+  });
+  return { swapId: views.swap.id, form, returned: views.old, handedOver: views.new };
+}
+
+/** What a signing step would send back for the swap as it stands: for code signing on a Renter's behalf (demos, tests). */
+export async function currentShownSwap(
+  deps: Pick<HandoverDependencies, "database">,
+  operatorId: string,
+  rentalId: string,
+  clock: RentalClock,
+): Promise<ShownSwap | null> {
+  const view = await loadSwapSigningView(deps, operatorId, rentalId, clock);
+  if (!view || view.form.status !== "filled") {
+    return null;
+  }
+  return {
+    swapId: view.swapId,
+    returnFingerprint: checklistFingerprint(view.returned),
+    handoverFingerprint: checklistFingerprint(view.handedOver),
+    swapTemplateVersionId: view.form.templateVersionId,
+  };
+}
+
+/** The swap form, filled from the template version the Renter read, with their signature. */
+async function renderSwapForm(
+  deps: HandoverDependencies,
+  operatorId: string,
+  views: SwapViews,
+  moment: SwapMoment & { shownTemplateVersionId: string },
+) {
+  const form = await fillSwapForm(deps, operatorId, views, {
+    timeZone: moment.timeZone,
+    now: moment.at,
+    atText: moment.atText,
+  });
+  if (form.status !== "filled") {
+    return form;
+  }
+  if (form.templateVersionId !== moment.shownTemplateVersionId) {
+    // The business changed its swap form after the Renter read it (review G9-1).
+    return { status: "form_changed" as const };
   }
   const pdf = await renderDocumentPdf({
     ...(await loadPdfBranding(deps, operatorId)),
     title: `${SWAP_FORM_TITLE} ${views.new.carRego}`,
-    document: filled.document,
+    document: form.document,
     signature: phoneSignature(
       moment.signature,
       `Signed by ${views.new.renterFullName}`,
       moment.atText,
     ),
   });
-  return { status: "ready" as const, pdf, templateVersionId: template.latestVersionId };
+  return { status: "ready" as const, pdf, templateVersionId: form.templateVersionId };
 }
 
 interface SwapPdfs {
@@ -187,7 +291,7 @@ async function renderSwapDocuments(
   deps: HandoverDependencies,
   operatorId: string,
   views: SwapViews,
-  moment: SwapMoment,
+  moment: SwapMoment & { shownTemplateVersionId: string },
 ): Promise<SwapPdfs | Exclude<CompleteSwapResult, { status: "completed" }>> {
   const form = await renderSwapForm(deps, operatorId, views, moment);
   if (form.status !== "ready") {
@@ -241,7 +345,7 @@ async function completeChecklists(
   tx: AnyTransaction,
   operatorId: string,
   views: SwapViews,
-  accepted: { at: Date; acceptance: SwapPdfs["acceptance"] },
+  accepted: { at: Date; acceptance: SwapPdfs["acceptance"]; signature: RenterSignature },
 ): Promise<void> {
   for (const car of ["old", "new"] as const) {
     if (!(await lockOpenInspection(tx, operatorId, views[car].inspectionId))) {
@@ -253,6 +357,7 @@ async function completeChecklists(
         status: "completed",
         completedAt: accepted.at,
         acceptanceText: accepted.acceptance[car],
+        ...signatureColumns(accepted.signature),
         updatedAt: accepted.at,
       })
       .where(eq(inspections.id, views[car].inspectionId));
@@ -399,6 +504,7 @@ async function recordSwapped(
     pdfs: SwapPdfs;
     swapDocumentId: string;
     input: CompleteSwapInput;
+    signature: RenterSignature;
   },
 ): Promise<void> {
   const [locked] = await tx
@@ -412,7 +518,11 @@ async function recordSwapped(
   await completeChecklists(tx, actor.operatorId, views, {
     at: done.at,
     acceptance: done.pdfs.acceptance,
+    signature: done.signature,
   });
+  // Under the locks: the checklists are still the ones the reports were made from (review A6-10).
+  await assertChecklistUnchanged(tx, actor.operatorId, views.old);
+  await assertChecklistUnchanged(tx, actor.operatorId, views.new);
   await movePossession(tx, actor.operatorId, views, done.at);
   await moveHold(tx, actor.operatorId, views, done.at);
   await moveCars(tx, actor, views, { at: done.at, oldCarAfter: done.input.oldCarAfter });
@@ -548,7 +658,10 @@ export async function completeSwap(
     signature,
   };
   const pdfs = await reportOrPhotoMissing(() =>
-    renderSwapDocuments(deps, actor.operatorId, views, moment),
+    renderSwapDocuments(deps, actor.operatorId, views, {
+      ...moment,
+      shownTemplateVersionId: input.shown.swapTemplateVersionId,
+    }),
   );
   if ("status" in pdfs) {
     return pdfs;
@@ -570,6 +683,7 @@ export async function completeSwap(
         pdfs,
         swapDocumentId: swapDocument.documentId,
         input,
+        signature,
       });
       return swapDocument.documentId;
     });
@@ -581,6 +695,9 @@ export async function completeSwap(
     }
     if (error instanceof SwapClashError) {
       return { status: "clash" };
+    }
+    if (error instanceof ChecklistChangedError) {
+      return { status: "changed" };
     }
     throw error;
   }

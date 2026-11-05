@@ -4,6 +4,7 @@ import { PageHeader } from "@fleetapp/ui/page-header";
 import { AppShell } from "../../../app-shell";
 import { appDb } from "../../../../lib/app-db";
 import { loadSigningStatus } from "../../../../lib/contracts/signing-links";
+import { shownChecklistOf } from "../../../../lib/handover/checklist-fingerprint";
 import type { HandoverView } from "../../../../lib/handover/handover-queries";
 import { canHearRenterPayments } from "../../../../lib/payments/app-payments";
 import { rentalPath } from "../../../../lib/paths";
@@ -49,6 +50,7 @@ async function acceptanceChecks(user: SignedInUser, view: HandoverView) {
 export default async function HandoverPage(props: { params: Promise<{ rentalId: string }> }) {
   const { user, rentalId, view } = await loadChecklistPage(props.params, "handover");
   const checks = await acceptanceChecks(user, view);
+  const shown = shownChecklistOf(view);
   return (
     <AppShell user={user}>
       <PageHeader
@@ -67,16 +69,18 @@ export default async function HandoverPage(props: { params: Promise<{ rentalId: 
           damageTitle="Damage already on the car"
           finalStep={{
             title: "The Renter accepts the car",
-            form: (
+            // Shown only once the details are saved: the checklist's gaps say so until then.
+            form: shown ? (
               <AcceptanceForm
                 rentalId={view.rentalId}
                 inspectionId={view.inspectionId}
                 renterName={view.renterFullName}
                 summary={`${view.carRego} · ${view.carMakeModel}`}
+                shown={shown}
                 bondShortCents={checks.bondShortCents}
                 isDirectDebitMissing={checks.isDirectDebitMissing}
               />
-            ),
+            ) : null,
           }}
         />
       </OfflineReady>

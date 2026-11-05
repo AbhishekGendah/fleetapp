@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { drawnSignatureInput } from "@fleetapp/core";
 import {
   carHolds,
@@ -17,7 +19,11 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import type { ActingUser } from "../src/lib/acting-user";
 import { createTemplate } from "../src/lib/contracts/templates";
 import { completeReturn } from "../src/lib/handover/complete-return";
-import { completeSwap, type CompleteSwapInput } from "../src/lib/handover/complete-swap";
+import {
+  completeSwap,
+  currentShownSwap,
+  type CompleteSwapInput,
+} from "../src/lib/handover/complete-swap";
 import { loadReturn } from "../src/lib/handover/handover-queries";
 import { addDamageMark, startReturn } from "../src/lib/handover/handover-records";
 import { cancelSwap, startSwap } from "../src/lib/rentals/car-swaps";
@@ -40,6 +46,14 @@ const TO_WORKSHOP = {
   statusExpectedBack: "2027-12-01",
 };
 
+/** A swap that is no longer under way has nothing to show. */
+const NOTHING_SHOWN = {
+  swapId: "",
+  returnFingerprint: "",
+  handoverFingerprint: "",
+  swapTemplateVersionId: "",
+};
+
 describe("swapping the Renter's car", () => {
   let admin: TestConnection;
   let web: TestConnection;
@@ -50,10 +64,15 @@ describe("swapping the Renter's car", () => {
   let kit: ReturnType<typeof checklistKit>;
 
   const clock = () => ({ timeZone: TEST_TIME_ZONE, now: new Date() });
-  const swapInput: CompleteSwapInput = {
-    signature: drawnSignatureInput(TEST_SIGNATURE),
-    oldCarAfter: TO_WORKSHOP,
-  };
+  /** What the signing step would send for the swap as it stands now. */
+  async function swapInput(rentalId: string): Promise<CompleteSwapInput> {
+    const shown = await currentShownSwap({ database: web.db }, actor.operatorId, rentalId, clock());
+    return {
+      shown: shown ?? NOTHING_SHOWN,
+      signature: drawnSignatureInput(TEST_SIGNATURE),
+      oldCarAfter: TO_WORKSHOP,
+    };
+  }
 
   async function swapUnderWayFor() {
     const out = await kit.rentalOut(new Date(Date.now() - 48 * HOUR_MS));
@@ -114,7 +133,13 @@ describe("swapping the Renter's car", () => {
   it("refuses to finish until both checklists are done, and a cancelled swap leaves the car out", async () => {
     const { rentalId, vehicleId, swap } = await swapUnderWayFor();
 
-    const early = await completeSwap(kit.handoverDeps(), actor, rentalId, swapInput, clock());
+    const early = await completeSwap(
+      kit.handoverDeps(),
+      actor,
+      rentalId,
+      await swapInput(rentalId),
+      clock(),
+    );
     expect(early).toMatchObject({ status: "gaps", car: "old" });
     // The rental's own return waits while the swap is under way.
     expect((await startReturn(web.db, actor, rentalId)).status).toBe("not_booked");
@@ -134,6 +159,28 @@ describe("swapping the Renter's car", () => {
     expect(await cancelSwap(web.db, actor, rentalId)).toBe("not_found");
   });
 
+  it("signs only the swap, checklists and swap form the Renter was shown (review A6-11, G9-1)", async () => {
+    const { rentalId, swap } = await swapUnderWayFor();
+    await kit.fillChecklist(swap.returnInspectionId, OLD_CAR_KM);
+    await kit.fillChecklist(swap.handoverInspectionId, NEW_CAR_KM);
+    const asShown = await swapInput(rentalId);
+    const finish = (shown: Partial<CompleteSwapInput["shown"]>) =>
+      completeSwap(
+        kit.handoverDeps(),
+        actor,
+        rentalId,
+        { ...asShown, shown: { ...asShown.shown, ...shown } },
+        clock(),
+      );
+
+    expect(await finish({ swapId: randomUUID() })).toEqual({ status: "changed" });
+    expect(await finish({ returnFingerprint: "0".repeat(64) })).toEqual({ status: "changed" });
+    expect(await finish({ swapTemplateVersionId: randomUUID() })).toEqual({
+      status: "form_changed",
+    });
+    expect((await finish({})).status).toBe("completed");
+  });
+
   it("swaps: three documents, possession and holds moved at one moment, cars and rental moved", async () => {
     const { rentalId, vehicleId, newCarId, swap } = await swapUnderWayFor();
     await kit.fillChecklist(swap.returnInspectionId, OLD_CAR_KM);
@@ -148,9 +195,17 @@ describe("swapping the Renter's car", () => {
     await kit.fillChecklist(swap.handoverInspectionId, NEW_CAR_KM);
     sentEmails.length = 0;
 
-    const result = await completeSwap(kit.handoverDeps(), actor, rentalId, swapInput, clock());
+    const result = await completeSwap(
+      kit.handoverDeps(),
+      actor,
+      rentalId,
+      await swapInput(rentalId),
+      clock(),
+    );
     expect(result.status).toBe("completed");
-    expect(await completeSwap(kit.handoverDeps(), actor, rentalId, swapInput, clock())).toEqual({
+    expect(
+      await completeSwap(kit.handoverDeps(), actor, rentalId, await swapInput(rentalId), clock()),
+    ).toEqual({
       status: "not_found",
     });
 
@@ -211,6 +266,7 @@ describe("swapping the Renter's car", () => {
       actor,
       returnId,
       {
+        shownFingerprint: await kit.shown(returnId),
         returnedAt: new Date(),
         signature: drawnSignatureInput(TEST_SIGNATURE),
         carAfter: { status: "available", statusReason: null, statusExpectedBack: null },
@@ -225,7 +281,13 @@ describe("swapping the Renter's car", () => {
 
     expect(await cancelSwap(web.db, otherOperator, rentalId)).toBe("not_found");
     expect(
-      await completeSwap(kit.handoverDeps(), otherOperator, rentalId, swapInput, clock()),
+      await completeSwap(
+        kit.handoverDeps(),
+        otherOperator,
+        rentalId,
+        await swapInput(rentalId),
+        clock(),
+      ),
     ).toEqual({ status: "not_found" });
     expect(await cancelSwap(web.db, actor, rentalId)).toBe("cancelled");
   });

@@ -17,6 +17,7 @@ import {
   files,
   renterLinks,
   renterSubmissions,
+  inspections,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, inArray, isNotNull, isNull, ne, or, type SQL } from "drizzle-orm";
@@ -278,6 +279,26 @@ async function retirePredecessors(
  * act, after retiring what it replaces. "not_found" if it was
  * already claimed, or is a link photo arriving after the details were sent.
  */
+/** Holds a checklist open while a photo joins it: its signing waits for this, or this for it. */
+async function isChecklistOpenFor(
+  tx: AnyTransaction,
+  operatorId: string,
+  inspectionId: string,
+): Promise<boolean> {
+  const [open] = await tx
+    .select({ id: inspections.id })
+    .from(inspections)
+    .where(
+      and(
+        eq(inspections.id, inspectionId),
+        eq(inspections.operatorId, operatorId),
+        eq(inspections.status, "in_progress"),
+      ),
+    )
+    .for("share");
+  return open !== undefined;
+}
+
 async function claimConfirmed(
   deps: FileDependencies,
   actor: FileActor,
@@ -290,6 +311,12 @@ async function claimConfirmed(
       if (await isLinkAlreadySent(tx, actor.operatorId, file.renterLinkId)) {
         return "not_found";
       }
+    }
+    // A checklist photo waits for a report being signed on the checklist, and
+    // is refused once it is finished: the signed report never showed it
+    // (review A6-10; the database refuses it too, migration 0045).
+    if (file.inspectionId && !(await isChecklistOpenFor(tx, actor.operatorId, file.inspectionId))) {
+      return "not_found";
     }
     // Held first: a second confirm of the same file waits here, then finds
     // it no longer pending. Only then is the file it replaces retired (one

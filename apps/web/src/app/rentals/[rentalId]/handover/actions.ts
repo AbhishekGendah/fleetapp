@@ -211,7 +211,11 @@ export async function completeHandoverAction(
       { ...fileDependencies(), emailSender: appEmailSender, canHearRenterPayments },
       actor,
       inspectionId,
-      { ...parsed.data, signature: renterSignatureFrom(formData) },
+      {
+        ...parsed.data,
+        shownFingerprint: String(formData.get("checklistFingerprint") ?? ""),
+        signature: renterSignatureFrom(formData),
+      },
       { timeZone: user.operatorTimezone, now: new Date() },
     );
     revalidatePath(rentalPath(rentalId));

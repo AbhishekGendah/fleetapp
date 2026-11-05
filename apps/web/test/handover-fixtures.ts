@@ -8,6 +8,7 @@ import type { ActingUser } from "../src/lib/acting-user";
 import { recordBondReceived } from "../src/lib/bonds/bond-records";
 import { issueDocument } from "../src/lib/contracts/issued-documents";
 import { confirmUpload, type FileDependencies } from "../src/lib/files/stored-files";
+import { checklistFingerprint } from "../src/lib/handover/checklist-fingerprint";
 import { completeHandover } from "../src/lib/handover/complete-handover";
 import {
   startChecklistPhotoUpload,
@@ -110,6 +111,14 @@ export function checklistKit(
     return inspectionId;
   }
 
+  /** The fingerprint the signing screen would show for a checklist as it stands. */
+  async function shown(inspectionId: string): Promise<string> {
+    const view =
+      (await loadHandover(web.db, actor.operatorId, inspectionId)) ??
+      (await loadReturn(web.db, actor.operatorId, inspectionId));
+    return view ? checklistFingerprint(view) : "";
+  }
+
   /** A rental whose car went out at `handedOverAt`, the Renter accepting on the phone. */
   async function rentalOut(handedOverAt: Date) {
     const booked = await readyRental();
@@ -119,6 +128,7 @@ export function checklistKit(
       actor,
       inspectionId,
       {
+        shownFingerprint: await shown(inspectionId),
         signature: drawnSignatureInput(TEST_SIGNATURE),
         bondOverrideReason: null,
         directDebitOverrideReason: null,
@@ -129,5 +139,14 @@ export function checklistKit(
     return booked;
   }
 
-  return { deps, handoverDeps, readyRental, takePhoto, fillChecklist, filledHandover, rentalOut };
+  return {
+    deps,
+    handoverDeps,
+    readyRental,
+    takePhoto,
+    fillChecklist,
+    filledHandover,
+    rentalOut,
+    shown,
+  };
 }

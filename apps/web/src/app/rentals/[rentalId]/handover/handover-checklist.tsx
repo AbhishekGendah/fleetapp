@@ -4,7 +4,7 @@ import { Button } from "@fleetapp/ui/button";
 import { FormSection } from "@fleetapp/ui/form-section";
 import { CloudOff, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 
 import type {
   QueuedChange,
@@ -107,6 +107,10 @@ export interface HandoverComparison {
  * it all, as the report is made from what the server holds. A return shows
  * the handover beside each step.
  */
+/** The Renter signs only what is saved, so a changed detail is saved first (review G9-2). */
+const UNSAVED_DETAILS_MESSAGE =
+  "The kilometres, fuel or keys have changed: press Save details before the Renter signs.";
+
 export function HandoverChecklist({
   data,
   lastKilometres,
@@ -142,7 +146,12 @@ export function HandoverChecklist({
     router.refresh();
   }
 
-  const isReady = data.gaps.length === 0 && queued.length === 0 && data.blockers.length === 0;
+  const [hasUnsavedDetails, setHasUnsavedDetails] = useState(false);
+  const isReady =
+    data.gaps.length === 0 &&
+    queued.length === 0 &&
+    data.blockers.length === 0 &&
+    !hasUnsavedDetails;
   return (
     <div className="flex flex-col gap-8">
       <SyncStatus count={queued.length} state={state} onSendNow={sendNow} />
@@ -162,6 +171,7 @@ export function HandoverChecklist({
           initialValues={data.details}
           lastKilometres={lastKilometres}
           handoverFuel={comparison?.fuelLabel}
+          onUnsavedChange={setHasUnsavedDetails}
         />
       </FormSection>
       <FormSection title={`3. ${damageTitle}`}>
@@ -187,6 +197,7 @@ export function HandoverChecklist({
           <div className="text-muted-foreground flex flex-col gap-1 text-sm">
             {data.gaps.length > 0 ? <p>{gapsMessage(data.gaps)}</p> : null}
             {queued.length > 0 ? <p>Some photos or marks are still waiting to send.</p> : null}
+            {hasUnsavedDetails ? <p>{UNSAVED_DETAILS_MESSAGE}</p> : null}
             {data.blockers.map((blocker) => (
               <p key={blocker}>{blocker}</p>
             ))}

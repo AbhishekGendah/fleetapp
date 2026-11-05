@@ -64,6 +64,7 @@ export async function completeReturnAction(
       { userId: user.id, operatorId: user.operatorId },
       inspectionId,
       {
+        shownFingerprint: String(formData.get("checklistFingerprint") ?? ""),
         returnedAt: parsed.data.returnedAt,
         signature: parsed.data.isRenterPresent ? signature : null,
         carAfter: parsed.data.carAfter,

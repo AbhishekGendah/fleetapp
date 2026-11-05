@@ -115,12 +115,13 @@ describe("damage records and insurance claims", () => {
     });
     const markId = mark.status === "added" ? mark.markId : "";
     const photoId = await kit.takePhoto(inspectionId, { damageMarkId: markId });
-    const finish = () =>
+    const finish = async () =>
       completeReturn(
         kit.handoverDeps(),
         actor,
         inspectionId,
         {
+          shownFingerprint: await kit.shown(inspectionId),
           returnedAt: new Date(),
           signature: drawnSignatureInput(TEST_SIGNATURE),
           carAfter: AVAILABLE,
