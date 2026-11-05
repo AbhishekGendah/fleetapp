@@ -41,6 +41,8 @@ export const operators = pgTable("operators", {
 
   phone: text("phone"),
   email: text("email"),
+  /** The business's own privacy policy, linked from every privacy notice a Renter sees (review G8-3). */
+  privacyPolicyUrl: text("privacy_policy_url"),
 
   /** Storage key for the logo used on contracts, invoices and emails. */
   logoFileKey: text("logo_file_key"),

@@ -17,6 +17,7 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import type { ActingUser } from "../src/lib/acting-user";
+import { runFileHousekeeping } from "../src/lib/files/file-housekeeping";
 import { completeHandover } from "../src/lib/handover/complete-handover";
 import type { ChecklistPhotoTarget } from "../src/lib/handover/handover-photos";
 import { loadHandover } from "../src/lib/handover/handover-queries";
@@ -38,6 +39,8 @@ import { checklistKit, HANDOVER_KM, TEST_DETAILS, TEST_SIGNATURE } from "./hando
 
 /** The name the ready Renter is added with (addRenterReadyToRent). */
 const TEST_RENTER_NAME = "Rory Ready";
+const DAY_MS = 24 * 60 * 60 * 1000;
+const BINNED_LONG_AGO_DAYS = 31;
 
 describe("handing a car over", () => {
   let admin: TestConnection;
@@ -390,6 +393,49 @@ describe("handing a car over", () => {
     );
 
     expect(result.status).toBe("completed");
+  });
+
+  it("lets the clean-up remove a retaken photo once the handover is finished (review A1-1)", async () => {
+    const { rentalId } = await readyRental();
+    const inspectionId = await filledHandover(rentalId);
+    const before = (await loadHandover(web.db, actor.operatorId, inspectionId))?.photos.get(
+      "Front",
+    );
+    await takePhoto(inspectionId, { photoName: "Front" });
+    const replacedIds = [before!.fileId, before!.thumbnailFileId].filter((id) => id !== null);
+    // The clean-up never removes anything binned under a month ago by the real
+    // clock, so the retake is dated back while the checklist is still open.
+    await withTenant(web.db, actor.operatorId, (tx) =>
+      tx
+        .update(files)
+        .set({ deletedAt: new Date(Date.now() - BINNED_LONG_AGO_DAYS * DAY_MS) })
+        .where(inArray(files.id, replacedIds)),
+    );
+    expect(
+      (
+        await completeHandover(
+          handoverDeps(),
+          actor,
+          inspectionId,
+          {
+            shownFingerprint: await kit.shown(inspectionId),
+            signature: drawnSignatureInput(TEST_SIGNATURE),
+            bondOverrideReason: null,
+            directDebitOverrideReason: null,
+          },
+          clock(),
+        )
+      ).status,
+    ).toBe("completed");
+
+    const ran = await runFileHousekeeping(kit.deps());
+    expect(ran.failedFiles).toBe(0);
+    const replaced = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx.select({ purgedAt: files.purgedAt }).from(files).where(inArray(files.id, replacedIds)),
+    );
+
+    expect(replaced).toHaveLength(2);
+    expect(replaced.every((file) => file.purgedAt !== null)).toBe(true);
   });
 
   it("takes a damage mark off, and a cancelled checklist makes way for a new one", async () => {

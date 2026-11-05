@@ -1,4 +1,4 @@
-# Review fixes, batch 5: privacy and records (plan, waiting for approval)
+# Review fixes, batch 5: privacy and records (approved 5 Nov 2026, 7-year retention)
 
 From docs/reviews/2026-11-04-full-code-review.md, fix order item 5: before
 the first real Renter. Touches the database, Renters' personal information

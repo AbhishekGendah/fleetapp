@@ -5,12 +5,18 @@ import { and, inArray, isNotNull, max } from "drizzle-orm";
 import type { RetentionHolds } from "../renters/scan-retention";
 
 /**
- * Rentals not yet closed: still planned, out, or back with the bond, tolls
- * and fines still to settle. A Renter on one keeps their licence scans.
+ * Rentals that still need the Renter's licence: a booking, or a car that is
+ * out. A returned or cancelled rental has ended, and a draft was never
+ * agreed, so neither keeps the scans for ever (review G8-5). Fines and
+ * disputes add their own holds when they come.
  */
-const OPEN_RENTAL_STATUSES = ["draft", "booked", "active", "returned"] as const;
+const OPEN_RENTAL_STATUSES = ["booked", "active"] as const;
 
-/** When each Renter's last rental came back, for the scan timer to count from. */
+/**
+ * When each Renter's last rental came back, for the scan timer to count
+ * from. A cancelled booking never had the car out, so it doesn't restart the
+ * timer: the scan is kept from when it was added, as for a Renter who never rented.
+ */
 async function lastRentalEnds(
   tx: AnyTransaction,
   renterIds: readonly string[],
@@ -28,7 +34,7 @@ async function lastRentalEnds(
   );
 }
 
-/** Renters with a rental that is not closed yet. */
+/** Renters with a booking, or a car out. */
 async function rentersWithOpenRentals(
   tx: AnyTransaction,
   renterIds: readonly string[],

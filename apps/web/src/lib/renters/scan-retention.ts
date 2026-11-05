@@ -89,6 +89,7 @@ export async function binExpiredLicenceScans(
   // Required, never defaulted: a caller that forgot it would bin the scans
   // of Renters still on a rental.
   holds: RetentionHolds,
+  isOutOfTime: () => boolean = () => false,
 ): Promise<ScanRetentionSummary> {
   const now = deps.now();
   // Counted in shortest months, so a scan due on the 31st is never missed.
@@ -99,28 +100,32 @@ export async function binExpiredLicenceScans(
     deps.database,
     sql`select operator_id from app.operators_with_licence_scans_added_before(${earliestDue.toISOString()}::timestamptz) as operator_id`,
   );
-  const run = await forEachOperator(operatorIds, "Licence scan retention", async (operatorId) => {
-    const { licenceScanKeptMonths } = await loadOperatorSettings(deps.database, operatorId);
-    return withTenant(deps.database, operatorId, async (tx) => {
-      // A limited batch per run, so a big backlog (a setting just lowered)
-      // can never run past the time limit; the next night carries on.
-      const scanIds = (await findScansDue(tx, operatorId, licenceScanKeptMonths, now, holds)).slice(
-        0,
-        SCANS_PER_RUN,
-      );
-      return scanIds.length === 0
-        ? 0
-        : binFilesAsSystem(
-            tx,
-            operatorId,
-            now,
-            "renter_licence_scan",
-            inArray(files.id, scanIds),
-            SYSTEM_BIN_REASONS.keptTheSetTime,
-            { keptMonths: licenceScanKeptMonths },
-          );
-    });
-  });
+  const run = await forEachOperator(
+    operatorIds,
+    "Licence scan retention",
+    async (operatorId) => {
+      const { licenceScanKeptMonths } = await loadOperatorSettings(deps.database, operatorId);
+      return withTenant(deps.database, operatorId, async (tx) => {
+        // A limited batch per run, so a big backlog (a setting just lowered)
+        // can never run past the time limit; the next night carries on.
+        const scanIds = (
+          await findScansDue(tx, operatorId, licenceScanKeptMonths, now, holds)
+        ).slice(0, SCANS_PER_RUN);
+        return scanIds.length === 0
+          ? 0
+          : binFilesAsSystem(
+              tx,
+              operatorId,
+              now,
+              "renter_licence_scan",
+              inArray(files.id, scanIds),
+              SYSTEM_BIN_REASONS.keptTheSetTime,
+              { keptMonths: licenceScanKeptMonths },
+            );
+      });
+    },
+    isOutOfTime,
+  );
   const summary: ScanRetentionSummary = {
     operators: run.operators,
     binnedScans: run.done,

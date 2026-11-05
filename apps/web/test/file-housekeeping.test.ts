@@ -113,6 +113,40 @@ describe("the daily file clean-up", () => {
   it("is safe to run again: nothing is removed twice", async () => {
     expect(await runFileHousekeeping(deps)).toMatchObject({ purged: 0 });
   });
+
+  it("goes on past a file that fails, and tries it again last (review A7-10)", async () => {
+    const stuck = await seedFile({ deletedAt: ago(35 * MILLISECONDS_PER_DAY) });
+    const fine = await seedFile({ deletedAt: ago(33 * MILLISECONDS_PER_DAY) });
+    const failing: FileDependencies = {
+      ...deps,
+      storage: {
+        ...storage,
+        remove: async (area, key) => {
+          if (key === stuck.key) {
+            throw new Error("Storage is having a bad night");
+          }
+          return storage.remove(area, key);
+        },
+      },
+    };
+
+    const summary = await runFileHousekeeping(failing);
+
+    expect(summary).toMatchObject({ purged: 1, failedFiles: 1, failedOperators: 0 });
+    expect((await state(fine.id))?.purgedAt).not.toBeNull();
+    expect((await state(stuck.id))?.purgedAt).toBeNull();
+    expect(await runFileHousekeeping(deps)).toMatchObject({ purged: 1, failedFiles: 0 });
+  });
+
+  it("stops when the run's time is spent; the next run carries on", async () => {
+    const waiting = await seedFile({ deletedAt: ago(32 * MILLISECONDS_PER_DAY) });
+
+    const summary = await runFileHousekeeping(deps, () => true);
+
+    expect(summary.purged).toBe(0);
+    expect((await state(waiting.id))?.purgedAt).toBeNull();
+    expect((await runFileHousekeeping(deps)).purged).toBe(1);
+  });
 });
 
 describe("the scheduled job's lock", () => {

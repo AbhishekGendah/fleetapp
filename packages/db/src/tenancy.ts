@@ -167,6 +167,7 @@ export const WEB_UPDATABLE_OPERATOR_COLUMNS = [
   "postcode",
   "phone",
   "email",
+  "privacy_policy_url",
   "logo_file_key",
   "timezone",
   "updated_at",

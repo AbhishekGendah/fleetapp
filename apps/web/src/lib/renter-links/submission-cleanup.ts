@@ -111,6 +111,7 @@ async function cleanUpOperator(
  */
 export async function removeOldSubmissions(
   deps: FileDependencies,
+  isOutOfTime: () => boolean = () => false,
 ): Promise<SubmissionCleanupSummary> {
   const now = deps.now();
   const cutoff = new Date(now.getTime() - SUBMISSION_KEPT_DAYS * MILLISECONDS_PER_DAY);
@@ -119,11 +120,16 @@ export async function removeOldSubmissions(
     sql`select operator_id from app.operators_with_abandoned_renter_submissions(${cutoff.toISOString()}::timestamptz) as operator_id`,
   );
   let removedPhotos = 0;
-  const run = await forEachOperator(operatorIds, "Submission clean-up", async (operatorId) => {
-    const cleaned = await cleanUpOperator(deps, operatorId, cutoff, now);
-    removedPhotos += cleaned.photos;
-    return cleaned.submissions;
-  });
+  const run = await forEachOperator(
+    operatorIds,
+    "Submission clean-up",
+    async (operatorId) => {
+      const cleaned = await cleanUpOperator(deps, operatorId, cutoff, now);
+      removedPhotos += cleaned.photos;
+      return cleaned.submissions;
+    },
+    isOutOfTime,
+  );
   const summary: SubmissionCleanupSummary = {
     operators: run.operators,
     removedSubmissions: run.done,

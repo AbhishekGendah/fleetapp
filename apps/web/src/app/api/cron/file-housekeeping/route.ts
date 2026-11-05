@@ -16,6 +16,8 @@ export const dynamic = "force-dynamic";
 const UNAUTHORISED_STATUS = 401;
 /** Seconds the nightly run may take; each part works in limited batches well inside it. */
 export const maxDuration = 300;
+/** Work stops after this, well inside maxDuration; what isn't reached is done the next night (review A7-10). */
+const RUN_BUDGET_MS = 240_000;
 
 /** One part of the nightly run: its summary, or that it failed (logged, never its details). */
 async function runPart<Summary>(
@@ -36,12 +38,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "unauthorised" }, { status: UNAUTHORISED_STATUS });
   }
   const deps = { database: appDb, storage: appFileStorage, now: () => new Date() };
+  const startedAt = Date.now();
+  const isOutOfTime = () => Date.now() - startedAt > RUN_BUDGET_MS;
   // Binning first: what is binned today is purged by a run 30 days later.
   // Each part runs on its own, so one failing never stops the others.
-  const submissions = await runPart("Submission clean-up", () => removeOldSubmissions(deps));
-  const licenceScans = await runPart("Licence scan retention", () =>
-    binExpiredLicenceScans(deps, RENTAL_RETENTION_HOLDS),
+  const submissions = await runPart("Submission clean-up", () =>
+    removeOldSubmissions(deps, isOutOfTime),
   );
-  const files = await runPart("File clean-up", () => runFileHousekeeping(deps));
+  const licenceScans = await runPart("Licence scan retention", () =>
+    binExpiredLicenceScans(deps, RENTAL_RETENTION_HOLDS, isOutOfTime),
+  );
+  const files = await runPart("File clean-up", () => runFileHousekeeping(deps, isOutOfTime));
   return NextResponse.json({ submissions, licenceScans, files });
 }

@@ -197,5 +197,25 @@ describe("licence scans deleted on a timer", () => {
         await countScansDueWith(web.db, owner.operatorId, 1, new Date(), RENTAL_RETENTION_HOLDS),
       ).toBe(0);
     });
+
+    it("lets go after a return, even though nothing closes the rental (review G8-5)", async () => {
+      const owner = await seedOperatorWithUser(admin, "Returned Unclosed Retention Pty Ltd");
+      const returned = await renterWithScan(owner, 400);
+      const rentalId = await bookFor(owner, returned.renterId);
+      const moveTo = (changes: Partial<typeof rentals.$inferInsert>) =>
+        withTenant(web.db, owner.operatorId, (tx) =>
+          tx.update(rentals).set(changes).where(eq(rentals.id, rentalId)),
+        );
+      await moveTo({ status: "active", handedOverAt: new Date(Date.now() - 90 * DAY_MS) });
+      await moveTo({ status: "returned", returnedAt: new Date(Date.now() - 40 * DAY_MS) });
+
+      // Left at "returned" for good: one month after it came back, the scan goes.
+      expect(
+        await countScansDueWith(web.db, owner.operatorId, 1, new Date(), RENTAL_RETENTION_HOLDS),
+      ).toBe(1);
+      expect(
+        await countScansDueWith(web.db, owner.operatorId, 12, new Date(), RENTAL_RETENTION_HOLDS),
+      ).toBe(0);
+    });
   });
 });

@@ -1,8 +1,8 @@
-import { MILLISECONDS_PER_DAY } from "@fleetapp/core";
+import { describeErrorForLog, MILLISECONDS_PER_DAY } from "@fleetapp/core";
 import { recordActivity } from "@fleetapp/db/activity";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, files } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, lt, or, sql } from "drizzle-orm";
 
 import { findDueOperators, forEachOperator } from "../jobs/due-operators";
 import { incomingKeyFor, type FileDependencies } from "./stored-files";
@@ -26,8 +26,12 @@ interface Cutoffs {
 export interface HousekeepingSummary {
   operators: number;
   purged: number;
+  /** Files that failed this run: each logged and skipped, so the rest go on (review A7-10). */
+  failedFiles: number;
   /** Operators skipped because something failed; the next run tries again. */
   failedOperators: number;
+  /** Operators not reached before the run's time ran out; the next run carries on. */
+  unreachedOperators: number;
 }
 
 function cutoffsFor(now: Date): Cutoffs {
@@ -74,7 +78,21 @@ async function findDueFiles(deps: FileDependencies, operatorId: string, cutoffs:
           ),
         ),
       )
+      // Oldest first; a file that failed was touched then, so it waits behind the rest.
+      .orderBy(asc(files.updatedAt))
       .limit(FILES_PER_RUN),
+  );
+}
+
+/** Moves a file that failed behind the others, so it can never hold the rest up night after night. */
+async function sendToBack(
+  deps: FileDependencies,
+  operatorId: string,
+  fileId: string,
+  now: Date,
+): Promise<void> {
+  await withTenant(deps.database, operatorId, (tx) =>
+    tx.update(files).set({ updatedAt: now }).where(eq(files.id, fileId)),
   );
 }
 
@@ -112,21 +130,43 @@ async function purgeFile(
  * a purged file is not found twice. One Operator's failure is logged and
  * skipped, so it cannot stop the others.
  */
-export async function runFileHousekeeping(deps: FileDependencies): Promise<HousekeepingSummary> {
+export async function runFileHousekeeping(
+  deps: FileDependencies,
+  isOutOfTime: () => boolean = () => false,
+): Promise<HousekeepingSummary> {
   const now = deps.now();
   const cutoffs = cutoffsFor(now);
   const operatorIds = await operatorsWithWork(deps, cutoffs);
-  const run = await forEachOperator(operatorIds, "File clean-up", async (operatorId) => {
-    const due = await findDueFiles(deps, operatorId, cutoffs);
-    for (const file of due) {
-      await purgeFile(deps, operatorId, file, now);
-    }
-    return due.length;
-  });
-  const summary: HousekeepingSummary = {
+  let failedFiles = 0;
+  const run = await forEachOperator(
+    operatorIds,
+    "File clean-up",
+    async (operatorId) => {
+      const due = await findDueFiles(deps, operatorId, cutoffs);
+      let purged = 0;
+      for (const file of due) {
+        if (isOutOfTime()) {
+          break;
+        }
+        // Each file on its own: one that fails is logged (never its details) and the rest go on.
+        try {
+          await purgeFile(deps, operatorId, file, now);
+          purged += 1;
+        } catch (error) {
+          failedFiles += 1;
+          console.error("Removing a file for good failed", describeErrorForLog(error));
+          await sendToBack(deps, operatorId, file.id, now);
+        }
+      }
+      return purged;
+    },
+    isOutOfTime,
+  );
+  return {
     operators: run.operators,
     purged: run.done,
+    failedFiles,
     failedOperators: run.failedOperators,
+    unreachedOperators: run.unreachedOperators,
   };
-  return summary;
 }
