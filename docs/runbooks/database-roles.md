@@ -57,3 +57,21 @@ WHERE rolname IN ('web_app_role', 'web_auth_role', 'admin_app_role', 'admin_auth
 ```
 
 Every row must show `false`, `false`.
+
+## If a login was made on Neon's screen (it shows `t` above)
+
+Neon won't let the database owner change such a login ("permission denied
+to alter role"), so it is rebuilt instead. Done this way on the dev database
+for `admin_auth_role` on 5 Nov 2026.
+
+1. In the SQL Editor, take away what the migrations gave it: drop the
+   policies `TO` that login and `REVOKE ALL` on its tables and on schema
+   `public` (find them with `grep -n "<login>" packages/db/migrations/*.sql`).
+2. Delete the login on Neon's **Roles** page.
+3. Make it again with the recipe above, then run the same `GRANT` and
+   `CREATE POLICY` lines from the migrations, in one transaction.
+4. Put the new password in the login's connection string in Vercel, for
+   every environment that uses it, and delete the query from the SQL
+   Editor's History.
+5. Run the check query above, adding
+   `pg_has_role(rolname, 'neon_superuser', 'MEMBER')`: all `false`.

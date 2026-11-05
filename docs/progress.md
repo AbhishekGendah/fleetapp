@@ -1187,14 +1187,18 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
 
 ## Next
 
-Abhi: add OPS_ALERT_EMAIL in Vercel (fleetapp-web) before this branch is
-merged (still to do), and APP_STAGE=development in both dev Vercel projects
-(the test inbox now needs it, or the dev site won't start). Check the dev
-database logins with the query in docs/runbooks/database-roles.md before
-merging too. Abhi: add batch 2's new Stripe event types to both event
+Done by Abhi on 5 Nov: APP_STAGE=development in both dev Vercel projects;
+OPS_ALERT_EMAIL in fleetapp-web; dev database logins checked
+(`admin_auth_role` had been made on Neon's screen and could bypass
+row-level security: rebuilt by SQL, new password in Vercel, all four now
+pass; runbook updated); VERCEL_TOKEN secret and VERCEL_ORG_ID,
+VERCEL_WEB_PROJECT_ID, VERCEL_ADMIN_PROJECT_ID variables in GitHub, so
+GitHub now puts both apps live after each database update. Next: merge the
+review-fix branch into main, then turn off Vercel's own deploys from main
+once a GitHub deploy has worked. Abhi: add batch 2's new Stripe event types to both event
 destinations (list in docs/launch-checklist.md). Batch 5 done (5 Nov 2026). Batch 6 (database update safety) built
 (docs/plans/review-fixes-batch-6.md); Abhi: add the Vercel token and project
-IDs to GitHub so the apps go live after their database updates. Batch 7 (everything
+IDs to GitHub so the apps go live after their database updates (done 5 Nov). Batch 7 (everything
 left from the review, docs/plans/review-fixes-batch-7.md, approved 5 Nov):
 all five slices built (handovers, swaps, cars and files, money and links,
 screens and admin). Next: Phase 4 slice 5 (weekly debits). Abhi: the S3
