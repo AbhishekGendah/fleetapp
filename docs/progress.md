@@ -1072,10 +1072,32 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
     fixed with tests. Checklist O-364 to O-369 new; O-343, O-348 to O-352
     and O-355 updated.
 
+- **Review fixes batch 3: logins and server safety** (plan:
+  docs/plans/review-fixes-batch-3.md, approved 5 Nov 2026). Migration 0044.
+  - Login actions the apps don't use are refused; a reset emails the
+    owner; sign-ins recorded once, after the code, with wrong codes and
+    locks; broken requests don't count towards the lock.
+  - No code used twice; "remember this device" runs out 14 days after the
+    code was last typed; 3 reset emails per login an hour.
+  - Clear sign-in messages (paused business, switched-off Admin, no
+    connection, too many tries); a switched-off Admin can't sign in.
+  - Admin database login narrowed; database logins checked at start-up
+    (docs/runbooks/database-roles.md); no personal data in error logs.
+  - Doctored signatures, logos and templates can't stall the server; the
+    test inbox runs only with APP_STAGE=development.
+  - Paused business: payments links keep working (Abhi's decision).
+  - Known: the handover return browser test fails on this date with or
+    without this batch; to look at on its own.
+
 ## Next
 
 Abhi: add OPS_ALERT_EMAIL in Vercel (fleetapp-web) before this branch is
-merged (still to do, 4 Nov). Abhi: add batch 2's new Stripe event types to both event destinations (list in docs/launch-checklist.md). Review batch 3 (logins and server safety): plan written, docs/plans/review-fixes-batch-3.md, awaiting approval (and the suspension decision). Abhi: add the second Stripe event destination (connected
+merged (still to do), and APP_STAGE=development in both dev Vercel projects
+(the test inbox now needs it, or the dev site won't start). Check the dev
+database logins with the query in docs/runbooks/database-roles.md before
+merging too. Abhi: add batch 2's new Stripe event types to both event
+destinations (list in docs/launch-checklist.md). Then review batch 4
+(signing and documents), plan first. Abhi: add the second Stripe event destination (connected
 accounts) and its secret, then try slice 4 on the dev site. Then Phase 4
 slice 5 (weekly debits).
 Open idea: trim the phone rules to Australia only with libphonenumber's

@@ -1,4 +1,4 @@
-# Review fixes, batch 3: logins and server safety (plan, awaiting approval)
+# Review fixes, batch 3: logins and server safety (approved 5 Nov 2026, built)
 
 From docs/reviews/2026-11-04-full-code-review.md, fix order item 3: before
 the first real business. Touches logins and the database logins, so
@@ -204,3 +204,36 @@ sending real Renter emails to AGS.
   flooding).
 - **Not in this batch:** signing and documents (batch 4), privacy and
   records (batch 5).
+
+## As built (5 Nov 2026)
+
+- **Suspension:** Abhi chose the recommendation (5 Nov 2026). A paused
+  business's payments links keep working (renter_link_for_token, 0044);
+  its owner sees "Your account is paused" at sign-in; the Suspend
+  confirmation says so.
+- **Login actions:** every action the apps don't use is refused, by an
+  allow-list in packages/auth (loginGuard), not a block-list, so a new
+  Better Auth action is refused until it is needed. That includes making
+  new recovery codes (no screen offers it), not "allowed with a fresh
+  code" as planned: refusing is simpler and safer.
+- **Emails:** a password reset emails the owner. No email when the
+  authenticator is set up: it can be set up only once (turning it off is
+  refused), at the first sign-in after the invite.
+- **Code reuse:** the same code is refused within its 90 seconds. An
+  older code is not tracked separately; it would be outside its own
+  window anyway within 30 seconds.
+- **Reset emails:** 3 per login an hour, counted in the database. The
+  per-IP limit stays Better Auth's own (3 a minute per server); a
+  per-inbox limit is what stops the flooding.
+- **Admin database login:** a new business can still be inserted
+  table-wide (Drizzle names every column when it inserts), so a trigger
+  refuses anything beyond its name. Updates are narrowed to pausing.
+  Settings can't be read at all (no admin screen reads them), rather than
+  through a view.
+- **Logos:** checked by their header's size whenever a PDF is made, not
+  re-made on upload (no image library on the server for that); the size
+  check stops the freeze.
+- **Not done here:** the handover return browser test
+  ("takes the car back beside the handover") fails on this date with and
+  without this batch's changes: the damage photo is never attached in
+  the test. To be looked at on its own.

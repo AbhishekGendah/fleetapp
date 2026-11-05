@@ -65,6 +65,9 @@ Add to this list whenever something is relaxed or put off "until launch".
       v1.refund.failed, v1.charge.dispute.funds_withdrawn,
       v1.charge.dispute.funds_reinstated and v1.account.application.deauthorized;
       the platform destination needs v2.core.account.closed.
+- [ ] The four database logins on the live Neon database made with
+      docs/runbooks/database-roles.md (never Neon's "Add role" screen). The
+      apps refuse to start if a login could bypass row-level security.
 - [ ] `APP_STAGE=production` in the production Vercel project. The app now
       refuses to start with a live Stripe key unless it is set, and refuses a
       test key when it is (review A5-9).

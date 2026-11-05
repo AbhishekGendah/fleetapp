@@ -705,6 +705,26 @@ of service) and the countries.
 - **Test payments on the live site:** the live site refuses Stripe's test
   key, so a fake test card can't "pay" a bond there.
 
+## Logins and server safety (review fixes batch 3, 5 Nov 2026, built)
+
+- **Security of personal information (APP 11):** a signed-in device can
+  no longer switch the authenticator off, copy its code, or change the
+  password; a password reset emails the owner; sign-ins, wrong codes and
+  locks are all recorded (record keeping).
+- **Logs:** login and page errors no longer write names, emails, phone
+  numbers, licence numbers or sign-in codes into the hosting logs, which
+  are kept by a US company (rule 7; APP 8, data sent overseas).
+- **Admin access:** the admin site can no longer read the "How to pay"
+  bank details businesses type in, as the privacy notes already said, and
+  can't change a business's GST status, timezone or Stripe details.
+- **Email service's terms:** reset emails are limited to 3 per login an
+  hour, so a login's inbox can't be flooded and the shared email account
+  isn't put at risk.
+- **A paused business:** its Renters can still pay their bond and set up
+  their direct debit (the money goes to the business's own Stripe); its
+  other links stop. Consumer law: a Renter isn't blocked from paying
+  what they owe.
+
 ## Logs
 
 - Error logs (Vercel) hold only the kind of error and, for a database
