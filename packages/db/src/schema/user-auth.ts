@@ -1,8 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
-  boolean,
   index,
-  integer,
   pgTable,
   text,
   timestamp,
@@ -11,6 +9,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { primaryKeyColumn } from "./columns";
+import { twoFactorColumns } from "./two-factor-columns";
 import { TENANT_ID_COLUMN } from "../tenancy";
 import { operators } from "./operators";
 import { signInLockoutColumns } from "./sign-in-lockout";
@@ -149,11 +148,7 @@ export const userTwoFactors = pgTable(
     ...triggerFilledOperatorIdColumn,
     ...userReference,
 
-    secret: text("secret").notNull(),
-    backupCodes: text("backup_codes").notNull(),
-    verified: boolean("verified"),
-    failedVerificationCount: integer("failed_verification_count"),
-    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+    ...twoFactorColumns,
   },
   (table) => [index("user_two_factors_user_id_idx").on(table.userId)],
 );
@@ -182,4 +177,21 @@ export const userKnownDevices = pgTable(
   (table) => [
     uniqueIndex("user_known_devices_user_device_unique").on(table.userId, table.deviceHash),
   ],
+);
+
+/**
+ * Each password reset email sent, so a login's inbox can't be flooded
+ * (review G6-1): at most a few an hour. Who and when only.
+ */
+export const passwordResetSends = pgTable(
+  "password_reset_sends",
+  {
+    ...primaryKeyColumn,
+    ...triggerFilledOperatorIdColumn,
+    ...userReference,
+    sentAt: timestamp("sent_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (table) => [index("password_reset_sends_user_idx").on(table.userId, table.sentAt)],
 );

@@ -11,7 +11,7 @@ import {
   type TestConnection,
 } from "./fixtures";
 
-/** Operator settings stay within their Operator, and admin can only look. */
+/** Operator settings stay within their Operator, and the admin app can't see them. */
 describe("Operator settings isolation", () => {
   let web: TestConnection;
   let admin: TestConnection;
@@ -50,10 +50,12 @@ describe("Operator settings isolation", () => {
         .where(eq(schema.operatorSettings.operatorId, operatorBId)),
     );
 
-    const [operatorB] = await admin.db
-      .select()
-      .from(schema.operatorSettings)
-      .where(eq(schema.operatorSettings.operatorId, operatorBId));
+    const [operatorB] = await withTenant(web.db, operatorBId, (tx) =>
+      tx
+        .select()
+        .from(schema.operatorSettings)
+        .where(eq(schema.operatorSettings.operatorId, operatorBId)),
+    );
     expect(operatorB?.settings).toEqual({ owner: operatorBId });
   });
 
@@ -67,13 +69,12 @@ describe("Operator settings isolation", () => {
     expect(code).toBe(POSTGRES_ERROR_CODES.insufficientPrivilege);
   });
 
-  it("lets the admin app read settings but not change them", async () => {
-    const rows = await admin.db.select().from(schema.operatorSettings);
-    const code = await postgresErrorCodeOf(
-      admin.db.update(schema.operatorSettings).set({ settings: {} }),
-    );
+  it("keeps the admin app away from settings, which hold the business's bank details (review A1-4)", async () => {
+    const codes = [
+      await postgresErrorCodeOf(admin.db.select().from(schema.operatorSettings)),
+      await postgresErrorCodeOf(admin.db.update(schema.operatorSettings).set({ settings: {} })),
+    ];
 
-    expect(rows.length).toBeGreaterThanOrEqual(2);
-    expect(code).toBe(POSTGRES_ERROR_CODES.insufficientPrivilege);
+    expect(codes).toEqual(Array(2).fill(POSTGRES_ERROR_CODES.insufficientPrivilege));
   });
 });

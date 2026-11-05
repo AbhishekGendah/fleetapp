@@ -1,8 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
-  boolean,
   index,
-  integer,
   pgTable,
   text,
   timestamp,
@@ -11,6 +9,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { primaryKeyColumn } from "./columns";
+import { twoFactorColumns } from "./two-factor-columns";
 import { adminUsers } from "./admin-users";
 import { signInLockoutColumns } from "./sign-in-lockout";
 
@@ -124,11 +123,7 @@ export const adminTwoFactors = pgTable(
     ...primaryKeyColumn,
     ...adminUserReference,
 
-    secret: text("secret").notNull(),
-    backupCodes: text("backup_codes").notNull(),
-    verified: boolean("verified"),
-    failedVerificationCount: integer("failed_verification_count"),
-    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+    ...twoFactorColumns,
   },
   (table) => [index("admin_two_factors_admin_user_id_idx").on(table.adminUserId)],
 );

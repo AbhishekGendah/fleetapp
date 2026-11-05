@@ -31,10 +31,12 @@ describe("operator invites and the test inbox", () => {
     web = connectAs(inject("webRoleUrl"));
     ({ operatorAId } = await seedTwoOperators(admin.db));
 
-    const [adminUser] = await admin.db
+    const staff = connectAs(inject("adminAuthRoleUrl"));
+    const [adminUser] = await staff.db
       .insert(schema.adminUsers)
       .values({ email: `${randomUUID()}@example.test`, fullName: "Inviting Admin" })
       .returning({ id: schema.adminUsers.id });
+    await staff.close();
     const [user] = await admin.db
       .select({ id: schema.users.id })
       .from(schema.users)
