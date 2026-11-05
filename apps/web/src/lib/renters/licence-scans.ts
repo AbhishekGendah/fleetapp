@@ -1,4 +1,4 @@
-import { LICENCE_SIDES, type LicenceSide } from "@fleetapp/core";
+import { LICENCE_SIDES, type LicenceSide, type StorageArea } from "@fleetapp/core";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, activityLog, files } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, asc, desc, eq, inArray, isNotNull, or, sql, type SQL } from "drizzle-orm";
@@ -149,11 +149,14 @@ export function listRenterFileIds(
 }
 
 export interface LicenceScanRecord {
+  id: string;
   side: LicenceSide;
   /** Sent by the Renter through a link and not (or not yet) made a scan. */
   isSentThroughLink: boolean;
   addedAt: Date;
   removedAt: Date | null;
+  /** Where the file is, while it is still held (binned files are kept 30 days); null once gone. */
+  stored: { area: StorageArea; key: string; contentType: string } | null;
 }
 
 /**
@@ -169,10 +172,15 @@ export async function listAllLicenceScans(
   const rows = await withTenant(database, operatorId, (tx) =>
     tx
       .select({
+        id: files.id,
         side: files.licenceSide,
         purpose: files.purpose,
         addedAt: files.confirmedAt,
         removedAt: files.deletedAt,
+        purgedAt: files.purgedAt,
+        storageArea: files.storageArea,
+        objectKey: files.objectKey,
+        contentType: files.contentType,
       })
       .from(files)
       .where(
@@ -189,10 +197,14 @@ export async function listAllLicenceScans(
     row.side && row.addedAt
       ? [
           {
+            id: row.id,
             side: row.side,
             isSentThroughLink: row.purpose === "renter_submitted_scan",
             addedAt: row.addedAt,
             removedAt: row.removedAt,
+            stored: row.purgedAt
+              ? null
+              : { area: row.storageArea, key: row.objectKey, contentType: row.contentType },
           },
         ]
       : [],

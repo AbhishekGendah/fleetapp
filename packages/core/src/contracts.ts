@@ -29,6 +29,19 @@ export const ISSUED_DOCUMENT_KINDS = [
 ] as const;
 export type IssuedDocumentKind = (typeof ISSUED_DOCUMENT_KINDS)[number];
 
+/** What each issued document is called, e.g. in "everything we hold". */
+export const ISSUED_DOCUMENT_NAMES: Readonly<Record<IssuedDocumentKind, string>> = {
+  contract: "Rental contract",
+  handover_report: "Handover report",
+  return_report: "Return report",
+  swap_form: "Car swap form",
+  change_of_terms: "Change of terms",
+  invoice: "Tax invoice",
+  credit_note: "Credit note",
+  receipt: "Receipt",
+  statement: "Statement",
+};
+
 export const MERGE_FIELD_GROUPS = [
   "business",
   "renter",

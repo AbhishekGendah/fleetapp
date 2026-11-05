@@ -7,19 +7,27 @@ import {
   LICENCE_TYPE_LABELS,
   RENTER_STATUS_LABELS,
   type ExportCell,
+  type StorageArea,
 } from "@fleetapp/core";
 import type { WorkbookSheet } from "@fleetapp/core/spreadsheet";
 import { describeActivity } from "@fleetapp/db/activity";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { BRAND } from "@fleetapp/ui/brand";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
 import { listRenterLinkIds } from "../renter-links/details-links";
 import { detailTexts } from "../renter-links/review-rows";
 import { listSubmissionsHeld, type SubmissionHeld } from "../renter-links/reviews";
 import { loadRecordHistory, type HistoryEntry } from "../record-history";
-import { listAllLicenceScans, listRenterFileIds } from "./licence-scans";
+import {
+  heldDocumentFileName,
+  heldRecordSheets,
+  loadHeldRecords,
+  THE_BUSINESS,
+} from "./everything-held-records";
+import { listAllLicenceScans, listRenterFileIds, type LicenceScanRecord } from "./licence-scans";
 import { listNoteIds, listNotes } from "./notes";
 import { RENTER_FIELD_LABELS, renterFieldLabel } from "./renter-labels";
 import { loadRenter, type RenterDetail } from "./renter-queries";
@@ -82,6 +90,14 @@ function changedFields(entry: HistoryEntry): string {
   return fields.map(renterFieldLabel).join(", ");
 }
 
+/** Who did it, as the Renter sees it: staff are "the business", never named (review A7-8). */
+const ACTOR_LABELS: Readonly<Record<HistoryEntry["actorType"], string>> = {
+  user: THE_BUSINESS,
+  admin: `${BRAND.productName} support`,
+  system: "Automatically",
+  renter_link: "You, through a link",
+};
+
 function logSheet(entries: readonly HistoryEntry[], timeZone: string): WorkbookSheet {
   return {
     name: "Log",
@@ -89,7 +105,7 @@ function logSheet(entries: readonly HistoryEntry[], timeZone: string): WorkbookS
       ["When", "Who", "What", "Details changed"],
       ...entries.map((entry) => [
         formatDateTimeInTimeZone(entry.occurredAt, timeZone),
-        text(entry.actorName ?? entry.actorType),
+        ACTOR_LABELS[entry.actorType],
         describeActivity(entry.entityType, entry.action, entry.valuesAfter),
         text(changedFields(entry) || null),
       ]),
@@ -124,9 +140,44 @@ function submissionsSheet(
   };
 }
 
+/** A stored file that goes into the download as it is: a document or a licence scan. */
+export interface HeldFile {
+  path: string;
+  area: StorageArea;
+  key: string;
+}
+
+export interface EverythingHeld {
+  fileName: string;
+  sheets: WorkbookSheet[];
+  files: HeldFile[];
+}
+
+const SCAN_EXTENSIONS: Readonly<Record<string, string>> = {
+  "application/pdf": "pdf",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+function scanFiles(scans: readonly LicenceScanRecord[]): HeldFile[] {
+  return scans.flatMap((scan) =>
+    scan.stored
+      ? [
+          {
+            path: `licence-scans/${scan.side}-${scan.id.slice(0, 8)}.${SCAN_EXTENSIONS[scan.stored.contentType] ?? "bin"}`,
+            area: scan.stored.area,
+            key: scan.stored.key,
+          },
+        ]
+      : [],
+  );
+}
+
 /**
- * Everything held about one Renter, as the sheets of one Excel file: for a
- * Renter who asks what is held about them (APP 12). The download itself is
+ * Everything held about one Renter, for a Renter who asks what is held about
+ * them (APP 12; review A7-8, A3-5): the sheets of one workbook, and the
+ * stored documents and licence scans to send with it. The download itself is
  * logged against the Renter. Null if they are not the Operator's.
  */
 export async function buildEverythingHeld(
@@ -134,19 +185,20 @@ export async function buildEverythingHeld(
   actor: ActingUser,
   renterId: string,
   timeZone: string,
-): Promise<{ fileName: string; sheets: WorkbookSheet[] } | null> {
+): Promise<EverythingHeld | null> {
   const renter = await loadRenter(database, actor.operatorId, renterId);
   if (!renter) {
     return null;
   }
   const { operatorId } = actor;
   const linkIds = await listRenterLinkIds(database, operatorId, renterId);
-  const [notes, scans, fileIds, noteIds, submissions] = await Promise.all([
+  const [notes, scans, fileIds, noteIds, submissions, records] = await Promise.all([
     listNotes(database, operatorId, renterId, { isRemovedIncluded: true }),
     listAllLicenceScans(database, operatorId, renterId, linkIds),
     listRenterFileIds(database, operatorId, renterId, linkIds),
     listNoteIds(database, operatorId, renterId),
     listSubmissionsHeld(database, operatorId, renterId),
+    withTenant(database, operatorId, (tx) => loadHeldRecords(tx, operatorId, renterId)),
   ]);
   const log = await loadRecordHistory(
     database,
@@ -156,6 +208,18 @@ export async function buildEverythingHeld(
       { entityType: ACTIVITY_ENTITY_TYPES.file, entityIds: fileIds },
       { entityType: ACTIVITY_ENTITY_TYPES.renterNote, entityIds: noteIds },
       { entityType: ACTIVITY_ENTITY_TYPES.renterLink, entityIds: linkIds },
+      { entityType: ACTIVITY_ENTITY_TYPES.rental, entityIds: idsOf(records.rentals) },
+      { entityType: ACTIVITY_ENTITY_TYPES.rentalChange, entityIds: idsOf(records.changes) },
+      { entityType: ACTIVITY_ENTITY_TYPES.ledgerLine, entityIds: idsOf(records.lines) },
+      { entityType: ACTIVITY_ENTITY_TYPES.bondMovement, entityIds: idsOf(records.bond) },
+      { entityType: ACTIVITY_ENTITY_TYPES.billingDocument, entityIds: idsOf(records.billing) },
+      { entityType: ACTIVITY_ENTITY_TYPES.paymentMandate, entityIds: idsOf(records.mandates) },
+      { entityType: ACTIVITY_ENTITY_TYPES.payment, entityIds: idsOf(records.payments) },
+      {
+        entityType: ACTIVITY_ENTITY_TYPES.damageRecord,
+        entityIds: records.damage.map(({ record }) => record.id),
+      },
+      { entityType: ACTIVITY_ENTITY_TYPES.issuedDocument, entityIds: idsOf(records.documents) },
     ],
     { isEverything: true },
   );
@@ -179,7 +243,7 @@ export async function buildEverythingHeld(
           ["Written", "By", "Note", "Removed"],
           ...notes.map((note) => [
             when(note.writtenAt),
-            text(note.writtenBy),
+            THE_BUSINESS,
             text(note.body),
             when(note.removedAt),
           ]),
@@ -198,7 +262,18 @@ export async function buildEverythingHeld(
         ],
       },
       submissionsSheet(submissions, when),
+      ...heldRecordSheets(records, timeZone),
       logSheet(log, timeZone),
+    ],
+    files: [
+      ...records.documents.map((document) => ({
+        path: heldDocumentFileName(document),
+        area: document.storageArea,
+        key: document.objectKey,
+      })),
+      ...scanFiles(scans),
     ],
   };
 }
+
+const idsOf = (rows: readonly { id: string }[]): string[] => rows.map((row) => row.id);

@@ -107,14 +107,10 @@ describe("a Renter's notes and everything held about them", () => {
     );
 
     const workbook = await buildEverythingHeld(web.db, actor, renterId, PERTH);
-    expect(workbook?.sheets.map((sheet) => sheet.name)).toEqual([
-      "Details",
-      "Licence",
-      "Notes",
-      "Licence scans",
-      "Sent through link",
-      "Log",
-    ]);
+    // Every sheet is listed in everything-held.test.ts; these are the ones this test fills.
+    expect(workbook?.sheets.map((sheet) => sheet.name)).toEqual(
+      expect.arrayContaining(["Details", "Licence", "Notes", "Licence scans", "Log"]),
+    );
     const cells = JSON.stringify(workbook?.sheets);
     expect(cells).toContain("1234567");
     expect(cells).toContain("0499 999 999");

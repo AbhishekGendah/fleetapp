@@ -1,5 +1,4 @@
 import {
-  describeErrorForLog,
   DOCUMENT_EMAIL_RECIPIENTS,
   documentEmailState,
   formatDateTimeInTimeZone,
@@ -23,6 +22,7 @@ import { and, asc, eq, inArray, isNotNull } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
 import type { FileDependencies } from "../files/stored-files";
+import { readStoredFile } from "../files/read-stored-file";
 import { emailDocumentCopies } from "./document-copies";
 import { rentalSummaryText } from "./signing-links";
 
@@ -138,17 +138,11 @@ async function loadResendable(database: AnyDatabase, operatorId: string, documen
 }
 
 /** The stored PDF itself: a resend sends the very document issued, never a new one (rule 12). */
-async function readStoredPdf(
+function readStoredPdf(
   storage: FileDependencies["storage"],
   objectKey: string,
 ): Promise<Uint8Array | null> {
-  try {
-    const response = await fetch(await storage.createViewUrl(DOCUMENT_AREA, objectKey));
-    return response.ok ? new Uint8Array(await response.arrayBuffer()) : null;
-  } catch (error) {
-    console.error("Reading a stored document to email again failed", describeErrorForLog(error));
-    return null;
-  }
+  return readStoredFile(storage, DOCUMENT_AREA, objectKey, "a document to email again");
 }
 
 export type EmailAgainResult =

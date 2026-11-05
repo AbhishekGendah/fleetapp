@@ -16,6 +16,13 @@ export const RENTER_LINK_PURPOSES = [
 ] as const;
 export type RenterLinkPurpose = (typeof RENTER_LINK_PURPOSES)[number];
 
+export const RENTER_LINK_PURPOSE_LABELS: Readonly<Record<RenterLinkPurpose, string>> = {
+  details_form: "Details form",
+  sign_contract: "Contract to sign",
+  sign_change: "Change of terms to sign",
+  set_up_payments: "Direct debit and bond",
+};
+
 /** How long a details form link lasts: an Operator setting (rule 27). */
 export const DEFAULT_RENTER_LINK_DAYS = 7;
 export const MINIMUM_RENTER_LINK_DAYS = 1;

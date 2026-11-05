@@ -269,8 +269,10 @@ async function DetailsTab({ renter, user }: { renter: RenterDetail; user: Signed
         <CardHeader>
           <CardTitle>What we hold</CardTitle>
           <CardDescription>
-            If the Renter asks what you hold about them, download it all as one Excel file: details,
-            licence, notes, scans and the Log. The download is recorded in the Log.
+            If the Renter asks what you hold about them, download it all as one zip file: a
+            spreadsheet of their details, licence, notes, rentals, money, signing records, links,
+            damage and Log, with their signed documents, reports, invoices and licence scans. Staff
+            show as &ldquo;the business&rdquo;. The download is recorded in the Log.
           </CardDescription>
         </CardHeader>
         <CardContent>
