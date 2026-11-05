@@ -18,14 +18,13 @@ import { Select } from "@fleetapp/ui/select";
 import {
   isRequiredPaperworkField,
   parsePolicyForm,
+  POLICY_CARS_FIELD,
   POLICY_FORM_FIELDS,
   type PolicyFormValues,
 } from "../../lib/vehicles/paperwork-input";
 import type { CoveredCar } from "../../lib/vehicles/paperwork-queries";
 import { AmountWithGst } from "./amount-with-gst";
 import { ChangeFormShell, useChangeForm } from "../../components/change-form-shell";
-
-export const POLICY_CARS_FIELD = "vehicleIds";
 
 interface PolicyFormProps {
   initialValues: PolicyFormValues;

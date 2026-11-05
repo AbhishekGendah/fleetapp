@@ -136,3 +136,10 @@ export function policyFormValues(policy: PolicyInput): PolicyFormValues {
     gstCents: policy.gstCents === 0 ? "" : centsForEditing(policy.gstCents),
   };
 }
+
+/**
+ * The tick boxes for the cars a new policy covers. Here, not in the form's
+ * file: the server reads it, and a constant taken from a browser-only file
+ * reaches the server as a stand-in, so the ticked cars were never saved.
+ */
+export const POLICY_CARS_FIELD = "vehicleIds";

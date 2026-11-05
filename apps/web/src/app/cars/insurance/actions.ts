@@ -23,7 +23,7 @@ import {
   samePolicyLink,
 } from "../../../lib/vehicles/insurance-messages";
 import { chosenId, policyFromForm, tickedIds } from "../../../lib/vehicles/paperwork-form-data";
-import { POLICY_CARS_FIELD } from "../policy-form";
+import { POLICY_CARS_FIELD } from "../../../lib/vehicles/paperwork-input";
 
 const INVALID_MESSAGE =
   "Some details are not right, so nothing was saved. Check them and try again.";

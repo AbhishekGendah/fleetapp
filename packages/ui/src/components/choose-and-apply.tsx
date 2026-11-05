@@ -8,7 +8,9 @@ import { useActionState, useId } from "react";
 import { INITIAL_CHANGE_STATE, type ChangeFormState } from "./change-form-state";
 import { FormResult } from "./form-result";
 
-export const CHOSEN_FIELD = "chosen";
+import { CHOSEN_FIELD } from "../lib/choose-and-apply-field";
+
+export { CHOSEN_FIELD };
 
 /** Pick one thing from a list and apply it: put a car on a policy, a policy on a car. */
 export function ChooseAndApply(props: {

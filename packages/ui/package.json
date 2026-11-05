@@ -16,6 +16,7 @@
     "./change-form-state": "./src/components/change-form-state.ts",
     "./checkbox": "./src/components/checkbox.tsx",
     "./choose-and-apply": "./src/components/choose-and-apply.tsx",
+    "./choose-and-apply-field": "./src/lib/choose-and-apply-field.ts",
     "./client-form": "./src/components/client-form.tsx",
     "./cn": "./src/lib/utils.ts",
     "./code-input": "./src/components/code-input.tsx",
