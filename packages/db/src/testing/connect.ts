@@ -1,18 +1,8 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
 
+import { runMigrations } from "../migrate";
 import * as schema from "../schema";
-
-const MIGRATIONS_FOLDER = path.join(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
-  "migrations",
-);
 
 export type TestDatabase = NodePgDatabase<typeof schema>;
 
@@ -44,10 +34,6 @@ export function connectAs(
 
 /** Applies the real migration files, as the owner role. */
 export async function migrateTestDatabase(ownerUrl: string): Promise<void> {
-  const pool = new Pool({ connectionString: ownerUrl });
-  try {
-    await migrate(drizzle(pool), { migrationsFolder: MIGRATIONS_FOLDER });
-  } finally {
-    await pool.end();
-  }
+  // The same command the real databases are updated with (review G1-1).
+  await runMigrations(ownerUrl);
 }
