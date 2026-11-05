@@ -1,3 +1,4 @@
+import { withTenant } from "@fleetapp/db/tenant-context";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { operators } from "@fleetapp/db/schema";
 import type { EmailMessage } from "@fleetapp/email";
@@ -77,10 +78,13 @@ describe("invoices, credit notes and receipts", () => {
     sentEmails = [];
     actor = await seedOperatorWithUser(admin, "Invoice Rentals Pty Ltd");
     otherOperator = await seedOperatorWithUser(admin, "Other Invoice Rentals Pty Ltd");
-    await admin.db
-      .update(operators)
-      .set({ gstRegistered: true, gstRegisteredFrom: "2020-01-01", email: "hi@invoice.test" })
-      .where(eq(operators.id, actor.operatorId));
+    // Set as the business sets it, in Settings (the admin app can't).
+    await withTenant(web.db, actor.operatorId, (tx) =>
+      tx
+        .update(operators)
+        .set({ gstRegistered: true, gstRegisteredFrom: "2020-01-01", email: "hi@invoice.test" })
+        .where(eq(operators.id, actor.operatorId)),
+    );
     kit = checklistKit(web, storage, sentEmails, actor);
   });
 

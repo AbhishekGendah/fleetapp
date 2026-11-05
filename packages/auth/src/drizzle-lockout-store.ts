@@ -4,6 +4,9 @@ import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 
 import { MAX_FAILED_SIGN_INS, SIGN_IN_LOCKOUT_MINUTES } from "./login-policy";
 import type { SignInLockoutStore } from "./sign-in-lockout";
+import { columnName, firstRow, type SqlExecutor } from "./sql-helpers";
+
+export type { SqlExecutor } from "./sql-helpers";
 
 /** Only the password login is locked; it is the only kind there is in v1. */
 const CREDENTIAL_PROVIDER_ID = "credential";
@@ -15,29 +18,6 @@ export interface LockoutTable {
   providerId: PgColumn;
   failedSignInCount: PgColumn;
   signInLockedUntil: PgColumn;
-}
-
-/** All this needs of a database: running raw SQL. Both drivers in use qualify. */
-export interface SqlExecutor {
-  execute(query: SQL): Promise<unknown>;
-}
-
-/** A SET clause takes a bare column name; Drizzle would otherwise qualify it. */
-function columnName(column: PgColumn): SQL {
-  return sql`${sql.identifier(column.name)}`;
-}
-
-/** Both the Neon and node-postgres drivers return rows under `rows`. */
-function firstRow(result: unknown): Record<string, unknown> | undefined {
-  if (typeof result !== "object" || result === null) {
-    return undefined;
-  }
-  const rows: unknown = Reflect.get(result, "rows");
-  if (!Array.isArray(rows)) {
-    return undefined;
-  }
-  const [row]: unknown[] = rows;
-  return typeof row === "object" && row !== null ? (row as Record<string, unknown>) : undefined;
 }
 
 export function createDrizzleLockoutStore(

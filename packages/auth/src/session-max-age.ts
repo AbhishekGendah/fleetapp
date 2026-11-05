@@ -4,14 +4,17 @@ import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/a
 import { hasReachedSessionLimit } from "./login-policy";
 
 /**
- * Paths that need no check here: signing in (no session yet) and reading the
- * session, which each app's own guard (requireAdmin, requireUser) already
- * ends at the limit.
+ * Paths that need no check here: signing in (no session yet), and reading
+ * or ending the session, which each app's own guard (requireAdmin,
+ * requireUser) already does at the limit.
  */
 const UNCHECKED_PATHS: ReadonlySet<string> = new Set([
   "/sign-in/email",
   "/get-session",
   "/sign-out",
+  // How each app's guard ends an over-age sign-in: refusing it here showed an
+  // error page instead of the "please sign in again" message (review A2-4).
+  "/revoke-session",
 ]);
 
 /**

@@ -11,6 +11,7 @@ declare module "vitest" {
   export interface ProvidedContext {
     adminAuthRoleUrl: string;
     operatorsAdminAppRoleUrl: string;
+    operatorsAdminAuthRoleUrl: string;
     /** For adding Operators' cars, as the Operator app does, in the same database. */
     operatorsWebAppRoleUrl: string;
   }
@@ -39,6 +40,11 @@ export default async function setup(project: TestProject): Promise<() => Promise
     postgres.urlForRoleInDatabase(ADMIN_APP_ROLE, OPERATORS_TEST_DATABASE),
   );
 
+  // AGS staff rows are made on the admin login's connection, as the first-admin command does.
+  project.provide(
+    "operatorsAdminAuthRoleUrl",
+    postgres.urlForRoleInDatabase(ADMIN_AUTH_ROLE, OPERATORS_TEST_DATABASE),
+  );
   project.provide(
     "operatorsWebAppRoleUrl",
     postgres.urlForRoleInDatabase(WEB_APP_ROLE, OPERATORS_TEST_DATABASE),

@@ -81,10 +81,12 @@ describe("Operators and invites", () => {
   beforeAll(async () => {
     connection = connectAs(inject("operatorsAdminAppRoleUrl"));
 
-    const [admin] = await connection.db
+    const staff = connectAs(inject("operatorsAdminAuthRoleUrl"));
+    const [admin] = await staff.db
       .insert(adminUsers)
       .values({ email: `${randomUUID()}@example.test`, fullName: "Test Admin" })
       .returning({ id: adminUsers.id });
+    await staff.close();
     if (!admin) {
       throw new Error("Could not create the test Admin.");
     }

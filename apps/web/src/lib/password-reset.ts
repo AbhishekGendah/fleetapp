@@ -1,15 +1,29 @@
-import { describeErrorForLog, joinUrl } from "@fleetapp/core";
+import {
+  describeErrorForLog,
+  joinUrl,
+  MILLISECONDS_PER_SECOND,
+  SECONDS_PER_HOUR,
+} from "@fleetapp/core";
 import type { SignInLockoutStore } from "@fleetapp/auth";
 import type { AnyDatabase } from "@fleetapp/db/client";
-import { ACTIVITY_ACTIONS, userVerifications } from "@fleetapp/db/schema";
+import {
+  ACTIVITY_ACTIONS,
+  operatorInvites,
+  passwordResetSends,
+  userVerifications,
+} from "@fleetapp/db/schema";
 import {
   renderPasswordChangedEmail,
   renderPasswordResetEmail,
   type EmailSender,
 } from "@fleetapp/email";
-import { eq } from "drizzle-orm";
+import { and, count, eq, gt, isNull } from "drizzle-orm";
 
-import { RESET_LINK_LIFETIME_SECONDS, RESET_LINK_LIFETIME_WORDS } from "./password-reset-policy";
+import {
+  RESET_EMAILS_PER_HOUR,
+  RESET_LINK_LIFETIME_SECONDS,
+  RESET_LINK_LIFETIME_WORDS,
+} from "./password-reset-policy";
 import { FORGOT_PASSWORD_PATH, RESET_PASSWORD_PATH } from "./paths";
 import { isAllowedToSignIn } from "./sign-in-eligibility";
 import type { RecordUserActivity } from "./user-activity";
@@ -28,8 +42,28 @@ export function buildResetPasswordUrl(appUrl: string, token: string): string {
  * value is the User's ID. Any other such record (an unused reset link) is
  * worth throwing away at this point too.
  */
-async function forgetRememberedDevices(database: AnyDatabase, userId: string): Promise<void> {
+export async function forgetRememberedDevices(
+  database: AnyDatabase,
+  userId: string,
+): Promise<void> {
   await database.delete(userVerifications).where(eq(userVerifications.value, userId));
+}
+
+/**
+ * Counts one more reset email for a login, if it has any left this hour;
+ * false once it has had RESET_EMAILS_PER_HOUR (review G6-1).
+ */
+async function claimResetEmail(database: AnyDatabase, userId: string, now: Date): Promise<boolean> {
+  const hourAgo = new Date(now.getTime() - SECONDS_PER_HOUR * MILLISECONDS_PER_SECOND);
+  const [sent] = await database
+    .select({ total: count() })
+    .from(passwordResetSends)
+    .where(and(eq(passwordResetSends.userId, userId), gt(passwordResetSends.sentAt, hourAgo)));
+  if ((sent?.total ?? 0) >= RESET_EMAILS_PER_HOUR) {
+    return false;
+  }
+  await database.insert(passwordResetSends).values({ userId, sentAt: now });
+  return true;
 }
 
 export interface PasswordResetDependencies {
@@ -38,6 +72,7 @@ export interface PasswordResetDependencies {
   appUrl: string;
   lockoutStore: SignInLockoutStore;
   record: RecordUserActivity;
+  now?: () => Date;
 }
 
 /** One step after a reset; a failure is logged (never its details) and the rest go on. */
@@ -81,6 +116,9 @@ export function createPasswordResetOptions(deps: PasswordResetDependencies): Pas
         if (!(await isAllowedToSignIn(deps.database, user.id))) {
           return;
         }
+        if (!(await claimResetEmail(deps.database, user.id, deps.now?.() ?? new Date()))) {
+          return;
+        }
         const message = await renderPasswordResetEmail({
           to: user.email,
           name: user.name,
@@ -104,6 +142,20 @@ export function createPasswordResetOptions(deps: PasswordResetDependencies): Pas
       // A new password starts the wrong-password count afresh, so a User
       // locked out by a guesser can get back in by resetting.
       await afterReset("Clearing failed sign-ins", () => deps.lockoutStore.clearFailures(user.id));
+      // A reset before the invite was used sets the login up just the same (the
+      // owner proved their inbox), so the invite counts as accepted (review A2-3).
+      await afterReset("Marking the invite accepted", () =>
+        deps.database
+          .update(operatorInvites)
+          .set({ acceptedAt: deps.now?.() ?? new Date() })
+          .where(
+            and(
+              eq(operatorInvites.userId, user.id),
+              isNull(operatorInvites.acceptedAt),
+              isNull(operatorInvites.revokedAt),
+            ),
+          ),
+      );
       await deps.record(user.id, ACTIVITY_ACTIONS.passwordReset, "user");
       // A reset the owner didn't make is seen (review A2-1).
       await afterReset("Emailing a password change", async () =>

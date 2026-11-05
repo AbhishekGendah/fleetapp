@@ -9,6 +9,7 @@ import {
 } from "@fleetapp/db/schema";
 import {
   ADMIN_SESSION,
+  createDrizzleCodeStore,
   createDrizzleLockoutStore,
   MAXIMUM_PASSWORD_LENGTH,
   MINIMUM_PASSWORD_LENGTH,
@@ -131,6 +132,13 @@ function buildAdminAuthOptions(config: AdminAuthConfig) {
         onCodeLockedOut: (adminUserId) =>
           config.recordActivity({ adminUserId, action: ADMIN_ACTIVITY_ACTIONS.lockedOut }),
         isAllowed: (adminUserId) => isAdminStillActive(config.database, adminUserId),
+        codeStore: createDrizzleCodeStore(config.database, {
+          table: adminTwoFactors,
+          userId: adminTwoFactors.adminUserId,
+          lastCodeHash: adminTwoFactors.lastCodeHash,
+          lastCodeAt: adminTwoFactors.lastCodeAt,
+        }),
+        now: config.now,
       }),
       sessionMaxAge({ maxAgeSeconds: ADMIN_SESSION.maxAgeSeconds, now: config.now }),
       signInLockout({

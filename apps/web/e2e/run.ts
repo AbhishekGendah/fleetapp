@@ -13,6 +13,7 @@ import { createDb } from "@fleetapp/db/client";
 import { adminUsers, operatorInvites, operators, users } from "@fleetapp/db/schema";
 import {
   ADMIN_APP_ROLE,
+  ADMIN_AUTH_ROLE,
   APPLICATION_ROLES,
   WEB_APP_ROLE,
   WEB_AUTH_ROLE,
@@ -35,9 +36,10 @@ const EXIT_FAILURE = 1;
 const TEST_SECRET = "an-e2e-only-signing-secret-of-32-chars-or-more";
 
 /** One made-up business with one invited User; returns the invite's secret for the address. */
-async function seedInvitedUser(adminDatabaseUrl: string): Promise<string> {
-  const database = createDb(adminDatabaseUrl);
-  const [admin] = await database
+async function seedInvitedUser(urls: { adminApp: string; adminAuth: string }): Promise<string> {
+  const database = createDb(urls.adminApp);
+  // AGS staff are made on the admin login's own connection, never the app's (review A9-3).
+  const [admin] = await createDb(urls.adminAuth)
     .insert(adminUsers)
     .values({ email: "e2e-inviting-admin@example.test", fullName: "E2E Admin" })
     .returning({ id: adminUsers.id });
@@ -67,7 +69,10 @@ async function main(): Promise<void> {
   const stops: Array<() => unknown> = [() => postgres.stop(), () => places.stop()];
   try {
     await migrateTestDatabase(postgres.ownerUrl);
-    const inviteToken = await seedInvitedUser(postgres.urlForRole(ADMIN_APP_ROLE));
+    const inviteToken = await seedInvitedUser({
+      adminApp: postgres.urlForRole(ADMIN_APP_ROLE),
+      adminAuth: postgres.urlForRole(ADMIN_AUTH_ROLE),
+    });
     const s3 = await startLocalS3({
       buckets: Object.values(E2E_BUCKETS),
       allowedOrigin: E2E_BASE_URL,

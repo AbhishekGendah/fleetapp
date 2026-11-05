@@ -95,10 +95,13 @@ describe("the ledger", () => {
     storage = createMemoryFileStorage();
     actor = await seedOperatorWithUser(admin, "Ledger Rentals Pty Ltd");
     otherOperator = await seedOperatorWithUser(admin, "Other Ledger Rentals Pty Ltd");
-    await admin.db
-      .update(operators)
-      .set({ gstRegistered: true, gstRegisteredFrom: "2020-01-01" })
-      .where(eq(operators.id, actor.operatorId));
+    // Set as the business sets it, in Settings (the admin app can't).
+    await withTenant(web.db, actor.operatorId, (tx) =>
+      tx
+        .update(operators)
+        .set({ gstRegistered: true, gstRegisteredFrom: "2020-01-01" })
+        .where(eq(operators.id, actor.operatorId)),
+    );
     const sentEmails: EmailMessage[] = [];
     kit = checklistKit(web, storage, sentEmails, actor);
   });

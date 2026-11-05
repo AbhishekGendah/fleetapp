@@ -1,5 +1,6 @@
 import {
   ADMIN_APP_ROLE,
+  ADMIN_AUTH_ROLE,
   APPLICATION_ROLES,
   WEB_APP_ROLE,
   WEB_AUTH_ROLE,
@@ -10,6 +11,7 @@ import type { TestProject } from "vitest/node";
 declare module "vitest" {
   export interface ProvidedContext {
     adminAppRoleUrl: string;
+    adminAuthRoleUrl: string;
     webAppRoleUrl: string;
     webAuthRoleUrl: string;
   }
@@ -22,6 +24,8 @@ export default async function setup(project: TestProject): Promise<() => Promise
 
   // The admin role seeds Operators, Users and invites, as the admin app does.
   project.provide("adminAppRoleUrl", postgres.urlForRole(ADMIN_APP_ROLE));
+  // AGS staff rows are made on the admin login's connection, as the first-admin command does.
+  project.provide("adminAuthRoleUrl", postgres.urlForRole(ADMIN_AUTH_ROLE));
   project.provide("webAppRoleUrl", postgres.urlForRole(WEB_APP_ROLE));
   project.provide("webAuthRoleUrl", postgres.urlForRole(WEB_AUTH_ROLE));
 

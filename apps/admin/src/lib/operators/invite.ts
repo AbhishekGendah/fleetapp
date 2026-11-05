@@ -63,6 +63,26 @@ export interface DeliverInviteInput {
   inviteeName: string;
 }
 
+async function recordInviteSent(
+  deps: OperatorActionDependencies,
+  input: DeliverInviteInput,
+): Promise<void> {
+  const sentAt = deps.now();
+  await deps.database.transaction(async (tx) => {
+    await tx
+      .update(operatorInvites)
+      .set({ sentAt })
+      .where(eq(operatorInvites.id, input.invite.inviteId));
+    await recordAdminActivity(tx, {
+      operatorId: input.operatorId,
+      adminUserId: input.adminUserId,
+      entityType: ACTIVITY_ENTITY_TYPES.operatorInvite,
+      entityId: input.invite.inviteId,
+      action: ACTIVITY_ACTIONS.sent,
+    });
+  });
+}
+
 /**
  * Sends the invite email, then records that it went.
  *
@@ -83,22 +103,6 @@ export async function deliverInvite(
       acceptUrl: buildInviteUrl(deps.appUrl, input.invite.token),
     });
     await deps.emailSender.send(message);
-
-    const sentAt = deps.now();
-    await deps.database.transaction(async (tx) => {
-      await tx
-        .update(operatorInvites)
-        .set({ sentAt })
-        .where(eq(operatorInvites.id, input.invite.inviteId));
-      await recordAdminActivity(tx, {
-        operatorId: input.operatorId,
-        adminUserId: input.adminUserId,
-        entityType: ACTIVITY_ENTITY_TYPES.operatorInvite,
-        entityId: input.invite.inviteId,
-        action: ACTIVITY_ACTIONS.sent,
-      });
-    });
-    return true;
   } catch (error) {
     // Only the error's type and the invite's ID: a provider's message can
     // quote the recipient's address, and this goes to the hosting logs.
@@ -108,4 +112,13 @@ export async function deliverInvite(
     });
     return false;
   }
+  // The email went: the screen says so even if noting it fails, so a Resend
+  // never cancels a working link by mistake (review A9-8).
+  await recordInviteSent(deps, input).catch((error: unknown) => {
+    console.error("Failed to record an Operator invite as sent", {
+      inviteId: input.invite.inviteId,
+      ...describeErrorForLog(error),
+    });
+  });
+  return true;
 }

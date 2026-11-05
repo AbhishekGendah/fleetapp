@@ -60,11 +60,22 @@ function cookiesFrom(response: Response): string {
     .join("; ");
 }
 
-/** Exactly what an authenticator app does with the QR code. */
-async function codeFor(totpURI: string): Promise<string> {
+const TOTP_PERIOD_MS = 30_000;
+
+function otpFor(totpURI: string) {
   const encoded = new URL(totpURI.replace("otpauth://", "https://")).searchParams.get("secret");
   const secret = new TextDecoder().decode(base32.decode(encoded ?? ""));
-  return createOTP(secret, { digits: TOTP_DIGITS }).totp();
+  return createOTP(secret, { digits: TOTP_DIGITS });
+}
+
+/** Exactly what an authenticator app does with the QR code. */
+async function codeFor(totpURI: string): Promise<string> {
+  return otpFor(totpURI).totp();
+}
+
+/** The code the app shows next: a used one is never accepted again (review A2-7). */
+async function nextCodeFor(totpURI: string): Promise<string> {
+  return otpFor(totpURI).hotp(Math.floor(Date.now() / TOTP_PERIOD_MS) + 1);
 }
 
 /**
@@ -91,10 +102,12 @@ describe("the Operator login", () => {
       emailSender: sender,
     });
 
-    const [adminUser] = await admin.db
+    const staff = connectAs(inject("adminAuthRoleUrl"));
+    const [adminUser] = await staff.db
       .insert(adminUsers)
       .values({ email: `${randomUUID()}@example.test`, fullName: "Inviting Admin" })
       .returning({ id: adminUsers.id });
+    await staff.close();
     if (!adminUser) {
       throw new Error("Could not seed an Admin.");
     }
@@ -295,7 +308,7 @@ describe("the Operator login", () => {
 
     // ...but the code, with "remember this device", hands back a trust cookie.
     const codeStep = await auth.api.verifyTOTP({
-      body: { code: await codeFor(enrolment.totpURI), trustDevice: true },
+      body: { code: await nextCodeFor(enrolment.totpURI), trustDevice: true },
       headers: new Headers({ cookie: cookiesFrom(passwordStep) }),
       asResponse: true,
     });
@@ -392,6 +405,73 @@ describe("the Operator login", () => {
     });
   });
 
+  describe("authenticator codes and remembered devices", () => {
+    async function enrolled(email: string): Promise<string> {
+      const first = await auth.api.signInEmail({
+        body: { email, password: TEST_PASSWORD },
+        asResponse: true,
+      });
+      const cookie = cookiesFrom(first);
+      const enrolment = await auth.api.enableTwoFactor({
+        body: { password: TEST_PASSWORD },
+        headers: new Headers({ cookie }),
+      });
+      if (!("totpURI" in enrolment)) {
+        throw new Error("No enrolment.");
+      }
+      await auth.api.verifyTOTP({
+        body: { code: await codeFor(enrolment.totpURI) },
+        headers: new Headers({ cookie }),
+      });
+      return enrolment.totpURI;
+    }
+
+    async function passwordStepCookie(email: string): Promise<string> {
+      const step = await auth.api.signInEmail({
+        body: { email, password: TEST_PASSWORD },
+        asResponse: true,
+      });
+      return cookiesFrom(step);
+    }
+
+    it("refuses a code that was just used, even a moment later (review A2-7)", async () => {
+      const seeded = await seedAcceptedUser();
+      const totpURI = await enrolled(seeded.email);
+      // The code used for enrolment, typed again at sign-in within its 90 seconds.
+      const code = await codeFor(totpURI);
+      await expect(
+        auth.api.verifyTOTP({
+          body: { code },
+          headers: new Headers({ cookie: await passwordStepCookie(seeded.email) }),
+        }),
+      ).rejects.toThrow();
+    });
+
+    it("forgets a remembered device 14 days after the code was last typed (review A2-9)", async () => {
+      const seeded = await seedAcceptedUser();
+      let clock = new Date();
+      const clockedAuth = createUserAuth({
+        database: webAuth.db,
+        baseURL: TEST_BASE_URL,
+        secret: TEST_SECRET,
+        issuerName: "Test Issuer",
+        emailSender: sender,
+        now: () => clock,
+      });
+      const trustCookie = await enrolAndTrustDevice(seeded.email);
+      const signInOnTrusted = () =>
+        clockedAuth.api.signInEmail({
+          body: { email: seeded.email, password: TEST_PASSWORD },
+          headers: new Headers({ cookie: trustCookie }),
+        });
+
+      clock = new Date(clock.getTime() + 13 * ONE_DAY_MS);
+      expect(await signInOnTrusted()).not.toHaveProperty("twoFactorRedirect");
+      clock = new Date(clock.getTime() + 2 * ONE_DAY_MS);
+      expect(await signInOnTrusted()).toHaveProperty("twoFactorRedirect", true);
+    });
+  });
+
   describe("resetting a password", () => {
     function emailsTo(email: string): EmailMessage[] {
       return sender.messages.filter((message) => message.to === email);
@@ -405,6 +485,27 @@ describe("the Operator login", () => {
 
     const signInWith = (email: string, password: string) =>
       auth.api.signInEmail({ body: { email, password } });
+
+    it("counts a reset before the invite was used as accepting it (review A2-3)", async () => {
+      const seeded = await seedInvite();
+      const token = await requestReset(seeded.email);
+      await auth.api.resetPassword({ body: { newPassword: NEW_PASSWORD, token: token! } });
+
+      await expect(signInWith(seeded.email, NEW_PASSWORD)).resolves.toBeDefined();
+      expect(await findUsableInvite(webAuth.db, seeded.token, new Date())).toBeNull();
+    });
+
+    it("sends at most three reset emails a login an hour (review G6-1)", async () => {
+      const seeded = await seedAcceptedUser();
+      for (let request = 0; request < 5; request += 1) {
+        await auth.api.requestPasswordReset({
+          body: { email: seeded.email, redirectTo: "/reset-password" },
+        });
+      }
+      expect(
+        emailsTo(seeded.email).filter((message) => /Reset/.test(message.subject)),
+      ).toHaveLength(3);
+    });
 
     it("tells the owner by email that their password was changed (review A2-1)", async () => {
       const seeded = await seedAcceptedUser();

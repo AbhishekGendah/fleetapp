@@ -184,6 +184,28 @@ describe("the admin login", () => {
       });
     });
 
+    it("lets the app end an over-age sign-in, so it shows 'sign in again', not an error (review A2-4)", async () => {
+      let clock = new Date();
+      const clockedAuth = createAdminAuth({
+        database: connection.db,
+        baseURL: TEST_BASE_URL,
+        secret: TEST_SECRET,
+        issuerName: TEST_ISSUER,
+        recordActivity: async () => undefined,
+        now: () => clock,
+      });
+      const signIn = await clockedAuth.api.signInEmail({
+        body: { email, password: TEST_PASSWORD },
+        asResponse: true,
+      });
+      const headers = new Headers({ cookie: signIn.headers.get("set-cookie") ?? "" });
+      const session = await clockedAuth.api.getSession({ headers });
+      clock = new Date(clock.getTime() + (ADMIN_SESSION.maxAgeSeconds + 60) * 1000);
+      await expect(
+        clockedAuth.api.revokeSession({ body: { token: session!.session.token }, headers }),
+      ).resolves.toBeDefined();
+    });
+
     it("leaves an Admin without an authenticator short of admin access", async () => {
       // The password alone does create a session — but an Admin who has not
       // enrolled is not let into the app. requireAdmin() sends them to

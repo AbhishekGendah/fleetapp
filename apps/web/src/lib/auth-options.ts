@@ -1,5 +1,6 @@
 import { describeErrorForLog, SECONDS_PER_DAY } from "@fleetapp/core";
 import {
+  createDrizzleCodeStore,
   createDrizzleLockoutStore,
   MAXIMUM_PASSWORD_LENGTH,
   MINIMUM_PASSWORD_LENGTH,
@@ -28,7 +29,7 @@ import type { EmailSender } from "@fleetapp/email";
 
 import { isAllowedToSignIn } from "./sign-in-eligibility";
 import { newDeviceAlert } from "./new-device-alert";
-import { createPasswordResetOptions } from "./password-reset";
+import { createPasswordResetOptions, forgetRememberedDevices } from "./password-reset";
 import { TRUSTED_DEVICE_DAYS } from "./trusted-device-policy";
 import { recordUserActivity, type RecordUserActivity } from "./user-activity";
 
@@ -125,6 +126,7 @@ function buildUserAuthOptions(config: UserAuthConfig) {
         appUrl: config.baseURL,
         lockoutStore,
         record,
+        now: config.now,
       }),
     },
 
@@ -134,6 +136,19 @@ function buildUserAuthOptions(config: UserAuthConfig) {
         onCodeFailed: (userId) => record(userId, ACTIVITY_ACTIONS.twoFactorFailed, "system"),
         onCodeLockedOut: (userId) => record(userId, ACTIVITY_ACTIONS.lockedOut, "system"),
         isAllowed: (userId) => isAllowedToSignIn(config.database, userId),
+        codeStore: createDrizzleCodeStore(config.database, {
+          table: userTwoFactors,
+          userId: userTwoFactors.userId,
+          lastCodeHash: userTwoFactors.lastCodeHash,
+          lastCodeAt: userTwoFactors.lastCodeAt,
+        }),
+        rememberedDevice: {
+          days: TRUSTED_DEVICE_DAYS,
+          // Records are kept by fingerprint, so devices can't be told from reset links:
+          // an unused reset link goes too, which is harmless once they sign in again.
+          forgetDevices: (userId) => forgetRememberedDevices(config.database, userId),
+        },
+        now: config.now,
       }),
       sessionMaxAge({ maxAgeSeconds: USER_SESSION.maxAgeSeconds, now: config.now }),
       signInLockout({

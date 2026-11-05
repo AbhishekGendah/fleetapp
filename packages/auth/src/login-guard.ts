@@ -1,7 +1,10 @@
 import type { BetterAuthPlugin } from "better-auth";
 import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
 
+import type { CodeStore } from "./drizzle-code-store";
 import { EMAIL_SIGN_IN_PATH, VERIFY_CODE_PATH } from "./paths";
+
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const VERIFY_RECOVERY_CODE_PATH = "/two-factor/verify-backup-code";
 /** Better Auth's cookie that carries a half-done sign-in (password right, code still to come). */
@@ -60,19 +63,48 @@ export interface LoginGuardOptions {
    * signed in, so a switched-off account can't change anything (review A9-5).
    */
   isAllowed: (userId: string) => Promise<boolean>;
+  /** Remembers the last code typed: one is never accepted twice (review A2-7). */
+  codeStore: CodeStore;
+  /**
+   * How long "remember this device" lasts from when a code was last typed
+   * (review A2-9); left out where devices are never remembered (Admins).
+   * Past it, `forgetDevices` is called before the password step, so the
+   * code is asked for again.
+   */
+  rememberedDevice?: { days: number; forgetDevices: (userId: string) => Promise<void> };
+  now?: () => Date;
 }
 
 interface HookContext {
   path?: string;
+  body?: unknown;
   getSignedCookie(name: string, secret: string): Promise<string | null | false>;
   context: {
     secret: string;
     createAuthCookie(name: string): { name: string };
     internalAdapter: {
       findVerificationValue(identifier: string): Promise<{ value: string } | null>;
+      findUserByEmail(email: string): Promise<{ user: { id: string } } | null>;
     };
   };
 }
+
+/** The code typed, if the request carries one as text. */
+function typedCode(body: unknown): string | null {
+  const code: unknown =
+    typeof body === "object" && body !== null ? Reflect.get(body, "code") : undefined;
+  return typeof code === "string" ? code : null;
+}
+
+/** The email typed at the password step, lower-cased as Better Auth stores it. */
+function typedEmail(body: unknown): string | null {
+  const email: unknown =
+    typeof body === "object" && body !== null ? Reflect.get(body, "email") : undefined;
+  return typeof email === "string" ? email.toLowerCase() : null;
+}
+
+/** What Better Auth answers for a wrong code: a code used already gets the same answer. */
+const INVALID_CODE = { code: "INVALID_CODE", message: "Invalid code" } as const;
 
 /**
  * Who is typing a code: from the half-done sign-in's cookie, as Better
@@ -94,6 +126,7 @@ async function codeUserId(ctx: HookContext): Promise<string | null> {
  * fully in, and every wrong code and code lock as well.
  */
 export function loginGuard(options: LoginGuardOptions): BetterAuthPlugin {
+  const now = options.now ?? (() => new Date());
   // Who a code check is for, found before Better Auth can use the half-done
   // sign-in up, keyed by that request's own cookie value.
   const codeChecks = new Map<string, string>();
@@ -129,8 +162,33 @@ export function loginGuard(options: LoginGuardOptions): BetterAuthPlugin {
           handler: createAuthMiddleware(async (ctx) => {
             const key = await codeCheckKey(ctx);
             const userId = key ? await codeUserId(ctx) : null;
-            if (key && userId) {
-              codeChecks.set(key, userId);
+            if (!key || !userId) {
+              return;
+            }
+            codeChecks.set(key, userId);
+            const code = ctx.path === VERIFY_CODE_PATH ? typedCode(ctx.body) : null;
+            if (code && (await options.codeStore.wasJustUsed(userId, code, now()))) {
+              // Seen over a shoulder and typed again: refused like a wrong code.
+              throw APIError.from("UNAUTHORIZED", INVALID_CODE);
+            }
+          }),
+        },
+        {
+          matcher: (ctx) =>
+            ctx.path === EMAIL_SIGN_IN_PATH && options.rememberedDevice !== undefined,
+          handler: createAuthMiddleware(async (ctx) => {
+            const remembered = options.rememberedDevice;
+            const email = typedEmail(ctx.body);
+            const found = email ? await ctx.context.internalAdapter.findUserByEmail(email) : null;
+            if (!remembered || !found) {
+              return;
+            }
+            const lastCodeAt = await options.codeStore.lastCodeAt(found.user.id);
+            const isExpired =
+              !lastCodeAt ||
+              now().getTime() - lastCodeAt.getTime() > remembered.days * MILLISECONDS_PER_DAY;
+            if (isExpired) {
+              await remembered.forgetDevices(found.user.id);
             }
           }),
         },
@@ -153,6 +211,17 @@ export function loginGuard(options: LoginGuardOptions): BetterAuthPlugin {
                 }
               }
               return;
+            }
+            if (CODE_PATHS.has(ctx.path ?? "")) {
+              const codeOwner =
+                codeUser ?? (await getSessionFromCtx(ctx).catch(() => null))?.user.id;
+              if (codeOwner) {
+                await options.codeStore.noteCodeTyped(
+                  codeOwner,
+                  ctx.path === VERIFY_CODE_PATH ? typedCode(ctx.body) : null,
+                  now(),
+                );
+              }
             }
             const signedIn = ctx.context.newSession;
             // The password step with an authenticator to come is not a sign-in yet;
