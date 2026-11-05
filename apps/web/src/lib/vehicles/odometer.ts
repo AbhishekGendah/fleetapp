@@ -10,7 +10,7 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, desc, eq, isNull } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
-import { findCurrentVehicle } from "./current-vehicle";
+import { findCurrentVehicle, isOfCurrentCar } from "./current-vehicle";
 
 /** The readings that count: verified and not withdrawn. Shared by every query that needs the current km. */
 export const countedReading = and(
@@ -142,6 +142,7 @@ export async function withdrawReading(
         eq(odometerReadings.id, readingId),
         eq(odometerReadings.operatorId, actor.operatorId),
         isNull(odometerReadings.withdrawnAt),
+        isOfCurrentCar(odometerReadings.vehicleId),
       ),
     )
     .returning({ id: odometerReadings.id });

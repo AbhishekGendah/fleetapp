@@ -1,4 +1,4 @@
-import { LICENCE_SIDES } from "@fleetapp/core";
+import { LICENCE_SIDES, type BookingProblem } from "@fleetapp/core";
 import { SAMPLE_JPEG } from "@fleetapp/core/testing";
 import type { TestConnection } from "@fleetapp/db/testing";
 
@@ -12,7 +12,7 @@ import { startLicenceScanUpload } from "../src/lib/renters/licence-scans";
 import { emptyRenterForm, parseRenterForm } from "../src/lib/renters/renter-input";
 import { createRenter } from "../src/lib/renters/renter-records";
 import type { MemoryFileStorage } from "../src/lib/storage/memory-file-storage";
-import { addTestCar } from "./car-fixtures";
+import { addCurrentPaperwork, addTestCar } from "./car-fixtures";
 
 export const TEST_TIME_ZONE = "Australia/Perth";
 
@@ -29,36 +29,64 @@ export async function addTestRenter(
   return createRenter(web.db, owner, parsed.data!);
 }
 
+/** The test rental's dates: four weeks in June 2027, on the Operator's clock. */
+export const TEST_RENTAL_PERIOD = {
+  plannedStart: "2027-06-01T09:00",
+  plannedEnd: "2027-06-29T09:00",
+};
+
 /**
- * Books a new car for the Renter for four weeks in June 2027, $350 a week
- * and a $500 bond, through the same code as the New rental form.
+ * Books this car for the Renter, $350 a week and a $500 bond, through the
+ * same code as the New rental form.
  */
-export async function bookTestRental(
+export async function bookTestRentalOn(
   web: TestConnection,
   owner: ActingUser,
-  renterId: string,
-  status: NewRentalStatus = "booked",
-): Promise<{ rentalId: string; vehicleId: string }> {
-  const vehicleId = await addTestCar(web, owner);
+  booking: {
+    renterId: string;
+    vehicleId: string;
+    period?: { plannedStart: string; plannedEnd: string };
+    status?: NewRentalStatus;
+    now?: Date;
+  },
+): Promise<{ rentalId: string; vehicleId: string; problems: BookingProblem[] }> {
   const input = parseRentalForm(
     {
-      ...emptyRentalForm({ renterId, vehicleId }),
-      plannedStart: "2027-06-01T09:00",
-      plannedEnd: "2027-06-29T09:00",
+      ...emptyRentalForm({ renterId: booking.renterId, vehicleId: booking.vehicleId }),
+      ...(booking.period ?? TEST_RENTAL_PERIOD),
       dailyRateCents: "70",
       longTermWeeklyCents: "350",
       bondCents: "500",
     },
     TEST_TIME_ZONE,
   );
-  const result = await createRental(web.db, owner, input.data!, status, {
+  const result = await createRental(web.db, owner, input.data!, booking.status ?? "booked", {
     timeZone: TEST_TIME_ZONE,
-    now: new Date(),
+    now: booking.now ?? new Date(),
   });
   if (result.status !== "saved") {
     throw new Error(`The test rental was not saved: ${result.status}`);
   }
-  return { rentalId: result.rentalId, vehicleId };
+  return { rentalId: result.rentalId, vehicleId: booking.vehicleId, problems: result.problems };
+}
+
+/**
+ * Books a new car for the Renter for four weeks in June 2027. The car has
+ * rego and insurance on file unless asked otherwise (review A8-2).
+ */
+export async function bookTestRental(
+  web: TestConnection,
+  owner: ActingUser,
+  renterId: string,
+  status: NewRentalStatus = "booked",
+  options: { isPaperworkOnFile?: boolean } = {},
+): Promise<{ rentalId: string; vehicleId: string }> {
+  const vehicleId = await addTestCar(web, owner);
+  if (options.isPaperworkOnFile !== false) {
+    await addCurrentPaperwork(web, owner, vehicleId);
+  }
+  const booked = await bookTestRentalOn(web, owner, { renterId, vehicleId, status });
+  return { rentalId: booked.rentalId, vehicleId };
 }
 
 /**

@@ -32,8 +32,9 @@ export async function fillContract(
   template: TemplateDocument,
   clock: RentalClock,
   formOnly?: FormOnlyFields,
+  car: { vehicleId?: string } = {},
 ): Promise<FilledContract | null> {
-  const loaded = await loadContractData(database, operatorId, rentalId, clock);
+  const loaded = await loadContractData(database, operatorId, rentalId, clock, car);
   if (!loaded) {
     return null;
   }

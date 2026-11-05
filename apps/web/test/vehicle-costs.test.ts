@@ -67,8 +67,11 @@ function parsed<Output>(
   return result.data;
 }
 
+/** Later than every purchase date the tests type. */
+const TODAY = "2030-01-01";
+
 const purchase = (changes: Partial<typeof PURCHASE_FORM> = {}): PurchaseInput =>
-  parsed(parsePurchaseForm({ ...PURCHASE_FORM, ...changes }));
+  parsed(parsePurchaseForm({ ...PURCHASE_FORM, ...changes }, TODAY));
 const sale = (changes: Partial<typeof SALE_FORM> = {}): SaleInput =>
   parsed(parseSaleForm({ ...SALE_FORM, ...changes }, PERTH));
 const cost = (changes: Partial<typeof COST_FORM> = {}): CostInput =>

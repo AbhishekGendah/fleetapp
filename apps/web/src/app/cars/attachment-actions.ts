@@ -63,7 +63,7 @@ export async function removeAttachmentAction(
     pagesToRefresh: [pagePath],
     change: async (actor) =>
       (await removeAttachment(fileDependencies(), actor, fileId)) === "removed"
-        ? savedState("Removed.")
+        ? savedState("Removed. It is kept 5 years, as tax papers must be.")
         : failedState("That file was already removed."),
   });
 }

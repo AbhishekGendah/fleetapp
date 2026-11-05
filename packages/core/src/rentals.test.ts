@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   bookingProblems,
   canMoveRental,
+  handoverBlockers,
   isBookingRefused,
   isHandoverAllowed,
   isValidRentalPeriod,
@@ -21,10 +22,18 @@ const READY_RENTER: BookingCheckInput["renter"] = {
   hasBothLicenceScans: true,
 };
 
+const READY_CAR: BookingCheckInput["car"] = {
+  isOutWithAnotherRenter: false,
+  isInsured: true,
+  isRegistered: true,
+};
+
 function check(overrides: Partial<BookingCheckInput> = {}) {
   return bookingProblems({
     renter: READY_RENTER,
     carStatus: "available",
+    car: READY_CAR,
+    coverOn: "2026-11-10",
     startDate: "2026-11-10",
     endDate: "2026-12-10",
     today: "2026-11-01",
@@ -94,6 +103,34 @@ describe("booking checks", () => {
     });
     expect(problems.map((problem) => problem.code)).toEqual(["do_not_rent", "car_not_rentable"]);
     expect(isBookingRefused(problems)).toBe(true);
+  });
+
+  it("allows booking a car still out with another Renter, but not handing it over", () => {
+    const problems = check({ car: { ...READY_CAR, isOutWithAnotherRenter: true } });
+    expect(problems.map((problem) => problem.code)).toEqual(["car_still_out"]);
+    expect(isBookingRefused(problems)).toBe(false);
+    expect(handoverBlockers(problems)).toHaveLength(1);
+  });
+
+  it("names a car with no insurance or rego on the day, which a reason can override", () => {
+    const problems = check({ car: { ...READY_CAR, isInsured: false, isRegistered: false } });
+    expect(problems).toEqual([
+      { code: "no_insurance", level: "handover", coverOn: "2026-11-10" },
+      { code: "no_rego", level: "handover", coverOn: "2026-11-10" },
+    ]);
+    expect(isHandoverAllowed(problems)).toBe(false);
+    expect(handoverBlockers(problems)).toEqual([]);
+  });
+
+  it("blocks a handover for a do-not-rent Renter or a sold car, not only the booking (review A6-1)", () => {
+    const problems = check({
+      renter: { ...READY_RENTER, status: "do_not_rent" },
+      carStatus: "sold",
+    });
+    expect(handoverBlockers(problems).map((problem) => problem.code)).toEqual([
+      "do_not_rent",
+      "car_not_rentable",
+    ]);
   });
 
   it("allows booking a car in service, but not handing it over", () => {

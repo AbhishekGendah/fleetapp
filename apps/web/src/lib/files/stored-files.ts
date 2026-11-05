@@ -77,7 +77,7 @@ export function logFile(
   tx: AnyTransaction,
   actor: FileActor,
   fileId: string,
-  action: "uploaded" | "refused" | "deleted" | "viewed",
+  action: "uploaded" | "refused" | "deleted" | "restored" | "viewed",
   purpose: FilePurpose,
 ): Promise<void> {
   return recordActivity(tx, {

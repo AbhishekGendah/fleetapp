@@ -150,3 +150,39 @@ export async function recordInWorkshop(rego: string, expectedBack: string): Prom
     await client.end();
   }
 }
+
+/**
+ * Records a rego on direct debit and an insurance policy covering every
+ * test date for a car, straight in the test database: a handover asks why a
+ * car goes without them (review A8-2), proven in handover.e2e.ts.
+ */
+export async function recordCurrentPaperwork(rego: string): Promise<void> {
+  const client = new Client({ connectionString: process.env.E2E_SUPERUSER_URL });
+  await client.connect();
+  try {
+    const { rows } = await client.query<{ id: string; operator_id: string }>(
+      "SELECT id, operator_id FROM vehicles WHERE rego = upper($1) AND archived_at IS NULL",
+      [rego],
+    );
+    const car = rows[0];
+    if (!car) {
+      throw new Error(`No car ${rego} to record paperwork for.`);
+    }
+    await client.query(
+      `INSERT INTO vehicle_registrations (operator_id, vehicle_id, state, term_months, paid_on, cost_cents)
+       VALUES ($1, $2, 'WA', 1, '2020-01-01', 0)`,
+      [car.operator_id, car.id],
+    );
+    const policy = await client.query<{ id: string }>(
+      `INSERT INTO insurance_policies (operator_id, insurer, policy_number, cover_type, starts_on, ends_on, cost_cents)
+       VALUES ($1, 'Test Insurer', $2, 'comprehensive', '2020-01-01', '2099-12-31', 0) RETURNING id`,
+      [car.operator_id, randomUUID().slice(0, 8).toUpperCase()],
+    );
+    await client.query(
+      `INSERT INTO insurance_policy_vehicles (operator_id, policy_id, vehicle_id) VALUES ($1, $2, $3)`,
+      [car.operator_id, policy.rows[0]!.id, car.id],
+    );
+  } finally {
+    await client.end();
+  }
+}

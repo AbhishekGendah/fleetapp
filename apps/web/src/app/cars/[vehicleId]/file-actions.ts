@@ -1,6 +1,7 @@
 "use server";
 
 import { isRecordId, requiredLine, UPLOAD_PROBLEM_MESSAGES } from "@fleetapp/core";
+import { restoreCarFile } from "../../../lib/files/removed-files";
 import { failedState, savedState, type ChangeFormState } from "@fleetapp/ui/change-form-state";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -176,9 +177,32 @@ export async function removeCarFileAction(
   if (!isRecordId(fileId)) {
     return failedState(NOT_FOUND_MESSAGE);
   }
-  return changeCar(vehicleId, "Removing a car file", async (actor) =>
-    (await removeCarFile(fileDependencies(), actor, vehicleId, fileId)) === "removed"
-      ? savedState("Removed.")
-      : failedState("That file was already removed."),
+  return changeCar(vehicleId, "Removing a car file", async (actor) => {
+    const result = await removeCarFile(fileDependencies(), actor, vehicleId, fileId);
+    if (result === "held") {
+      return failedState(HELD_MESSAGE);
+    }
+    return result === "removed"
+      ? savedState("Removed. You can bring it back for 30 days.")
+      : failedState("That file was already removed.");
+  });
+}
+
+const HELD_MESSAGE =
+  "This photo backs a charge to the Renter or an insurance claim, so it can't be removed while that is open.";
+
+/** Brings back a photo, document or paper removed by mistake (review A7-4). */
+export async function restoreCarFileAction(
+  vehicleId: string,
+  fileId: string,
+  _previous: ChangeFormState,
+): Promise<ChangeFormState> {
+  if (!isRecordId(fileId)) {
+    return failedState(NOT_FOUND_MESSAGE);
+  }
+  return changeCar(vehicleId, "Bringing back a car file", async (actor) =>
+    (await restoreCarFile(fileDependencies(), actor, vehicleId, fileId)) === "restored"
+      ? savedState("Brought back.")
+      : failedState("That file can no longer be brought back."),
   );
 }

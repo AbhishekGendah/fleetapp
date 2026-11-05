@@ -1,13 +1,21 @@
 "use client";
 
-import { AT_RETURN_TIME_WORDS, fieldErrorsOf } from "@fleetapp/core";
+import {
+  AT_RETURN_TIME_WORDS,
+  fieldErrorsOf,
+  formatDateTimeInTimeZone,
+  repeatedTimeMoments,
+  REPEATED_TIME_CHOICES,
+  type RepeatedTimeChoice,
+} from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { Checkbox } from "@fleetapp/ui/checkbox";
 import { DateTimePicker } from "@fleetapp/ui/date-time-picker";
 import { FormField } from "@fleetapp/ui/form-field";
 import { FormError } from "@fleetapp/ui/form-message";
 import { RequiredFieldsNote } from "@fleetapp/ui/input";
-import { useFormFields } from "@fleetapp/ui/use-form-fields";
+import { Select } from "@fleetapp/ui/select";
+import { useFormFields, type FormFields } from "@fleetapp/ui/use-form-fields";
 import { CheckCircle2 } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
 
@@ -17,6 +25,7 @@ import {
   returnFormSchema,
   STATUSES_AFTER_RETURN,
   TICKED,
+  type ReturnFormField,
   type ReturnFormValues,
 } from "../../../../lib/handover/return-input";
 import type { ShownChecklist } from "../../../../lib/handover/checklist-fingerprint";
@@ -30,6 +39,39 @@ import {
 import { useForgetWhenDone } from "../handover/use-forget-when-done";
 import { completeReturnAction } from "./actions";
 import { INITIAL_RETURN_STATE } from "./return-state";
+
+const REPEATED_TIME_WORDS: Readonly<Record<RepeatedTimeChoice, string>> = {
+  first: "before the clocks went back",
+  second: "after the clocks went back",
+};
+
+/** On the night the clocks go back, which of the two times the car came back (review A11-9). */
+function RepeatedTimeField(props: { form: FormFields<ReturnFormField>; timeZone: string }) {
+  const moments = repeatedTimeMoments(props.form.values.returnedAt, props.timeZone);
+  if (!moments) {
+    return null;
+  }
+  return (
+    <FormField
+      htmlFor={props.form.idFor("repeatedTime")}
+      label="Which one?"
+      isRequired
+      error={props.form.errorFor("repeatedTime")}
+    >
+      <Select
+        {...props.form.boxProps("repeatedTime")}
+        onChange={(event) => props.form.setValue("repeatedTime", event.target.value)}
+      >
+        <option value="">Choose…</option>
+        {REPEATED_TIME_CHOICES.map((choice) => (
+          <option key={choice} value={choice}>
+            {`${formatDateTimeInTimeZone(moments[choice], props.timeZone)}, ${REPEATED_TIME_WORDS[choice]}`}
+          </option>
+        ))}
+      </Select>
+    </FormField>
+  );
+}
 
 /**
  * The return's last step: when the car came back (now, or the real time of
@@ -94,6 +136,7 @@ export function ReturnForm(props: {
           onValueChange={(value) => form.setValue("returnedAt", value)}
         />
       </FormField>
+      <RepeatedTimeField form={form} timeZone={props.timeZone} />
       <CarStatusFields
         form={form}
         statuses={STATUSES_AFTER_RETURN}

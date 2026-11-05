@@ -33,7 +33,11 @@ export type QueueState =
 
 const senders: QueueSenders = {
   addMark: (mark) =>
-    addDamageMarkAction(mark.inspectionId, { x: mark.x, y: mark.y, description: mark.description }),
+    addDamageMarkAction(
+      mark.inspectionId,
+      { x: mark.x, y: mark.y, description: mark.description },
+      mark.markKey,
+    ),
   sendPhoto: async (inspectionId, target, files) => {
     const start = await startChecklistPhotoAction(inspectionId, target, {
       photo: { contentType: files.photo.type, sizeBytes: files.photo.size },
@@ -43,6 +47,9 @@ const senders: QueueSenders = {
       return PHOTO_TARGET_GONE;
     }
     if (start.status === "refused") {
+      return { refusedForGood: start.message };
+    }
+    if (start.status === "failed") {
       return start.message;
     }
     const [isPhotoSent] = await Promise.all([
@@ -86,6 +93,8 @@ export function useHandoverQueue(inspectionId: string): {
   /** Tells the queue these marks are saved on the page, or removed (see MarkSentFromPhone). */
   settleMarks: (markIds: readonly string[]) => void;
   state: QueueState;
+  /** Why photos the server will never take were dropped from this phone, to take again. */
+  dropped: string[];
   enqueue: (change: NewQueuedChange) => Promise<void>;
   sendNow: () => void;
 } {
@@ -93,6 +102,7 @@ export function useHandoverQueue(inspectionId: string): {
   const [queued, setQueued] = useState<QueuedChange[]>([]);
   const [state, setState] = useState<QueueState>({ status: "idle" });
   const [sentFromPhone, setSentFromPhone] = useState<MarkSentFromPhone[]>([]);
+  const [dropped, setDropped] = useState<string[]>([]);
   const store = useMarkRemembering(setSentFromPhone);
   const isRunning = useRef(false);
   /** Something was queued while a run was sending: run again straight after, not at the next retry. */
@@ -118,6 +128,9 @@ export function useHandoverQueue(inspectionId: string): {
         isRunAgainWanted.current = false;
         problem = await orSendFailed(async () => {
           const result = await runQueue(store, senders, inspectionId);
+          if (result.dropped.length > 0) {
+            setDropped((previous) => [...previous, ...result.dropped]);
+          }
           if (result.count > 0) {
             router.refresh();
           }
@@ -159,7 +172,7 @@ export function useHandoverQueue(inspectionId: string): {
     );
   }, []);
 
-  return { queued, sentFromPhone, settleMarks, state, enqueue, sendNow };
+  return { queued, sentFromPhone, settleMarks, state, dropped, enqueue, sendNow };
 }
 
 /**

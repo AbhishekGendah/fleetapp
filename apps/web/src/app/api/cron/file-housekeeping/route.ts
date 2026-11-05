@@ -5,6 +5,7 @@ import { env } from "../../../../env";
 import { appDb } from "../../../../lib/app-db";
 import { isScheduledJobRequest } from "../../../../lib/cron-auth";
 import { runFileHousekeeping } from "../../../../lib/files/file-housekeeping";
+import { moveOldPhotosToLongTermStorage } from "../../../../lib/files/long-term-storage";
 import { removeOldSubmissions } from "../../../../lib/renter-links/submission-cleanup";
 import { RENTAL_RETENTION_HOLDS } from "../../../../lib/rentals/retention-holds";
 import { retireOldRenters } from "../../../../lib/renters/renter-retirement";
@@ -33,7 +34,7 @@ async function runPart<Summary>(
   }
 }
 
-/** The daily clean-up (old Renter submissions, expired licence scans, Renters past seven years, then files), called by Vercel's scheduler (vercel.json). */
+/** The daily clean-up (old Renter submissions, expired licence scans, Renters past seven years, files, then old photos to long-term storage), called by Vercel's scheduler (vercel.json). */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!isScheduledJobRequest(request.headers.get("authorization"), env.CRON_SECRET)) {
     return NextResponse.json({ error: "unauthorised" }, { status: UNAUTHORISED_STATUS });
@@ -53,5 +54,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     retireOldRenters(deps.database, isOutOfTime),
   );
   const files = await runPart("File clean-up", () => runFileHousekeeping(deps, isOutOfTime));
-  return NextResponse.json({ submissions, licenceScans, renters, files });
+  const longTerm = await runPart("Long-term photo storage", () =>
+    moveOldPhotosToLongTermStorage(deps, isOutOfTime),
+  );
+  return NextResponse.json({ submissions, licenceScans, renters, files, longTerm });
 }

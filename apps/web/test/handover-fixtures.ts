@@ -48,24 +48,29 @@ export function checklistKit(
   const handoverDeps = () => ({ ...deps(), emailSender: recordingEmailSender(sentEmails) });
 
   /** A booked rental for a Renter with everything on file, its contract signed and bond held. */
-  async function readyRental(options: { isBondHeld?: boolean } = {}) {
+  async function readyRental(options: { isBondHeld?: boolean; isPaperworkOnFile?: boolean } = {}) {
     const renterId = await addRenterReadyToRent(web, deps(), actor);
-    const booked = await bookTestRental(web, actor, renterId);
+    const booked = await bookTestRental(web, actor, renterId, "booked", options);
+    await signAndHoldBond(booked.rentalId, options);
+    return { ...booked, renterId };
+  }
+
+  /** The contract signed and, unless asked otherwise, the bond held. */
+  async function signAndHoldBond(rentalId: string, options: { isBondHeld?: boolean } = {}) {
     await issueDocument(deps(), actor, {
-      rentalId: booked.rentalId,
+      rentalId: rentalId,
       kind: "contract",
       templateVersionId: null,
       pdf: new TextEncoder().encode("%PDF-1.4 signed"),
     });
     if (options.isBondHeld !== false) {
-      await recordBondReceived(web.db, actor, booked.rentalId, {
+      await recordBondReceived(web.db, actor, rentalId, {
         amountCents: 500_00,
         method: "cash",
         reference: null,
         occurredOn: "2026-10-30",
       });
     }
-    return booked;
   }
 
   async function takePhoto(inspectionId: string, target: ChecklistPhotoTarget): Promise<string> {
@@ -132,6 +137,8 @@ export function checklistKit(
         signature: drawnSignatureInput(TEST_SIGNATURE),
         bondOverrideReason: null,
         directDebitOverrideReason: null,
+        insuranceOverrideReason: null,
+        regoOverrideReason: null,
       },
       { timeZone: TEST_TIME_ZONE, now: handedOverAt },
     );
@@ -143,6 +150,7 @@ export function checklistKit(
     deps,
     handoverDeps,
     readyRental,
+    signAndHoldBond,
     takePhoto,
     fillChecklist,
     filledHandover,

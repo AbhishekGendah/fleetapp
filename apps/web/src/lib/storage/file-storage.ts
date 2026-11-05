@@ -49,6 +49,11 @@ export interface FileStorage {
   save(area: StorageArea, key: string, bytes: Uint8Array, contentType: string): Promise<void>;
   remove(area: StorageArea, key: string): Promise<void>;
   /**
+   * Keeps the file in cheaper long-term storage (S3 Glacier Instant
+   * Retrieval): the same address, opened just as quickly (rule 23).
+   */
+  moveToLongTermStorage(area: StorageArea, key: string): Promise<void>;
+  /**
    * A link that works for VIEW_LINK_SECONDS. With a name, saving or sharing
    * the file uses it rather than the storage address.
    */

@@ -11,7 +11,7 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
-import { findCurrentVehicle } from "./current-vehicle";
+import { findCurrentVehicle, isOfCurrentCar } from "./current-vehicle";
 import type { RegoInput } from "./paperwork-input";
 
 /** Saved, but worth a second look: see `addRegistration`. */
@@ -216,6 +216,7 @@ export async function archiveRegistration(
           eq(vehicleRegistrations.id, registrationId),
           eq(vehicleRegistrations.operatorId, actor.operatorId),
           isNull(vehicleRegistrations.archivedAt),
+          isOfCurrentCar(vehicleRegistrations.vehicleId),
         ),
       )
       .returning({ id: vehicleRegistrations.id });

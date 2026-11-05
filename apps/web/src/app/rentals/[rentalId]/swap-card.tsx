@@ -1,6 +1,7 @@
 import { canSwapCar, formatDateTimeInTimeZone, type DocumentEmailState } from "@fleetapp/core";
 import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
+import { ConfirmButton } from "@fleetapp/ui/confirm-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
@@ -93,12 +94,16 @@ function SwapUnderWay({ rentalId, swap }: { rentalId: string; swap: SwapSummary 
             Continue swap
           </Link>
         </Button>
-        <form action={cancelSwapAction.bind(null, rentalId)}>
-          <Button type="submit" variant="danger" className="w-full sm:w-auto">
-            <XCircle aria-hidden />
-            Cancel swap
-          </Button>
-        </form>
+        <ConfirmButton
+          label="Cancel swap"
+          icon={<XCircle aria-hidden />}
+          title="Cancel this swap?"
+          description="The photos and damage marks taken so far on both cars are thrown away, and the Renter keeps the car they have."
+          confirmLabel="Yes, cancel the swap"
+          pendingLabel="Cancelling…"
+          keepLabel="No, keep the swap"
+          action={cancelSwapAction.bind(null, rentalId)}
+        />
       </div>
     </div>
   );

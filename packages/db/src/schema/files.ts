@@ -103,6 +103,11 @@ export const files = pgTable(
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     /** Removed from storage for good by the clean-up job. */
     purgedAt: timestamp("purged_at", { withTimezone: true }),
+    /**
+     * Moved to cheaper long-term storage (S3 Glacier Instant Retrieval) by
+     * the nightly job, its rental over a year back (rule 23). Opens as before.
+     */
+    longTermStorageAt: timestamp("long_term_storage_at", { withTimezone: true }),
 
     ...timestampColumns,
   },

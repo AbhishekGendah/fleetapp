@@ -16,6 +16,14 @@ export const OPERATOR_VEHICLE_STATUSES = [
   "written_off",
 ] as const;
 /**
+ * The statuses the car page's Status box offers. Sold comes only from
+ * recording a sale, and goes only by cancelling it, so the Costs tab's sale
+ * and the car's status always agree (review A8-5).
+ */
+export const STATUS_BOX_STATUSES = OPERATOR_VEHICLE_STATUSES.filter(
+  (status): status is Exclude<OperatorVehicleStatus, "sold"> => status !== "sold",
+);
+/**
  * What a car is doing. "rented" is only ever set by the system, from who has
  * the car: at the handover, and back at the return.
  */

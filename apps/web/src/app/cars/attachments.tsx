@@ -2,6 +2,7 @@ import { ActionButton } from "@fleetapp/ui/action-button";
 import { ImageViewer } from "@fleetapp/ui/image-viewer";
 import { Trash2 } from "lucide-react";
 
+import { REMOVE_PAPER_QUESTION } from "../../lib/files/removal-questions";
 import type { Attachment, AttachmentTarget } from "../../lib/files/attachments";
 import { attachmentPath } from "../../lib/paths";
 import { AttachButton } from "./attach-button";
@@ -27,6 +28,7 @@ function RemoveAttachment(props: { pagePath: string; attachment: Attachment }) {
       variant="danger"
       icon={<Trash2 aria-hidden />}
       isIconOnly
+      confirm={REMOVE_PAPER_QUESTION}
     />
   );
 }

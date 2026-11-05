@@ -10,6 +10,7 @@ import {
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
+import { hasRenterRentalUnderWay } from "../rentals/rentals-under-way";
 import { recordUserChange, type ActingUser, type UserChange } from "../acting-user";
 import { cancelLiveLinks } from "../renter-links/cancel-links";
 import type { RenterInput, RenterStatusInput } from "./renter-input";
@@ -35,7 +36,12 @@ const PRIVATE_STATUS_FIELDS = ["doNotRentReason"] as const;
 type Renter = typeof renters.$inferSelect;
 
 /** Archived Renters are read-only until restored, as for cars. */
-export type ChangeRenterResult = "changed" | "unchanged" | "not_found";
+export type ChangeRenterResult =
+  | "changed"
+  | "unchanged"
+  | "not_found"
+  /** A rental of theirs is booked or out: they can't be archived until it is finished or cancelled. */
+  | "in_use";
 
 export function logRenterActivity(
   tx: AnyTransaction,
@@ -193,6 +199,15 @@ async function setRenterArchived(
   shouldArchive: boolean,
 ): Promise<ChangeRenterResult> {
   return withTenant(database, actor.operatorId, async (tx) => {
+    // Locked first, so a booking made at the same moment is seen (review A8-1).
+    await tx
+      .select({ id: renters.id })
+      .from(renters)
+      .where(and(eq(renters.id, renterId), eq(renters.operatorId, actor.operatorId)))
+      .for("update");
+    if (shouldArchive && (await hasRenterRentalUnderWay(tx, actor.operatorId, renterId))) {
+      return "in_use";
+    }
     const [changed] = await tx
       .update(renters)
       .set({ archivedAt: shouldArchive ? new Date() : null })

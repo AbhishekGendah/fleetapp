@@ -50,6 +50,9 @@ export async function changeRenterStatusAction(
   });
 }
 
+const IN_USE_MESSAGE =
+  "This Renter has a rental booked or out. Finish or cancel it first, then archive them.";
+
 /** Archive and restore come from a single button, with nothing typed. */
 export async function setRenterArchivedAction(
   renterId: string,
@@ -63,6 +66,9 @@ export async function setRenterArchivedAction(
       const result = shouldArchive
         ? await archiveRenter(appDb, actor, renterId)
         : await restoreRenter(appDb, actor, renterId);
+      if (result === "in_use") {
+        return failedState(IN_USE_MESSAGE);
+      }
       return result === "not_found"
         ? failedState(RENTER_NOT_FOUND_MESSAGE)
         : savedState(shouldArchive ? "Archived." : "Restored.");

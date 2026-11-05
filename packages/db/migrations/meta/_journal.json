@@ -337,6 +337,27 @@
       "when": 1793870798153,
       "tag": "0047_renter_retention",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793877802339,
+      "tag": "0048_handover_paperwork_reasons",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1793878779060,
+      "tag": "0049_damage_mark_phone_key",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1793880531131,
+      "tag": "0050_photo_long_term_storage",
+      "breakpoints": true
     }
   ]
 }

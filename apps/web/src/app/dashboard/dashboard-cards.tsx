@@ -91,20 +91,39 @@ function paperworkDetails(
   car: DashboardData["paperworkDue"]["items"][number],
   data: DashboardData,
 ) {
+  // Cover that ran out reads as Expired; Missing is for none on file, or one not started yet.
+  const isRegoMissing = !car.isRegisteredToday && !isPast(car.regoExpiresOn, data.window.today);
+  const isInsuranceMissing = !car.isInsuredToday && !isPast(car.insuranceEndsOn, data.window.today);
   const lines = [
+    isRegoMissing ? "No current rego" : null,
+    isInsuranceMissing ? "No current insurance" : null,
     car.regoExpiresOn ? `Rego ${formatCalendarDate(car.regoExpiresOn)}` : null,
     car.insuranceEndsOn ? `Insurance ${formatCalendarDate(car.insuranceEndsOn)}` : null,
   ].filter(Boolean);
+  const isMissing = isRegoMissing || isInsuranceMissing;
   const firstDue = [car.regoExpiresOn, car.insuranceEndsOn].filter(Boolean).sort()[0] ?? null;
   const status = expiryStatus(firstDue, data.window.today, data.vehicleWarningDays);
-  return { text: lines.join(" · "), isExpired: status === "expired" };
+  return { text: lines.join(" · "), isMissing, isExpired: status === "expired" };
+}
+
+function isPast(day: string | null, today: string): boolean {
+  return day !== null && day < today;
+}
+
+function paperworkBadge(details: { isMissing: boolean; isExpired: boolean }) {
+  if (details.isMissing) {
+    return { label: "Missing", tone: "danger" as const };
+  }
+  return details.isExpired
+    ? { label: "Expired", tone: "danger" as const }
+    : { label: "Due soon", tone: "attention" as const };
 }
 
 function PaperworkGroups({ data }: { data: DashboardData }) {
   return (
     <>
       <AttentionGroup
-        heading="Rego or insurance due"
+        heading="Rego or insurance due or missing"
         total={data.paperworkDue.total}
         items={data.paperworkDue.items.map((car) => {
           const details = paperworkDetails(car, data);
@@ -113,11 +132,7 @@ function PaperworkGroups({ data }: { data: DashboardData }) {
             href: carPath(car.id),
             title: carTitle(car),
             details: details.text,
-            badges: [
-              details.isExpired
-                ? { label: "Expired", tone: "danger" as const }
-                : { label: "Due soon", tone: "attention" as const },
-            ],
+            badges: [paperworkBadge(details)],
           };
         })}
       />

@@ -114,7 +114,8 @@ function holdMarkSave(page: Page, description: string): { release: () => Promise
 test.describe.serial("handing a car over", () => {
   test("sets up a ready Renter, a car, a booking and a signed contract", async ({ page }) => {
     await addRenterReadyToRent(page);
-    await addCarToBook(page, CAR_REGO);
+    // No rego or insurance on file: the handover asks why the car goes anyway (review A8-2).
+    await addCarToBook(page, CAR_REGO, { isPaperworkOnFile: false });
     await fillRental(page, PARTIES, AUGUST_2, AUGUST_30);
     await page.getByRole("button", { name: "Book", exact: true }).click();
     await expect(page.getByRole("heading", { name: `${CAR_REGO} · ${RENTER.name}` })).toBeVisible();
@@ -208,9 +209,18 @@ test.describe.serial("handing a car over", () => {
       await accept.click();
       await expect(page.getByText(/type their full name exactly as shown/)).toBeVisible();
       await typedName.fill(RENTER.name);
+      // Each reason still needed is asked for under its own box (review A10-10).
+      await accept.click();
+      const insuranceReason = page.getByRole("textbox", { name: /No insurance .* go anyway/ });
+      await expect(insuranceReason).toBeFocused();
+      await expect(page.getByText("Say why the car goes with no insurance on file.")).toBeVisible();
+      await expect(page.getByText("Say why the car goes with no rego on file.")).toBeVisible();
+      await page.getByRole("textbox", { name: /bond is .* short/ }).fill("Bond paid Friday");
+      await insuranceReason.fill("Fleet policy, certificate at the office");
       await page
-        .getByRole("textbox", { name: /Why does the car go anyway/ })
-        .fill("Bond paid Friday");
+        .getByRole("textbox", { name: /No rego .* go anyway/ })
+        .fill("Renewed online today");
+      await expect(page.getByText("Say why the car goes with no rego on file.")).toHaveCount(0);
       await expectAccessible(page);
       await accept.click();
 

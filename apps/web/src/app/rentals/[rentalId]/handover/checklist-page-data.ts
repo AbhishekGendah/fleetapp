@@ -35,7 +35,7 @@ function detailValues(view: HandoverView): Record<HandoverDetailField, string> {
 
 export function checklistData(
   view: HandoverView,
-  checks: Pick<ChecklistData, "blockers" | "bondShortCents">,
+  checks: Pick<ChecklistData, "blockers">,
 ): ChecklistData {
   return {
     rentalId: view.rentalId,

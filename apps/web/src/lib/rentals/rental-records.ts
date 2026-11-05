@@ -24,6 +24,7 @@ import { and, eq } from "drizzle-orm";
 import { recordUserChange, type ActingUser, type UserChange } from "../acting-user";
 import { cancelLiveLinks } from "../renter-links/cancel-links";
 import { snapshotOperatorSettings } from "../settings/operator-settings";
+import { cancelOpenChecklists } from "../handover/handover-records";
 import { findBookingProblems, lockBookingParties } from "./booking-checks";
 import {
   findBookingClash,
@@ -171,6 +172,7 @@ export async function createRental(
       parties,
       { ...span, ...clock },
       snapshot.settings,
+      { rentalId: null, isHandingOverNow: false },
     );
     if (isBookingRefused(problems)) {
       return { status: "refused", problems };
@@ -259,7 +261,10 @@ export async function bookRental(
     // The rules the draft was made under (rule 14), not today's settings.
     const settings = readSettings(operatorSettingsSchema, rental.settingsSnapshot);
     const span = { start: rental.plannedStart, end: rental.plannedEnd };
-    const problems = await findBookingProblems(tx, parties, { ...span, ...clock }, settings);
+    const problems = await findBookingProblems(tx, parties, { ...span, ...clock }, settings, {
+      rentalId: rental.id,
+      isHandingOverNow: false,
+    });
     if (isBookingRefused(problems)) {
       return { status: "refused", problems };
     }
@@ -295,6 +300,7 @@ export async function cancelRental(
       return "not_allowed";
     }
     await releaseCarHolds(tx, actor, rental.id, now);
+    await cancelOpenChecklists(tx, actor, rental.id, now);
     // Nobody should sign the contract of a rental that is not going ahead.
     await cancelLiveLinks(tx, actor, rental.renterId, now, { rentalId: rental.id });
     await tx

@@ -3,13 +3,15 @@ import type { AnyDatabase } from "@fleetapp/db/client";
 import { qualified } from "@fleetapp/db/qualified";
 import { carHolds, rentals, renterSubmissions, renters, vehicles } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, asc, count, eq, inArray, isNull, lt, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull, lt, not, or, sql, type SQL } from "drizzle-orm";
 import type { SelectedFields } from "drizzle-orm/pg-core";
 
 import { idleSince } from "../vehicles/car-whereabouts";
 import {
   currentInsuranceEndsOn,
   currentRegoExpiresOn,
+  isInsuredOn,
+  isRegisteredOn,
   isRegoOnDirectDebit,
 } from "../vehicles/expiry-columns";
 
@@ -122,9 +124,16 @@ export interface CarPaperworkDue extends CarOnList {
   isRegoOnDirectDebit: boolean;
   regoExpiresOn: string | null;
   insuranceEndsOn: string | null;
+  /** Cover today: none on file at all counts as missing, not as fine (review A8-2). */
+  isInsuredToday: boolean;
+  isRegisteredToday: boolean;
 }
 
-/** Rego or insurance expired or due within the warning days, for cars still in the fleet. */
+/**
+ * Rego or insurance expired, due within the warning days, or missing today
+ * (no policy, one not started yet, a direct debit stopped), for cars still in
+ * the fleet.
+ */
 export async function loadPaperworkDue(
   database: AnyDatabase,
   operatorId: string,
@@ -132,15 +141,23 @@ export async function loadPaperworkDue(
 ): Promise<FewOfMany<CarPaperworkDue>> {
   const dueBy = addDays(expiry.today, expiry.warningDays);
   const firstDue = sql`least(${currentRegoExpiresOn}, ${currentInsuranceEndsOn})`;
-  const where = and(inFleet(operatorId), sql`${firstDue} <= ${dueBy}::date`);
+  const isInsuredToday = isInsuredOn(expiry.today);
+  const isRegisteredToday = isRegisteredOn(expiry.today);
+  const where = and(
+    inFleet(operatorId),
+    or(sql`${firstDue} <= ${dueBy}::date`, not(isInsuredToday), not(isRegisteredToday)),
+  );
   return fewCars(database, operatorId, {
     where,
     columns: {
       isRegoOnDirectDebit,
       regoExpiresOn: currentRegoExpiresOn,
       insuranceEndsOn: currentInsuranceEndsOn,
+      isInsuredToday,
+      isRegisteredToday,
     },
-    orderBy: asc(firstDue),
+    // Missing cover first, then the soonest due.
+    orderBy: sql`(${isInsuredToday} and ${isRegisteredToday}), ${firstDue} asc nulls first`,
   });
 }
 

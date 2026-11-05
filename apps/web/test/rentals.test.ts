@@ -29,7 +29,7 @@ import {
 import { emptyRenterForm, parseRenterForm } from "../src/lib/renters/renter-input";
 import { changeRenterStatus, createRenter } from "../src/lib/renters/renter-records";
 import { saveOperatorSettings } from "../src/lib/settings/operator-settings";
-import { addTestCar, seedOperatorWithUser } from "./car-fixtures";
+import { addCurrentPaperwork, addTestCar, seedOperatorWithUser } from "./car-fixtures";
 
 const TIME_ZONE = "Australia/Perth";
 /** Two days before the first test booking, so it is "starting soon". */
@@ -235,6 +235,7 @@ describe("rentals in the Operator app", () => {
 
     it("logs it with the warnings it was booked with, never the notes", async () => {
       const vehicleId = await addTestCar(web, actor);
+      await addCurrentPaperwork(web, actor, vehicleId);
       const result = await book(vehicleId, { notes: "Pays in cash" });
       const rentalId = savedId(result);
 

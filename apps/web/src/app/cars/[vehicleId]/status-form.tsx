@@ -1,6 +1,6 @@
 "use client";
 
-import { fieldErrorsOf, needsReturnDate, OPERATOR_VEHICLE_STATUSES } from "@fleetapp/core";
+import { fieldErrorsOf, needsReturnDate, STATUS_BOX_STATUSES } from "@fleetapp/core";
 import { RequiredFieldsNote } from "@fleetapp/ui/input";
 import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import { useActionState } from "react";
@@ -37,7 +37,7 @@ export function StatusForm(props: {
       className="flex flex-col gap-4"
     >
       <RequiredFieldsNote />
-      <CarStatusFields form={form} statuses={OPERATOR_VEHICLE_STATUSES} />
+      <CarStatusFields form={form} statuses={STATUS_BOX_STATUSES} />
       <SaveStatusButton state={state} isPending={isPending} isResultShown={form.isResultShown} />
     </form>
   );

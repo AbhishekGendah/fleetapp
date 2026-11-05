@@ -160,7 +160,17 @@ function PhotosCard({ detail, ids }: { detail: DamageDetail; ids: Ids }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <PhotoUploads vehicleId={ids.vehicleId} damageId={ids.damageId} />
-        <CarPhotoGrid vehicleId={ids.vehicleId} photos={detail.photos} isEditable />
+        {detail.isEvidenceHeld ? (
+          <p className="text-muted-foreground text-sm">
+            These photos back a charge to the Renter or an insurance claim, so they can&apos;t be
+            removed while that is open.
+          </p>
+        ) : null}
+        <CarPhotoGrid
+          vehicleId={ids.vehicleId}
+          photos={detail.photos}
+          isEditable={!detail.isEvidenceHeld}
+        />
       </CardContent>
     </Card>
   );

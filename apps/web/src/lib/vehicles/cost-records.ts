@@ -29,7 +29,7 @@ import {
   type PurchaseRecord,
   type SaleInput,
 } from "./cost-input";
-import { findCurrentVehicle } from "./current-vehicle";
+import { findCurrentVehicle, isOfCurrentCar, lockCurrentVehicle } from "./current-vehicle";
 import { addReading, withdrawReading } from "./odometer";
 import { applyVehicleStatus } from "./vehicle-records";
 
@@ -208,7 +208,7 @@ export async function saveSale(
   timeZone: string,
 ): Promise<SaveRecordResult> {
   return withTenant(database, actor.operatorId, async (tx) => {
-    const car = await findCurrentVehicle(tx, actor.operatorId, vehicleId);
+    const car = await lockCurrentVehicle(tx, actor.operatorId, vehicleId);
     if (!car) {
       return "not_found";
     }
@@ -274,7 +274,7 @@ export async function cancelSale(
   vehicleId: string,
 ): Promise<"cancelled" | "not_found"> {
   return withTenant(database, actor.operatorId, async (tx) => {
-    if (!(await findCurrentVehicle(tx, actor.operatorId, vehicleId))) {
+    if (!(await lockCurrentVehicle(tx, actor.operatorId, vehicleId))) {
       return "not_found";
     }
     const sale = await lockActiveSale(tx, actor.operatorId, vehicleId);
@@ -341,6 +341,7 @@ export async function archiveCost(
           eq(vehicleCosts.id, costId),
           eq(vehicleCosts.operatorId, actor.operatorId),
           isNull(vehicleCosts.archivedAt),
+          isOfCurrentCar(vehicleCosts.vehicleId),
         ),
       )
       .returning({ id: vehicleCosts.id });

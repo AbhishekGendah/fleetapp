@@ -13,15 +13,18 @@ import {
   billingDocuments,
   chargeTypes,
   ledgerLines,
+  possessions,
   rentals,
   vehicles,
 } from "@fleetapp/db/schema";
+import { qualified } from "@fleetapp/db/qualified";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, asc, eq, type SQL } from "drizzle-orm";
+import { and, asc, eq, sql, type SQL } from "drizzle-orm";
 
 export interface LedgerLineView {
   id: string;
   rentalId: string;
+  /** The car the Renter had for this line: after a swap, not always the rental's car now (review G4-3). */
   rego: string;
   kind: LedgerLineKind;
   /** What a charge or credit was for, e.g. "Weekly rent". */
@@ -59,6 +62,26 @@ export interface LedgerView {
   reversibleIds: Set<string>;
 }
 
+/** The car a possession of this rental was of, its rego. */
+const POSSESSED_REGO = sql`select ${qualified(vehicles.rego)} from ${possessions}
+  join ${vehicles} on ${qualified(vehicles.id)} = ${qualified(possessions.vehicleId)}
+    and ${qualified(vehicles.operatorId)} = ${qualified(possessions.operatorId)}
+  where ${qualified(possessions.rentalId)} = ${qualified(ledgerLines.rentalId)}
+    and ${qualified(possessions.operatorId)} = ${qualified(ledgerLines.operatorId)}`;
+
+/**
+ * Which car a line was for: the one the Renter had when its period began
+ * (or when it was entered), else the first they had, else the rental's car.
+ * Display only: no amount depends on it.
+ */
+const lineRego = sql<string>`coalesce(
+  (${POSSESSED_REGO}
+    and ${qualified(possessions.startedAt)} <= coalesce(${qualified(ledgerLines.periodStartsAt)}, ${qualified(ledgerLines.periodStart)}::timestamptz, ${qualified(ledgerLines.createdAt)})
+    order by ${qualified(possessions.startedAt)} desc limit 1),
+  (${POSSESSED_REGO} order by ${qualified(possessions.startedAt)} asc limit 1),
+  ${qualified(vehicles.rego)}
+)`;
+
 async function selectLedgerLines(
   tx: AnyTransaction,
   operatorId: string,
@@ -67,7 +90,7 @@ async function selectLedgerLines(
   const rows = await tx
     .select({
       line: ledgerLines,
-      rego: vehicles.rego,
+      rego: lineRego,
       builtIn: chargeTypes.builtIn,
       typeName: chargeTypes.name,
       gstTreatment: chargeTypes.gstTreatment,

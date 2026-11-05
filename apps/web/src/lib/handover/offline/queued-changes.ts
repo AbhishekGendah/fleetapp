@@ -32,6 +32,19 @@ export type QueuedChange = NewQueuedChange & { id?: number; queuedAt: number };
  */
 export const PHOTO_TARGET_GONE = "gone";
 
+/**
+ * What a sender answers for a photo the server will never take as it is
+ * (the wrong kind of file, too large, or not a real photo): it is dropped
+ * from the phone with this note, rather than holding the checklist up for
+ * ever (review A6-5).
+ */
+export interface RefusedForGood {
+  refusedForGood: string;
+}
+
+/** Sent (null), try again later (a message), gone, or refused for good. */
+export type SendOutcome = string | null | typeof PHOTO_TARGET_GONE | RefusedForGood;
+
 /** What sending needs from the server, as the handover page's actions provide it. */
 export interface QueueSenders {
   addMark: (mark: QueuedMark) => Promise<{ markId: string } | { problem: string }>;
@@ -39,7 +52,7 @@ export interface QueueSenders {
     inspectionId: string,
     target: { photoName: string } | { damageMarkId: string },
     files: { photo: Blob; thumbnail: Blob },
-  ) => Promise<string | null | typeof PHOTO_TARGET_GONE>;
+  ) => Promise<SendOutcome>;
 }
 
 /** Where the queue is kept: the phone's own database, or a stand-in in tests. */
@@ -52,9 +65,9 @@ export interface QueueStore {
 }
 
 export type QueueRunResult =
-  | { status: "sent"; count: number }
+  | { status: "sent"; count: number; dropped: string[] }
   /** Stopped at the first that did not go: it and the rest stay queued for next time. */
-  | { status: "stopped"; count: number; problem: string };
+  | { status: "stopped"; count: number; dropped: string[]; problem: string };
 
 const WAITING_FOR_MARK = "Waiting for its damage mark to be saved first.";
 
@@ -73,7 +86,7 @@ async function sendOne(
   store: QueueStore,
   senders: QueueSenders,
   change: QueuedChange,
-): Promise<string | null | typeof PHOTO_TARGET_GONE> {
+): Promise<SendOutcome> {
   if (change.kind === "mark") {
     const added = await senders.addMark(change);
     if ("problem" in added) {
@@ -100,15 +113,18 @@ export async function runQueue(
   inspectionId: string,
 ): Promise<QueueRunResult> {
   let count = 0;
+  const dropped: string[] = [];
   for (const change of await store.pending(inspectionId)) {
-    const problem = await sendOne(store, senders, change);
-    if (problem && problem !== PHOTO_TARGET_GONE) {
-      return { status: "stopped", count, problem };
+    const outcome = await sendOne(store, senders, change);
+    if (typeof outcome === "object" && outcome !== null) {
+      dropped.push(outcome.refusedForGood);
+    } else if (outcome && outcome !== PHOTO_TARGET_GONE) {
+      return { status: "stopped", count, dropped, problem: outcome };
     }
     await store.remove(change.id!);
     count += 1;
   }
-  return { status: "sent", count };
+  return { status: "sent", count, dropped };
 }
 
 /**

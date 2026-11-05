@@ -3,6 +3,7 @@ import { ExpiringImage } from "@fleetapp/ui/expiring-image";
 import { ImageViewer, ImageViewerOpener } from "@fleetapp/ui/image-viewer";
 import { Trash2 } from "lucide-react";
 
+import { REMOVE_PHOTO_QUESTION } from "../../../lib/files/removal-questions";
 import type { CarPhoto } from "../../../lib/files/car-files";
 import { carFilePath } from "../../../lib/paths";
 import { removeCarFileAction } from "./file-actions";
@@ -53,6 +54,7 @@ export function CarPhotoGrid({
                   variant="danger"
                   icon={<Trash2 aria-hidden />}
                   isIconOnly
+                  confirm={REMOVE_PHOTO_QUESTION}
                 />
               </div>
             ) : null}

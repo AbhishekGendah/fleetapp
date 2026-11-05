@@ -99,6 +99,12 @@ export type BookingProblem =
   | { code: "do_not_rent"; level: "booking" }
   | { code: "car_not_rentable"; level: "booking"; carStatus: VehicleStatus }
   | { code: "car_not_ready"; level: "handover"; carStatus: VehicleStatus }
+  /** The car is still with the Renter of another rental (review A6-3). */
+  | { code: "car_still_out"; level: "handover" }
+  /** No insurance policy covering the car on the day it goes (review A8-2). */
+  | { code: "no_insurance"; level: "handover"; coverOn: string }
+  /** No rego covering the car on the day it goes (review A8-2). */
+  | { code: "no_rego"; level: "handover"; coverOn: string }
   | { code: "details_missing"; level: "handover"; missing: DetailNeededBeforeRenting[] }
   | { code: "licence_expired_by_start"; level: "handover"; expiresOn: string }
   | { code: "under_minimum_age"; level: "handover"; minimumAge: number }
@@ -115,11 +121,14 @@ export type BookingProblem =
 
 /**
  * The handover problems the Operator can override with a reason kept with
- * the handover: bond not yet in full, and no working direct debit.
+ * the handover: bond not yet in full, no working direct debit, and
+ * insurance or rego not in the app (a business may not keep them here).
  */
 export const OVERRIDABLE_HANDOVER_PROBLEMS: ReadonlySet<BookingProblem["code"]> = new Set([
   "bond_short",
   "direct_debit_missing",
+  "no_insurance",
+  "no_rego",
 ]);
 
 /** A car that has left the fleet can never be booked. */
@@ -137,12 +146,29 @@ export interface BookingCheckInput {
     hasBothLicenceScans: boolean;
   };
   carStatus: VehicleStatus;
+  /**
+   * What is known about the car on the day it goes (`coverOn`): whether it
+   * is still out with another Renter, and its insurance and rego.
+   */
+  car: { isOutWithAnotherRenter: boolean; isInsured: boolean; isRegistered: boolean };
+  /** The day the car's insurance and rego must cover (YYYY-MM-DD). */
+  coverOn: string;
   /** The planned start and end, as dates on the Operator's clock (YYYY-MM-DD); no end when ongoing. */
   startDate: string;
   endDate: string | null;
   /** The Operator's today. */
   today: string;
   rules: { minimumRenterAgeYears: number; isProvisionalLicenceAllowed: boolean };
+}
+
+/** The car's own problems on the day it goes: still out, or not insured or registered. */
+function carProblems(input: Pick<BookingCheckInput, "car" | "coverOn">): BookingProblem[] {
+  const { car, coverOn } = input;
+  return [
+    ...(car.isOutWithAnotherRenter ? [{ code: "car_still_out", level: "handover" } as const] : []),
+    ...(car.isInsured ? [] : [{ code: "no_insurance", level: "handover", coverOn } as const]),
+    ...(car.isRegistered ? [] : [{ code: "no_rego", level: "handover", coverOn } as const]),
+  ];
 }
 
 /** Everything that stands between this Renter and this car, most serious first. */
@@ -158,6 +184,7 @@ export function bookingProblems(input: BookingCheckInput): BookingProblem[] {
   if (CARS_NOT_READY.includes(carStatus)) {
     problems.push({ code: "car_not_ready", level: "handover", carStatus });
   }
+  problems.push(...carProblems(input));
   const missing = detailsStillNeeded({ ...renter, today: input.today });
   if (missing.length > 0) {
     problems.push({ code: "details_missing", level: "handover", missing });
@@ -189,9 +216,20 @@ export function isBookingRefused(problems: readonly BookingProblem[]): boolean {
   return problems.some((problem) => problem.level === "booking");
 }
 
-/** Whether the car can change hands now. */
+/** Whether the car can change hands now (overridable problems still need their reason). */
 export function isHandoverAllowed(problems: readonly BookingProblem[]): boolean {
   return problems.every((problem) => problem.level === "notice");
+}
+
+/**
+ * What stops the car changing hands whatever the Operator types: every
+ * booking and handover problem except those overridden with a reason. Shared
+ * by the handover page and the server so they cannot differ (review A6-1).
+ */
+export function handoverBlockers(problems: readonly BookingProblem[]): BookingProblem[] {
+  return problems.filter(
+    (problem) => problem.level !== "notice" && !OVERRIDABLE_HANDOVER_PROBLEMS.has(problem.code),
+  );
 }
 
 /** No Australian state licenses a driver younger than this; most rental businesses ask for more. */

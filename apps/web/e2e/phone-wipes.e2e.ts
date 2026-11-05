@@ -90,9 +90,21 @@ async function startHandoverOnPhone(page: Page): Promise<string> {
   return handoverPath;
 }
 
+/** Cancels the handover: it asks first, and starts on keeping it (review A10-11). */
 async function cancelHandover(page: Page): Promise<void> {
   await page.goto(`/rentals/${rentalId}`, { waitUntil: "networkidle" });
-  await page.getByRole("button", { name: "Cancel this handover" }).click();
+  const cancel = page.getByRole("button", { name: "Cancel this handover" });
+  await cancel.click();
+  const question = page.getByRole("alertdialog", { name: "Cancel this handover?" });
+  await expect(question).toBeVisible();
+  await expect(question.getByRole("button", { name: "No, keep the handover" })).toBeFocused();
+  await expectAccessible(page);
+  await page.keyboard.press("Escape");
+  await expect(question).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Continue handover" })).toBeVisible();
+
+  await cancel.click();
+  await question.getByRole("button", { name: "Yes, cancel the handover" }).click();
   await expect(page.getByRole("button", { name: "Start handover" })).toBeVisible();
 }
 

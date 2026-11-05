@@ -38,6 +38,11 @@ export async function changeStatusAction(
     if (result === "rented") {
       return failedState("This car is with a Renter. Its status changes when it comes back.");
     }
+    if (result === "sale_only") {
+      return failedState(
+        "Sold is set by recording the sale on the Costs tab, and undone by cancelling it there.",
+      );
+    }
     return result === "not_found" ? failedState(NOT_FOUND_MESSAGE) : savedState("Status saved.");
   });
 }
@@ -65,6 +70,9 @@ export async function recordReadingAction(
   });
 }
 
+const IN_USE_MESSAGE =
+  "This car is booked or out with a Renter. Finish or cancel its bookings first, then archive it.";
+
 /** Archive and restore come from a single button, with nothing typed. */
 export async function setArchivedAction(
   vehicleId: string,
@@ -82,6 +90,9 @@ export async function setArchivedAction(
         return failedState(
           `Another car now has this ${result.field === "rego" ? "rego" : "VIN"}. Archive or change that car first.`,
         );
+      }
+      if (result === "in_use") {
+        return failedState(IN_USE_MESSAGE);
       }
       return result === "not_found"
         ? failedState(NOT_FOUND_MESSAGE)

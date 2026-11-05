@@ -1,4 +1,4 @@
-import { RETIRED_RENTER_NAME } from "@fleetapp/core";
+import { drawnSignatureInput, RETIRED_RENTER_NAME } from "@fleetapp/core";
 import {
   activityLog,
   files,
@@ -15,13 +15,15 @@ import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import type { ActingUser } from "../src/lib/acting-user";
+import { completeHandover } from "../src/lib/handover/complete-handover";
+import { NO_OVERRIDE_REASONS } from "../src/lib/handover/override-reasons";
 import { cancelRental } from "../src/lib/rentals/rental-records";
 import { restoreRenter } from "../src/lib/renters/renter-records";
 import { retireOldRenters } from "../src/lib/renters/renter-retirement";
 import { createMemoryFileStorage } from "../src/lib/storage/memory-file-storage";
 import { seedOperatorWithUser } from "./car-fixtures";
-import { checklistKit } from "./handover-fixtures";
-import { bookTestRental } from "./rental-fixtures";
+import { checklistKit, TEST_SIGNATURE } from "./handover-fixtures";
+import { bookTestRental, TEST_TIME_ZONE } from "./rental-fixtures";
 
 /** Long enough ago that seven years have passed, whatever today is. */
 const EIGHT_YEARS_AGO = sql`now() - interval '8 years'`;
@@ -225,6 +227,38 @@ describe("removing a Renter's details seven years after their last rental", () =
     expect(photos.length).toBeGreaterThan(0);
     expect(thumbnails).toHaveLength(photos.length);
     expect([...photos, ...thumbnails].every((file) => file.deletedAt !== null)).toBe(true);
+  });
+
+  it("removes the paperwork reasons typed at handover, which may name them (batch 7)", async () => {
+    const { rentalId, renterId } = await kit.readyRental({ isPaperworkOnFile: false });
+    const inspectionId = await kit.filledHandover(rentalId);
+    const handedOver = await completeHandover(
+      kit.handoverDeps(),
+      actor,
+      inspectionId,
+      {
+        ...NO_OVERRIDE_REASONS,
+        insuranceOverrideReason: "Policy is in Rory's name",
+        regoOverrideReason: "Rory renewed it today",
+        shownFingerprint: await kit.shown(inspectionId),
+        signature: drawnSignatureInput(TEST_SIGNATURE),
+      },
+      { timeZone: TEST_TIME_ZONE, now: new Date() },
+    );
+    await ageRenter(renterId);
+
+    expect(handedOver.status).toBe("completed");
+    expect(await retireDirectly(actor, renterId)).toBe(true);
+    const [checklist] = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx
+        .select({
+          insurance: inspections.insuranceOverrideReason,
+          rego: inspections.regoOverrideReason,
+        })
+        .from(inspections)
+        .where(eq(inspections.id, inspectionId)),
+    );
+    expect(checklist).toEqual({ insurance: "Removed", rego: "Removed" });
   });
 
   it("keeps a retired Renter as left: the app can't restore, edit, re-add or un-bin (batch 5 review)", async () => {

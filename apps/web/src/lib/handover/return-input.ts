@@ -1,7 +1,13 @@
-import { needsReturnDate, REQUIRED_MESSAGE, utcToLocalDateTime } from "@fleetapp/core";
+import {
+  needsReturnDate,
+  REPEATED_TIME_CHOICES,
+  repeatedTimeChoiceOf,
+  REQUIRED_MESSAGE,
+  utcToLocalDateTime,
+} from "@fleetapp/core";
 import { z } from "zod";
 
-import { requiredLocalMoment } from "../local-moment-input";
+import { momentWithRepeatChoice } from "../local-moment-input";
 import { vehicleStatusInputSchema, type VehicleStatusInput } from "../vehicles/vehicle-input";
 
 /** The tick box sends this when ticked; nothing at all when not. */
@@ -11,6 +17,8 @@ export const STATUSES_AFTER_RETURN = ["available", "in_service", "off_road"] as 
 
 export const RETURN_FORM_FIELDS = [
   "returnedAt",
+  /** Which of a time shown twice, when the clocks go back (review A11-9). */
+  "repeatedTime",
   "isRenterPresent",
   "status",
   "statusReason",
@@ -59,12 +67,18 @@ export function parseCarAfter(
 export function returnFormSchema(timeZone: string): z.ZodType<ReturnFormInput, ReturnFormValues> {
   return z
     .object({
-      returnedAt: requiredLocalMoment(timeZone),
+      returnedAt: z.string(),
+      repeatedTime: z.enum(["", ...REPEATED_TIME_CHOICES]),
       isRenterPresent: z.string().transform((value) => value === TICKED),
       ...carAfterFields(STATUSES_AFTER_RETURN),
     })
-    .transform(({ returnedAt, isRenterPresent, ...carAfter }, context) => ({
-      returnedAt,
+    .transform(({ returnedAt, repeatedTime, isRenterPresent, ...carAfter }, context) => ({
+      returnedAt: momentWithRepeatChoice(
+        { value: returnedAt, choice: repeatedTime },
+        timeZone,
+        context,
+        { typedField: "returnedAt", choiceField: "repeatedTime" },
+      ),
       isRenterPresent,
       carAfter: parseCarAfter(carAfter, context),
     }));
@@ -74,6 +88,7 @@ export function isRequiredReturnField(field: ReturnFormField, values: ReturnForm
   if (field === "statusReason" || field === "statusExpectedBack") {
     return needsReturnDate(values.status);
   }
+  // Asked, and so required, only for a time the clock shows twice.
   return field !== "isRenterPresent";
 }
 
@@ -81,6 +96,8 @@ export function isRequiredReturnField(field: ReturnFormField, values: ReturnForm
 export function initialReturnValues(now: Date, timeZone: string): ReturnFormValues {
   return {
     returnedAt: utcToLocalDateTime(now, timeZone),
+    // Now, exactly: in the hour that repeats, the one it is (review A11-9).
+    repeatedTime: repeatedTimeChoiceOf(now, timeZone) ?? "",
     isRenterPresent: TICKED,
     status: "available",
     statusReason: "",

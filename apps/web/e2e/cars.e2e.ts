@@ -77,6 +77,21 @@ test("adds a car, then a photo, and opens it full screen", async ({ page }) => {
     expect(stored.includes(JPEG_START) && !stored.includes(PHOTO_DETAILS_MARKER)).toBe(true);
   }
 
+  // Removing asks first, and a removed photo can be brought back (review A7-3, A7-4).
+  const remove = page.getByRole("button", { name: /^Remove photo/ }).first();
+  await remove.click();
+  const question = page.getByRole("alertdialog", { name: "Remove this photo?" });
+  await expect(question.getByRole("button", { name: "No, keep it" })).toBeFocused();
+  await expectAccessible(page);
+  await question.getByRole("button", { name: "Yes, remove it" }).click();
+  await expect(openers).toHaveCount(1);
+  const removedList = page.getByRole("list", { name: "Removed in the last 30 days" });
+  await expect(removedList).toBeVisible();
+  await expectAccessible(page);
+  await removedList.getByRole("button", { name: /^Bring back/ }).click();
+  await expect(openers).toHaveCount(2);
+  await expect(removedList).toHaveCount(0);
+
   // A document: the name is checked like every form, then the file is sent.
   await page.getByRole("link", { name: "Documents" }).click();
   await page.getByRole("button", { name: "Add a document" }).click();

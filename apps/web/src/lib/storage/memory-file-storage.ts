@@ -14,6 +14,8 @@ export interface MemoryFileStorage extends FileStorage {
   read(area: StorageArea, key: string): Uint8Array | undefined;
   /** Every permission handed out, newest last. */
   readonly permissions: UploadPermissionRequest[];
+  /** Addresses moved to long-term storage. */
+  readonly longTerm: Set<string>;
 }
 
 export function createMemoryFileStorage(): MemoryFileStorage {
@@ -21,9 +23,17 @@ export function createMemoryFileStorage(): MemoryFileStorage {
   let versions = 0;
   const address = (area: StorageArea, key: string): string => `${area}:${key}`;
   const permissions: UploadPermissionRequest[] = [];
+  const longTerm = new Set<string>();
 
   return {
     permissions,
+    longTerm,
+    async moveToLongTermStorage(area, key) {
+      if (!stored.has(address(area, key))) {
+        throw new Error("Nothing is stored at that address.");
+      }
+      longTerm.add(address(area, key));
+    },
     async createUploadPermission(request) {
       permissions.push(request);
       return { url: STAND_IN_UPLOAD_URL, fields: { key: request.key } };

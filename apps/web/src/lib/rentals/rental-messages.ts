@@ -20,6 +20,12 @@ export function bookingProblemMessage(problem: BookingProblem): string {
       return `This car is ${VEHICLE_STATUS_LABELS[problem.carStatus].toLowerCase()}, so it cannot be booked.`;
     case "car_not_ready":
       return `This car is ${VEHICLE_STATUS_LABELS[problem.carStatus].toLowerCase()}: it can be booked, but not handed over until it is back.`;
+    case "car_still_out":
+      return "This car is still out with another Renter. Record its return before handing it over.";
+    case "no_insurance":
+      return `No insurance policy covering this car on ${formatCalendarDate(problem.coverOn)} is on file. Add it on the car's Insurance tab, or give a reason at handover.`;
+    case "no_rego":
+      return `No rego covering this car on ${formatCalendarDate(problem.coverOn)} is on file. Add it on the car's Rego tab, or give a reason at handover.`;
     case "details_missing":
       return `Still needed before the car is handed over: ${problem.missing
         .map((detail) => DETAIL_NEEDED_LABELS[detail].toLowerCase())

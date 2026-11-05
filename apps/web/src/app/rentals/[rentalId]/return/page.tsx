@@ -47,7 +47,7 @@ export default async function ReturnPage(props: { params: Promise<{ rentalId: st
       <NoBusinessEmailWarning user={user} />
       <OfflineReady>
         <HandoverChecklist
-          data={checklistData(view, { blockers: [], bondShortCents: null })}
+          data={checklistData(view, { blockers: [] })}
           lastKilometres={view.lastKilometres}
           comparison={comparisonWith(handover)}
           damageTitle="New damage"

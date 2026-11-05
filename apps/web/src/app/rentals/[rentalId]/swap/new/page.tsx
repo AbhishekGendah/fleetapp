@@ -47,7 +47,7 @@ export default async function SwapNewCarPage(props: { params: Promise<{ rentalId
       <NoBusinessEmailWarning user={user} />
       <OfflineReady>
         <HandoverChecklist
-          data={checklistData(view, { blockers: [], bondShortCents: null })}
+          data={checklistData(view, { blockers: [] })}
           lastKilometres={view.lastKilometres}
           damageTitle="Damage already on the car"
           finalStep={{

@@ -1,5 +1,5 @@
 import { TZDate } from "@date-fns/tz";
-import { format, subMinutes } from "date-fns";
+import { addMinutes, format, subMinutes } from "date-fns";
 
 import { isCalendarDate } from "./calendar-dates";
 
@@ -53,4 +53,37 @@ export function localDateTimeToUtc(localDateTime: string, timeZone: string): Dat
 /** Whether two moments read the same on a clock in this timezone, e.g. both halves of the repeated hour. */
 export function isSameLocalMinute(first: Date, second: Date, timeZone: string): boolean {
   return utcToLocalDateTime(first, timeZone) === utcToLocalDateTime(second, timeZone);
+}
+
+/** Which of the two times a clock shows twice as daylight saving ends. */
+export const REPEATED_TIME_CHOICES = ["first", "second"] as const;
+export type RepeatedTimeChoice = (typeof REPEATED_TIME_CHOICES)[number];
+
+/**
+ * The two moments a local clock time names on the night the clocks go back,
+ * or null for any other time (review A11-9): the first is still daylight
+ * time, the second an hour (half an hour on Lord Howe Island) later.
+ */
+export function repeatedTimeMoments(
+  localDateTime: string,
+  timeZone: string,
+): Record<RepeatedTimeChoice, Date> | null {
+  const first = localDateTimeToUtc(localDateTime, timeZone);
+  if (!first) {
+    return null;
+  }
+  const second = CLOCK_CHANGE_MINUTES.map((minutes) => addMinutes(first, minutes)).find(
+    (candidate) => utcToLocalDateTime(candidate, timeZone) === localDateTime,
+  );
+  return second ? { first, second } : null;
+}
+
+/** Which of a repeated time this moment is, or null if its time happens once. */
+export function repeatedTimeChoiceOf(moment: Date, timeZone: string): RepeatedTimeChoice | null {
+  const moments = repeatedTimeMoments(utcToLocalDateTime(moment, timeZone), timeZone);
+  if (!moments) {
+    return null;
+  }
+  // Any second within the minute: the box holds only the minute (batch 7 review).
+  return moment.getTime() >= moments.second.getTime() ? "second" : "first";
 }

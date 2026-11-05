@@ -8,6 +8,9 @@ import { Plus, Trash2 } from "lucide-react";
 
 import { appDb } from "../../../lib/app-db";
 import { listCarDocuments } from "../../../lib/files/car-files";
+import { REMOVE_DOCUMENT_QUESTION } from "../../../lib/files/removal-questions";
+import { listRemovedCarFiles } from "../../../lib/files/removed-files";
+import { RemovedFiles } from "./removed-files";
 import { carFilePath } from "../../../lib/paths";
 import type { SignedInUser } from "../../../lib/require-user";
 import type { VehicleDetail } from "../../../lib/vehicles/vehicle-queries";
@@ -23,7 +26,10 @@ export async function DocumentsTab({
   vehicle: VehicleDetail;
   user: SignedInUser;
 }) {
-  const documents = await listCarDocuments(appDb, user.operatorId, vehicle.id);
+  const [documents, removed] = await Promise.all([
+    listCarDocuments(appDb, user.operatorId, vehicle.id),
+    listRemovedCarFiles(appDb, user.operatorId, vehicle.id, new Date()),
+  ]);
   const isEditable = vehicle.archivedAt === null;
   const images = documents.filter((document) => !isPdf(document.contentType));
   return (
@@ -83,6 +89,7 @@ export async function DocumentsTab({
                         pendingLabel="Removing…"
                         variant="danger"
                         icon={<Trash2 aria-hidden />}
+                        confirm={REMOVE_DOCUMENT_QUESTION}
                       />
                     ) : undefined
                   }
@@ -91,6 +98,14 @@ export async function DocumentsTab({
             </RecordList>
           </ImageViewer>
         )}
+        {isEditable ? (
+          <RemovedFiles
+            vehicleId={vehicle.id}
+            title="Removed documents and papers"
+            removed={removed.filter((file) => file.kind !== "photo")}
+            timeZone={user.operatorTimezone}
+          />
+        ) : null}
       </CardContent>
     </Card>
   );

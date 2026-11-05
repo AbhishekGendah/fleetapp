@@ -31,12 +31,14 @@ export function PurchaseForm(props: {
   isGstRegistered: boolean;
   nearState: AustralianStateCode | null;
   submitLabel: string;
+  /** The business's today: a purchase can't be dated later. */
+  today: string;
 }) {
   const form = useChangeForm({
     action: props.action,
     fields: PURCHASE_FORM_FIELDS,
     initialValues: props.initialValues,
-    validate: (values) => fieldErrorsOf(parsePurchaseForm(values)),
+    validate: (values) => fieldErrorsOf(parsePurchaseForm(values, props.today)),
     isRequired: isRequiredCostField,
   });
   const { fields } = form;

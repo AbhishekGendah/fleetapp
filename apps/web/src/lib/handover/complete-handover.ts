@@ -5,7 +5,7 @@ import {
   type RenterSignatureInput,
   formatDateTimeInTimeZone,
   handoverAcceptanceText,
-  OVERRIDABLE_HANDOVER_PROBLEMS,
+  handoverBlockers,
   type BookingProblem,
   type HandoverGap,
 } from "@fleetapp/core";
@@ -13,25 +13,41 @@ import type { AnyTransaction } from "@fleetapp/db/client";
 import {
   ACTIVITY_ACTIONS,
   ACTIVITY_ENTITY_TYPES,
+  carHolds,
   inspections,
   rentals,
+  renters,
   vehicles,
 } from "@fleetapp/db/schema";
+import { withTenant } from "@fleetapp/db/tenant-context";
 import type { EmailSender } from "@fleetapp/email";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
 import { emailDocumentCopies } from "../contracts/document-copies";
 import { loadSigningStatus, rentalSummaryText } from "../contracts/signing-links";
 import type { FileDependencies } from "../files/stored-files";
 import { loadRentalProblems, type PaymentsReach } from "../rentals/booking-checks";
+import {
+  findBookingClash,
+  heldRange,
+  isCarAlreadyHeld,
+  type BookingClash,
+} from "../rentals/car-holds";
 import type { RentalClock } from "../rentals/rental-records";
+import { lockCurrentVehicle } from "../vehicles/current-vehicle";
 import { addReading } from "../vehicles/odometer";
 import { checklistRefusal, FinishedAlreadyError, issueChecklistReport } from "./checklist-report";
 import { checklistFingerprint } from "./checklist-fingerprint";
 import { lockOpenInspection } from "./handover-records";
 import { startPossession } from "./possession-records";
 import { loadHandover, type HandoverView } from "./handover-queries";
+import {
+  firstReasonMissing,
+  overrideLogFlags,
+  reasonsStillNeeded,
+  type OverrideReasons,
+} from "./override-reasons";
 import { signatureColumns } from "./phone-signature";
 import {
   HANDOVER_REPORT_TITLE,
@@ -41,15 +57,16 @@ import {
   reportOrPhotoMissing,
 } from "./handover-report";
 
-export interface CompleteHandoverInput {
+/**
+ * The handover as the phone sent it, with why the car goes anyway where a
+ * check is overridden: bond short, no direct debit, no insurance or rego on
+ * file (review A8-2).
+ */
+export interface CompleteHandoverInput extends OverrideReasons {
   /** The fingerprint of the checklist the signing screen showed (review A6-10, G9-2). */
   shownFingerprint: string;
   /** The Renter's signature on the Operator's phone, drawn or typed, as the form sent it. */
   signature: RenterSignatureInput;
-  /** Why the car goes before the full bond is held, when the rental's rules want it first. */
-  bondOverrideReason: string | null;
-  /** Why the car goes without a working direct debit, when the rental's rules want one first. */
-  directDebitOverrideReason: string | null;
 }
 
 export type CompleteHandoverResult =
@@ -58,15 +75,21 @@ export type CompleteHandoverResult =
   | { status: "blocked"; problems: BookingProblem[] }
   | { status: "bond_short"; owingCents: number; onItsWayCents: number }
   | { status: "direct_debit_missing" }
+  | { status: "reason_needed"; problem: "no_insurance" | "no_rego" }
+  /** Handed over early, the car would be taken from a booking before this one (review A6-3). */
+  | { status: "early_clash"; clash: BookingClash | null }
   | { status: "lower"; lastKilometres: number }
   | {
       status:
         | "not_found"
+        | "cancelled"
         | "contract_unsigned"
         | "no_signature"
         | "finished_already"
         | "photo_missing"
-        | "changed";
+        | "changed"
+        | "car_changed"
+        | "renter_changed";
     };
 
 export interface HandoverDependencies extends FileDependencies, Partial<PaymentsReach> {
@@ -76,15 +99,49 @@ export interface HandoverDependencies extends FileDependencies, Partial<Payments
 /** What the checks found was really skipped: only those reasons are kept (review KS-8). */
 interface NeededOverrides {
   status: "accepted";
-  bondOverrideReason: string | null;
-  directDebitOverrideReason: string | null;
+  reasons: OverrideReasons;
+}
+
+/**
+ * Thrown inside the handover's transaction when, under the car's lock, it
+ * can no longer go: nothing is kept.
+ */
+class HandoverRefusedError extends Error {
+  constructor(readonly result: Exclude<CompleteHandoverResult, { status: "completed" }>) {
+    super(result.status);
+  }
+}
+
+/** A car may change hands only while Available: not sold, in the workshop or out already. */
+const STATUS_FOR_HANDOVER = "available";
+
+/** Before its booked start, the car is held from now: refused if another booking has it first. */
+export async function findEarlyClash(
+  deps: Pick<HandoverDependencies, "database">,
+  operatorId: string,
+  view: HandoverView,
+  now: Date,
+): Promise<BookingClash | null> {
+  if (now >= view.plannedStart) {
+    return null;
+  }
+  return withTenant(deps.database, operatorId, (tx) =>
+    findBookingClash(
+      tx,
+      operatorId,
+      view.vehicleId,
+      { start: now, end: view.plannedStart },
+      view.rentalId,
+    ),
+  );
 }
 
 /**
  * What stops the Renter accepting now: anything missing from the checklist,
- * an unsigned contract, a handover problem (licence, car not ready), the
- * kilometres below the car's last reading, or bond short with no reason.
- * Otherwise, the override reasons still needed.
+ * an unsigned contract, a booking or handover problem (Do not rent, car sold
+ * or still out, licence: review A6-1), the kilometres below the car's last
+ * reading, an early handover that would take the car from another booking, or
+ * an overridable check with no reason. Otherwise, the reasons still needed.
  */
 async function checkAcceptance(
   deps: HandoverDependencies,
@@ -102,37 +159,159 @@ async function checkAcceptance(
     return { status: "contract_unsigned" };
   }
   const rental = { ...view, id: view.rentalId };
-  const problems = await loadRentalProblems(deps.database, operatorId, rental, clock, {
-    canHearRenterPayments: deps.canHearRenterPayments ?? false,
-  });
+  const problems = await loadRentalProblems(
+    deps.database,
+    operatorId,
+    rental,
+    clock,
+    { canHearRenterPayments: deps.canHearRenterPayments ?? false },
+    true,
+  );
   if (typeof problems === "string") {
     return { status: "not_found" };
   }
-  const blocking = problems.filter(
-    (problem) => problem.level === "handover" && !OVERRIDABLE_HANDOVER_PROBLEMS.has(problem.code),
-  );
+  const blocking = handoverBlockers(problems);
   if (blocking.length > 0) {
     return { status: "blocked", problems: blocking };
   }
-  const bondShort = problems.find((problem) => problem.code === "bond_short");
-  if (bondShort?.code === "bond_short" && !input.bondOverrideReason) {
-    return {
-      status: "bond_short",
-      owingCents: bondShort.owingCents,
-      onItsWayCents: bondShort.onItsWayCents,
-    };
+  const clash = await findEarlyClash(deps, operatorId, view, clock.now);
+  if (clash) {
+    return { status: "early_clash", clash };
   }
-  const isDirectDebitMissing = problems.some((problem) => problem.code === "direct_debit_missing");
-  if (isDirectDebitMissing && !input.directDebitOverrideReason) {
-    return { status: "direct_debit_missing" };
+  const missing = firstReasonMissing(problems, input);
+  if (missing) {
+    return reasonNeededResult(missing);
   }
-  // A reason typed for something since put right (say, the Renter just set up their
-  // direct debit) is not kept, and the Log doesn't say it was overridden.
-  return {
-    status: "accepted",
-    bondOverrideReason: bondShort ? input.bondOverrideReason : null,
-    directDebitOverrideReason: isDirectDebitMissing ? input.directDebitOverrideReason : null,
-  };
+  return { status: "accepted", reasons: reasonsStillNeeded(problems, input) };
+}
+
+function reasonNeededResult(
+  problem: NonNullable<ReturnType<typeof firstReasonMissing>>,
+): CompleteHandoverResult {
+  switch (problem.code) {
+    case "bond_short":
+      return {
+        status: "bond_short",
+        owingCents: problem.owingCents,
+        onItsWayCents: problem.onItsWayCents,
+      };
+    case "direct_debit_missing":
+      return { status: "direct_debit_missing" };
+    case "no_insurance":
+    case "no_rego":
+      return { status: "reason_needed", problem: problem.code };
+  }
+}
+
+/**
+ * Locks the car for the handover, so a sale or another handover recorded at
+ * the same moment waits and then sees it Rented (review A8-4); refused unless
+ * it is still Available.
+ */
+async function lockCarForHandover(
+  tx: AnyTransaction,
+  operatorId: string,
+  vehicleId: string,
+): Promise<void> {
+  const car = await lockCurrentVehicle(tx, operatorId, vehicleId);
+  if (car?.status !== STATUS_FOR_HANDOVER) {
+    throw new HandoverRefusedError({ status: "car_changed" });
+  }
+}
+
+/**
+ * Why the checklist is no longer open: cancelled (with its booking, say)
+ * is said plainly; otherwise it was finished on another phone.
+ */
+async function notOpenError(
+  tx: AnyTransaction,
+  operatorId: string,
+  inspectionId: string,
+): Promise<Error> {
+  const [checklist] = await tx
+    .select({ status: inspections.status })
+    .from(inspections)
+    .where(and(eq(inspections.id, inspectionId), eq(inspections.operatorId, operatorId)));
+  return checklist?.status === "cancelled"
+    ? new HandoverRefusedError({ status: "cancelled" })
+    : new FinishedAlreadyError();
+}
+
+/**
+ * The Renter locked for the handover and checked once more: marked Do not
+ * rent or archived since the checks above, the car stays (review A6-1).
+ */
+async function lockRenterForHandover(
+  tx: AnyTransaction,
+  operatorId: string,
+  renterId: string,
+): Promise<void> {
+  const [renter] = await tx
+    .select({ status: renters.status })
+    .from(renters)
+    .where(
+      and(eq(renters.id, renterId), eq(renters.operatorId, operatorId), isNull(renters.archivedAt)),
+    )
+    .for("update");
+  if (renter?.status !== "active") {
+    throw new HandoverRefusedError({ status: "renter_changed" });
+  }
+}
+
+/**
+ * Handed over before its booked start, the rental holds the car from now, so
+ * the time before can't be booked by someone else (review A6-3).
+ */
+async function holdCarFromNow(
+  tx: AnyTransaction,
+  actor: ActingUser,
+  view: HandoverView,
+  at: Date,
+): Promise<void> {
+  if (at >= view.plannedStart) {
+    return;
+  }
+  const clash = await findBookingClash(
+    tx,
+    actor.operatorId,
+    view.vehicleId,
+    { start: at, end: view.plannedStart },
+    view.rentalId,
+  );
+  if (clash) {
+    throw new HandoverRefusedError({ status: "early_clash", clash });
+  }
+  // In a savepoint: a booking made at the same moment is refused by the database, said plainly.
+  const moved = await tx
+    .transaction((savepoint) =>
+      savepoint
+        .update(carHolds)
+        .set({ heldDuring: heldRange(at, view.plannedEnd) })
+        .where(
+          and(
+            eq(carHolds.operatorId, actor.operatorId),
+            eq(carHolds.rentalId, view.rentalId),
+            eq(carHolds.vehicleId, view.vehicleId),
+            isNull(carHolds.releasedAt),
+          ),
+        )
+        .returning({ id: carHolds.id }),
+    )
+    .catch((error: unknown) => {
+      if (isCarAlreadyHeld(error)) {
+        throw new HandoverRefusedError({ status: "early_clash", clash: null });
+      }
+      throw error;
+    });
+  for (const hold of moved) {
+    await recordUserChange(tx, actor, {
+      entityType: ACTIVITY_ENTITY_TYPES.carHold,
+      entityId: hold.id,
+      action: ACTIVITY_ACTIONS.updated,
+      valuesBefore: { startedAt: view.plannedStart.toISOString() },
+      valuesAfter: { startedAt: at.toISOString() },
+    });
+  }
 }
 
 /**
@@ -144,14 +323,19 @@ async function recordHandedOver(
   tx: AnyTransaction,
   actor: ActingUser,
   view: HandoverView,
-  accepted: { at: Date; acceptanceText: string; signature: RenterSignature } & Pick<
-    CompleteHandoverInput,
-    "bondOverrideReason" | "directDebitOverrideReason"
-  >,
+  accepted: {
+    at: Date;
+    acceptanceText: string;
+    signature: RenterSignature;
+    reasons: OverrideReasons;
+  },
 ): Promise<void> {
   if (!(await lockOpenInspection(tx, actor.operatorId, view.inspectionId))) {
-    throw new FinishedAlreadyError();
+    throw await notOpenError(tx, actor.operatorId, view.inspectionId);
   }
+  await lockCarForHandover(tx, actor.operatorId, view.vehicleId);
+  await lockRenterForHandover(tx, actor.operatorId, view.renterId);
+  await holdCarFromNow(tx, actor, view, accepted.at);
   await tx
     .update(inspections)
     .set({
@@ -159,15 +343,19 @@ async function recordHandedOver(
       completedAt: accepted.at,
       acceptanceText: accepted.acceptanceText,
       ...signatureColumns(accepted.signature),
-      bondOverrideReason: accepted.bondOverrideReason,
-      directDebitOverrideReason: accepted.directDebitOverrideReason,
+      ...accepted.reasons,
       updatedAt: accepted.at,
     })
     .where(eq(inspections.id, view.inspectionId));
-  await tx
+  // Only a booking still going ahead (a cancelled one is never made active).
+  const [madeActive] = await tx
     .update(rentals)
     .set({ status: "active", handedOverAt: accepted.at, updatedAt: accepted.at })
-    .where(eq(rentals.id, view.rentalId));
+    .where(and(eq(rentals.id, view.rentalId), eq(rentals.status, "booked")))
+    .returning({ id: rentals.id });
+  if (!madeActive) {
+    throw new HandoverRefusedError({ status: "cancelled" });
+  }
   await startPossession(
     tx,
     actor,
@@ -188,28 +376,21 @@ async function recordHandedOver(
     recordedAt: accepted.at,
     source: "handover",
   });
-  await logHandedOver(tx, actor, view, {
-    isBondOverridden: accepted.bondOverrideReason !== null,
-    isDirectDebitOverridden: accepted.directDebitOverrideReason !== null,
-  });
+  await logHandedOver(tx, actor, view, accepted.reasons);
 }
 
 async function logHandedOver(
   tx: AnyTransaction,
   actor: ActingUser,
   view: HandoverView,
-  overrides: { isBondOverridden: boolean; isDirectDebitOverridden: boolean },
+  reasons: OverrideReasons,
 ): Promise<void> {
   await recordUserChange(tx, actor, {
     entityType: ACTIVITY_ENTITY_TYPES.inspection,
     entityId: view.inspectionId,
     action: ACTIVITY_ACTIONS.accepted,
     // The override's reason stays with the checklist; the Log says only that there was one.
-    valuesAfter: {
-      status: "completed",
-      ...(overrides.isBondOverridden ? { bondOverridden: true } : {}),
-      ...(overrides.isDirectDebitOverridden ? { directDebitOverridden: true } : {}),
-    },
+    valuesAfter: { status: "completed", ...overrideLogFlags(reasons) },
   });
   await recordUserChange(tx, actor, {
     entityType: ACTIVITY_ENTITY_TYPES.rental,
@@ -224,6 +405,32 @@ async function logHandedOver(
     action: ACTIVITY_ACTIONS.statusChanged,
     valuesAfter: { status: "rented" },
   });
+}
+
+/** Issues the report and hands the car over together; a refusal under the car's lock keeps nothing. */
+async function issueHandoverReport(
+  deps: HandoverDependencies,
+  actor: ActingUser,
+  view: HandoverView,
+  accepted: Parameters<typeof recordHandedOver>[3] & { pdf: Uint8Array },
+): Promise<
+  | { status: "issued"; documentId: string }
+  | Exclude<CompleteHandoverResult, { status: "completed" }>
+> {
+  try {
+    const issued = await issueChecklistReport(deps, actor, {
+      view,
+      kind: "handover_report",
+      pdf: accepted.pdf,
+      onIssued: (tx) => recordHandedOver(tx, actor, view, accepted),
+    });
+    return issued.status === "issued" ? issued : { status: issued.status };
+  } catch (error) {
+    if (error instanceof HandoverRefusedError) {
+      return error.result;
+    }
+    throw error;
+  }
 }
 
 /**
@@ -243,6 +450,9 @@ export async function completeHandover(
   // A swap's checklists are finished only with the swap.
   if (!view || view.isForSwap) {
     return { status: "not_found" };
+  }
+  if (view.status === "cancelled") {
+    return { status: "cancelled" };
   }
   if (view.status !== "in_progress") {
     return { status: "finished_already" };
@@ -272,21 +482,15 @@ export async function completeHandover(
   if (isPhotoMissing(pdf)) {
     return PHOTO_MISSING;
   }
-  const issued = await issueChecklistReport(deps, actor, {
-    view,
-    kind: "handover_report",
+  const issued = await issueHandoverReport(deps, actor, view, {
+    at,
+    acceptanceText,
+    signature,
+    reasons: checked.reasons,
     pdf,
-    onIssued: (tx) =>
-      recordHandedOver(tx, actor, view, {
-        at,
-        acceptanceText,
-        signature,
-        bondOverrideReason: checked.bondOverrideReason,
-        directDebitOverrideReason: checked.directDebitOverrideReason,
-      }),
   });
   if (issued.status !== "issued") {
-    return { status: issued.status };
+    return issued;
   }
   const rentalSummary = rentalSummaryText({
     carRego: view.carRego,

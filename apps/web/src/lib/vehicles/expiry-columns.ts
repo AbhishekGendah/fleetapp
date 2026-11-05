@@ -6,7 +6,7 @@ import {
   vehicles,
 } from "@fleetapp/db/schema";
 import { qualified } from "@fleetapp/db/qualified";
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 
 const ofThisCarsRegos = sql`${qualified(vehicleRegistrations.vehicleId)} = ${qualified(vehicles.id)} and ${qualified(vehicleRegistrations.archivedAt)} is null`;
 
@@ -37,6 +37,43 @@ export const currentInsuranceEndsOn = sql<string | null>`(
     and ${qualified(insurancePolicyVehicles.removedAt)} is null
     and ${qualified(insurancePolicies.archivedAt)} is null
 )`;
+
+/**
+ * The car has a policy covering this day: started, and not yet past its last
+ * day (the end date is covered, review A11-8). A policy that only starts later
+ * is not cover today (review A8-2).
+ */
+export function isInsuredOn(day: string): SQL<boolean> {
+  return sql<boolean>`exists (
+    select 1 from ${insurancePolicyVehicles}
+    join ${insurancePolicies} on ${qualified(insurancePolicies.id)} = ${qualified(insurancePolicyVehicles.policyId)}
+      and ${qualified(insurancePolicies.operatorId)} = ${qualified(insurancePolicyVehicles.operatorId)}
+    where ${qualified(insurancePolicyVehicles.vehicleId)} = ${qualified(vehicles.id)}
+      and ${qualified(insurancePolicyVehicles.operatorId)} = ${qualified(vehicles.operatorId)}
+      and ${qualified(insurancePolicyVehicles.removedAt)} is null
+      and ${qualified(insurancePolicies.archivedAt)} is null
+      and ${qualified(insurancePolicies.startsOn)} <= ${day}::date
+      and ${qualified(insurancePolicies.endsOn)} >= ${day}::date
+  )`;
+}
+
+/**
+ * The car is registered on this day: a renewal that hasn't expired by then,
+ * or a direct debit not stopped before it (review A8-2).
+ */
+export function isRegisteredOn(day: string): SQL<boolean> {
+  return sql<boolean>`exists (
+    select 1 from ${vehicleRegistrations}
+    where ${ofThisCarsRegos}
+      and ${qualified(vehicleRegistrations.operatorId)} = ${qualified(vehicles.operatorId)}
+      and (
+        ${qualified(vehicleRegistrations.expiresOn)} >= ${day}::date
+        or (${qualified(vehicleRegistrations.expiresOn)} is null
+          and (${qualified(vehicleRegistrations.directDebitStoppedOn)} is null
+            or ${qualified(vehicleRegistrations.directDebitStoppedOn)} >= ${day}::date))
+      )
+  )`;
+}
 
 /** What "today" and "due soon" mean for this Operator, for the badges. */
 export interface ExpiryContext {

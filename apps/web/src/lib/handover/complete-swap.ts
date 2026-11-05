@@ -24,6 +24,7 @@ import {
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { eq } from "drizzle-orm";
 
+import { lockCurrentVehicle } from "../vehicles/current-vehicle";
 import { recordUserChange, type ActingUser } from "../acting-user";
 import { loadPdfBranding } from "../contracts/contract-pdf";
 import { emailDocumentCopies } from "../contracts/document-copies";
@@ -101,6 +102,7 @@ export type CompleteSwapResult =
         | "no_template"
         | "car_status"
         | "clash"
+        | "new_car_changed"
         | "finished_already"
         | "photo_missing"
         | "changed"
@@ -193,6 +195,8 @@ async function fillSwapForm(
       swapAt: clock.atText,
       swapReason: views.swap.reason,
     },
+    // The car the Renter receives, not the one handed back (review G4-3).
+    { vehicleId: views.new.vehicleId },
   );
   if (!filled || filled.missing.length > 0) {
     return { status: "missing", fields: filled?.missing ?? [] };
@@ -352,6 +356,9 @@ async function renderSwapDocuments(
 
 /** Thrown inside the transaction when the new car was booked by someone else meanwhile. */
 class SwapClashError extends Error {}
+
+/** The car going out was sold, sent to the workshop or archived since the swap began: nothing is kept. */
+class NewCarChangedError extends Error {}
 
 /** Both checklists fixed with the Renter's acceptance (rule 12). */
 async function completeChecklists(
@@ -526,6 +533,11 @@ async function recordSwapped(
     .for("update");
   if (locked?.status !== "in_progress") {
     throw new FinishedAlreadyError();
+  }
+  // Locked as a handover locks its car, so a sale at the same moment waits and then sees it Rented (review A8-4).
+  const newCar = await lockCurrentVehicle(tx, actor.operatorId, views.new.vehicleId);
+  if (newCar?.status !== "available") {
+    throw new NewCarChangedError();
   }
   await completeChecklists(tx, actor.operatorId, views, {
     at: done.at,
@@ -714,6 +726,9 @@ export async function completeSwap(
     }
     if (error instanceof SwapClashError) {
       return { status: "clash" };
+    }
+    if (error instanceof NewCarChangedError) {
+      return { status: "new_car_changed" };
     }
     if (error instanceof ChecklistChangedError) {
       return { status: "changed" };

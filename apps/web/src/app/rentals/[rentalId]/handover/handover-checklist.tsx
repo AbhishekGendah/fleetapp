@@ -44,6 +44,25 @@ function SyncStatus({
   );
 }
 
+/** Photos the server would never take, dropped so the checklist can go on (review A6-5). */
+function DroppedPhotos({ problems }: { problems: readonly string[] }) {
+  if (problems.length === 0) {
+    return null;
+  }
+  return (
+    <div role="status" className="bg-attention-soft flex flex-col gap-1 rounded-lg p-3 text-sm">
+      <p className="font-medium">
+        {problems.length === 1
+          ? "A photo couldn't be sent and was taken off this phone. Take it again."
+          : `${problems.length} photos couldn't be sent and were taken off this phone. Take them again.`}
+      </p>
+      {[...new Set(problems)].map((problem) => (
+        <p key={problem}>{problem}</p>
+      ))}
+    </div>
+  );
+}
+
 /** At a return: what the handover found, to compare each step with. */
 export interface HandoverComparison {
   photos: Record<string, SavedPhoto>;
@@ -77,7 +96,7 @@ export function HandoverChecklist({
   finalStep: { title: string; form: ReactNode };
 }) {
   const router = useRouter();
-  const { queued, sentFromPhone, settleMarks, state, enqueue, sendNow } = useHandoverQueue(
+  const { queued, sentFromPhone, settleMarks, state, dropped, enqueue, sendNow } = useHandoverQueue(
     data.inspectionId,
   );
   const savedMarkIds = data.marks.map((mark) => mark.id).join(",");
@@ -115,6 +134,7 @@ export function HandoverChecklist({
   return (
     <div className="flex flex-col gap-8">
       <SyncStatus count={queued.length} state={state} onSendNow={sendNow} />
+      <DroppedPhotos problems={dropped} />
       <FormSection title="1. Photos">
         <ChecklistPhotos
           photoNames={data.photoNames}

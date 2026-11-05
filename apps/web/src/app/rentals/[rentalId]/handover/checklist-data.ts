@@ -29,6 +29,4 @@ export interface ChecklistData {
   gaps: HandoverGap[];
   /** Why the Renter cannot accept yet beyond the checklist: contract, licence, car. */
   blockers: string[];
-  /** How much bond is still to come, when the rental's rules want it before handover. */
-  bondShortCents: number | null;
 }

@@ -34,6 +34,7 @@ import {
   type SQL,
 } from "drizzle-orm";
 
+import { isDamageEvidenceHeld } from "./damage-evidence";
 import { listCarPhotos, type CarPhoto } from "../files/car-files";
 import { DASHBOARD_LIST_LENGTH, type FewOfMany } from "../dashboard/fleet-overview";
 import type { FileDependencies } from "../files/stored-files";
@@ -121,6 +122,8 @@ export interface DamageDetail {
   photos: CarPhoto[];
   /** Who had the car that day, when nobody is recorded yet (rule 15). */
   suggestedHolder: CarHolder | null;
+  /** Its photos back an open claim or a charge, so they can't be removed (batch 7 decision 3). */
+  isEvidenceHeld: boolean;
 }
 
 async function loadDamageRow(database: AnyDatabase, operatorId: string, damageId: string) {
@@ -130,6 +133,7 @@ async function loadDamageRow(database: AnyDatabase, operatorId: string, damageId
         record: damageRecords,
         car: { rego: vehicles.rego, make: vehicles.make, model: vehicles.model },
         renterFullName: renters.fullName,
+        isEvidenceHeld: isDamageEvidenceHeld(damageRecords.id, damageRecords.operatorId),
       })
       .from(damageRecords)
       .innerJoin(
@@ -222,6 +226,7 @@ export async function loadDamageDetail(
     claimPolicy: row.claimRow?.policy ?? null,
     photos,
     suggestedHolder,
+    isEvidenceHeld: row.isEvidenceHeld,
   };
 }
 

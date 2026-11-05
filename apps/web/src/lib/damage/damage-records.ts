@@ -14,6 +14,7 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, isNull } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
+import { isRentalOfCar } from "../rentals/rental-of-car";
 import { findCurrentVehicle } from "../vehicles/current-vehicle";
 import type { ClaimInput, DamageStatusInput, FoundDamageInput } from "./damage-input";
 
@@ -130,7 +131,7 @@ export async function recordFoundDamage(
               and(
                 eq(rentals.id, input.rentalId),
                 eq(rentals.operatorId, actor.operatorId),
-                eq(rentals.vehicleId, vehicleId),
+                isRentalOfCar(vehicleId),
               ),
             )
         )[0]
@@ -276,7 +277,7 @@ export async function confirmDamageRental(
             and(
               eq(rentals.id, rentalId),
               eq(rentals.operatorId, actor.operatorId),
-              eq(rentals.vehicleId, record.vehicleId),
+              isRentalOfCar(record.vehicleId),
             ),
           )
       : [];

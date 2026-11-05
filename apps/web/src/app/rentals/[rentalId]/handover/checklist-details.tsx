@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  describeErrorForLog,
   digitsOnly,
   fieldErrorsOf,
   formatKilometres,
@@ -26,11 +27,30 @@ import {
   type HandoverDetailField,
 } from "../../../../lib/handover/handover-input";
 import { saveDraft } from "../../../../lib/handover/offline/handover-store";
+import { TIMED_OUT, withinTime } from "../../../../lib/within-time";
 import { saveHandoverDetailsAction } from "./actions";
 
 const OFFLINE_MESSAGE = "No signal: kept on this phone. It saves itself when the signal is back.";
 
 type SaveState = "idle" | "saving" | "saved" | "offline";
+
+/** How long a save may take on weak signal before the button is given back. */
+const SAVE_TIME_LIMIT_MS = 20_000;
+const NOT_SAVED_MESSAGE =
+  "Couldn't save just now. The details are kept on this phone: press Save details again when there is signal.";
+
+/** The save's answer, or a "not saved" problem when it failed or hung (review A10-5). */
+async function savedWithinTime<Result extends { status: string }>(
+  step: Promise<Result>,
+): Promise<Result | { status: "problem"; message: string }> {
+  try {
+    const result = await withinTime(step, SAVE_TIME_LIMIT_MS);
+    return result === TIMED_OUT ? { status: "problem", message: NOT_SAVED_MESSAGE } : result;
+  } catch (error) {
+    console.warn("Saving the checklist details did not finish", describeErrorForLog(error));
+    return { status: "problem", message: NOT_SAVED_MESSAGE };
+  }
+}
 
 /**
  * The kilometres, fuel, keys, accessories and notes. Everything typed is
@@ -69,7 +89,9 @@ export function ChecklistDetails(props: {
       return;
     }
     setSaveState("saving");
-    const result = await saveHandoverDetailsAction(props.rentalId, props.inspectionId, values);
+    const result = await savedWithinTime(
+      saveHandoverDetailsAction(props.rentalId, props.inspectionId, values),
+    );
     setProblem(result.status === "problem" ? result.message : null);
     setSaveState(result.status === "saved" ? "saved" : "idle");
     if (result.status === "saved") {

@@ -3,6 +3,7 @@ import {
   formatCents,
   formatDateTimeInTimeZone,
   PURCHASE_SOURCE_LABELS,
+  todayInTimeZone,
   VEHICLE_COST_KIND_LABELS,
   type AmountWithGst,
 } from "@fleetapp/core";
@@ -135,6 +136,7 @@ function PurchaseCard({ vehicle, costs, user, attachments }: CostsCardProps) {
                 isGstRegistered={user.isGstRegistered}
                 nearState={vehicle.regoState}
                 submitLabel={purchase ? "Save changes" : "Save purchase"}
+                today={todayInTimeZone(new Date(), user.operatorTimezone)}
               />
             </FormDialog>
           ) : null}

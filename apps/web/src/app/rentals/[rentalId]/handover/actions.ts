@@ -12,6 +12,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import {
+  OVERRIDE_REASON_FIELDS,
+  type OverrideReasonField,
+} from "../../../../lib/handover/override-reasons";
+
 import { appDb } from "../../../../lib/app-db";
 import { appEmailSender } from "../../../../lib/email-sender";
 import { canHearRenterPayments } from "../../../../lib/payments/app-payments";
@@ -38,6 +43,10 @@ import {
 import { rentalHandoverPath, rentalPath } from "../../../../lib/paths";
 import { requireUser } from "../../../../lib/require-user";
 import type { UploadPermission } from "../../../../lib/storage/file-storage";
+import {
+  PHOTO_TARGET_GONE,
+  type SendOutcome,
+} from "../../../../lib/handover/offline/queued-changes";
 import { completionMessage, type CompleteHandoverState } from "./handover-state";
 
 const NOT_FOUND_MESSAGE = "This handover could not be found, or is already finished.";
@@ -91,13 +100,14 @@ export async function saveHandoverDetailsAction(
 export async function addDamageMarkAction(
   inspectionId: string,
   mark: { x: number; y: number; description: string },
+  markKey: string,
 ): Promise<{ markId: string } | { problem: string }> {
   const { actor } = await actingUser();
   const parsed = damageMarkInputSchema.safeParse(mark);
-  if (!isRecordId(inspectionId) || !parsed.success) {
+  if (!isRecordId(inspectionId) || !isRecordId(markKey) || !parsed.success) {
     return { problem: "That damage mark is not right: describe it, then try again." };
   }
-  const result = await addDamageMark(appDb, actor, inspectionId, parsed.data);
+  const result = await addDamageMark(appDb, actor, inspectionId, parsed.data, markKey);
   return result.status === "added" ? { markId: result.markId } : { problem: NOT_FOUND_MESSAGE };
 }
 
@@ -128,7 +138,10 @@ interface AllowedUpload {
 
 export type ChecklistPhotoStart =
   | { status: "allowed"; photo: AllowedUpload; thumbnail: AllowedUpload }
+  /** Never allowed as it is: the wrong kind of file, empty or too large. */
   | { status: "refused"; message: string }
+  /** Something went wrong this time: worth trying again. */
+  | { status: "failed"; message: string }
   /** Its checklist or damage mark is gone (removed, or finished elsewhere): nothing to send it to. */
   | { status: "gone" };
 
@@ -162,7 +175,7 @@ export async function startChecklistPhotoAction(
         ? { status: "refused", message: refusedMessage(result) }
         : { status: "allowed", photo: result.photo, thumbnail: result.thumbnail };
     },
-    { status: "refused", message: UPLOAD_FAILED_MESSAGE },
+    { status: "failed", message: UPLOAD_FAILED_MESSAGE },
   );
 }
 
@@ -170,28 +183,37 @@ export async function startChecklistPhotoAction(
 export async function finishChecklistPhotoAction(
   photoId: string,
   thumbnailId: string,
-): Promise<string | null> {
+): Promise<SendOutcome> {
   const { actor } = await actingUser();
   if (!isRecordId(photoId) || !isRecordId(thumbnailId)) {
-    return UPLOAD_FAILED_MESSAGE;
+    return { refusedForGood: UPLOAD_FAILED_MESSAGE };
   }
   return orUploadFailed(
     "Finishing a handover photo upload",
-    async () => {
+    async (): Promise<SendOutcome> => {
       const deps = fileDependencies();
-      // The small copy is optional: the checklist shows the photo itself without it.
-      await confirmUpload(deps, actor, thumbnailId, ["vehicle_photo_thumbnail"]);
       const result = await confirmUpload(deps, actor, photoId, ["vehicle_photo"]);
+      if (result === "wrong_type") {
+        return { refusedForGood: finishMessage(result, "vehicle_photo") ?? UPLOAD_FAILED_MESSAGE };
+      }
+      if (result === "not_found") {
+        return PHOTO_TARGET_GONE;
+      }
+      // The small copy only once its photo is kept, so none is left with nothing to show (review A7-5).
+      if (result === "confirmed") {
+        await confirmUpload(deps, actor, thumbnailId, ["vehicle_photo_thumbnail"]);
+      }
       return finishMessage(result, "vehicle_photo");
     },
     UPLOAD_FAILED_MESSAGE,
   );
 }
 
-const completeSchema = z.object({
-  bondOverrideReason: optionalLine,
-  directDebitOverrideReason: optionalLine,
-});
+const completeSchema = z.object(
+  Object.fromEntries(
+    Object.values(OVERRIDE_REASON_FIELDS).map((field) => [field, optionalLine]),
+  ) as Record<OverrideReasonField, typeof optionalLine>,
+);
 
 /** The Renter accepts the car on this phone: the handover is finished and the report issued. */
 export async function completeHandoverAction(
@@ -201,10 +223,11 @@ export async function completeHandoverAction(
   formData: FormData,
 ): Promise<CompleteHandoverState> {
   const { user, actor } = await actingUser();
-  const parsed = completeSchema.safeParse({
-    bondOverrideReason: formData.get("bondOverrideReason") ?? "",
-    directDebitOverrideReason: formData.get("directDebitOverrideReason") ?? "",
-  });
+  const parsed = completeSchema.safeParse(
+    Object.fromEntries(
+      Object.values(OVERRIDE_REASON_FIELDS).map((field) => [field, formData.get(field) ?? ""]),
+    ),
+  );
   if (!isRecordId(rentalId) || !isRecordId(inspectionId) || !parsed.success) {
     return { status: "problem", message: NOT_FOUND_MESSAGE };
   }

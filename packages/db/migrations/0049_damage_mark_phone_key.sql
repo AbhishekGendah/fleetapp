@@ -1,0 +1,2 @@
+ALTER TABLE "inspection_damage_marks" ADD COLUMN "client_key" uuid;--> statement-breakpoint
+CREATE UNIQUE INDEX "inspection_damage_marks_one_per_phone_key" ON "inspection_damage_marks" USING btree ("operator_id","inspection_id","client_key") WHERE "inspection_damage_marks"."client_key" is not null;

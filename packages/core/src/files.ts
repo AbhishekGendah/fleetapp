@@ -20,6 +20,17 @@ export const FILE_PURPOSES = [
 ] as const;
 export type FilePurpose = (typeof FILE_PURPOSES)[number];
 
+/**
+ * Papers attached to a car's costs, purchase, sale, rego or insurance: the
+ * receipts and tax invoices behind GST claimed, which the ATO wants kept 5
+ * years. Removed ones are hidden but kept that long (batch 7 decision 4).
+ */
+export const TAX_PAPER_PURPOSES = [
+  "vehicle_attachment",
+  "vehicle_identity_attachment",
+] as const satisfies readonly FilePurpose[];
+export const REMOVED_TAX_PAPERS_KEPT_DAYS = 5 * 366;
+
 /** Identity documents live apart from everything else (rule 8). */
 export const STORAGE_AREAS = ["general", "identity"] as const;
 export type StorageArea = (typeof STORAGE_AREAS)[number];

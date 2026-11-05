@@ -133,12 +133,26 @@ export function isRequiredCostField(field: string): boolean {
   return !OPTIONAL_COST_FIELDS.includes(field);
 }
 
-/** A private purchase has no GST box, so whatever it last held is ignored. */
-export function parsePurchaseForm(values: PurchaseFormValues): z.ZodSafeParseResult<PurchaseInput> {
-  return purchaseInputSchema.safeParse({
-    ...blankAsMissing(values, ["source"]),
-    gstCents: isPrivatePurchase(values.source) ? "" : values.gstCents,
-  });
+const FUTURE_PURCHASE_MESSAGE = "The purchase date can't be in the future.";
+
+/**
+ * A private purchase has no GST box, so whatever it last held is ignored. A
+ * purchase can't be dated after the business's today (`today`, YYYY-MM-DD):
+ * its odometer would otherwise count as the car's current reading (review A8-6).
+ */
+export function parsePurchaseForm(
+  values: PurchaseFormValues,
+  today: string,
+): z.ZodSafeParseResult<PurchaseInput> {
+  return purchaseInputSchema
+    .refine((input) => input.purchasedOn <= today, {
+      path: ["purchasedOn"],
+      message: FUTURE_PURCHASE_MESSAGE,
+    })
+    .safeParse({
+      ...blankAsMissing(values, ["source"]),
+      gstCents: isPrivatePurchase(values.source) ? "" : values.gstCents,
+    });
 }
 
 export function parseSaleForm(

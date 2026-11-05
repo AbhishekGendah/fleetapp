@@ -61,6 +61,10 @@ export const inspections = pgTable(
     bondOverrideReason: text("bond_override_reason"),
     /** Why the car went without a working direct debit, when the rental's rules wanted one first. */
     directDebitOverrideReason: text("direct_debit_override_reason"),
+    /** Why the car went with no insurance on file for the day (review A8-2). Never logged. */
+    insuranceOverrideReason: text("insurance_override_reason"),
+    /** Why the car went with no rego on file for the day (review A8-2). Never logged. */
+    regoOverrideReason: text("rego_override_reason"),
     startedByUserId: uuid("started_by_user_id")
       .notNull()
       .references(() => users.id),
@@ -137,6 +141,9 @@ export function inspectionLink(
   });
 }
 
+/** Named so saving a mark sent twice can find the first. */
+export const DAMAGE_MARK_CLIENT_KEY_INDEX = "inspection_damage_marks_one_per_phone_key";
+
 /**
  * Damage already on the car, marked on the outline (across and down, 0 to
  * OUTLINE_SCALE) with a description; its photo is a file pointing here.
@@ -154,10 +161,18 @@ export const inspectionDamageMarks = pgTable(
     description: text("description").notNull(),
     removedAt: timestamp("removed_at", { withTimezone: true }),
     createdByUserId: uuid("created_by_user_id").references(() => users.id),
+    /**
+     * The phone's own key for the mark: sending it again on patchy signal
+     * finds the mark already saved instead of adding a second (review A6-5).
+     */
+    clientKey: uuid("client_key"),
     ...timestampColumns,
   },
   (table) => [
     inspectionLink("inspection_damage_marks", table),
+    uniqueIndex(DAMAGE_MARK_CLIENT_KEY_INDEX)
+      .on(table.operatorId, table.inspectionId, table.clientKey)
+      .where(sql`${table.clientKey} is not null`),
     unique("inspection_damage_marks_id_operator_unique").on(table.id, table.operatorId),
     index("inspection_damage_marks_inspection_idx").on(table.operatorId, table.inspectionId),
     check(

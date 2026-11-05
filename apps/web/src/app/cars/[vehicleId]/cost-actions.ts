@@ -1,6 +1,6 @@
 "use server";
 
-import { formTextValues, isRecordId } from "@fleetapp/core";
+import { formTextValues, isRecordId, todayInTimeZone } from "@fleetapp/core";
 
 import { failedState, savedState, type ChangeFormState } from "@fleetapp/ui/change-form-state";
 import { appDb } from "../../../lib/app-db";
@@ -42,16 +42,19 @@ export async function savePurchaseAction(
   _previous: ChangeFormState,
   formData: FormData,
 ): Promise<ChangeFormState> {
-  const parsed = parsePurchaseForm(formTextValues(formData, PURCHASE_FORM_FIELDS));
-  if (!parsed.success) {
-    return failedState(INVALID_MESSAGE);
-  }
-  return changeCar(vehicleId, "Saving a car's purchase", async (actor, user) =>
-    savedOrNot(
+  return changeCar(vehicleId, "Saving a car's purchase", async (actor, user) => {
+    const parsed = parsePurchaseForm(
+      formTextValues(formData, PURCHASE_FORM_FIELDS),
+      todayInTimeZone(new Date(), user.operatorTimezone),
+    );
+    if (!parsed.success) {
+      return failedState(INVALID_MESSAGE);
+    }
+    return savedOrNot(
       await savePurchase(appDb, actor, vehicleId, parsed.data, user.operatorTimezone),
       "Purchase saved.",
-    ),
-  );
+    );
+  });
 }
 
 export async function saveSaleAction(

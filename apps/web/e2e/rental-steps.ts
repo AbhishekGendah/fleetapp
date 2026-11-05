@@ -1,5 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 
+import { recordCurrentPaperwork } from "./test-records";
+
 /** A moment typed into a date and time picker. */
 export interface TypedMoment {
   day: string;
@@ -55,8 +57,15 @@ export async function fillRental(
   await page.getByRole("textbox", { name: /^Bond/ }).pressSequentially("500");
 }
 
-/** Adds a 2024 Toyota Corolla, registered in WA, to book. */
-export async function addCarToBook(page: Page, rego: string): Promise<void> {
+/**
+ * Adds a 2024 Toyota Corolla, registered in WA, to book: with rego and
+ * insurance on file unless asked otherwise.
+ */
+export async function addCarToBook(
+  page: Page,
+  rego: string,
+  options: { isPaperworkOnFile?: boolean } = {},
+): Promise<void> {
   await page.goto("/cars/new", { waitUntil: "networkidle" });
   await page.getByRole("textbox", { name: /^Rego/ }).fill(rego);
   await page.getByLabel(/^State/).selectOption("WA");
@@ -69,6 +78,9 @@ export async function addCarToBook(page: Page, rego: string): Promise<void> {
   await page.getByRole("textbox", { name: /^Daily rate/ }).pressSequentially("70");
   await page.getByRole("button", { name: "Add car" }).click();
   await expect(page.getByRole("heading", { name: rego })).toBeVisible();
+  if (options.isPaperworkOnFile !== false) {
+    await recordCurrentPaperwork(rego);
+  }
 }
 
 /** Checks the page is the rental for these parties, and gives its id from the address. */

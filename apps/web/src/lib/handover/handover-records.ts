@@ -280,16 +280,47 @@ export async function saveHandoverDetails(
   });
 }
 
-/** Marks damage already on the car, while the checklist is under way. */
+/** The mark this phone already saved under its key, if it did (the reply may have been lost). */
+async function markSavedUnderKey(
+  tx: AnyTransaction,
+  operatorId: string,
+  inspectionId: string,
+  clientKey: string,
+): Promise<string | null> {
+  const [saved] = await tx
+    .select({ id: inspectionDamageMarks.id })
+    .from(inspectionDamageMarks)
+    .where(
+      and(
+        eq(inspectionDamageMarks.operatorId, operatorId),
+        eq(inspectionDamageMarks.inspectionId, inspectionId),
+        eq(inspectionDamageMarks.clientKey, clientKey),
+      ),
+    );
+  return saved?.id ?? null;
+}
+
+/**
+ * Marks damage already on the car, while the checklist is under way. A mark
+ * sent again with the same phone key is the one already saved (review A6-5);
+ * the checklist's lock keeps two sends of it one after the other.
+ */
 export async function addDamageMark(
   database: AnyDatabase,
   actor: ActingUser,
   inspectionId: string,
   input: DamageMarkInput,
+  clientKey: string | null = null,
 ): Promise<{ status: "added"; markId: string } | { status: "not_found" }> {
   return withTenant(database, actor.operatorId, async (tx) => {
     if (!(await lockOpenInspection(tx, actor.operatorId, inspectionId))) {
       return { status: "not_found" as const };
+    }
+    const already = clientKey
+      ? await markSavedUnderKey(tx, actor.operatorId, inspectionId, clientKey)
+      : null;
+    if (already) {
+      return { status: "added" as const, markId: already };
     }
     const [mark] = await tx
       .insert(inspectionDamageMarks)
@@ -297,6 +328,7 @@ export async function addDamageMark(
         operatorId: actor.operatorId,
         inspectionId,
         ...input,
+        clientKey,
         createdByUserId: actor.userId,
       })
       .returning({ id: inspectionDamageMarks.id });
@@ -343,6 +375,33 @@ export async function removeDamageMark(
     });
     return "removed";
   });
+}
+
+/**
+ * Cancels the rental's checklists still under way, with its booking: a phone
+ * still on one is then told it was cancelled, never left to finish a handover
+ * nobody can complete (review A6-9).
+ */
+export async function cancelOpenChecklists(
+  tx: AnyTransaction,
+  actor: ActingUser,
+  rentalId: string,
+  now: Date,
+): Promise<void> {
+  const cancelled = await tx
+    .update(inspections)
+    .set({ status: "cancelled", cancelledAt: now, updatedAt: now })
+    .where(
+      and(
+        eq(inspections.operatorId, actor.operatorId),
+        eq(inspections.rentalId, rentalId),
+        eq(inspections.status, "in_progress"),
+      ),
+    )
+    .returning({ id: inspections.id });
+  for (const inspection of cancelled) {
+    await logInspection(tx, actor, inspection.id, ACTIVITY_ACTIONS.cancelled);
+  }
 }
 
 /** Stops a checklist under way; the rental stays as it was and a new one can begin. */

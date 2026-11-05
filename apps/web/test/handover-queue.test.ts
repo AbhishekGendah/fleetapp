@@ -66,7 +66,7 @@ describe("the phone's handover queue", () => {
 
     const result = await runQueue(store, senders, INSPECTION);
 
-    expect(result).toEqual({ status: "sent", count: 3 });
+    expect(result).toEqual({ status: "sent", count: 3, dropped: [] });
     expect(sentTo).toEqual([{ damageMarkId: "server-mark" }, { photoName: "Front" }]);
     expect(store.left()).toEqual([]);
   });
@@ -85,7 +85,7 @@ describe("the phone's handover queue", () => {
 
     const result = await runQueue(store, senders, INSPECTION);
 
-    expect(result).toEqual({ status: "stopped", count: 1, problem: "No signal" });
+    expect(result).toEqual({ status: "stopped", count: 1, dropped: [], problem: "No signal" });
     expect(store.left().map((change) => change.id)).toEqual([2, 3]);
   });
 
@@ -102,7 +102,23 @@ describe("the phone's handover queue", () => {
 
     const result = await runQueue(store, senders, INSPECTION);
 
-    expect(result).toEqual({ status: "sent", count: 2 });
+    expect(result).toEqual({ status: "sent", count: 2, dropped: [] });
+    expect(store.left()).toEqual([]);
+  });
+
+  it("drops a photo the server will never take, with its note, and sends the rest (review A6-5)", async () => {
+    const senders: QueueSenders = {
+      addMark: async () => ({ markId: "m" }),
+      sendPhoto: async (_inspection, target) =>
+        "photoName" in target && target.photoName === "Front"
+          ? { refusedForGood: "That file is not a photo." }
+          : null,
+    };
+    const store = memoryStore([photo(1, { photoName: "Front" }), photo(2, { photoName: "Boot" })]);
+
+    const result = await runQueue(store, senders, INSPECTION);
+
+    expect(result).toEqual({ status: "sent", count: 2, dropped: ["That file is not a photo."] });
     expect(store.left()).toEqual([]);
   });
 });

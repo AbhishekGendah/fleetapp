@@ -87,7 +87,9 @@ function howToPayDocument(howToPay: string): TemplateDocument | undefined {
 
 /**
  * What a line says on a document. A reversal names what it takes back, and
- * the document that was on, so the Renter can see what is corrected.
+ * the document that was on, so the Renter can see what is corrected. Once a
+ * rental has had more than one car (a swap), each line names its car
+ * (review G4-3, batch 7 decision 7).
  */
 function lineText(item: LedgerLineView, allLines: readonly LedgerLineView[]): string {
   const text = item.chargeTypeLabel
@@ -96,11 +98,13 @@ function lineText(item: LedgerLineView, allLines: readonly LedgerLineView[]): st
   const reversed = item.reversesId
     ? allLines.find((line) => line.id === item.reversesId)
     : undefined;
+  const isSwapped = new Set(allLines.map((line) => line.rego)).size > 1;
+  const car = isSwapped ? ` (${(reversed ?? item).rego})` : "";
   if (!reversed) {
-    return text;
+    return `${text}${car}`;
   }
   const onDocument = reversed.documentNumberText ? ` on ${reversed.documentNumberText}` : "";
-  return `${text} (takes back "${reversed.description}"${onDocument})`;
+  return `${text}${car} (takes back "${reversed.description}"${onDocument})`;
 }
 
 /**

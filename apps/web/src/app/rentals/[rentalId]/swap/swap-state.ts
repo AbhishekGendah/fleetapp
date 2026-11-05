@@ -43,6 +43,8 @@ export function swapRefusalMessage(
       return "Choose Available, In service or Off road for the car handed back.";
     case "clash":
       return "Another booking took the new car meanwhile. Cancel this swap and choose another car.";
+    case "new_car_changed":
+      return "The new car was sold, sent to the workshop or archived since the swap began, so nothing was signed. Cancel this swap and choose another car.";
     case "finished_already":
       return "This swap is already finished.";
     case "not_found":

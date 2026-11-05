@@ -8,6 +8,7 @@ import {
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
+import { ConfirmButton } from "@fleetapp/ui/confirm-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { ClipboardCheck, XCircle } from "lucide-react";
 import Link from "next/link";
@@ -161,12 +162,16 @@ async function ChecklistCard(props: {
                 Continue {wording.verb}
               </Link>
             </Button>
-            <form action={wording.cancel.bind(null, rental.id, status.inProgressId)}>
-              <Button type="submit" variant="danger" className="w-full sm:w-auto">
-                <XCircle aria-hidden />
-                Cancel this {wording.verb}
-              </Button>
-            </form>
+            <ConfirmButton
+              label={`Cancel this ${wording.verb}`}
+              icon={<XCircle aria-hidden />}
+              title={`Cancel this ${wording.verb}?`}
+              description="The photos and damage marks taken so far are thrown away."
+              confirmLabel={`Yes, cancel the ${wording.verb}`}
+              pendingLabel="Cancelling…"
+              keepLabel={`No, keep the ${wording.verb}`}
+              action={wording.cancel.bind(null, rental.id, status.inProgressId)}
+            />
           </>
         ) : props.waitingFor ? (
           <p className="text-muted-foreground text-sm">{props.waitingFor}</p>

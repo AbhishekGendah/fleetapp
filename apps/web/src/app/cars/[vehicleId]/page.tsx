@@ -155,18 +155,23 @@ function DetailsTab({ vehicle }: { vehicle: VehicleDetail }) {
           <CardHeader>
             <CardTitle>Status</CardTitle>
             <CardDescription>
-              Rented is set by the app once rentals are added; choose the rest here.
+              Rented is set by the app at handovers and returns, and Sold by recording a sale on the
+              Costs tab; choose the rest here.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <StatusForm
-              initialValues={{
-                status: vehicle.status,
-                statusReason: vehicle.statusReason ?? "",
-                statusExpectedBack: vehicle.statusExpectedBack ?? "",
-              }}
-              action={changeStatusAction.bind(null, vehicle.id)}
-            />
+            {vehicle.status === "sold" ? (
+              <p className="text-sm">Sold. To change that, cancel the sale on the Costs tab.</p>
+            ) : (
+              <StatusForm
+                initialValues={{
+                  status: vehicle.status,
+                  statusReason: vehicle.statusReason ?? "",
+                  statusExpectedBack: vehicle.statusExpectedBack ?? "",
+                }}
+                action={changeStatusAction.bind(null, vehicle.id)}
+              />
+            )}
           </CardContent>
         </Card>
       )}

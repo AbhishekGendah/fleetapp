@@ -14,6 +14,9 @@ import { contentDisposition, type StorageArea } from "@fleetapp/core";
 
 import { UPLOAD_PERMISSION_SECONDS, VIEW_LINK_SECONDS, type FileStorage } from "./file-storage";
 
+/** Photos of rentals over a year old: instant to open, cheaper to keep (rule 23). */
+const LONG_TERM_STORAGE_CLASS = "GLACIER_IR";
+
 /** What S3 answers when a version condition (If-Match) no longer holds. */
 const PRECONDITION_FAILED_STATUS = 412;
 
@@ -128,6 +131,20 @@ export function createS3FileStorage(config: S3FileStorageConfig): FileStorage {
       }
       await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: fromKey }));
       return true;
+    },
+
+    async moveToLongTermStorage(area, key) {
+      const bucket = bucketFor(area);
+      // Copied onto itself with the new class: the same bytes and address, cheaper to keep.
+      await client.send(
+        new CopyObjectCommand({
+          Bucket: bucket,
+          Key: key,
+          CopySource: `${bucket}/${encodeURIComponent(key)}`,
+          StorageClass: LONG_TERM_STORAGE_CLASS,
+          MetadataDirective: "COPY",
+        }),
+      );
     },
 
     async save(area, key, bytes, contentType) {

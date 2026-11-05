@@ -11,7 +11,7 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser, type UserChange } from "../acting-user";
-import { findCurrentVehicle } from "./current-vehicle";
+import { findCurrentVehicle, isOfCurrentCar } from "./current-vehicle";
 import { findCoverOverlaps, findSamePolicy, type CoverOverlap } from "./insurance-overlaps";
 import { POLICY_FORM_FIELDS, type PolicyInput } from "./paperwork-input";
 
@@ -253,6 +253,7 @@ export async function removeVehicleFromPolicy(
           eq(insurancePolicyVehicles.vehicleId, vehicleId),
           eq(insurancePolicyVehicles.operatorId, actor.operatorId),
           isNull(insurancePolicyVehicles.removedAt),
+          isOfCurrentCar(insurancePolicyVehicles.vehicleId),
         ),
       )
       .returning({ id: insurancePolicyVehicles.id });

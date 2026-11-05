@@ -38,6 +38,7 @@ import { CarAreaSelect, CarOutline, type CarOutlineMark } from "@fleetapp/ui/car
 import { DateTimePicker } from "@fleetapp/ui/date-time-picker";
 import { RecordPicker, type PickableRecord } from "@fleetapp/ui/record-picker";
 import { FilePicker } from "@fleetapp/ui/file-picker";
+import { ConfirmButton } from "@fleetapp/ui/confirm-button";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { FormattedInput } from "@fleetapp/ui/formatted-input";
 import { MoneyInput } from "@fleetapp/ui/money-input";
@@ -55,7 +56,7 @@ import { ImageViewer, ImageViewerOpener } from "@fleetapp/ui/image-viewer";
 import { PageHeader } from "@fleetapp/ui/page-header";
 import { ProblemPanel } from "@fleetapp/ui/problem-panel";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
-import { Camera, Gauge, History, Paperclip, Plus, Trash2 } from "lucide-react";
+import { Camera, Gauge, History, Paperclip, Plus, Trash2, XCircle } from "lucide-react";
 import { useState } from "react";
 
 import { ADMIN_LABEL } from "../admin-label";
@@ -730,6 +731,22 @@ export function ComponentCatalogue() {
             </ImageViewerOpener>
           </div>
         </ImageViewer>
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Asking first"
+        note="For something hard to undo: says what will happen and goes ahead only on a second, clearly labelled press. Starts on the safe choice."
+      >
+        <ConfirmButton
+          label="Cancel this handover"
+          icon={<XCircle aria-hidden />}
+          title="Cancel this handover?"
+          description="The photos and damage marks taken so far are thrown away."
+          confirmLabel="Yes, cancel the handover"
+          pendingLabel="Cancelling…"
+          keepLabel="No, keep the handover"
+          action={() => undefined}
+        />
       </CatalogueSection>
 
       <CatalogueSection

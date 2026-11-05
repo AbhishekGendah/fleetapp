@@ -12,6 +12,9 @@ import { DEMO_PICTURES, DEMO_SIGNATURE } from "./demo-pictures";
 import { DEMO_RENTALS, type DemoRentalPlan } from "./demo-plan";
 import { bookingClock, findRental, issueDemoContract, momentOf } from "./demo-rentals";
 
+const DEMO_INSURANCE_REASON = "Renewal paid, new certificate on its way";
+const DEMO_REGO_REASON = "Renewed online today, receipt on the office computer";
+
 /** The demo picture that best fits a checklist photo's name. */
 function pictureForPhoto(photoName: string): string {
   const name = photoName.toLowerCase();
@@ -173,6 +176,9 @@ export async function handOverDemoRental(
       signature: drawnSignatureInput(DEMO_SIGNATURE),
       bondOverrideReason: plan.bondOverrideReason ?? null,
       directDebitOverrideReason: null,
+      // Kept only for the demo cars whose paperwork has run out (review A8-2).
+      insuranceOverrideReason: DEMO_INSURANCE_REASON,
+      regoOverrideReason: DEMO_REGO_REASON,
     },
     { timeZone: context.timeZone, now: handedOverAt },
   );

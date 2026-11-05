@@ -11,6 +11,8 @@ import {
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
+import { hasCarRentalUnderWay } from "../rentals/rentals-under-way";
+import { lockCurrentVehicle } from "./current-vehicle";
 import { recordUserChange, type ActingUser, type UserChange } from "../acting-user";
 import { addReading } from "./odometer";
 import type { NewVehicleInput, VehicleInput, VehicleStatusInput } from "./vehicle-input";
@@ -48,7 +50,15 @@ export type SaveVehicleResult = { status: "saved"; vehicleId: string } | Duplica
 
 /** Changes to an archived car wait until it is restored. */
 /** "rented": the car is with a Renter; its status follows the handover and return. */
-export type ChangeVehicleResult = "changed" | "unchanged" | "not_found" | "rented";
+export type ChangeVehicleResult =
+  | "changed"
+  | "unchanged"
+  | "not_found"
+  | "rented"
+  /** Booked or out with a Renter: it can't be archived until that is finished or cancelled. */
+  | "in_use"
+  /** Sold is set by recording a sale on the Costs tab, and undone only by cancelling it. */
+  | "sale_only";
 
 function pickVehicleFields(
   input: VehicleInput | NewVehicleInput,
@@ -196,9 +206,16 @@ export async function changeVehicleStatus(
   vehicleId: string,
   input: VehicleStatusInput,
 ): Promise<ChangeVehicleResult> {
-  return withTenant(database, actor.operatorId, (tx) =>
-    applyVehicleStatus(tx, actor, vehicleId, input),
-  );
+  return withTenant(database, actor.operatorId, async (tx) => {
+    if (input.status === "sold") {
+      return "sale_only";
+    }
+    const car = await lockCurrentVehicle(tx, actor.operatorId, vehicleId);
+    if (car?.status === "sold") {
+      return "sale_only";
+    }
+    return applyVehicleStatus(tx, actor, vehicleId, input);
+  });
 }
 
 /** As `changeVehicleStatus`, inside the caller's transaction: e.g. Sold, when a sale is saved. */
@@ -245,6 +262,11 @@ async function setVehicleArchived(
   }
   return saveOrReportDuplicate(database, actor.operatorId, car, () =>
     withTenant(database, actor.operatorId, async (tx) => {
+      // Locked first, so a booking made at the same moment is seen (review A8-1).
+      await lockVehicle(tx, actor.operatorId, vehicleId);
+      if (shouldArchive && (await hasCarRentalUnderWay(tx, actor.operatorId, vehicleId))) {
+        return "in_use" as const;
+      }
       const [changed] = await tx
         .update(vehicles)
         .set({ archivedAt: shouldArchive ? new Date() : null })

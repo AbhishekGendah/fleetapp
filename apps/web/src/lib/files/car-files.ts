@@ -8,9 +8,22 @@ import {
 import type { AnyTransaction } from "@fleetapp/db/client";
 import { files, vehicles } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, count, desc, eq, inArray, isNotNull, isNull, like, or, type SQL } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  like,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 
-import { findCurrentVehicle } from "../vehicles/current-vehicle";
+import { isDamageEvidenceHeld } from "../damage/damage-evidence";
+import { findCurrentVehicle, isOfCurrentCar } from "../vehicles/current-vehicle";
 import {
   listLoggedFileIds,
   logFile,
@@ -284,11 +297,14 @@ export async function removeCarFile(
   actor: FileActor,
   vehicleId: string,
   fileId: string,
-): Promise<"removed" | "not_found"> {
+): Promise<"removed" | "not_found" | "held"> {
   return withTenant(deps.database, actor.operatorId, async (tx) => {
     // A handover or return photo stays with its checklist, and its small copy with it.
     const [target] = await tx
-      .select({ id: files.id })
+      .select({
+        id: files.id,
+        isHeld: sql<boolean>`${files.damageRecordId} is not null and ${isDamageEvidenceHeld(files.damageRecordId, files.operatorId)}`,
+      })
       .from(files)
       .where(
         and(
@@ -296,10 +312,14 @@ export async function removeCarFile(
           inArray(files.purpose, ["vehicle_photo", "vehicle_document"]),
           isNull(files.inspectionId),
           carFileInUse(actor.operatorId, vehicleId, ["vehicle_photo", "vehicle_document"]),
+          isOfCurrentCar(files.vehicleId),
         ),
       );
     if (!target) {
       return "not_found";
+    }
+    if (target.isHeld) {
+      return "held";
     }
     const removed = await tx
       .update(files)

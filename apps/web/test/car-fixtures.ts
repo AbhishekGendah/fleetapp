@@ -1,8 +1,15 @@
 import { randomUUID } from "node:crypto";
 
-import { operators, users } from "@fleetapp/db/schema";
+import {
+  insurancePolicies,
+  insurancePolicyVehicles,
+  operators,
+  users,
+  vehicleRegistrations,
+} from "@fleetapp/db/schema";
+import { withTenant } from "@fleetapp/db/tenant-context";
 import type { TestConnection } from "@fleetapp/db/testing";
-import type { VehicleCatalogue } from "@fleetapp/core";
+import { DIRECT_DEBIT_TERM_MONTHS, type VehicleCatalogue } from "@fleetapp/core";
 
 import type { ActingUser } from "../src/lib/acting-user";
 import {
@@ -78,4 +85,44 @@ export async function addTestCar(
     throw new Error("The test car was not saved.");
   }
   return result.vehicleId;
+}
+
+/** Wide enough for every date the tests hand a car over on. */
+const TEST_COVER = { startsOn: "2020-01-01", endsOn: "2099-12-31" };
+
+/**
+ * Rego on a running direct debit and an insurance policy covering every test
+ * date, so a handover isn't stopped for paperwork (review A8-2). No excess, so
+ * contracts read as before.
+ */
+export async function addCurrentPaperwork(
+  web: TestConnection,
+  actor: ActingUser,
+  vehicleId: string,
+): Promise<void> {
+  await withTenant(web.db, actor.operatorId, async (tx) => {
+    await tx.insert(vehicleRegistrations).values({
+      operatorId: actor.operatorId,
+      vehicleId,
+      state: "WA",
+      termMonths: DIRECT_DEBIT_TERM_MONTHS,
+      expiresOn: null,
+      paidOn: TEST_COVER.startsOn,
+      costCents: 0,
+    });
+    const [policy] = await tx
+      .insert(insurancePolicies)
+      .values({
+        operatorId: actor.operatorId,
+        insurer: "Test Insurer",
+        policyNumber: randomUUID().slice(0, 8).toUpperCase(),
+        coverType: "comprehensive",
+        ...TEST_COVER,
+        costCents: 0,
+      })
+      .returning({ id: insurancePolicies.id });
+    await tx
+      .insert(insurancePolicyVehicles)
+      .values({ operatorId: actor.operatorId, policyId: policy!.id, vehicleId });
+  });
 }

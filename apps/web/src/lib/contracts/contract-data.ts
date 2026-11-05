@@ -16,7 +16,7 @@ import {
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { insurancePolicies, insurancePolicyVehicles } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, desc, gt, isNull, lte } from "drizzle-orm";
+import { and, desc, gte, isNull, lte } from "drizzle-orm";
 
 import { loadRental, type RentalDetail } from "../rentals/rental-queries";
 import type { RentalClock } from "../rentals/rental-records";
@@ -37,8 +37,11 @@ function addressText(
   return text === "" ? null : text;
 }
 
-/** The excess of the policy covering the car on the day the rental starts. */
-async function excessOnStart(
+/**
+ * The excess of the policy covering the car on the day: its last day covered
+ * too, as everywhere else (review A11-8).
+ */
+async function excessOnDay(
   tx: AnyTransaction,
   operatorId: string,
   vehicleId: string,
@@ -54,7 +57,7 @@ async function excessOnStart(
         isNull(insurancePolicyVehicles.removedAt),
         isNull(insurancePolicies.archivedAt),
         lte(insurancePolicies.startsOn, startDate),
-        gt(insurancePolicies.endsOn, startDate),
+        gte(insurancePolicies.endsOn, startDate),
       ),
     )
     .orderBy(desc(insurancePolicies.startsOn))
@@ -193,24 +196,34 @@ const NO_FORM_ONLY_FIELDS: ChangeFields & SwapFields = {
   swapReason: null,
 };
 
+/**
+ * What a document's fields say for this rental. The car is the rental's own,
+ * or another named (a swap form's car going out: review G4-3); its excess is
+ * the one on the day the document speaks from: the start, or the day it is
+ * made once the car is out (a change after a swap).
+ */
 export async function loadContractData(
   database: AnyDatabase,
   operatorId: string,
   rentalId: string,
   clock: RentalClock,
+  car: { vehicleId?: string } = {},
 ): Promise<ContractData | null> {
   const rental = await loadRental(database, operatorId, rentalId, clock);
   if (!rental) {
     return null;
   }
+  const vehicleId = car.vehicleId ?? rental.vehicleId;
   const startDate = todayInTimeZone(rental.plannedStart, clock.timeZone);
+  const today = todayInTimeZone(clock.now, clock.timeZone);
+  // Before the handover the contract speaks from the start; once out, from today.
+  const isOut = rental.handedOverAt !== null && rental.handedOverAt <= clock.now;
+  const excessDay = isOut && today > startDate ? today : startDate;
   const [renter, vehicle, business, excessCents] = await Promise.all([
     loadRenter(database, operatorId, rental.renterId),
-    loadVehicle(database, operatorId, rental.vehicleId),
+    loadVehicle(database, operatorId, vehicleId),
     loadBusinessDetails(database, operatorId),
-    withTenant(database, operatorId, (tx) =>
-      excessOnStart(tx, operatorId, rental.vehicleId, startDate),
-    ),
+    withTenant(database, operatorId, (tx) => excessOnDay(tx, operatorId, vehicleId, excessDay)),
   ]);
   if (!renter || !vehicle || !business) {
     return null;

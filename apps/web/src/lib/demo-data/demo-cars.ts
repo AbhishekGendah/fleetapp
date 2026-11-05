@@ -262,17 +262,20 @@ async function addDemoPurchase(context: DemoContext, carId: string, car: DemoCar
   const priceCents = car.model.priceCents - (NEWEST_YEAR - car.year) * 2_500_00;
   const sellers = isPrivate ? PRIVATE_SELLERS : DEALERS;
   const input = checkedInput(
-    parsePurchaseForm({
-      ...emptyPurchaseForm(),
-      purchasedOn: dayFrom(context, -Math.min(ageDays, 3 * DAYS_PER_YEAR)),
-      source: isPrivate ? "private" : "dealer",
-      sellerName: sellers[car.number % sellers.length]!,
-      sellerPhone: isPrivate ? "0491 570 156" : "",
-      sellerAddress: isPrivate ? "" : "100 Example Highway, Osborne Park WA 6017",
-      kilometres: String(Math.max(0, car.kilometres - 20_000)),
-      priceCents: centsForEditing(priceCents),
-      gstCents: isPrivate ? "" : centsForEditing(gstIncludedIn(priceCents)),
-    }),
+    parsePurchaseForm(
+      {
+        ...emptyPurchaseForm(),
+        purchasedOn: dayFrom(context, -Math.min(ageDays, 3 * DAYS_PER_YEAR)),
+        source: isPrivate ? "private" : "dealer",
+        sellerName: sellers[car.number % sellers.length]!,
+        sellerPhone: isPrivate ? "0491 570 156" : "",
+        sellerAddress: isPrivate ? "" : "100 Example Highway, Osborne Park WA 6017",
+        kilometres: String(Math.max(0, car.kilometres - 20_000)),
+        priceCents: centsForEditing(priceCents),
+        gstCents: isPrivate ? "" : centsForEditing(gstIncludedIn(priceCents)),
+      },
+      dayFrom(context, 0),
+    ),
     `purchase of ${car.rego}`,
   );
   const result = await savePurchase(

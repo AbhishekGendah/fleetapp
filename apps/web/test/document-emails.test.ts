@@ -58,6 +58,8 @@ describe("emailed copies of fixed documents", () => {
         signature: drawnSignatureInput(TEST_SIGNATURE),
         bondOverrideReason: null,
         directDebitOverrideReason: null,
+        insuranceOverrideReason: null,
+        regoOverrideReason: null,
       },
       { timeZone: TEST_TIME_ZONE, now: new Date() },
     );

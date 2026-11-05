@@ -20,6 +20,7 @@ import {
 } from "@fleetapp/db/list-query";
 import { carHolds, rentalRates, rentals, renters, vehicles } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { isRentalOfCar } from "./rental-of-car";
 import { rentalRateText } from "./rental-labels";
 import type { RentalClock } from "./rental-records";
 import { and, asc, count, desc, eq, isNull, sql, type SQL } from "drizzle-orm";
@@ -153,7 +154,7 @@ export type RentalScope = { vehicleId: string } | { renterId: string } | Record<
 
 function scopeCondition(scope: RentalScope): SQL | undefined {
   if ("vehicleId" in scope) {
-    return eq(rentals.vehicleId, scope.vehicleId);
+    return isRentalOfCar(scope.vehicleId);
   }
   return "renterId" in scope ? eq(rentals.renterId, scope.renterId) : undefined;
 }

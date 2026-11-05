@@ -120,6 +120,8 @@ describe("handing a car over", () => {
       signature: drawnSignatureInput(TEST_SIGNATURE),
       bondOverrideReason: null,
       directDebitOverrideReason: null,
+      insuranceOverrideReason: null,
+      regoOverrideReason: null,
     };
 
     const withGap = await completeHandover(
@@ -156,6 +158,8 @@ describe("handing a car over", () => {
         signature: drawnSignatureInput(TEST_SIGNATURE),
         bondOverrideReason: null,
         directDebitOverrideReason: null,
+        insuranceOverrideReason: null,
+        regoOverrideReason: null,
       },
       clock(),
     );
@@ -168,6 +172,8 @@ describe("handing a car over", () => {
         signature: drawnSignatureInput(TEST_SIGNATURE),
         bondOverrideReason: null,
         directDebitOverrideReason: null,
+        insuranceOverrideReason: null,
+        regoOverrideReason: null,
       },
       clock(),
     );
@@ -244,6 +250,8 @@ describe("handing a car over", () => {
         signature: drawnSignatureInput(TEST_SIGNATURE),
         bondOverrideReason: null,
         directDebitOverrideReason: null,
+        insuranceOverrideReason: null,
+        regoOverrideReason: null,
       },
       clock(),
     );
@@ -263,6 +271,8 @@ describe("handing a car over", () => {
           : { method, typedName: TEST_RENTER_NAME, drawnSignature: "" },
       bondOverrideReason: null,
       directDebitOverrideReason: null,
+      insuranceOverrideReason: null,
+      regoOverrideReason: null,
     });
 
     it("refuses a signature for a checklist changed after the screen showed it", async () => {
@@ -388,6 +398,8 @@ describe("handing a car over", () => {
         signature: drawnSignatureInput(TEST_SIGNATURE),
         bondOverrideReason: null,
         directDebitOverrideReason: null,
+        insuranceOverrideReason: null,
+        regoOverrideReason: null,
       },
       clock(),
     );
@@ -422,6 +434,8 @@ describe("handing a car over", () => {
             signature: drawnSignatureInput(TEST_SIGNATURE),
             bondOverrideReason: null,
             directDebitOverrideReason: null,
+            insuranceOverrideReason: null,
+            regoOverrideReason: null,
           },
           clock(),
         )
@@ -468,6 +482,8 @@ describe("handing a car over", () => {
         signature: drawnSignatureInput(TEST_SIGNATURE),
         bondOverrideReason: "Paying the bond on Friday",
         directDebitOverrideReason: null,
+        insuranceOverrideReason: null,
+        regoOverrideReason: null,
       },
       clock(),
     );
@@ -488,6 +504,8 @@ describe("handing a car over", () => {
         signature: drawnSignatureInput(TEST_SIGNATURE),
         bondOverrideReason: "Typed before the bond came in",
         directDebitOverrideReason: "Typed before the direct debit was set up",
+        insuranceOverrideReason: null,
+        regoOverrideReason: null,
       },
       clock(),
     );

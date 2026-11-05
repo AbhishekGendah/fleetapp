@@ -40,7 +40,7 @@ export default async function SwapOldCarPage(props: { params: Promise<{ rentalId
       </p>
       <OfflineReady>
         <HandoverChecklist
-          data={checklistData(view, { blockers: [], bondShortCents: null })}
+          data={checklistData(view, { blockers: [] })}
           lastKilometres={view.lastKilometres}
           comparison={comparisonWith(handover)}
           damageTitle="New damage"

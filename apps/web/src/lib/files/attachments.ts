@@ -1,4 +1,4 @@
-import { downloadName, type FilePurpose } from "@fleetapp/core";
+import { downloadName, TAX_PAPER_PURPOSES, type FilePurpose } from "@fleetapp/core";
 import type { AnyTransaction } from "@fleetapp/db/client";
 import {
   files,
@@ -14,7 +14,7 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, count, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { findCurrentVehicle } from "../vehicles/current-vehicle";
+import { findCurrentVehicle, isOfCurrentCar } from "../vehicles/current-vehicle";
 import type { PlannedFile } from "./car-files";
 import {
   listLoggedFileIds,
@@ -34,10 +34,7 @@ export interface AttachmentTarget {
   id: string;
 }
 
-const ATTACHMENT_PURPOSES: readonly FilePurpose[] = [
-  "vehicle_attachment",
-  "vehicle_identity_attachment",
-];
+const ATTACHMENT_PURPOSES: readonly FilePurpose[] = TAX_PAPER_PURPOSES;
 
 /** Purchase and sale papers show the other person's licence and birth date: identity storage (rule 8). */
 function purposeFor(kind: AttachmentKind): FilePurpose {
@@ -284,7 +281,13 @@ export async function removeAttachment(
     const [removed] = await tx
       .update(files)
       .set({ deletedAt: deps.now() })
-      .where(and(eq(files.id, fileId), attachmentInUse(actor.operatorId)))
+      .where(
+        and(
+          eq(files.id, fileId),
+          attachmentInUse(actor.operatorId),
+          or(isNull(files.vehicleId), isOfCurrentCar(files.vehicleId)),
+        ),
+      )
       .returning({ id: files.id, purpose: files.purpose });
     if (!removed) {
       return "not_found";

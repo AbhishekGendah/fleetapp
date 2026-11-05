@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  repeatedTimeChoiceOf,
+  repeatedTimeMoments,
   isLocalDateTime,
   isSameLocalMinute,
   localDateTimeToUtc,
@@ -79,5 +81,38 @@ describe("isSameLocalMinute", () => {
     const second = new Date("2026-04-04T16:30:00Z");
     expect(isSameLocalMinute(first, second, "Australia/Sydney")).toBe(true);
     expect(isSameLocalMinute(first, second, "Australia/Perth")).toBe(false);
+  });
+});
+
+describe("a time the clock shows twice (review A11-9)", () => {
+  it("names both moments on the night the clocks go back, and none on any other", () => {
+    // Sydney, 5 April 2026: 3am daylight time becomes 2am standard time.
+    const moments = repeatedTimeMoments("2026-04-05T02:30", "Australia/Sydney");
+
+    expect(moments?.first.toISOString()).toBe("2026-04-04T15:30:00.000Z");
+    expect(moments?.second.toISOString()).toBe("2026-04-04T16:30:00.000Z");
+    expect(repeatedTimeMoments("2026-04-05T03:30", "Australia/Sydney")).toBeNull();
+    expect(repeatedTimeMoments("2026-04-05T02:30", "Australia/Perth")).toBeNull();
+  });
+
+  it("uses Lord Howe Island's half-hour change", () => {
+    const moments = repeatedTimeMoments("2026-04-05T01:45", "Australia/Lord_Howe");
+
+    expect(moments).not.toBeNull();
+    expect((moments!.second.getTime() - moments!.first.getTime()) / 60_000).toBe(30);
+  });
+
+  it("says which of the two a moment is", () => {
+    const moments = repeatedTimeMoments("2026-04-05T02:30", "Australia/Sydney")!;
+
+    expect(repeatedTimeChoiceOf(moments.first, "Australia/Sydney")).toBe("first");
+    expect(repeatedTimeChoiceOf(moments.second, "Australia/Sydney")).toBe("second");
+    // Now is rarely on the minute: 2:30:27 am, the second time round.
+    const withSeconds = new Date(moments.second.getTime() + 27_000);
+    expect(repeatedTimeChoiceOf(withSeconds, "Australia/Sydney")).toBe("second");
+    expect(
+      repeatedTimeChoiceOf(new Date(moments.first.getTime() + 27_000), "Australia/Sydney"),
+    ).toBe("first");
+    expect(repeatedTimeChoiceOf(new Date("2026-06-01T00:00:00Z"), "Australia/Sydney")).toBeNull();
   });
 });

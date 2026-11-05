@@ -1,8 +1,15 @@
-import { describeErrorForLog, MILLISECONDS_PER_DAY } from "@fleetapp/core";
+import {
+  describeErrorForLog,
+  MILLISECONDS_PER_DAY,
+  REMOVED_TAX_PAPERS_KEPT_DAYS,
+  TAX_PAPER_PURPOSES,
+} from "@fleetapp/core";
 import { recordActivity } from "@fleetapp/db/activity";
-import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, files } from "@fleetapp/db/schema";
+import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, files, inspections } from "@fleetapp/db/schema";
+import type { AnyTransaction } from "@fleetapp/db/client";
+import { qualified } from "@fleetapp/db/qualified";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, asc, eq, isNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt, not, or, sql } from "drizzle-orm";
 
 import { findDueOperators, forEachOperator } from "../jobs/due-operators";
 import { incomingKeyFor, type FileDependencies } from "./stored-files";
@@ -16,10 +23,12 @@ const HOURS_PER_DAY = 24;
 /** At most this many files per Operator per run, so one big backlog cannot run past the time limit; the next run carries on. */
 const FILES_PER_RUN = 500;
 
-type PurgeReason = "deleted_over_30_days" | "upload_never_finished";
+type PurgeReason = "deleted_long_enough_ago" | "upload_never_finished";
 
 interface Cutoffs {
   deletedBefore: Date;
+  /** Removed receipts and tax papers are kept longer (batch 7 decision 4). */
+  taxPapersDeletedBefore: Date;
   unfinishedBefore: Date;
 }
 
@@ -37,6 +46,9 @@ export interface HousekeepingSummary {
 function cutoffsFor(now: Date): Cutoffs {
   return {
     deletedBefore: new Date(now.getTime() - DELETED_FILE_KEPT_DAYS * MILLISECONDS_PER_DAY),
+    taxPapersDeletedBefore: new Date(
+      now.getTime() - REMOVED_TAX_PAPERS_KEPT_DAYS * MILLISECONDS_PER_DAY,
+    ),
     unfinishedBefore: new Date(
       now.getTime() - (UNFINISHED_UPLOAD_HOURS / HOURS_PER_DAY) * MILLISECONDS_PER_DAY,
     ),
@@ -69,7 +81,16 @@ async function findDueFiles(deps: FileDependencies, operatorId: string, cutoffs:
       .from(files)
       .where(
         or(
-          and(lt(files.deletedAt, cutoffs.deletedBefore), isNull(files.purgedAt)),
+          and(
+            isNull(files.purgedAt),
+            or(
+              and(
+                lt(files.deletedAt, cutoffs.deletedBefore),
+                not(inArray(files.purpose, [...TAX_PAPER_PURPOSES])),
+              ),
+              lt(files.deletedAt, cutoffs.taxPapersDeletedBefore),
+            ),
+          ),
           and(
             isNull(files.confirmedAt),
             isNull(files.refusedAt),
@@ -107,7 +128,7 @@ async function purgeFile(
   await deps.storage.remove(file.storageArea, file.objectKey);
   // A file never confirmed is still where the browser sent it.
   await deps.storage.remove(file.storageArea, incomingKeyFor(file.objectKey));
-  const reason: PurgeReason = file.deletedAt ? "deleted_over_30_days" : "upload_never_finished";
+  const reason: PurgeReason = file.deletedAt ? "deleted_long_enough_ago" : "upload_never_finished";
   await withTenant(deps.database, operatorId, async (tx) => {
     await tx
       .update(files)
@@ -121,7 +142,46 @@ async function purgeFile(
       action: ACTIVITY_ACTIONS.purged,
       valuesAfter: { reason },
     });
+    await binOrphanedSmallCopies(tx, operatorId, file.id, now);
   });
+}
+
+/**
+ * A photo whose upload never finished leaves its small copy showing nothing:
+ * it is binned too, and goes for good with the usual 30 days (review A7-5).
+ */
+async function binOrphanedSmallCopies(
+  tx: AnyTransaction,
+  operatorId: string,
+  photoId: string,
+  now: Date,
+): Promise<void> {
+  const binned = await tx
+    .update(files)
+    .set({ deletedAt: now, updatedAt: now })
+    .where(
+      and(
+        eq(files.operatorId, operatorId),
+        eq(files.thumbnailOfFileId, photoId),
+        isNull(files.deletedAt),
+        // A finished checklist keeps its files as they are (migration 0045).
+        or(
+          isNull(files.inspectionId),
+          sql`exists (select 1 from ${inspections} where ${qualified(inspections.id)} = ${qualified(files.inspectionId)} and ${qualified(inspections.status)} = 'in_progress')`,
+        ),
+      ),
+    )
+    .returning({ id: files.id });
+  for (const thumbnail of binned) {
+    await recordActivity(tx, {
+      operatorId,
+      actor: { type: "system", id: null },
+      entityType: ACTIVITY_ENTITY_TYPES.file,
+      entityId: thumbnail.id,
+      action: ACTIVITY_ACTIONS.deleted,
+      valuesAfter: { reason: "photo_never_arrived" },
+    });
+  }
 }
 
 /**
