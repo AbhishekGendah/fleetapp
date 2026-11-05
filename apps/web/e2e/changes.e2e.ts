@@ -105,6 +105,8 @@ test.describe.serial("changing a rental's terms", () => {
       await page.getByRole("dialog").getByRole("button", { name: "Save new end" }).click();
       await expect(page.getByRole("dialog")).toBeHidden();
       await expect(page.getByText(/^End date: Ends 4 Oct 2027/)).toBeVisible();
+      // The two earlier ends are replaced: they can no longer be sent or signed (review A3-12).
+      await expect(page.getByText("Replaced by a later change")).toHaveCount(2);
       await expectAccessible(page);
     });
   });
@@ -141,6 +143,8 @@ test.describe.serial("changing a rental's terms", () => {
       await expect(page.getByText(/^Weekly rate: \$380\.00 a week from/)).toBeVisible();
       await expect(page.getByText("Waiting for signature")).toBeVisible();
       await expect(page.getByRole("button", { name: "Withdraw" })).toBeVisible();
+      // Its link can be stopped on its own (review A3-3).
+      await expect(page.getByRole("button", { name: "Cancel link" })).toBeVisible();
     });
 
     test("the Renter signs it on their phone, and it takes effect", async ({ browser, page }) => {
@@ -175,6 +179,9 @@ test.describe.serial("changing a rental's terms", () => {
       const response = await page.request.get((await open.getAttribute("href")) ?? "");
       expect(response.headers()["content-type"]).toBe("application/pdf");
       await expect(page.getByRole("button", { name: "Withdraw" })).toHaveCount(0);
+      // What happened to the copies, from their own record (review G9-9).
+      await expect(page.getByText(/^Emailed to the Renter/)).toBeVisible();
+      await expectAccessible(page);
     });
   });
 });

@@ -137,6 +137,16 @@ test.describe.serial("swapping the Renter's car", () => {
       await fillDetails(page, "1000");
 
       const sign = page.getByRole("button", { name: "The Renter signs the swap" });
+      // The Renter reads the business's own swap form, and what is found on the car handed back (review G9-1).
+      await expect(
+        page
+          .getByRole("article", { name: "The car swap form" })
+          .getByText(`Swap for ${RENTER.name}`),
+      ).toBeVisible();
+      await expect(page.getByText(`Damage found on ${OLD_REGO}`, { exact: false })).toBeVisible();
+      await expect(
+        page.getByText(/I received this car on the date and time I sign, with 1,000 km/),
+      ).toBeVisible();
       await expect(page.getByText(`Where does ${OLD_REGO}`)).toBeVisible();
       await page.getByLabel(new RegExp(`^Where does ${OLD_REGO}`)).selectOption("in_service");
       await page.getByRole("textbox", { name: /^Reason/ }).fill("Engine light");
@@ -152,9 +162,12 @@ test.describe.serial("swapping the Renter's car", () => {
         page.getByRole("heading", { name: `${NEW_REGO} · ${RENTER.name}` }),
       ).toBeVisible();
       await expect(page.getByText(`${OLD_REGO} → ${NEW_REGO}`)).toBeVisible();
-      const form = page.getByRole("link", { name: "Open swap form" });
-      const response = await page.request.get((await form.getAttribute("href")) ?? "");
-      expect(response.headers()["content-type"]).toBe("application/pdf");
+      // Each of the swap's three papers opens from the rental page (review G9-5).
+      for (const name of [/^Open swap form/, /^Open return report/, /^Open handover report \(/]) {
+        const paper = page.getByRole("link", { name });
+        const response = await page.request.get((await paper.getAttribute("href")) ?? "");
+        expect(response.headers()["content-type"]).toBe("application/pdf");
+      }
       expect((await latestEmailTo(RENTER.email)).subject).toMatch(/^Your car /);
       await expect(page.getByRole("button", { name: "Start return" })).toBeVisible();
       await expectAccessible(page);
