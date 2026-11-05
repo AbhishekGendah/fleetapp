@@ -136,12 +136,14 @@ test.describe.serial("a rental's money", () => {
       await fuel.getByRole("button", { name: "Archive" }).click();
       // Off the list in use, and on the archived list to bring back (review G4-4).
       await expect(
-        page.getByRole("list", { name: "Charge types" }).getByRole("listitem").filter({
+        page.getByRole("list", { name: "Charge types", exact: true }).getByRole("listitem").filter({
           hasText: "Fuel top-up",
         }),
       ).toHaveCount(0);
       await expect(
-        page.getByRole("list", { name: "Archived charge types" }).getByText("Fuel top-up"),
+        page
+          .getByRole("list", { name: "Archived charge types" })
+          .getByText("Fuel top-up", { exact: true }),
       ).toBeVisible();
     });
   });

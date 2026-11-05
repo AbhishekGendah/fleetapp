@@ -264,9 +264,9 @@ test.describe.serial("handing a car over", () => {
       await page.getByRole("button", { name: "Save details" }).click();
       await expect(page.getByText("Saved.", { exact: true })).toBeVisible();
 
-      // The handover's damage is greyed and lettered; what is marked now is new.
+      // The handover's damage is greyed and lettered, and can't be pressed; what is marked now is new.
       await expect(
-        page.getByRole("button", { name: /^Already there at handover, A: Scratch on rear bumper/ }),
+        page.getByRole("img", { name: /^Already there at handover, A: Scratch on rear bumper/ }),
       ).toBeVisible();
       await page.getByLabel("Or choose where on the car").selectOption("bonnet");
       await page.getByRole("textbox", { name: "What is the damage?" }).fill("Dent on bonnet");
