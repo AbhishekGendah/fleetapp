@@ -273,7 +273,12 @@ async function signingRecordRows(
 }
 
 export type SignContractResult =
-  | { status: "signed"; signedAtText: string }
+  | {
+      status: "signed";
+      signedAtText: string;
+      /** Whether the Renter's copy actually went: the screen says so only if it did (review G7-1). */
+      isCopyEmailed: boolean;
+    }
   | { status: "invalid"; fieldErrors: Record<string, string[] | undefined> }
   | { status: "signed_already" | "changed" | "not_signable" };
 
@@ -420,10 +425,10 @@ export async function signContract(
   if (result.status !== "issued") {
     return { status: "not_signable" };
   }
-  await emailDocumentCopies(deps, {
+  const emailed = await emailDocumentCopies(deps, {
+    documentId: result.documentId,
     kind: view.kind,
     operatorId: visit.operatorId,
-    operatorName: visit.operatorName,
     renterEmail: link.sentToEmail,
     renterName: view.renterFullName,
     rentalSummary: view.rentalSummary,
@@ -431,7 +436,7 @@ export async function signContract(
     fileName: `${DOCUMENT_TITLES[view.kind]} ${view.rentalSummary}.pdf`,
     pdf,
   });
-  return { status: "signed", signedAtText };
+  return { status: "signed", signedAtText, isCopyEmailed: emailed.renter === "sent" };
 }
 
 /**

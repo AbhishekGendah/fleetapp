@@ -12,26 +12,28 @@ import {
   RENTAL_CHANGE_STATUS_LABELS,
   utcToLocalDateTime,
   type RentalChangeStatus,
+  type DocumentEmailState,
 } from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
 import { Badge, type BadgeTone } from "@fleetapp/ui/badge";
-import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
-import { CalendarClock, FileCheck2, Infinity as InfinityIcon, Undo2, Wallet } from "lucide-react";
+import { CalendarClock, Infinity as InfinityIcon, Undo2, Wallet } from "lucide-react";
 import Link from "next/link";
 
 import { RenterLinkSender } from "../../../components/renter-link-sender";
 import { RenterLinkStatus } from "../../../components/renter-link-status";
 import { appDb } from "../../../lib/app-db";
+import { loadDocumentEmailStates } from "../../../lib/contracts/document-emails";
 import { loadDefaultTemplate } from "../../../lib/contracts/templates";
-import { CONTRACTS_PATH, rentalDocumentPath } from "../../../lib/paths";
+import { CONTRACTS_PATH } from "../../../lib/paths";
 import { listRentalChanges, type RentalChangeRow } from "../../../lib/rentals/change-signing";
 import { rateChangeStartText } from "../../../lib/rentals/rental-changes";
 import type { RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { RentalClock } from "../../../lib/rentals/rental-records";
 import type { SignedInUser } from "../../../lib/require-user";
+import { IssuedPaper } from "./issued-paper";
 import {
   changeEndAction,
   changeRateAction,
@@ -70,6 +72,7 @@ function ChangeItem(props: {
   rentalId: string;
   timeZone: string;
   handedOverAt: Date | null;
+  emails: ReadonlyMap<string, DocumentEmailState>;
 }) {
   const { change, rentalId, timeZone } = props;
   const isWaiting = change.status === "waiting_for_signature";
@@ -96,16 +99,13 @@ function ChangeItem(props: {
       actions={
         <>
           {change.documentId ? (
-            <Button asChild variant="outline">
-              <a
-                href={rentalDocumentPath(rentalId, "change_of_terms", change.documentId)}
-                target="_blank"
-                rel="noopener"
-              >
-                <FileCheck2 aria-hidden />
-                Open signed form
-              </a>
-            </Button>
+            <IssuedPaper
+              rentalId={rentalId}
+              kind="change_of_terms"
+              documentId={change.documentId}
+              label="Open signed form"
+              emails={props.emails}
+            />
           ) : null}
           {canSend ? (
             <RenterLinkSender
@@ -215,6 +215,11 @@ export async function ChangesCard(props: {
   if (!isChangeable && changes.length === 0) {
     return null;
   }
+  const emails = await loadDocumentEmailStates(
+    appDb,
+    user.operatorId,
+    changes.flatMap((change) => (change.documentId ? [change.documentId] : [])),
+  );
   return (
     <Card>
       <CardHeader>
@@ -252,6 +257,7 @@ export async function ChangesCard(props: {
                 rentalId={rental.id}
                 timeZone={user.operatorTimezone}
                 handedOverAt={rental.handedOverAt}
+                emails={emails}
               />
             ))}
           </RecordList>

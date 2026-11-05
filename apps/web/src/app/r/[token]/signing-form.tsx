@@ -137,8 +137,10 @@ export function SigningForm(props: {
       <div role="status" className="bg-primary-soft flex flex-col gap-2 rounded-lg p-4">
         <p className="text-teal text-lg font-semibold">Signed. Thank you.</p>
         <p className="text-sm">
-          You signed the {props.documentName} with {props.operatorName} on {state.signedAtText}. A
-          copy has been emailed to you.
+          You signed the {props.documentName} with {props.operatorName} on {state.signedAtText}.{" "}
+          {state.isCopyEmailed
+            ? "A copy has been emailed to you."
+            : `We couldn't email you a copy. Ask ${props.operatorName} to send it.`}
         </p>
         {state.paymentsNext ? (
           <form

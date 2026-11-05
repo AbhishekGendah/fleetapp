@@ -27,7 +27,6 @@ import { loadSigningStatus, rentalSummaryText } from "../contracts/signing-links
 import type { FileDependencies } from "../files/stored-files";
 import { loadRentalProblems, type PaymentsReach } from "../rentals/booking-checks";
 import type { RentalClock } from "../rentals/rental-records";
-import { loadBusinessDetails } from "../settings/business-details";
 import { addReading } from "../vehicles/odometer";
 import { checklistRefusal, FinishedAlreadyError, issueChecklistReport } from "./checklist-report";
 import { checklistFingerprint } from "./checklist-fingerprint";
@@ -285,17 +284,17 @@ export async function completeHandover(
   if (issued.status !== "issued") {
     return { status: issued.status };
   }
-  const business = await loadBusinessDetails(deps.database, actor.operatorId);
   const rentalSummary = rentalSummaryText({
     carRego: view.carRego,
     carMakeModel: view.carMakeModel,
     rentalStart: null,
   });
+  // Neither step below throws: the car is handed over for good now (review G9-9).
   await chargeRentNow(deps, actor.operatorId, view.rentalId);
   await emailDocumentCopies(deps, {
+    documentId: issued.documentId,
     kind: "handover_report",
     operatorId: actor.operatorId,
-    operatorName: business?.tradingName ?? business?.legalName ?? "",
     renterEmail: view.renterEmail,
     renterName: view.renterFullName,
     rentalSummary,

@@ -4,6 +4,7 @@ export type SignState =
   | {
       status: "signed";
       signedAtText: string;
+      isCopyEmailed: boolean;
       /** The payments link the Renter carries on to, and this phone's pass for it. */
       paymentsNext: { token: string; deviceToken: string } | null;
     }

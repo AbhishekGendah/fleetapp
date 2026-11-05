@@ -30,7 +30,6 @@ import { recordDamageFromReturn } from "../damage/damage-records";
 import { rentalSummaryText } from "../contracts/signing-links";
 import { releaseCarHolds } from "../rentals/car-holds";
 import type { RentalClock } from "../rentals/rental-records";
-import { loadBusinessDetails } from "../settings/business-details";
 import type { VehicleStatusInput } from "../vehicles/vehicle-input";
 import { addReading } from "../vehicles/odometer";
 import type { HandoverDependencies } from "./complete-handover";
@@ -195,13 +194,12 @@ async function emailReturnReport(
   deps: HandoverDependencies,
   actor: ActingUser,
   view: HandoverView,
-  report: { atText: string; pdf: Uint8Array },
+  report: { documentId: string; atText: string; pdf: Uint8Array },
 ): Promise<void> {
-  const business = await loadBusinessDetails(deps.database, actor.operatorId);
   await emailDocumentCopies(deps, {
+    documentId: report.documentId,
     kind: "return_report",
     operatorId: actor.operatorId,
-    operatorName: business?.tradingName ?? business?.legalName ?? "",
     renterEmail: view.renterEmail,
     renterName: view.renterFullName,
     rentalSummary: rentalSummaryText({
@@ -303,6 +301,6 @@ export async function completeReturn(
     return { status: issued.status };
   }
   await chargeRentNow(deps, actor.operatorId, view.rentalId);
-  await emailReturnReport(deps, actor, view, { atText, pdf });
+  await emailReturnReport(deps, actor, view, { documentId: issued.documentId, atText, pdf });
   return { status: "completed", documentId: issued.documentId };
 }

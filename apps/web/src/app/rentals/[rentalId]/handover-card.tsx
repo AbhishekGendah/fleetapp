@@ -1,6 +1,7 @@
 import {
   canSwapCar,
   formatDateTimeInTimeZone,
+  type DocumentEmailState,
   type InspectionKind,
   type RentalStatus,
 } from "@fleetapp/core";
@@ -8,16 +9,22 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
-import { ClipboardCheck, FileCheck2, XCircle } from "lucide-react";
+import { ClipboardCheck, XCircle } from "lucide-react";
 import Link from "next/link";
 
 import { appDb } from "../../../lib/app-db";
+import {
+  listChecklistReports,
+  loadDocumentEmailStates,
+  type ChecklistReport,
+} from "../../../lib/contracts/document-emails";
 import { loadRentalHandoverStatus } from "../../../lib/handover/handover-queries";
-import { rentalDocumentPath, rentalHandoverPath, rentalReturnPath } from "../../../lib/paths";
+import { rentalHandoverPath, rentalReturnPath } from "../../../lib/paths";
 import { swapUnderWay } from "../../../lib/rentals/car-swaps";
 import type { RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { SignedInUser } from "../../../lib/require-user";
 import { cancelHandoverAction, startHandoverAction } from "./handover/actions";
+import { IssuedPaper } from "./issued-paper";
 import { cancelReturnAction, startReturnAction } from "./return/actions";
 
 const SWAP_FIRST = "A car swap is under way. Finish or cancel it first.";
@@ -44,7 +51,7 @@ const WORDING: Readonly<Record<InspectionKind, ChecklistCardWording>> = {
     description:
       "On your phone, with the Renter at the car: photos, kilometres, fuel and damage, then the Renter signs to accept it. It keeps working with poor signal.",
     doneDescription: (at) =>
-      `The Renter accepted the car on ${at}. The report is fixed and was emailed to them and to you.`,
+      `The Renter accepted the car on ${at}. The report is fixed and can never be changed.`,
     doneBadge: "Handed over",
     verb: "handover",
     report: { kind: "handover_report", label: "Open handover report" },
@@ -58,7 +65,7 @@ const WORDING: Readonly<Record<InspectionKind, ChecklistCardWording>> = {
     description:
       "When the car comes back: the same photos beside the handover's, kilometres, fuel and any new damage, then the return time and the Renter's signature if they are there. It keeps working with poor signal.",
     doneDescription: (at) =>
-      `The car came back on ${at}. The report is fixed and was emailed to the Renter and to you.`,
+      `The car came back on ${at}. The report is fixed and can never be changed.`,
     doneBadge: "Returned",
     verb: "return",
     report: { kind: "return_report", label: "Open return report" },
@@ -68,8 +75,14 @@ const WORDING: Readonly<Record<InspectionKind, ChecklistCardWording>> = {
   },
 };
 
-function DoneCard(props: { wording: ChecklistCardWording; rentalId: string; at: string }) {
-  const { wording } = props;
+function DoneCard(props: {
+  wording: ChecklistCardWording;
+  rentalId: string;
+  at: string;
+  report: ChecklistReport | undefined;
+  emails: ReadonlyMap<string, DocumentEmailState>;
+}) {
+  const { wording, report } = props;
   return (
     <Card>
       <CardHeader>
@@ -80,16 +93,15 @@ function DoneCard(props: { wording: ChecklistCardWording; rentalId: string; at: 
         <p>
           <Badge tone="good">{wording.doneBadge}</Badge>
         </p>
-        <Button asChild variant="outline" className="w-full sm:w-auto sm:self-start">
-          <a
-            href={rentalDocumentPath(props.rentalId, wording.report.kind)}
-            target="_blank"
-            rel="noopener"
-          >
-            <FileCheck2 aria-hidden />
-            {wording.report.label}
-          </a>
-        </Button>
+        {report ? (
+          <IssuedPaper
+            rentalId={props.rentalId}
+            kind={report.kind}
+            documentId={report.documentId}
+            label={wording.report.label}
+            emails={props.emails}
+          />
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -111,11 +123,22 @@ async function ChecklistCard(props: {
   const wording = WORDING[props.kind];
   const { rental, user } = props;
   if (props.doneAt) {
+    // The rental's own first handover or final return: a swap's are on the Swap card.
+    const report = (await listChecklistReports(appDb, user.operatorId, rental.id)).find(
+      (candidate) => candidate.kind === wording.report.kind && !candidate.isForSwap,
+    );
+    const emails = await loadDocumentEmailStates(
+      appDb,
+      user.operatorId,
+      report ? [report.documentId] : [],
+    );
     return (
       <DoneCard
         wording={wording}
         rentalId={rental.id}
         at={formatDateTimeInTimeZone(props.doneAt, user.operatorTimezone)}
+        report={report}
+        emails={emails}
       />
     );
   }

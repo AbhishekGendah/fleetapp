@@ -219,6 +219,26 @@ describe("signing a contract through a link", () => {
       expect(again).toEqual({ status: "signed_already" });
     });
 
+    it("tells the Renter their copy went only when it did (review G7-1)", async () => {
+      const { visit } = await sentLink();
+      const view = await loadSigningView(web.db, visit);
+      const fingerprint = view.status === "ready" ? view.fingerprint : "";
+      const failingSender = {
+        async send(): Promise<void> {
+          throw new Error("The email service is down");
+        },
+      };
+
+      const result = await signContract(
+        { ...deps(), emailSender: failingSender },
+        visit,
+        typedSigning(fingerprint),
+        META,
+      );
+
+      expect(result).toMatchObject({ status: "signed", isCopyEmailed: false });
+    });
+
     it("refuses a typed name that is not the Renter's, and a missing tick", async () => {
       const { visit } = await sentLink();
       const view = await loadSigningView(web.db, visit);

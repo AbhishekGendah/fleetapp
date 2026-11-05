@@ -3,52 +3,56 @@ import { ActionButton } from "@fleetapp/ui/action-button";
 import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
-import { FileCheck2, FileText, XCircle } from "lucide-react";
+import { FileText, XCircle } from "lucide-react";
 import Link from "next/link";
 
 import { RenterLinkSender } from "../../../components/renter-link-sender";
 import { RenterLinkStatus } from "../../../components/renter-link-status";
 import { appDb } from "../../../lib/app-db";
 import { loadContractData } from "../../../lib/contracts/contract-data";
+import { loadDocumentEmailStates } from "../../../lib/contracts/document-emails";
 import { loadSigningStatus, type SigningStatus } from "../../../lib/contracts/signing-links";
 import { loadDefaultTemplate } from "../../../lib/contracts/templates";
-import { CONTRACTS_PATH, rentalContractPreviewPath, rentalDocumentPath } from "../../../lib/paths";
+import { CONTRACTS_PATH, rentalContractPreviewPath } from "../../../lib/paths";
 import type { RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { RentalClock } from "../../../lib/rentals/rental-records";
 import type { SignedInUser } from "../../../lib/require-user";
+import { IssuedPaper } from "./issued-paper";
 import { cancelSigningLinkAction, sendSigningLinkAction } from "./signing-actions";
 
 /** Until it is handed over, the contract can still be previewed and its gaps filled. */
 const BEFORE_SIGNING = new Set(["draft", "booked"]);
 
-function SignedContractCard({
+async function SignedContractCard({
   rentalId,
   signed,
-  timeZone,
+  user,
 }: {
   rentalId: string;
   signed: NonNullable<SigningStatus["signed"]>;
-  timeZone: string;
+  user: SignedInUser;
 }) {
+  const emails = await loadDocumentEmailStates(appDb, user.operatorId, [signed.documentId]);
   return (
     <Card>
       <CardHeader>
         <CardTitle>Contract</CardTitle>
         <CardDescription>
-          Signed by the Renter on {formatDateTimeInTimeZone(signed.issuedAt, timeZone)}. The signed
-          PDF is fixed and can never be changed; a copy was emailed to the Renter and to you.
+          Signed by the Renter on {formatDateTimeInTimeZone(signed.issuedAt, user.operatorTimezone)}
+          . The signed PDF is fixed and can never be changed.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <p>
           <Badge tone="good">Contract signed</Badge>
         </p>
-        <Button asChild className="w-full sm:w-auto sm:self-start">
-          <a href={rentalDocumentPath(rentalId, "contract")} target="_blank" rel="noopener">
-            <FileCheck2 aria-hidden />
-            Open signed contract
-          </a>
-        </Button>
+        <IssuedPaper
+          rentalId={rentalId}
+          kind="contract"
+          documentId={signed.documentId}
+          label="Open signed contract"
+          emails={emails}
+        />
       </CardContent>
     </Card>
   );
@@ -123,13 +127,7 @@ export async function ContractCard({
 }) {
   const signing = await loadSigningStatus(appDb, user.operatorId, rental.id, clock.now);
   if (signing.signed) {
-    return (
-      <SignedContractCard
-        rentalId={rental.id}
-        signed={signing.signed}
-        timeZone={user.operatorTimezone}
-      />
-    );
+    return <SignedContractCard rentalId={rental.id} signed={signing.signed} user={user} />;
   }
   if (!BEFORE_SIGNING.has(rental.status)) {
     return null;

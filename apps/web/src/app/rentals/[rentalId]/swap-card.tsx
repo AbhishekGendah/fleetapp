@@ -1,26 +1,54 @@
-import { canSwapCar, formatDateTimeInTimeZone } from "@fleetapp/core";
+import { canSwapCar, formatDateTimeInTimeZone, type DocumentEmailState } from "@fleetapp/core";
 import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
-import { ArrowLeftRight, ClipboardCheck, FileCheck2, XCircle } from "lucide-react";
+import { ArrowLeftRight, ClipboardCheck, XCircle } from "lucide-react";
 import Link from "next/link";
 
 import { appDb } from "../../../lib/app-db";
+import {
+  listChecklistReports,
+  loadDocumentEmailStates,
+  type ChecklistReport,
+} from "../../../lib/contracts/document-emails";
 import { loadRentalHandoverStatus } from "../../../lib/handover/handover-queries";
-import { CONTRACTS_PATH, rentalDocumentPath, rentalSwapPath } from "../../../lib/paths";
+import { CONTRACTS_PATH, rentalSwapPath } from "../../../lib/paths";
 import { listRentalSwaps, type SwapSummary } from "../../../lib/rentals/car-swaps";
 import { listPickableCars } from "../../../lib/rentals/pickable-records";
 import type { RentalDetail } from "../../../lib/rentals/rental-queries";
 import { loadDefaultTemplate } from "../../../lib/contracts/templates";
 import type { SignedInUser } from "../../../lib/require-user";
+import { IssuedPaper } from "./issued-paper";
 import { cancelSwapAction, startSwapAction } from "./swap/swap-actions";
 import { LazyStartSwapForm } from "./swap/lazy-start-swap-form";
 
-/** One finished swap: which cars, when, why, and its signed form. */
-function SwapItem(props: { swap: SwapSummary; rentalId: string; timeZone: string }) {
+/** One finished swap: which cars, when, why, and its three papers (review G9-5). */
+function SwapItem(props: {
+  swap: SwapSummary;
+  rentalId: string;
+  timeZone: string;
+  reports: readonly ChecklistReport[];
+  emails: ReadonlyMap<string, DocumentEmailState>;
+}) {
   const { swap } = props;
+  const reportOf = (inspectionId: string) =>
+    props.reports.find((report) => report.inspectionId === inspectionId);
+  const papers = [
+    swap.documentId
+      ? { kind: "swap_form" as const, documentId: swap.documentId, label: "Open swap form" }
+      : null,
+    ...[
+      { report: reportOf(swap.returnInspectionId), label: `Open return report (${swap.fromRego})` },
+      {
+        report: reportOf(swap.handoverInspectionId),
+        label: `Open handover report (${swap.toRego})`,
+      },
+    ].map(({ report, label }) =>
+      report ? { kind: report.kind, documentId: report.documentId, label } : null,
+    ),
+  ].filter((paper) => paper !== null);
   return (
     <RecordItem
       title={`${swap.fromRego} → ${swap.toRego}`}
@@ -34,18 +62,18 @@ function SwapItem(props: { swap: SwapSummary; rentalId: string; timeZone: string
         </>
       }
       actions={
-        swap.documentId ? (
-          <Button asChild variant="outline">
-            <a
-              href={rentalDocumentPath(props.rentalId, "swap_form", swap.documentId)}
-              target="_blank"
-              rel="noopener"
-            >
-              <FileCheck2 aria-hidden />
-              Open swap form
-            </a>
-          </Button>
-        ) : null
+        <div className="flex flex-col gap-3">
+          {papers.map((paper) => (
+            <IssuedPaper
+              key={paper.documentId}
+              rentalId={props.rentalId}
+              kind={paper.kind}
+              documentId={paper.documentId}
+              label={paper.label}
+              emails={props.emails}
+            />
+          ))}
+        </div>
       }
     />
   );
@@ -123,6 +151,11 @@ export async function SwapCard({ rental, user }: { rental: RentalDetail; user: S
   if (!canStart && finished.length === 0) {
     return null;
   }
+  const reports = await listChecklistReports(appDb, user.operatorId, rental.id);
+  const emails = await loadDocumentEmailStates(appDb, user.operatorId, [
+    ...reports.filter((report) => report.isForSwap).map((report) => report.documentId),
+    ...finished.flatMap((swap) => (swap.documentId ? [swap.documentId] : [])),
+  ]);
   return (
     <Card>
       <CardHeader>
@@ -143,6 +176,8 @@ export async function SwapCard({ rental, user }: { rental: RentalDetail; user: S
                 swap={swap}
                 rentalId={rental.id}
                 timeZone={user.operatorTimezone}
+                reports={reports}
+                emails={emails}
               />
             ))}
           </RecordList>

@@ -41,7 +41,6 @@ import { recordDamageFromReturn } from "../damage/damage-records";
 import { heldRange, isCarAlreadyHeld } from "../rentals/car-holds";
 import { swapUnderWay, type CarSwap } from "../rentals/car-swaps";
 import type { RentalClock } from "../rentals/rental-records";
-import { loadBusinessDetails } from "../settings/business-details";
 import type { VehicleStatusInput } from "../vehicles/vehicle-input";
 import { addReading } from "../vehicles/odometer";
 import {
@@ -580,17 +579,22 @@ async function storeSwapDocuments(
   return ready.length === stored.length ? ready : null;
 }
 
+/** The three documents a swap issues, in the order they are stored. */
+interface SwapDocumentIds {
+  returnReport: string;
+  handoverReport: string;
+  swapForm: string;
+}
+
 /** The three copies to the Renter and the business, once the swap is done. */
 async function emailSwapCopies(
   deps: HandoverDependencies,
   operatorId: string,
   views: SwapViews,
-  done: { atText: string; pdfs: SwapPdfs },
+  done: { atText: string; pdfs: SwapPdfs; documentIds: SwapDocumentIds },
 ): Promise<void> {
-  const business = await loadBusinessDetails(deps.database, operatorId);
   const shared = {
     operatorId,
-    operatorName: business?.tradingName ?? business?.legalName ?? "",
     renterEmail: views.new.renterEmail,
     renterName: views.new.renterFullName,
     atText: done.atText,
@@ -603,6 +607,7 @@ async function emailSwapCopies(
     });
   await emailDocumentCopies(deps, {
     ...shared,
+    documentId: done.documentIds.swapForm,
     kind: "swap_form",
     rentalSummary: summaryOf(views.new),
     fileName: `${SWAP_FORM_TITLE} ${views.new.carRego}.pdf`,
@@ -610,6 +615,7 @@ async function emailSwapCopies(
   });
   await emailDocumentCopies(deps, {
     ...shared,
+    documentId: done.documentIds.returnReport,
     kind: "return_report",
     rentalSummary: summaryOf(views.old),
     fileName: `${RETURN_REPORT_TITLE} ${views.old.carRego}.pdf`,
@@ -617,6 +623,7 @@ async function emailSwapCopies(
   });
   await emailDocumentCopies(deps, {
     ...shared,
+    documentId: done.documentIds.handoverReport,
     kind: "handover_report",
     rentalSummary: summaryOf(views.new),
     fileName: `${HANDOVER_REPORT_TITLE} ${views.new.carRego}.pdf`,
@@ -670,25 +677,24 @@ export async function completeSwap(
   if (!stored) {
     return { status: "not_found" };
   }
+  let documentIds: SwapDocumentIds;
   try {
-    const swapDocumentId = await withTenant(deps.database, actor.operatorId, async (tx) => {
+    documentIds = await withTenant(deps.database, actor.operatorId, async (tx) => {
       const issued = [];
       for (const document of stored) {
-        issued.push(await recordIssuedDocument(tx, deps, actor, document));
+        issued.push((await recordIssuedDocument(tx, deps, actor, document)).documentId);
       }
-      const swapDocument = issued.at(-1)!;
+      const ids = { returnReport: issued[0]!, handoverReport: issued[1]!, swapForm: issued[2]! };
       await recordSwapped(tx, actor, views, {
         at,
         timeZone: clock.timeZone,
         pdfs,
-        swapDocumentId: swapDocument.documentId,
+        swapDocumentId: ids.swapForm,
         input,
         signature,
       });
-      return swapDocument.documentId;
+      return ids;
     });
-    await emailSwapCopies(deps, actor.operatorId, views, { atText: moment.atText, pdfs });
-    return { status: "completed", swapDocumentId };
   } catch (error) {
     if (error instanceof FinishedAlreadyError) {
       return { status: "finished_already" };
@@ -701,4 +707,11 @@ export async function completeSwap(
     }
     throw error;
   }
+  // The swap is done for good: emailing never throws, so it can't say otherwise (review G9-9).
+  await emailSwapCopies(deps, actor.operatorId, views, {
+    atText: moment.atText,
+    pdfs,
+    documentIds,
+  });
+  return { status: "completed", swapDocumentId: documentIds.swapForm };
 }

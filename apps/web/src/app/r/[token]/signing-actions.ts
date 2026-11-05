@@ -33,7 +33,12 @@ const NOT_SIGNED_MESSAGES: Record<
 
 function signState(result: SignContractResult): SignState {
   if (result.status === "signed") {
-    return { status: "signed", signedAtText: result.signedAtText, paymentsNext: null };
+    return {
+      status: "signed",
+      signedAtText: result.signedAtText,
+      isCopyEmailed: result.isCopyEmailed,
+      paymentsNext: null,
+    };
   }
   if (result.status === "invalid") {
     const firstMessage = Object.values(result.fieldErrors).find((messages) => messages?.length);
