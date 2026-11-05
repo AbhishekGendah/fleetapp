@@ -88,3 +88,33 @@ export async function runMigrations(
     await client.end();
   }
 }
+
+/** A quoted value in a Postgres message, which can be a real row's data. */
+const QUOTED_VALUE = /"[^"]*"/g;
+
+/**
+ * A failed update, as it may be logged (rule 7): Postgres's error code, the
+ * table, column and rule involved, and its message with every quoted value
+ * blanked, since some messages quote the row that failed
+ * (`invalid input syntax for type uuid: "…"`). Names of tables and columns
+ * are kept from the error's own fields, which never hold row data.
+ */
+export function describeMigrationFailure(error: unknown): Record<string, string> {
+  const cause = error instanceof Error && error.cause instanceof Error ? error.cause : error;
+  const fields = (typeof cause === "object" && cause !== null ? cause : {}) as Record<
+    string,
+    unknown
+  >;
+  const described: Record<string, string> = {
+    errorType: cause instanceof Error ? cause.name : typeof cause,
+  };
+  for (const name of ["code", "table", "column", "constraint"] as const) {
+    if (typeof fields[name] === "string") {
+      described[name] = fields[name];
+    }
+  }
+  if (cause instanceof Error) {
+    described.message = cause.message.replace(QUOTED_VALUE, '"…"');
+  }
+  return described;
+}

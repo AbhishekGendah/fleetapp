@@ -29,7 +29,10 @@ on:
 permissions:
   contents: read
 
-# One run at a time, oldest first: two at once would deploy out of order.
+# One run at a time. Runs start in the order CI finishes, not the order
+# commits landed, so each run first checks its commit is still the newest on
+# main and otherwise does nothing: the newer commit's own run updates and
+# deploys. An older commit can never be put live over a newer one.
 # (The update command also holds a database lock of its own.)
 concurrency:
   group: migrate-and-deploy
@@ -39,27 +42,46 @@ jobs:
   migrate:
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
+    outputs:
+      is_newest: ${{ steps.newest.outputs.is_newest }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
+      - name: Still the newest commit on main?
+        id: newest
+        env:
+          THIS_COMMIT: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          newest="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [ "$newest" = "$THIS_COMMIT" ]; then
+            echo "is_newest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_newest=false" >> "$GITHUB_OUTPUT"
+            echo "A newer commit is on main: its own run updates the database and deploys."
+          fi
+
       - uses: pnpm/action-setup@v4
+        if: steps.newest.outputs.is_newest == 'true'
 
       - uses: actions/setup-node@v4
+        if: steps.newest.outputs.is_newest == 'true'
         with:
           node-version-file: ".nvmrc"
           cache: "pnpm"
 
       - run: pnpm install --frozen-lockfile
+        if: steps.newest.outputs.is_newest == 'true'
 
       - run: pnpm db:migrate
+        if: steps.newest.outputs.is_newest == 'true'
         env:
           DATABASE_MIGRATION_URL: ${{ secrets.DATABASE_MIGRATION_URL }}
 
   deploy:
     needs: migrate
-    if: vars.VERCEL_ORG_ID != ''
+    if: vars.VERCEL_ORG_ID != '' && needs.migrate.outputs.is_newest == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

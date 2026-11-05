@@ -1,10 +1,9 @@
 import { randomUUID } from "node:crypto";
 
-import { describeErrorForLog } from "@fleetapp/core";
 import { Client } from "pg";
 import { z } from "zod";
 
-import { MigrationProblemError, runMigrations } from "../src/migrate";
+import { describeMigrationFailure, MigrationProblemError, runMigrations } from "../src/migrate";
 
 /**
  * CI's "update a filled database" check (review G1-2), last step: runs this
@@ -65,12 +64,9 @@ async function main(): Promise<void> {
 try {
   await main();
 } catch (error) {
-  const cause = error instanceof Error && error.cause instanceof Error ? error.cause : error;
   console.error(
     error instanceof MigrationProblemError ? error.message : "Updating the filled database failed",
-    error instanceof MigrationProblemError
-      ? ""
-      : { ...describeErrorForLog(cause), message: cause instanceof Error ? cause.message : "" },
+    error instanceof MigrationProblemError ? "" : describeMigrationFailure(error),
   );
   process.exit(1);
 }

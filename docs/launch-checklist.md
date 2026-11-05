@@ -129,6 +129,9 @@ Add to this list whenever something is relaxed or put off "until launch".
 - [ ] Production's point-in-time restore window set to at least 7 days, and
       one test restore onto a throwaway branch done before launch (then every
       three months; runbook).
+- [ ] A production "Migrate and deploy" job using a GitHub Environment
+      `production` (its own owner address, Vercel project IDs, and Abhi's
+      approval before it runs); today's job serves dev only (runbook).
 - [ ] Apps put live only by GitHub's "Migrate and deploy" job: Vercel token
       in GitHub's secrets, project IDs in its variables, and Vercel's own
       deploys from `main` turned off in each app's vercel.json (batch 6).

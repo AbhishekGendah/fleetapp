@@ -179,3 +179,19 @@ happened on 3 Nov.
 - **5.** Notes in migrate.yml corrected (a real lock now exists;
   all-or-nothing explained; the race is gone once GitHub deploys).
 
+### Review (one pass) and fixes
+
+- Runs start in the order CI finishes, so an older commit could have been
+  put live over a newer one: each run now checks its commit is still the
+  newest on `main` and otherwise does nothing.
+- A forced push or new branch, whose starting commit is unknown, now
+  checks against the previous commit instead of skipping the
+  filled-database check.
+- A failed update's log keeps Postgres's code and the table and column,
+  and blanks any quoted value (some messages quote the failing row).
+- The runbook: production gets its own GitHub Environment and job before
+  launch (today's serves dev); what to do if only one app deploys.
+- Left as built, for Abhi: the structure checks (every table
+  tenant-scoped) run in the normal database tests, built from the same
+  updates, not on the filled database itself.
+

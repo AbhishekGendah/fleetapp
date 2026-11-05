@@ -81,7 +81,10 @@ jobs:
         run: |
           base="${PULL_REQUEST_BASE:-$PUSHED_FROM}"
           if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
-            base="$(git merge-base origin/main HEAD)"
+            # A new branch or a forced push: the starting commit is unknown or
+            # gone, so compare with the commit before this one rather than skip.
+            base="$(git rev-parse HEAD~1)"
+            echo "The starting commit isn't known; checking against $base."
           fi
           echo "sha=$base" >> "$GITHUB_OUTPUT"
           if git diff --quiet "$base" HEAD -- packages/db/migrations; then

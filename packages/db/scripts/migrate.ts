@@ -1,9 +1,8 @@
 import "dotenv/config";
 
-import { describeErrorForLog } from "@fleetapp/core";
 import { z } from "zod";
 
-import { MigrationProblemError, runMigrations } from "../src/migrate";
+import { describeMigrationFailure, MigrationProblemError, runMigrations } from "../src/migrate";
 
 /**
  * `pnpm db:migrate`: runs the waiting database updates. The address is the
@@ -28,15 +27,8 @@ async function main(): Promise<void> {
     if (error instanceof MigrationProblemError) {
       console.error(error.message);
     } else {
-      // Postgres's own words are needed to fix a failed update. The updates
-      // hold no personal data, and the address never appears in them.
-      const cause = error instanceof Error && error.cause instanceof Error ? error.cause : error;
-      console.error("A database update failed", {
-        ...describeErrorForLog(cause),
-        message: cause instanceof Error ? cause.message : String(cause),
-      });
+      console.error("A database update failed", describeMigrationFailure(error));
     }
-    process.exit(1);
   }
 }
 

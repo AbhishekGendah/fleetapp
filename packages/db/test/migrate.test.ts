@@ -6,7 +6,7 @@ import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import { findMigrationProblems } from "../src/migration-check";
-import { runMigrations } from "../src/migrate";
+import { describeMigrationFailure, runMigrations } from "../src/migrate";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const FIRST_DATE = 1_800_000_000_000;
@@ -72,6 +72,23 @@ describe("the database update checks", () => {
     expect(findMigrationProblems(repo, [])).toEqual([
       expect.stringMatching(/^0001_b is dated no later than 0000_a/),
     ]);
+  });
+});
+
+describe("a failed update, as logged", () => {
+  it("keeps the code and names, and blanks any value from a row (rule 7)", () => {
+    const cause = Object.assign(
+      new Error('invalid input syntax for type uuid: "sam.smith@example.test"'),
+      { code: "22P02", table: "renters", column: "id" },
+    );
+
+    expect(describeMigrationFailure(new Error("Failed query", { cause }))).toEqual({
+      errorType: "Error",
+      code: "22P02",
+      table: "renters",
+      column: "id",
+      message: 'invalid input syntax for type uuid: "…"',
+    });
   });
 });
 

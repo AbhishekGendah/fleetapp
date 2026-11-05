@@ -11,9 +11,13 @@ batch 6). The dev database works the same way, with fake data only.
 2. Make the four app logins with docs/runbooks/database-roles.md (never
    Neon's "Add role" screen). Passwords in Bitwarden, then in the
    production Vercel projects only.
-3. The **owner** login's direct (not pooled) address goes in GitHub's
-   secrets only, as `DATABASE_MIGRATION_URL` for production. Nobody runs
-   updates by hand.
+3. The **owner** login's direct (not pooled) address goes in GitHub only,
+   in a GitHub **Environment called `production`** with its own
+   `DATABASE_MIGRATION_URL`, Vercel project IDs and approval by Abhi. Today's
+   secret of that name (no environment) is the dev database's, and the
+   "Migrate and deploy" job serves dev; the production job is added with the
+   production setup, before launch (launch checklist). Nobody runs updates
+   by hand.
 4. Run the first deploy (below). The apps' start-up role check refuses to
    start if a login is wrong.
 5. Neon account: Abhi only, with two-step sign-in on.
@@ -26,7 +30,13 @@ Only through GitHub's "Migrate and deploy" job, after CI has passed:
    lock. It **stops without changing anything** if an update that already
    ran was edited, if one is older than updates already run, or if the
    database has one the repo doesn't know.
-2. Only if that worked are both apps put live, from exactly that commit.
+2. Only if that worked are both apps put live, from exactly that commit,
+   and only if it is still the newest commit on `main` (an older commit's
+   run does nothing, so it can never replace newer code).
+3. The two apps deploy separately. If one deploy fails and the other
+   worked, the old version of the failed app is still running, which is
+   safe as every update works with the old code: re-run the failed deploy
+   job in GitHub, or push a fix.
 
 Every update must work with the code already live while it runs (add
 first, remove in a later release).
