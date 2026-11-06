@@ -85,6 +85,7 @@ const BUTTON_VARIANTS = [
   "default",
   "danger",
   "secondary",
+  "soft",
   "outline",
   "ghost",
   "destructive",

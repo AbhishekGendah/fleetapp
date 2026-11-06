@@ -12,6 +12,7 @@ import { flexRender } from "@tanstack/table-core/flex-render";
 import type * as React from "react";
 
 import { buildListTable, type ListTable } from "../lib/list-table";
+import { ROW_CLASSES } from "./row-link";
 import { cn } from "../lib/utils";
 import { Button } from "./button";
 import { Card, CardContent } from "./card";
@@ -34,6 +35,13 @@ export interface DataListProps<Row> {
   basePath: string;
   rowKey: (row: Row) => string;
   rowHref?: (row: Row) => string;
+  /**
+   * The cells draw the row's links themselves, in the 6 Nov 2026 look: a
+   * RowLink (from row-link) that opens the row's main thing, and names as
+   * InlineRecordLinks. The row or card is then only the frame its RowLink
+   * stretches over. Use instead of `rowHref`.
+   */
+  hasRowLinksInCells?: boolean;
   /** What one row is, e.g. { one: "Operator", many: "Operators" }. */
   itemName: { one: string; many: string };
   searchLabel: string;
@@ -152,7 +160,11 @@ function Table<Row extends RowData>(props: DataListProps<Row> & { table: ListTab
         {props.table.getRowModel().rows.map((row) => (
           <tr
             key={row.id}
-            className={cn("border-b", props.rowHref && "hover:bg-muted/60 relative")}
+            className={cn(
+              "border-b",
+              props.rowHref && "hover:bg-muted/60 relative",
+              props.hasRowLinksInCells && ROW_CLASSES,
+            )}
           >
             {row.getAllCells().map((cell) => (
               <td key={cell.id} className="py-3 pr-4">
@@ -178,7 +190,12 @@ function Cards<Row extends RowData>(props: DataListProps<Row> & { table: ListTab
         const title = cells.find((cell) => cell.column.id === titleKey);
         return (
           <li key={row.id}>
-            <Card className={cn(props.rowHref && "active:bg-muted/60 hover:bg-muted/60 relative")}>
+            <Card
+              className={cn(
+                props.rowHref && "active:bg-muted/60 hover:bg-muted/60 relative",
+                props.hasRowLinksInCells && cn(ROW_CLASSES, "active:bg-muted/60"),
+              )}
+            >
               <CardContent className="flex flex-col gap-1 p-4">
                 {title ? (
                   <div className="flex min-h-11 items-center font-medium">

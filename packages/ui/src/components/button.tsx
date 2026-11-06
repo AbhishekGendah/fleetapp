@@ -14,6 +14,8 @@ const buttonVariants = cva(
         outline:
           "border border-border bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
         secondary: "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
+        /** Next to a main action, a quieter one: a soft teal fill, navy words (Add car on the dashboard). */
+        soft: "bg-primary-soft text-primary font-bold hover:bg-out-soft",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         /** Remove, Cancel this sale: clearly a button, and clearly the careful one. */
         danger:
