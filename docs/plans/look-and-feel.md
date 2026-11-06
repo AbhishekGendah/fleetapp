@@ -133,6 +133,43 @@ until Abhi says go.
 - **Wording**: details to review reads "Sent their licence and contact
   details to approve".
 
+### One rental's page (agreed 6 Nov)
+
+- Navy strip at the top:
+  - rego · Renter (each a link), the car, a status label;
+  - the key facts: before handover, the handover time, rent and bond;
+    once out, owing, next rent, bond and km at handover;
+  - its buttons on a computer: Start return, plus Add charge and
+    Swap car.
+- A "Next step" card while booked: ticks for contract signed, bond paid
+  and details approved, then the main button (Start handover, or
+  whatever is missing).
+- Tabs instead of one long page:
+  - **Overview**: details, change buttons, latest money, damage,
+    signed papers;
+  - **Money**: charged / paid / owing; lines with their GST; how they
+    pay; bond; invoices and receipts;
+  - **Papers**: contract, handover and return reports, changes, each
+    with Open PDF and Email again;
+  - **Log**: everything that happened, with a "By" filter
+    (You / Renter / Automatic).
+
+### Rentals list (agreed 6 Nov)
+
+- A table on a computer and cards on phones.
+- Columns: Renter, Car, When, Rent, Owing (red when behind), Status.
+  Names and regos are links as on the dashboard; the rest of the row
+  opens the rental.
+- Status filters with counts, in plain words:
+  - Out (was Active);
+  - Booked;
+  - To close (was Returned);
+  - Finished (Closed and Cancelled; a cancelled one still says so).
+- "When" is one column: "Back today 3:30 pm", "Starts Fri 7 Nov".
+- **Calendar is its own page**: a side-menu item on a computer, under
+  More on phones, and a Calendar button on Rentals. The timeline (cars
+  down the side) becomes the Calendar page's second view.
+
 ## As built: slice 1 (6 Nov 2026)
 
 - Theme tokens (packages/ui/src/styles/theme.css and brand.ts): page
