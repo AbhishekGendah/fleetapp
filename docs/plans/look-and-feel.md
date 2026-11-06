@@ -87,6 +87,45 @@ you test (an "Issue" or a note on a row is enough).
 - A dark mode (possible later; not asked for).
 - Renaming the product (one file, packages/ui/src/brand.ts, when needed).
 
+## Slice 2: dashboard decisions so far (Abhi, 6 Nov 2026)
+
+Agreed on the mockup (claude.ai artifact "Operator dashboard"). Not built
+until Abhi says go.
+
+- **Top bar (computer)**: business name on the left; a short search box
+  in the middle with a magnifying glass, a soft fill and a thin outline
+  (WCAG 1.4.11); the account button is just the round initial, no name or
+  arrow. Search shows results as you type, grouped Cars / Renters /
+  Rentals, keyboard-usable, on the shared drop-down library.
+- **Side menu (computer)** stays put when the page scrolls (today it
+  scrolls away; only the top bar is fixed).
+- **Rows**: title is always the who or what (a rego or a Renter's name).
+  The second line says what's wrong, and the label says how urgent.
+  - On a computer, the whole row opens the main thing (the rental, or
+    the place to fix it). Names and regos inside it are their own links
+    (bold teal, underline on hover) to the Renter or the car. The row's
+    link is stretched over the row, so there are no links inside links.
+  - On phones, one tap per row (44 px targets).
+- **Handover / return rows** open the rental page (its main button is the
+  next step), not the checklist directly. "Later this week" dates open the
+  rentals calendar on that day.
+- **No "Owed to you" card.** Late payers go in Needs attention instead.
+- **Needs attention rule**: something the Operator must do, that the app
+  can't, which disappears once done. Items:
+  - Overdue: a failed direct debit at once; hand payments 2 days after
+    the due date (grace days a setting, default 2).
+  - Rego or insurance missing or due.
+  - Licence due, for Renters with a car now.
+  - Renter details to review.
+  - Not ready for handover.
+  - Bond to refund.
+  - Damage open.
+  - Late back from the workshop.
+- **Moved out of Needs attention**: idle cars (shown with the car counts
+  as "available"); claims under way (they belong on the Damage page).
+- **Wording**: details to review reads "Sent their licence and contact
+  details to approve".
+
 ## As built: slice 1 (6 Nov 2026)
 
 - Theme tokens (packages/ui/src/styles/theme.css and brand.ts): page
