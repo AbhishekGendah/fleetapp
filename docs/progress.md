@@ -1187,6 +1187,12 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
 
 ## Next
 
+**6 Nov, on hold for Abhi:** theme approved (direction A with B's navy
+strip on a rental page, docs/plans/look-and-feel.md). Abhi is going through
+the app for quality-of-life suggestions; **nothing is built until he says
+go**. Waiting on him: his suggestions plus the plan's nine improvements,
+the go-ahead for the look, and the Phase 4 slice 5 to 8 plans.
+
 Done by Abhi on 5 Nov: APP_STAGE=development in both dev Vercel projects;
 OPS_ALERT_EMAIL in fleetapp-web; dev database logins checked
 (`admin_auth_role` had been made on Neon's screen and could bypass
