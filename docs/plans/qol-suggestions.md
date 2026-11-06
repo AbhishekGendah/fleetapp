@@ -18,6 +18,13 @@ nine improvements in docs/plans/look-and-feel.md.
 | A7 | Operator page | More sections | Yes, as built: Stripe status, setup progress, last sign-in and history, storage, reset authenticator, billing (Phase 8). |
 | A8 | Whole site | Top bar stays put when scrolling | Yes, kept slim. |
 
+## Both apps
+
+| # | Page | Suggestion | Recommendation |
+|---|---|---|---|
+| B1 | Everywhere | Buttons don't show the pointing hand | Fixed 6 Nov (shared styles; browser test). |
+| B2 | Everywhere | Everything feels a bit slow | Instant "loading" placeholders on every page; tabs swap content instead of reloading the page; Vercel Speed Insights to measure (one package, MIT). Production kept awake: launch checklist. Awaiting go. |
+
 ## Operator app
 
 (To come.)
