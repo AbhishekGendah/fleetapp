@@ -326,3 +326,33 @@ their own later slice.
     and the timeline's search box, "Only these cars" and "Go to a date"
     (the car filter, previous/next and Today replace them), and the car's
     pop-up quick view (the rego now opens the car's page).
+
+## As built: header search (6 Nov 2026)
+
+- **Computer**: a box of about 340 px in the middle of the top bar, as on
+  the agreed mockup, with a magnifying glass, a soft grey fill and a thin outline; placeholder "Search cars,
+  Renters, rentals".
+- **As you type**: from 2 characters, 0.3 seconds after the last key. The
+  drop-down shows up to 5 of each kind, grouped under small capitals: Cars
+  (rego, then make and model), Renters (name, then phone), Rentals ("Name ·
+  rego", then the status in the Rentals list's words). Names and regos are
+  bold teal. Nothing found reads "No matches for “…”".
+- **What matches**: each kind is searched as its own list searches it, in
+  that list's order: cars by rego (spaces, dashes and capitals ignored),
+  make, model, colour or VIN; Renters by name, phone (with or without
+  spaces, or +61), email or licence number; rentals by the Renter's name or
+  the rego, most relevant first. Archived cars and Renters are left out, as
+  on their lists. Only the business's own records, ever.
+- **Keyboard**: Tab reaches the box; arrows move through the results, Enter
+  opens one, Escape closes the list. Read out as a combobox with a list of
+  grouped options.
+- **Phone**: a round search button (44 px) beside the account button opens
+  the same search across the top of the screen, box focused, with Close.
+  Escape, Close or the phone's Back closes it. A result opened from it takes
+  the search's place in the history, so one Back returns to where you were.
+- **Download size**: the search's code loads only when the box is focused
+  or the button pressed, so no page's budget was raised.
+- **Different from the mockup**: the results list sits under the box in the
+  page rather than in a pop-up layer, because Base UI's pop-up hides the
+  rest of the page from screen readers while open, which the accessibility
+  check flags. It looks the same.
