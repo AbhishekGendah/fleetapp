@@ -97,7 +97,8 @@ test.describe.serial("a rental's money", () => {
       await page.goto("/renters", { waitUntil: "networkidle" });
       // Searched, so other tests' Renters cannot push this one off the first page.
       await page.getByRole("searchbox").fill(RENTER.name);
-      await page.getByRole("button", { name: "Search", exact: true }).click();
+      // The list's own Search button; the top bar has one too on a phone.
+      await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
       await page
         .getByRole("link", { name: new RegExp(RENTER.name) })
         .first()
