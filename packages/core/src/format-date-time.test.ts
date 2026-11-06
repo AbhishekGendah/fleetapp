@@ -5,6 +5,9 @@ import {
   formatDateTimeInTimeZone,
   formatDayInTimeZone,
   formatLinkExpiryInTimeZone,
+  formatShortCalendarDate,
+  formatShortDayInTimeZone,
+  formatTimeInTimeZone,
 } from "./format-date-time";
 
 describe("formatting a moment in the Operator's timezone", () => {
@@ -42,5 +45,25 @@ describe("a day in words", () => {
     expect(formatLinkExpiryInTimeZone(new Date("2026-11-13T04:15:00Z"), "Australia/Sydney")).toBe(
       "3:15 pm AEDT, Friday 13 November",
     );
+  });
+});
+
+describe("short days and times for a line of a list", () => {
+  it("reads a plain date as its weekday, day and month, with the year only when it is another", () => {
+    expect(formatShortCalendarDate("2026-11-12", "2026-11-06")).toBe("Thu 12 Nov");
+    expect(formatShortCalendarDate("2025-11-12", "2026-11-06")).toBe("Wed 12 Nov 2025");
+  });
+
+  it("puts a moment on the Operator's day, across midnight", () => {
+    // 1:30 pm UTC on Friday is 12:30 am on Saturday in Sydney, still Friday in Perth.
+    const lateUtc = new Date("2026-11-06T13:30:00Z");
+    expect(formatShortDayInTimeZone(lateUtc, "Australia/Sydney", "2026-11-06")).toBe("Sat 7 Nov");
+    expect(formatShortDayInTimeZone(lateUtc, "Australia/Perth", "2026-11-06")).toBe("Fri 6 Nov");
+  });
+
+  it("shows the time on the Operator's clock", () => {
+    const moment = new Date("2026-11-06T04:30:00Z");
+    expect(formatTimeInTimeZone(moment, "Australia/Sydney")).toBe("3:30 pm");
+    expect(formatTimeInTimeZone(moment, "Australia/Perth")).toBe("12:30 pm");
   });
 });

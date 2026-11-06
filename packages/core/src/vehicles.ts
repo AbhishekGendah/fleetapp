@@ -30,6 +30,8 @@ export const STATUS_BOX_STATUSES = OPERATOR_VEHICLE_STATUSES.filter(
 export const VEHICLE_STATUSES = [...OPERATOR_VEHICLE_STATUSES, "rented"] as const;
 export type VehicleStatus = (typeof VEHICLE_STATUSES)[number];
 export type OperatorVehicleStatus = (typeof OPERATOR_VEHICLE_STATUSES)[number];
+/** In the workshop: not rentable for now, but still part of the fleet. */
+export const VEHICLE_STATUSES_IN_WORKSHOP: readonly VehicleStatus[] = ["in_service", "off_road"];
 
 export const VEHICLE_STATUS_LABELS: Readonly<Record<VehicleStatus, string>> = {
   available: "Available",

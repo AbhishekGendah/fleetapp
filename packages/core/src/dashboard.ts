@@ -44,6 +44,12 @@ export const RENTAL_MOMENTS = [
   "starting_this_week",
 ] as const;
 export type RentalMoment = (typeof RENTAL_MOMENTS)[number];
+/** A booking that has not yet been handed over can still have problems to sort out. */
+export const MOMENTS_BEFORE_HANDOVER: readonly RentalMoment[] = [
+  "late_pickup",
+  "pickup_today",
+  "starting_this_week",
+];
 
 /** Which moment, if any, a rental is at this week: none when nothing happens to it. */
 export function rentalMomentOf(

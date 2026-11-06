@@ -1,3 +1,7 @@
+import { TZDate } from "@date-fns/tz";
+import { format } from "date-fns";
+
+import { todayInTimeZone } from "./calendar-dates";
 import { AUSTRALIAN_LOCALE } from "./locale";
 
 /**
@@ -50,4 +54,34 @@ export function formatLinkExpiryInTimeZone(moment: Date, timeZone: string): stri
     timeZoneName: "short",
   }).format(moment);
   return `${time}, ${formatDayInTimeZone(moment, timeZone)}`;
+}
+
+const SHORT_DAY_FORMAT = "EEE d MMM";
+const YEAR_FORMAT = "yyyy";
+const CLOCK_TIME_FORMAT = "h:mm aaa";
+const YEAR_TEXT_LENGTH = 4;
+/** Plain dates are read in UTC, so no timezone moves them a day. */
+const PLAIN_DATE_ZONE = "UTC";
+
+/**
+ * A date with no time of day as a short line reads it, e.g. "Thu 12 Nov".
+ * The year is added only when it is not the Operator's current one, so an
+ * expiry from last year never passes for this year's.
+ */
+export function formatShortCalendarDate(isoDate: string, today: string): string {
+  const day = new TZDate(new Date(`${isoDate}T00:00:00Z`), PLAIN_DATE_ZONE);
+  const isThisYear = isoDate.slice(0, YEAR_TEXT_LENGTH) === today.slice(0, YEAR_TEXT_LENGTH);
+  return isThisYear
+    ? format(day, SHORT_DAY_FORMAT)
+    : `${format(day, SHORT_DAY_FORMAT)} ${format(day, YEAR_FORMAT)}`;
+}
+
+/** The day a moment falls on, on the Operator's clock, as a short line reads it: "Sat 7 Nov". */
+export function formatShortDayInTimeZone(moment: Date, timeZone: string, today: string): string {
+  return formatShortCalendarDate(todayInTimeZone(moment, timeZone), today);
+}
+
+/** The time of day on the Operator's clock, e.g. "10:00 am" (rule 10). */
+export function formatTimeInTimeZone(moment: Date, timeZone: string): string {
+  return format(new TZDate(moment, timeZone), CLOCK_TIME_FORMAT);
 }
