@@ -34,8 +34,6 @@ export interface RecordStripProps {
   actions?: React.ReactNode;
 }
 
-const TITLE_ID = "record-strip-title";
-
 /**
  * The navy strip that opens every single-item page (one rental, one car, one
  * Renter): its name, status and key facts, and its buttons (the navy strip
@@ -48,8 +46,9 @@ const TITLE_ID = "record-strip-title";
  */
 export function RecordStrip(props: RecordStripProps): React.JSX.Element {
   const facts = props.facts ?? [];
+  const titleId = React.useId();
   return (
-    <section aria-labelledby={TITLE_ID} className="bg-primary text-primary-foreground">
+    <section aria-labelledby={titleId} className="bg-primary text-primary-foreground">
       <div
         className={cn(
           "grid gap-3 pt-2 pb-5 md:grid-cols-[minmax(0,1fr)_auto] md:gap-x-4 md:pb-6",
@@ -68,7 +67,7 @@ export function RecordStrip(props: RecordStripProps): React.JSX.Element {
 
         <div className="flex min-w-0 flex-col gap-1.5">
           <h1
-            id={TITLE_ID}
+            id={titleId}
             className="text-2xl leading-tight font-extrabold tracking-tight break-words md:text-3xl"
           >
             {props.title}
