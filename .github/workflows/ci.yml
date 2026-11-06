@@ -139,8 +139,15 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
+      # The Operator app's tests run as three groups at once (6 Nov 2026: about
+      # 8 minutes one after another); each group starts its own throwaway stores.
       matrix:
-        app: [admin, web]
+        include:
+          - { app: admin, shard: "1/1" }
+          - { app: web, shard: "1/3" }
+          - { app: web, shard: "2/3" }
+          - { app: web, shard: "3/3" }
+    name: browser-tests (${{ matrix.app }} ${{ matrix.shard }})
     steps:
       - uses: actions/checkout@v4.4.0
 
@@ -155,7 +162,7 @@ jobs:
 
       - run: pnpm --filter ${{ matrix.app }} exec playwright install --with-deps chromium
 
-      - run: pnpm --filter ${{ matrix.app }} e2e
+      - run: pnpm --filter ${{ matrix.app }} e2e --shard=${{ matrix.shard }}
         env:
           CI: "true"
           NEXT_TELEMETRY_DISABLED: "1"
@@ -163,6 +170,6 @@ jobs:
       - if: failure()
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: browser-test-traces-${{ matrix.app }}
+          name: browser-test-traces-${{ matrix.app }}-${{ strategy.job-index }}
           path: apps/${{ matrix.app }}/test-results/
           retention-days: 7
