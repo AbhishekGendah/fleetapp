@@ -1,86 +1,55 @@
 import type { SetupStep } from "@fleetapp/core";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
-import { cn } from "@fleetapp/ui/cn";
+import { Card, SectionLabel } from "@fleetapp/ui/card";
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 
-import { SETUP_STEP_COPY, type SetupStepCopy } from "../lib/dashboard/setup-step-copy";
+import { SETUP_STEP_COPY } from "../lib/dashboard/setup-step-copy";
 
-function StepMarker({ isDone }: { isDone: boolean }) {
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border text-xs",
-        isDone ? "bg-teal border-teal text-white" : "border-input",
-      )}
-    >
-      {isDone ? "✓" : null}
-    </span>
-  );
+const HEADING_ID = "setup-heading";
+const PERCENT = 100;
+
+/** "Connect Stripe" read on after "Next:", as "connect Stripe". */
+function midSentence(title: string): string {
+  return `${title.charAt(0).toLowerCase()}${title.slice(1)}`;
 }
 
-function StepStatus({ isDone, copy }: { isDone: boolean; copy: SetupStepCopy }) {
-  if (isDone) {
-    return <span className="sr-only">Done</span>;
-  }
-  return (
-    <Link
-      href={copy.href}
-      className="text-teal inline-flex min-h-11 items-center text-sm font-semibold hover:underline sm:min-h-0"
-    >
-      {copy.actionLabel} →
-    </Link>
-  );
-}
-
+/** While setup is unfinished: how far along it is, and the one step to do next. */
 export function SetupChecklistCard({ steps }: { steps: SetupStep[] }) {
   const doneCount = steps.filter((step) => step.status === "done").length;
+  const nextStep = steps.find((step) => step.status !== "done");
+  const progress = `${doneCount} of ${steps.length} done`;
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Get set up</CardTitle>
-        <CardDescription>
-          {doneCount} of {steps.length} done
-        </CardDescription>
+      <section aria-labelledby={HEADING_ID} className="flex flex-col gap-2.5 p-4 sm:p-5">
+        <div className="flex items-baseline justify-between gap-2">
+          <SectionLabel id={HEADING_ID}>Finish setting up</SectionLabel>
+          <span className="text-primary text-sm font-bold">{progress}</span>
+        </div>
         <div
-          className="bg-primary-soft mt-2 h-2 overflow-hidden rounded-full"
+          className="bg-muted h-2 overflow-hidden rounded-full"
           role="progressbar"
+          aria-label="Setup progress"
           aria-valuemin={0}
           aria-valuemax={steps.length}
           aria-valuenow={doneCount}
-          aria-label="Setup progress"
+          aria-valuetext={progress}
         >
           <div
-            className="from-cyan to-teal h-full bg-gradient-to-r"
-            style={{ width: `${(doneCount / steps.length) * 100}%` }}
+            className="bg-teal h-full"
+            style={{ width: `${(doneCount / steps.length) * PERCENT}%` }}
           />
         </div>
-      </CardHeader>
-      <CardContent>
-        <ol className="flex flex-col gap-4">
-          {steps.map((step) => {
-            const copy = SETUP_STEP_COPY[step.key];
-            const isDone = step.status === "done";
-            return (
-              <li key={step.key} className="flex min-h-11 gap-3">
-                <StepMarker isDone={isDone} />
-                <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <div className="flex flex-col gap-x-2 sm:flex-row sm:items-center sm:justify-between">
-                    <span
-                      className={cn("font-medium", isDone && "text-muted-foreground line-through")}
-                    >
-                      {copy.title}
-                    </span>
-                    <StepStatus isDone={isDone} copy={copy} />
-                  </div>
-                  <span className="text-muted-foreground text-sm">{copy.description}</span>
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-      </CardContent>
+        {nextStep ? (
+          <Link
+            href={SETUP_STEP_COPY[nextStep.key].href}
+            className="text-primary flex min-h-11 items-center justify-between gap-2 font-bold hover:underline"
+          >
+            Next: {midSentence(SETUP_STEP_COPY[nextStep.key].title)}
+            <ChevronRight aria-hidden className="text-teal size-5 shrink-0" />
+          </Link>
+        ) : null}
+      </section>
     </Card>
   );
 }

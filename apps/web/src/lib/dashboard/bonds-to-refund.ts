@@ -9,9 +9,13 @@ import { DASHBOARD_LIST_LENGTH, type FewOfMany } from "./fleet-overview";
 /** A cancelled booking still holding bond: money owed back to the Renter. */
 export interface BondToRefund {
   rentalId: string;
+  renterId: string;
+  vehicleId: string;
   rego: string;
   renterName: string;
   heldCents: number;
+  /** Every booking here is cancelled; the longest waiting for its refund comes first. */
+  cancelledAt: Date;
 }
 
 /**
@@ -22,10 +26,18 @@ export interface BondToRefund {
 export async function loadBondsToRefund(
   database: AnyDatabase,
   operatorId: string,
+  limit = DASHBOARD_LIST_LENGTH,
 ): Promise<FewOfMany<BondToRefund>> {
   return withTenant(database, operatorId, async (tx) => {
     const cancelled = await tx
-      .select({ rentalId: rentals.id, rego: vehicles.rego, renterName: renters.fullName })
+      .select({
+        rentalId: rentals.id,
+        renterId: rentals.renterId,
+        vehicleId: rentals.vehicleId,
+        rego: vehicles.rego,
+        renterName: renters.fullName,
+        cancelledAt: rentals.cancelledAt,
+      })
       .from(rentals)
       .innerJoin(vehicles, eq(vehicles.id, rentals.vehicleId))
       .innerJoin(renters, eq(renters.id, rentals.renterId))
@@ -46,7 +58,7 @@ export async function loadBondsToRefund(
           ),
         ),
       )
-      .orderBy(asc(rentals.plannedStart));
+      .orderBy(asc(rentals.cancelledAt), asc(rentals.id));
     if (cancelled.length === 0) {
       return { total: 0, items: [] };
     }
@@ -69,11 +81,15 @@ export async function loadBondsToRefund(
         ),
       );
     const owed = cancelled
+      // A cancelled booking always has its cancelled time (the rentals_cancelled check).
+      .flatMap((rental) =>
+        rental.cancelledAt ? [{ ...rental, cancelledAt: rental.cancelledAt }] : [],
+      )
       .map((rental) => ({
         ...rental,
         heldCents: bondHeldCents(movements.filter((entry) => entry.rentalId === rental.rentalId)),
       }))
       .filter((rental) => rental.heldCents > 0);
-    return { total: owed.length, items: owed.slice(0, DASHBOARD_LIST_LENGTH) };
+    return { total: owed.length, items: owed.slice(0, limit) };
   });
 }

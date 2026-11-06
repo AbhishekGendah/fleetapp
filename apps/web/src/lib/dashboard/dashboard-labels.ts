@@ -1,16 +1,6 @@
-import { formatCents, VEHICLE_STATUS_LABELS, type RentalMoment } from "@fleetapp/core";
+import { formatCents, VEHICLE_STATUS_LABELS } from "@fleetapp/core";
 
 import type { HandoverBlocker } from "./rentals-this-week";
-
-/** Each group of this week's rentals, as headed on the dashboard. */
-export const RENTAL_MOMENT_HEADINGS: Readonly<Record<RentalMoment, string>> = {
-  overdue: "Overdue returns",
-  late_pickup: "Late pickups",
-  returning_today: "Returns due today",
-  pickup_today: "Pickups today",
-  ending_this_week: "Ending this week",
-  starting_this_week: "Starting this week",
-};
 
 /** What a booking is still waiting on before handover, in a few words for a badge. */
 export function handoverBlockerLabel(blocker: HandoverBlocker): string {

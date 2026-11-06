@@ -1,4 +1,5 @@
 import {
+  ATTENTION_PATH,
   CARS_PATH,
   HOME_PATH,
   RENTALS_CALENDAR_PATH,
@@ -32,7 +33,8 @@ function isAtOrUnder(pathname: string, href: string): boolean {
  * are the Calendar section, so Rentals is not also marked there.
  */
 export function currentSection(pathname: string): AppSection | null {
-  if (pathname === HOME_PATH) {
+  // The full Needs attention list is the dashboard's, so Home stays current there.
+  if (pathname === HOME_PATH || isAtOrUnder(pathname, ATTENTION_PATH)) {
     return "home";
   }
   if (

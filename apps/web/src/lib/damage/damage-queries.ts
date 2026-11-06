@@ -1,10 +1,4 @@
-import {
-  addDays,
-  CLAIM_STATUSES_UNDER_WAY,
-  startOfDayIn,
-  type ClaimStatus,
-  type DamageStatus,
-} from "@fleetapp/core";
+import { addDays, startOfDayIn, type ClaimStatus, type DamageStatus } from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import {
   damageRecords,
@@ -25,7 +19,6 @@ import {
   eq,
   gt,
   gte,
-  inArray,
   isNull,
   lt,
   lte,
@@ -331,64 +324,42 @@ export interface DamageOnDashboard {
   claimStatus: ClaimStatus | null;
 }
 
-export interface DamageAttention {
-  openDamage: FewOfMany<DamageOnDashboard>;
-  claimsUnderWay: FewOfMany<DamageOnDashboard>;
-}
-
-/** The first few damage records that match, oldest found first, and how many match in all. */
-async function fewDamage(
-  tx: AnyTransaction,
+/** Damage still to repair or decide on, oldest found first, and how many there are in all. */
+export function loadOpenDamage(
+  database: AnyDatabase,
   operatorId: string,
-  where: SQL | undefined,
+  limit = DASHBOARD_LIST_LENGTH,
 ): Promise<FewOfMany<DamageOnDashboard>> {
   const matching = and(
     eq(damageRecords.operatorId, operatorId),
     isNull(damageRecords.archivedAt),
-    where,
+    eq(damageRecords.status, "open"),
   );
-  const items = await tx
-    .select({
-      id: damageRecords.id,
-      vehicleId: damageRecords.vehicleId,
-      rego: vehicles.rego,
-      description: damageRecords.description,
-      foundOn: damageRecords.foundOn,
-      claimStatus: insuranceClaims.status,
-    })
-    .from(damageRecords)
-    .innerJoin(
-      vehicles,
-      and(
-        eq(vehicles.id, damageRecords.vehicleId),
-        eq(vehicles.operatorId, damageRecords.operatorId),
-      ),
-    )
-    .leftJoin(insuranceClaims, claimOfRecord)
-    .where(matching)
-    .orderBy(asc(damageRecords.foundOn), asc(damageRecords.id))
-    .limit(DASHBOARD_LIST_LENGTH);
-  const [counted] = await tx
-    .select({ total: count() })
-    .from(damageRecords)
-    .leftJoin(insuranceClaims, claimOfRecord)
-    .where(matching);
-  return { total: counted?.total ?? 0, items };
-}
-
-/** The dashboard's "Damage open" and "Claims under way" groups. */
-export function loadDamageAttention(
-  database: AnyDatabase,
-  operatorId: string,
-): Promise<DamageAttention> {
-  return withTenant(database, operatorId, async (tx) => ({
-    openDamage: await fewDamage(tx, operatorId, eq(damageRecords.status, "open")),
-    claimsUnderWay: await fewDamage(
-      tx,
-      operatorId,
-      inArray(insuranceClaims.status, [...CLAIM_STATUSES_UNDER_WAY]),
-    ),
-  }));
+  return withTenant(database, operatorId, async (tx) => {
+    const items = await tx
+      .select({
+        id: damageRecords.id,
+        vehicleId: damageRecords.vehicleId,
+        rego: vehicles.rego,
+        description: damageRecords.description,
+        foundOn: damageRecords.foundOn,
+        claimStatus: insuranceClaims.status,
+      })
+      .from(damageRecords)
+      .innerJoin(
+        vehicles,
+        and(
+          eq(vehicles.id, damageRecords.vehicleId),
+          eq(vehicles.operatorId, damageRecords.operatorId),
+        ),
+      )
+      .leftJoin(insuranceClaims, claimOfRecord)
+      .where(matching)
+      .orderBy(asc(damageRecords.foundOn), asc(damageRecords.id))
+      .limit(limit);
+    const [counted] = await tx.select({ total: count() }).from(damageRecords).where(matching);
+    return { total: counted?.total ?? 0, items };
+  });
 }
 
 export interface ClaimPolicyChoice {

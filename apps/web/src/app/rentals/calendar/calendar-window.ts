@@ -5,7 +5,9 @@ import {
   todayInTimeZone,
 } from "@fleetapp/core";
 
-export const MONTH_PARAM = "month";
+import { CALENDAR_MONTH_PARAM } from "../../../lib/paths";
+
+export const MONTH_PARAM = CALENDAR_MONTH_PARAM;
 export const CAR_PARAM = "car";
 /** "2026-12": a month as the page address carries it. */
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;

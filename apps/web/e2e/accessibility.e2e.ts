@@ -10,6 +10,8 @@ import { PHONE_VIEWPORT } from "./e2e-settings";
 describePageChecks({
   signedInPages: [
     "/",
+    // Added 6 Nov 2026 with the dashboard's full Needs attention list.
+    "/attention",
     "/cars",
     "/cars/new",
     "/cars/insurance",

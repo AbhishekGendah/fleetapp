@@ -1,12 +1,11 @@
-import { addDays, type VehicleStatus } from "@fleetapp/core";
+import { addDays, VEHICLE_STATUSES_IN_WORKSHOP, type VehicleStatus } from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { qualified } from "@fleetapp/db/qualified";
-import { carHolds, rentals, renterSubmissions, renters, vehicles } from "@fleetapp/db/schema";
+import { rentals, renterSubmissions, renters, vehicles } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, asc, count, eq, inArray, isNull, lt, not, or, sql, type SQL } from "drizzle-orm";
 import type { SelectedFields } from "drizzle-orm/pg-core";
 
-import { idleSince } from "../vehicles/car-whereabouts";
 import {
   currentInsuranceEndsOn,
   currentRegoExpiresOn,
@@ -17,6 +16,11 @@ import {
 
 /** How many of a long list the dashboard shows before "See all". */
 export const DASHBOARD_LIST_LENGTH = 5;
+/**
+ * The most of one kind the full Needs attention page loads. Far more than
+ * any fleet has waiting at once; the page shows them 25 at a time.
+ */
+export const MOST_OF_A_KIND = 1_000;
 
 /** A few of a list, and how many there are in all. */
 export interface FewOfMany<Item> {
@@ -31,7 +35,6 @@ const STATUSES_IN_FLEET: readonly VehicleStatus[] = [
   "in_service",
   "off_road",
 ];
-const STATUSES_IN_WORKSHOP: readonly VehicleStatus[] = ["in_service", "off_road"];
 
 function inFleet(operatorId: string): SQL | undefined {
   return and(
@@ -52,7 +55,7 @@ const CAR_COLUMNS = {
 function fewCars<Extra extends SelectedFields>(
   database: AnyDatabase,
   operatorId: string,
-  request: { where: SQL | undefined; columns: Extra; orderBy: SQL },
+  request: { where: SQL | undefined; columns: Extra; orderBy: SQL; limit: number },
 ) {
   return withTenant(database, operatorId, async (tx) => {
     const [counted] = await tx.select({ total: count() }).from(vehicles).where(request.where);
@@ -61,7 +64,7 @@ function fewCars<Extra extends SelectedFields>(
       .from(vehicles)
       .where(request.where)
       .orderBy(request.orderBy, asc(vehicles.rego))
-      .limit(DASHBOARD_LIST_LENGTH);
+      .limit(request.limit);
     return { total: counted?.total ?? 0, items };
   });
 }
@@ -81,43 +84,11 @@ export async function loadFleetCounts(
   return Object.fromEntries(rows.map((row) => [row.status, row.total]));
 }
 
-/** No live hold on the car that has not yet ended: nothing booked from now on. */
-function hasNothingBookedAhead(now: Date): SQL {
-  return sql`not exists (
-    select 1 from ${carHolds}
-    where ${qualified(carHolds.vehicleId)} = ${qualified(vehicles.id)}
-      and ${qualified(carHolds.releasedAt)} is null
-      and (upper_inf(${qualified(carHolds.heldDuring)}) or upper(${qualified(carHolds.heldDuring)}) > ${now.toISOString()})
-  )`;
-}
-
 export interface CarOnList {
   id: string;
   rego: string;
   make: string;
   model: string;
-}
-
-export interface IdleCar extends CarOnList {
-  idleSince: Date;
-}
-
-/** Available cars with nothing booked ahead, the longest idle first. */
-export async function loadIdleCars(
-  database: AnyDatabase,
-  operatorId: string,
-  now: Date,
-): Promise<FewOfMany<IdleCar>> {
-  const where = and(
-    inFleet(operatorId),
-    eq(vehicles.status, "available"),
-    hasNothingBookedAhead(now),
-  );
-  return fewCars(database, operatorId, {
-    where,
-    columns: { idleSince },
-    orderBy: asc(idleSince),
-  });
 }
 
 export interface CarPaperworkDue extends CarOnList {
@@ -138,6 +109,7 @@ export async function loadPaperworkDue(
   database: AnyDatabase,
   operatorId: string,
   expiry: { today: string; warningDays: number },
+  limit = DASHBOARD_LIST_LENGTH,
 ): Promise<FewOfMany<CarPaperworkDue>> {
   const dueBy = addDays(expiry.today, expiry.warningDays);
   const firstDue = sql`least(${currentRegoExpiresOn}, ${currentInsuranceEndsOn})`;
@@ -156,9 +128,32 @@ export async function loadPaperworkDue(
       isInsuredToday,
       isRegisteredToday,
     },
-    // Missing cover first, then the soonest due.
-    orderBy: sql`(${isInsuredToday} and ${isRegisteredToday}), ${firstDue} asc nulls first`,
+    // Not covered today first, then the longest waiting (as Needs attention sorts them).
+    orderBy: sql`(${isInsuredToday} and ${isRegisteredToday}), ${paperworkWaitingSince(expiry.today)} asc`,
+    limit,
   });
+}
+
+/** A paper that lapsed counts from the day it ended; one missing outright, from forever. */
+function lapsedSince(endsOn: SQL<string | null>, today: string): SQL {
+  return sql`case when ${endsOn} < ${today}::date then ${endsOn} else '-infinity'::date end`;
+}
+
+/**
+ * Since when a car's paperwork has waited: covered today, from the first
+ * one due; not covered, from the first lapse. The same rule as
+ * paperworkWaitingSince in attention-items.ts, so the dashboard's few are
+ * the most urgent.
+ */
+function paperworkWaitingSince(today: string): SQL {
+  const isInsuredToday = isInsuredOn(today);
+  const isRegisteredToday = isRegisteredOn(today);
+  return sql`case when ${isInsuredToday} and ${isRegisteredToday}
+    then least(${currentRegoExpiresOn}, ${currentInsuranceEndsOn})
+    else least(
+      case when not ${isRegisteredToday} then ${lapsedSince(currentRegoExpiresOn, today)} end,
+      case when not ${isInsuredToday} then ${lapsedSince(currentInsuranceEndsOn, today)} end
+    ) end`;
 }
 
 export interface CarInWorkshop extends CarOnList {
@@ -171,16 +166,18 @@ export async function loadWorkshopLate(
   database: AnyDatabase,
   operatorId: string,
   today: string,
+  limit = DASHBOARD_LIST_LENGTH,
 ): Promise<FewOfMany<CarInWorkshop>> {
   const where = and(
     inFleet(operatorId),
-    inArray(vehicles.status, [...STATUSES_IN_WORKSHOP]),
+    inArray(vehicles.status, [...VEHICLE_STATUSES_IN_WORKSHOP]),
     lt(vehicles.statusExpectedBack, today),
   );
   return fewCars(database, operatorId, {
     where,
     columns: { status: vehicles.status, statusExpectedBack: vehicles.statusExpectedBack },
     orderBy: asc(vehicles.statusExpectedBack),
+    limit,
   });
 }
 
@@ -205,6 +202,7 @@ export async function loadLicencesDue(
   database: AnyDatabase,
   operatorId: string,
   expiry: { today: string; warningDays: number },
+  limit = DASHBOARD_LIST_LENGTH,
 ): Promise<FewOfMany<RenterLicenceDue>> {
   const where = and(
     eq(renters.operatorId, operatorId),
@@ -223,16 +221,22 @@ export async function loadLicencesDue(
       .from(renters)
       .where(where)
       .orderBy(asc(renters.licenceExpiresOn), asc(renters.fullName))
-      .limit(DASHBOARD_LIST_LENGTH);
+      .limit(limit);
     return { total: counted?.total ?? 0, items };
   });
+}
+
+export interface RenterDetailsWaiting extends RenterOnList {
+  /** When the Renter sent them: the longest waiting comes first. */
+  sentAt: Date;
 }
 
 /** Renters whose details, sent through their link, wait for the Operator to look at them. */
 export async function loadReviewsWaiting(
   database: AnyDatabase,
   operatorId: string,
-): Promise<FewOfMany<RenterOnList>> {
+  limit = DASHBOARD_LIST_LENGTH,
+): Promise<FewOfMany<RenterDetailsWaiting>> {
   const where = and(
     eq(renterSubmissions.operatorId, operatorId),
     eq(renterSubmissions.status, "waiting"),
@@ -249,12 +253,12 @@ export async function loadReviewsWaiting(
       .innerJoin(renters, renterOfSubmission)
       .where(where);
     const items = await tx
-      .select({ id: renters.id, fullName: renters.fullName })
+      .select({ id: renters.id, fullName: renters.fullName, sentAt: renterSubmissions.createdAt })
       .from(renterSubmissions)
       .innerJoin(renters, renterOfSubmission)
       .where(where)
-      .orderBy(asc(renterSubmissions.createdAt))
-      .limit(DASHBOARD_LIST_LENGTH);
+      .orderBy(asc(renterSubmissions.createdAt), asc(renterSubmissions.id))
+      .limit(limit);
     return { total: counted?.total ?? 0, items };
   });
 }

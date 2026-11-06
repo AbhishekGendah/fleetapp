@@ -355,12 +355,9 @@ test.describe.serial("handing a car over", () => {
       await expect(page.getByText("Status saved.")).toBeVisible();
       await expect(page.getByRole("button", { name: "Remove this damage" })).toHaveCount(0);
 
+      // A claim under way is followed on the damage itself, not on the dashboard (6 Nov 2026).
       await page.goto("/", { waitUntil: "networkidle" });
-      await expect(
-        page
-          .getByRole("region", { name: "Claims under way" })
-          .getByRole("link", { name: `${CAR_REGO}: Dent on bonnet` }),
-      ).toBeVisible();
+      await expect(page.getByRole("link", { name: /^Damage: Dent on bonnet/ })).toHaveCount(0);
     });
 
     test("records damage found later, confirms who had the car, then removes it", async ({

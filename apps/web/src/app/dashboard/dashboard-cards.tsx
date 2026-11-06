@@ -1,335 +1,310 @@
 import {
-  CLAIM_STATUS_LABELS,
-  expiryStatus,
-  formatCalendarDate,
-  formatCents,
-  formatDateTimeInTimeZone,
-  VEHICLE_STATUS_LABELS,
+  formatShortDayInTimeZone,
+  formatTimeInTimeZone,
+  todayInTimeZone,
+  VEHICLE_STATUSES_IN_WORKSHOP,
   type RentalMoment,
   type VehicleStatus,
 } from "@fleetapp/core";
+import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
-import { CountLinks } from "@fleetapp/ui/count-links";
-import { CarFront, FilePlus2, UserPlus } from "lucide-react";
+import { Card, SectionLabel } from "@fleetapp/ui/card";
+import { cn } from "@fleetapp/ui/cn";
+import { InlineRecordLink, ROW_CLASSES, RowLink } from "@fleetapp/ui/row-link";
+import { CarFront, ChevronRight, Plus, UserPlus } from "lucide-react";
 import Link from "next/link";
+import type * as React from "react";
 
-import { handoverBlockerLabel, RENTAL_MOMENT_HEADINGS } from "../../lib/dashboard/dashboard-labels";
-import type { CarOnList } from "../../lib/dashboard/fleet-overview";
-import type { DamageOnDashboard } from "../../lib/damage/damage-queries";
+import type { AttentionList } from "../../lib/dashboard/attention-items";
+import { DASHBOARD_LIST_LENGTH } from "../../lib/dashboard/fleet-overview";
 import type { DashboardData } from "../../lib/dashboard/load-dashboard";
 import type { RentalThisWeek } from "../../lib/dashboard/rentals-this-week";
 import {
-  carDamagePath,
+  ATTENTION_PATH,
+  calendarDayPath,
+  CARS_PATH,
   carPath,
   carsWithStatusPath,
   NEW_CAR_PATH,
   NEW_RENTAL_PATH,
   NEW_RENTER_PATH,
   rentalPath,
-  rentalsWithStatusPath,
   renterPath,
-  renterReviewPath,
 } from "../../lib/paths";
-import { idleText } from "../../lib/vehicles/car-list-rows";
-import { AttentionGroup, type AttentionItem } from "./attention-group";
+import { WORKSHOP_FILTER_VALUE } from "../../lib/vehicles/vehicle-queries";
+import { AttentionBadge, AttentionText } from "../attention/attention-row";
 
-/** The statuses of cars in the fleet, in the order the counts show them. */
-const FLEET_STATUSES: readonly VehicleStatus[] = ["rented", "available", "in_service", "off_road"];
-const SHOWN_PER_GROUP = 5;
+const ROW_LINE_CLASSES = "flex items-center gap-3 border-t py-2";
+const CHEVRON_CLASSES = "text-teal size-5 shrink-0";
 
-function carTitle(car: CarOnList): string {
-  return `${car.rego} · ${car.make} ${car.model}`;
-}
-
-function rentalItem(rental: RentalThisWeek, timeZone: string, data: DashboardData): AttentionItem {
-  const isReturn = rental.status === "active";
-  const when = isReturn ? rental.plannedEnd : rental.plannedStart;
-  const verb = isReturn ? "Due back" : "Starts";
-  const blockers = data.notReady.find((booking) => booking.rentalId === rental.id)?.blockers ?? [];
-  return {
-    key: rental.id,
-    href: rentalPath(rental.id),
-    title: `${rental.rego} · ${rental.renterFullName}`,
-    details: when ? `${verb} ${formatDateTimeInTimeZone(when, timeZone)}` : null,
-    badges: blockers.map((blocker) => ({
-      label: handoverBlockerLabel(blocker),
-      tone: "attention",
-    })),
-  };
-}
-
-function RentalGroup(props: { moment: RentalMoment; data: DashboardData; timeZone: string }) {
-  const rentals = props.data.rentals.filter((rental) => rental.moment === props.moment);
-  const status = rentals[0]?.status ?? "booked";
+/** A white card named by its small capitals label, as a region screen readers can jump to. */
+function DashboardCard(props: {
+  headingId: string;
+  heading: string;
+  aside?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <AttentionGroup
-      heading={RENTAL_MOMENT_HEADINGS[props.moment]}
-      total={rentals.length}
-      items={rentals
-        .slice(0, SHOWN_PER_GROUP)
-        .map((rental) => rentalItem(rental, props.timeZone, props.data))}
-      seeAll={{ href: rentalsWithStatusPath(status), label: "See all in Rentals" }}
-    />
+    <Card>
+      <section aria-labelledby={props.headingId} className="flex flex-col px-4 pt-4 pb-1 sm:px-5">
+        <div className="flex min-h-7 items-center justify-between gap-2 pb-1">
+          <SectionLabel id={props.headingId}>{props.heading}</SectionLabel>
+          {props.aside}
+        </div>
+        {props.children}
+      </section>
+    </Card>
   );
 }
 
-function NotReadyGroup({ data, timeZone }: { data: DashboardData; timeZone: string }) {
-  const bookings = data.rentals.filter((rental) =>
-    data.notReady.some((booking) => booking.rentalId === rental.id),
-  );
+function SeeAllLink({ total }: { total: number }) {
   return (
-    <AttentionGroup
-      heading="Not ready for handover"
-      total={bookings.length}
-      items={bookings.map((rental) => rentalItem(rental, timeZone, data))}
-    />
+    <Link
+      href={ATTENTION_PATH}
+      className="text-teal hover:text-primary flex min-h-12 items-center justify-center gap-1 border-t text-sm font-bold hover:underline"
+    >
+      See all {total}
+      <span className="hidden md:inline"> that need attention</span>
+      <span aria-hidden>›</span>
+    </Link>
   );
 }
 
-function paperworkDetails(
-  car: DashboardData["paperworkDue"]["items"][number],
-  data: DashboardData,
-) {
-  // Cover that ran out reads as Expired; Missing is for none on file, or one not started yet.
-  const isRegoMissing = !car.isRegisteredToday && !isPast(car.regoExpiresOn, data.window.today);
-  const isInsuranceMissing = !car.isInsuredToday && !isPast(car.insuranceEndsOn, data.window.today);
-  const lines = [
-    isRegoMissing ? "No current rego" : null,
-    isInsuranceMissing ? "No current insurance" : null,
-    car.regoExpiresOn ? `Rego ${formatCalendarDate(car.regoExpiresOn)}` : null,
-    car.insuranceEndsOn ? `Insurance ${formatCalendarDate(car.insuranceEndsOn)}` : null,
-  ].filter(Boolean);
-  const isMissing = isRegoMissing || isInsuranceMissing;
-  const firstDue = [car.regoExpiresOn, car.insuranceEndsOn].filter(Boolean).sort()[0] ?? null;
-  const status = expiryStatus(firstDue, data.window.today, data.vehicleWarningDays);
-  return { text: lines.join(" · "), isMissing, isExpired: status === "expired" };
+/**
+ * The five most urgent things to do (the full list is a tap away), with how
+ * many there are in all. Names and regos open their record on a computer;
+ * the rest of the row opens the place to fix it.
+ */
+export function NeedsAttentionCard({ attention }: { attention: AttentionList }) {
+  const shown = attention.items.slice(0, DASHBOARD_LIST_LENGTH);
+  return (
+    <DashboardCard
+      headingId="attention-heading"
+      heading="Needs attention"
+      aside={
+        attention.total > 0 ? (
+          <Badge tone="danger" className="min-w-7 justify-center">
+            {attention.total}
+            <span className="sr-only"> in all</span>
+          </Badge>
+        ) : null
+      }
+    >
+      {shown.length === 0 ? (
+        <p className="text-muted-foreground border-t py-3 text-sm">
+          Nothing needs attention. Nice.
+        </p>
+      ) : (
+        <ul aria-label="Most urgent">
+          {shown.map((item) => (
+            <li key={item.key} className={cn(ROW_CLASSES, ROW_LINE_CLASSES, "min-h-15")}>
+              <AttentionText item={item} />
+              <AttentionBadge item={item} />
+            </li>
+          ))}
+        </ul>
+      )}
+      {attention.total > shown.length ? <SeeAllLink total={attention.total} /> : null}
+    </DashboardCard>
+  );
 }
 
-function isPast(day: string | null, today: string): boolean {
-  return day !== null && day < today;
+const TODAY_MOMENTS: readonly RentalMoment[] = ["pickup_today", "returning_today"];
+const LATER_MOMENTS: readonly RentalMoment[] = ["starting_this_week", "ending_this_week"];
+const RETURN_MOMENTS: readonly RentalMoment[] = ["returning_today", "ending_this_week"];
+
+interface WeekMoment {
+  rental: RentalThisWeek;
+  at: Date;
+  /** "Handover to" or "Return from", followed by the Renter's name. */
+  verb: string;
 }
 
-function paperworkBadge(details: { isMissing: boolean; isExpired: boolean }) {
-  if (details.isMissing) {
-    return { label: "Missing", tone: "danger" as const };
-  }
-  return details.isExpired
-    ? { label: "Expired", tone: "danger" as const }
-    : { label: "Due soon", tone: "attention" as const };
+function weekMoments(rentals: readonly RentalThisWeek[], moments: readonly RentalMoment[]) {
+  return rentals
+    .filter((rental) => moments.includes(rental.moment))
+    .flatMap((rental): WeekMoment[] => {
+      const isReturn = RETURN_MOMENTS.includes(rental.moment);
+      const at = isReturn ? rental.plannedEnd : rental.plannedStart;
+      return at ? [{ rental, at, verb: isReturn ? "Return from" : "Handover to" }] : [];
+    })
+    .sort((first, second) => first.at.getTime() - second.at.getTime());
 }
 
-function PaperworkGroups({ data }: { data: DashboardData }) {
+/** "Handover to" opens the rental (spoken with the name, WCAG 2.5.3); the name opens the Renter. */
+function MomentWords({ moment }: { moment: WeekMoment }) {
+  const name = moment.rental.renterFullName;
   return (
     <>
-      <AttentionGroup
-        heading="Rego or insurance due or missing"
-        total={data.paperworkDue.total}
-        items={data.paperworkDue.items.map((car) => {
-          const details = paperworkDetails(car, data);
-          return {
-            key: car.id,
-            href: carPath(car.id),
-            title: carTitle(car),
-            details: details.text,
-            badges: [paperworkBadge(details)],
-          };
-        })}
-      />
-      <AttentionGroup
-        heading="Licences due, of Renters renting"
-        total={data.licencesDue.total}
-        items={data.licencesDue.items.map((renter) => ({
-          key: renter.id,
-          href: renterPath(renter.id),
-          title: renter.fullName,
-          details: `Licence expires ${formatCalendarDate(renter.licenceExpiresOn)}`,
-        }))}
-      />
-      <AttentionGroup
-        heading="Late back from the workshop"
-        total={data.workshopLate.total}
-        items={data.workshopLate.items.map((car) => ({
-          key: car.id,
-          href: carPath(car.id),
-          title: carTitle(car),
-          details: `${VEHICLE_STATUS_LABELS[car.status]}, expected back ${car.statusExpectedBack ? formatCalendarDate(car.statusExpectedBack) : ""}`,
-        }))}
-      />
+      <RowLink asChild>
+        <Link href={rentalPath(moment.rental.id)} aria-label={`${moment.verb} ${name}`}>
+          {moment.verb}
+        </Link>
+      </RowLink>{" "}
+      <InlineRecordLink asChild>
+        <Link href={renterPath(moment.rental.renterId)}>{name}</Link>
+      </InlineRecordLink>
     </>
   );
 }
 
-function damageItem(damage: DamageOnDashboard): AttentionItem {
-  return {
-    key: damage.id,
-    href: carDamagePath(damage.vehicleId, damage.id),
-    title: `${damage.rego}: ${damage.description}`,
-    details: `Found ${formatCalendarDate(damage.foundOn)}`,
-    badges: damage.claimStatus
-      ? [
-          {
-            label: `Claim ${CLAIM_STATUS_LABELS[damage.claimStatus].toLowerCase()}`,
-            tone: "neutral",
-          },
-        ]
-      : [],
-  };
-}
-
-/** Damage still to repair or decide on, and insurance claims waiting on the insurer. */
-function DamageGroups({ data }: { data: DashboardData }) {
+function TodayRow({ moment, timeZone }: { moment: WeekMoment; timeZone: string }) {
+  const { rental } = moment;
   return (
-    <>
-      <AttentionGroup
-        heading="Damage open"
-        total={data.damage.openDamage.total}
-        items={data.damage.openDamage.items.map(damageItem)}
-      />
-      <AttentionGroup
-        heading="Claims under way"
-        total={data.damage.claimsUnderWay.total}
-        items={data.damage.claimsUnderWay.items.map(damageItem)}
-      />
-    </>
+    <li className={cn(ROW_CLASSES, ROW_LINE_CLASSES, "min-h-16")}>
+      <span className="text-primary w-17 shrink-0 font-extrabold tabular-nums">
+        {formatTimeInTimeZone(moment.at, timeZone)}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+        <span className="font-bold">
+          <MomentWords moment={moment} />
+        </span>
+        <span className="text-muted-foreground text-sm">
+          {rental.make} {rental.model} ·{" "}
+          <InlineRecordLink asChild>
+            <Link href={carPath(rental.vehicleId)}>{rental.rego}</Link>
+          </InlineRecordLink>
+        </span>
+      </span>
+      <ChevronRight aria-hidden className={CHEVRON_CLASSES} />
+    </li>
   );
 }
 
-function hasAttention(data: DashboardData): boolean {
-  const urgentRentals = data.rentals.some(
-    (rental) => rental.moment === "overdue" || rental.moment === "late_pickup",
-  );
+function LaterRow(props: { moment: WeekMoment; timeZone: string; today: string }) {
+  const day = todayInTimeZone(props.moment.at, props.timeZone);
   return (
-    urgentRentals ||
-    data.notReady.length > 0 ||
-    data.reviewsWaiting.total > 0 ||
-    data.bondsToRefund.total > 0 ||
-    data.paperworkDue.total > 0 ||
-    data.licencesDue.total > 0 ||
-    data.workshopLate.total > 0 ||
-    data.damage.openDamage.total > 0 ||
-    data.damage.claimsUnderWay.total > 0
+    <li className={cn(ROW_CLASSES, "flex min-h-11 items-center gap-1.5 text-sm")}>
+      <InlineRecordLink asChild>
+        <Link href={calendarDayPath(day)}>
+          {formatShortDayInTimeZone(props.moment.at, props.timeZone, props.today)}
+        </Link>
+      </InlineRecordLink>
+      <span aria-hidden>·</span>
+      <span className="min-w-0 flex-1 font-semibold">
+        <MomentWords moment={props.moment} />
+      </span>
+      <ChevronRight aria-hidden className={CHEVRON_CLASSES} />
+    </li>
   );
 }
 
-/** Most urgent first (docs/design/09): what is late, what blocks a handover, what is running out. */
-export function NeedsAttentionCard({ data, timeZone }: { data: DashboardData; timeZone: string }) {
+/** Today's handovers and returns by time, then the rest of the week's. On the Operator's clock (rule 10). */
+export function TodayCard({ data, timeZone }: { data: DashboardData; timeZone: string }) {
+  const today = weekMoments(data.rentals, TODAY_MOMENTS);
+  const later = weekMoments(data.rentals, LATER_MOMENTS);
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Needs attention</CardTitle>
-        {hasAttention(data) ? null : (
-          <CardDescription>Nothing needs your attention.</CardDescription>
+    <DashboardCard headingId="today-heading" heading="Today">
+      {today.length === 0 ? (
+        <p className="text-muted-foreground border-t py-3 text-sm">Nothing today.</p>
+      ) : (
+        <ul aria-label="Today">
+          {today.map((moment) => (
+            <TodayRow key={moment.rental.id} moment={moment} timeZone={timeZone} />
+          ))}
+        </ul>
+      )}
+      <section aria-labelledby="later-heading" className="flex flex-col border-t pt-3 pb-2">
+        <SectionLabel as="h3" id="later-heading" className="pb-1">
+          Later this week
+        </SectionLabel>
+        {later.length === 0 ? (
+          <p className="text-muted-foreground py-2 text-sm">Nothing later this week.</p>
+        ) : (
+          <ul aria-label="Later this week">
+            {later.map((moment) => (
+              <LaterRow
+                key={moment.rental.id}
+                moment={moment}
+                timeZone={timeZone}
+                today={data.window.today}
+              />
+            ))}
+          </ul>
         )}
-      </CardHeader>
-      <CardContent className="flex flex-col gap-6">
-        <RentalGroup moment="overdue" data={data} timeZone={timeZone} />
-        <RentalGroup moment="late_pickup" data={data} timeZone={timeZone} />
-        <NotReadyGroup data={data} timeZone={timeZone} />
-        <AttentionGroup
-          heading="Renter details to review"
-          total={data.reviewsWaiting.total}
-          items={data.reviewsWaiting.items.map((renter) => ({
-            key: renter.id,
-            href: renterReviewPath(renter.id),
-            title: renter.fullName,
-          }))}
-        />
-        <AttentionGroup
-          heading="Bond to refund on a cancelled booking"
-          total={data.bondsToRefund.total}
-          items={data.bondsToRefund.items.map((rental) => ({
-            key: rental.rentalId,
-            href: rentalPath(rental.rentalId),
-            title: `${rental.rego} · ${rental.renterName}: ${formatCents(rental.heldCents)}`,
-          }))}
-        />
-        <PaperworkGroups data={data} />
-        <DamageGroups data={data} />
-      </CardContent>
-    </Card>
+      </section>
+    </DashboardCard>
   );
 }
 
-const WEEK_MOMENTS: readonly RentalMoment[] = [
-  "pickup_today",
-  "returning_today",
-  "starting_this_week",
-  "ending_this_week",
-];
+const CAR_TILE_CLASSES =
+  "focus-visible:ring-ring flex min-h-21 flex-col items-center justify-center rounded-xl font-bold outline-none hover:underline focus-visible:ring-2";
 
-/** Pickups and returns today, then the rest of the week. Times on the Operator's clock (rule 10). */
-export function ThisWeekCard({ data, timeZone }: { data: DashboardData; timeZone: string }) {
-  const hasAny = data.rentals.some((rental) => WEEK_MOMENTS.includes(rental.moment));
+function CarTile(props: { href: string; count: number; label: string; className: string }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Today and this week</CardTitle>
-        {hasAny ? null : (
-          <CardDescription>No pickups or returns in the next seven days.</CardDescription>
-        )}
-      </CardHeader>
-      <CardContent className="flex flex-col gap-6">
-        {WEEK_MOMENTS.map((moment) => (
-          <RentalGroup key={moment} moment={moment} data={data} timeZone={timeZone} />
-        ))}
-      </CardContent>
-    </Card>
+    <Link href={props.href} className={cn(CAR_TILE_CLASSES, props.className)}>
+      <span className="text-3xl leading-tight font-extrabold tabular-nums">{props.count}</span>
+      {/* The space keeps the spoken name "7 Out", not "7Out": the two lines are separate boxes. */}
+      <span className="text-sm"> {props.label}</span>
+    </Link>
   );
 }
 
-/** Where every car is, as counts that open the list, and the cars earning nothing. */
-export function FleetCard({ data, timeZone }: { data: DashboardData; timeZone: string }) {
-  const links = FLEET_STATUSES.filter((status) => (data.fleetCounts[status] ?? 0) > 0).map(
-    (status) => ({
-      href: carsWithStatusPath(status),
-      label: VEHICLE_STATUS_LABELS[status],
-      count: data.fleetCounts[status] ?? 0,
-    }),
-  );
+/** Where the cars are, as counts that open the cars list filtered to them. */
+export function YourCarsCard({ data }: { data: DashboardData }) {
+  const countOf = (statuses: readonly VehicleStatus[]) =>
+    statuses.reduce((sum, status) => sum + (data.fleetCounts[status] ?? 0), 0);
+  const total = Object.values(data.fleetCounts).reduce((sum, count) => sum + (count ?? 0), 0);
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Fleet</CardTitle>
-        {links.length === 0 ? <CardDescription>No cars yet.</CardDescription> : null}
-      </CardHeader>
-      <CardContent className="flex flex-col gap-6">
-        {links.length > 0 ? <CountLinks label="Cars by status" links={links} /> : null}
-        <AttentionGroup
-          heading="Idle: available, nothing booked"
-          total={data.idleCars.total}
-          items={data.idleCars.items.map((car) => ({
-            key: car.id,
-            href: carPath(car.id),
-            title: carTitle(car),
-            details: idleText(car.idleSince, { now: data.window.now, timeZone }),
-          }))}
-          seeAll={{ href: carsWithStatusPath("available"), label: "See all available cars" }}
+    <DashboardCard
+      headingId="cars-heading"
+      heading="Your cars"
+      aside={
+        <Link
+          href={CARS_PATH}
+          className="text-teal hover:text-primary inline-flex min-h-11 items-center text-sm font-bold hover:underline"
+        >
+          All {total}
+        </Link>
+      }
+    >
+      <div className="grid grid-cols-3 gap-2 pb-3">
+        <CarTile
+          href={carsWithStatusPath("rented")}
+          count={countOf(["rented"])}
+          label="Out"
+          className="bg-primary-soft text-primary"
         />
-      </CardContent>
-    </Card>
+        <CarTile
+          href={carsWithStatusPath("available")}
+          count={countOf(["available"])}
+          label="Available"
+          className="bg-primary-soft text-primary"
+        />
+        <CarTile
+          href={carsWithStatusPath(WORKSHOP_FILTER_VALUE)}
+          count={countOf(VEHICLE_STATUSES_IN_WORKSHOP)}
+          label="Workshop"
+          className="bg-attention-soft text-attention"
+        />
+      </div>
+    </DashboardCard>
   );
 }
 
+const QUICK_ACTION_CLASSES =
+  "h-auto min-h-18 flex-col gap-1.5 px-2 text-sm font-bold md:min-h-12 md:flex-row md:px-4 [&_svg]:size-5";
+
+/** The three things done most from home. Icons above the words on a phone, beside them on a computer. */
 export function QuickActions() {
   return (
-    <div className="flex flex-col gap-2 sm:flex-row">
-      <Button asChild>
+    <div className="grid grid-cols-3 gap-2">
+      <Button asChild className={QUICK_ACTION_CLASSES}>
         <Link href={NEW_RENTAL_PATH}>
-          <FilePlus2 aria-hidden />
+          <Plus aria-hidden />
           New rental
         </Link>
       </Button>
-      <Button asChild variant="outline">
+      <Button asChild variant="soft" className={QUICK_ACTION_CLASSES}>
         <Link href={NEW_CAR_PATH}>
           <CarFront aria-hidden />
-          Add a car
+          Add car
         </Link>
       </Button>
-      <Button asChild variant="outline">
+      <Button asChild variant="soft" className={QUICK_ACTION_CLASSES}>
         <Link href={NEW_RENTER_PATH}>
           <UserPlus aria-hidden />
-          Add a Renter
+          Add Renter
         </Link>
       </Button>
     </div>

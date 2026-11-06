@@ -3,13 +3,18 @@ import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import type { ActingUser } from "../src/lib/acting-user";
+import { loadOpenDamage } from "../src/lib/damage/damage-queries";
+import { attentionList } from "../src/lib/dashboard/attention-items";
+import { loadAttentionSources } from "../src/lib/dashboard/attention-sources";
+import { loadBondsToRefund } from "../src/lib/dashboard/bonds-to-refund";
 import {
+  DASHBOARD_LIST_LENGTH,
   loadFleetCounts,
-  loadIdleCars,
   loadLicencesDue,
   loadPaperworkDue,
   loadReviewsWaiting,
   loadWorkshopLate,
+  MOST_OF_A_KIND,
 } from "../src/lib/dashboard/fleet-overview";
 import { loadBookingReadiness, loadRentalsThisWeek } from "../src/lib/dashboard/rentals-this-week";
 import type { DemoContext } from "../src/lib/demo-data/demo-context";
@@ -81,7 +86,7 @@ describe("the dashboard", () => {
     });
   });
 
-  it("counts the fleet by status and finds the cars sitting idle", async () => {
+  it("counts the fleet by status", async () => {
     expect(await loadFleetCounts(web.db, actor.operatorId)).toEqual({
       available: 24,
       rented: 14,
@@ -90,11 +95,27 @@ describe("the dashboard", () => {
       sold: 2,
       written_off: 1,
     });
-    const idle = await loadIdleCars(web.db, actor.operatorId, new Date());
-    // DEMO34 and DEMO35 are back and idle; DEMO36 went to the workshop after its return, and DEMO37 went out in the swap.
-    expect(idle.total).toBe(16);
-    expect(idle.items).toHaveLength(5);
-    expect(idle.items.map((car) => car.rego)).not.toContain("DEMO15");
+  });
+
+  it("merges every kind into one list, the dashboard's few picking the same top five as the whole", async () => {
+    const load = (limitPerKind: number) =>
+      loadAttentionSources(web.db, actor.operatorId, { clock: clock(), limitPerKind });
+    const whole = attentionList(await load(MOST_OF_A_KIND), TEST_TIME_ZONE);
+    const few = attentionList(await load(DASHBOARD_LIST_LENGTH), TEST_TIME_ZONE);
+
+    expect(whole.items).toHaveLength(whole.total);
+    expect(whole.total).toBeGreaterThan(DASHBOARD_LIST_LENGTH);
+    expect(few.total).toBe(whole.total);
+    const topKeys = (list: typeof whole) =>
+      list.items.slice(0, DASHBOARD_LIST_LENGTH).map((item) => item.key);
+    expect(topKeys(few)).toEqual(topKeys(whole));
+    expect(whole.items[0]?.urgency).toBe("red");
+    const overdue = whole.items.filter((item) => item.kind === "overdue_return");
+    expect(overdue.map((item) => item.more.at(-1))).toEqual([
+      expect.objectContaining({ text: "DEMO14" }),
+      expect.objectContaining({ text: "DEMO13" }),
+    ]);
+    expect(whole.items.map((item) => item.kind)).not.toContain("claims_under_way");
   });
 
   it("lists rego and insurance due, licences due of Renters renting, and nothing late or waiting", async () => {
@@ -114,7 +135,15 @@ describe("the dashboard", () => {
     const other = otherOperator.operatorId;
     expect(await loadRentalsThisWeek(web.db, other, window(), clock())).toEqual([]);
     expect(await loadFleetCounts(web.db, other)).toEqual({});
-    expect((await loadIdleCars(web.db, other, new Date())).total).toBe(0);
+    expect((await loadOpenDamage(web.db, other)).total).toBe(0);
+    expect((await loadBondsToRefund(web.db, other)).total).toBe(0);
+    expect((await loadReviewsWaiting(web.db, other)).total).toBe(0);
+    expect((await loadWorkshopLate(web.db, other, expiry.today)).total).toBe(0);
+    const sources = await loadAttentionSources(web.db, other, {
+      clock: clock(),
+      limitPerKind: MOST_OF_A_KIND,
+    });
+    expect(attentionList(sources, TEST_TIME_ZONE)).toEqual({ items: [], total: 0 });
     expect((await loadPaperworkDue(web.db, other, expiry)).total).toBe(0);
     expect((await loadLicencesDue(web.db, other, expiry)).total).toBe(0);
   });

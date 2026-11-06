@@ -1,6 +1,8 @@
 /** The Operator app's own pages that other code sends people to. */
 export const HOME_PATH = "/";
 export const SIGN_IN_PATH = "/sign-in";
+/** Everything that needs the Operator's attention, in full (the dashboard shows the top five). */
+export const ATTENTION_PATH = "/attention";
 export const SET_UP_AUTHENTICATOR_PATH = "/set-up-authenticator";
 export const SUSPENDED_PATH = "/suspended";
 export const FORGOT_PASSWORD_PATH = "/forgot-password";
@@ -117,6 +119,20 @@ export const RENTALS_PATH = "/rentals";
 export const NEW_RENTAL_PATH = `${RENTALS_PATH}/new`;
 export const RENTALS_CALENDAR_PATH = `${RENTALS_PATH}/calendar`;
 export const RENTALS_TIMELINE_PATH = `${RENTALS_PATH}/timeline`;
+
+/** The calendar's page address names the month it opens on: "2026-11". */
+export const CALENDAR_MONTH_PARAM = "month";
+const MONTH_TEXT_LENGTH = "2026-11".length;
+
+/**
+ * The calendar on the month a day is in.
+ * TODO(calendar redesign): open on the day itself and mark it, once the
+ * calendar page can (docs/plans/look-and-feel.md, Calendar page).
+ */
+export function calendarDayPath(isoDate: string): string {
+  const month = isoDate.slice(0, MONTH_TEXT_LENGTH);
+  return `${RENTALS_CALENDAR_PATH}?${new URLSearchParams({ [CALENDAR_MONTH_PARAM]: month })}`;
+}
 
 /** The rentals list filtered to one status, e.g. the active ones. */
 export function rentalsWithStatusPath(status: string): string {

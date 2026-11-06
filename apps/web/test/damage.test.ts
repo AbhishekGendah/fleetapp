@@ -6,7 +6,6 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import type { ActingUser } from "../src/lib/acting-user";
 import { claimFormSchema, type ClaimInput } from "../src/lib/damage/damage-input";
 import {
-  loadDamageAttention,
   listCarDamage,
   listRentalDamage,
   loadClaimDefaults,
@@ -289,8 +288,6 @@ describe("damage records and insurance claims", () => {
       lodgedOn: today(),
     };
     expect(await saveClaim(web.db, actor, damageId, claim(lodgedForm))).toBe("saved");
-    const underWay = (await loadDamageAttention(web.db, actor.operatorId)).claimsUnderWay.total;
-    expect(underWay).toBeGreaterThanOrEqual(1);
 
     const paid = claim({
       ...lodgedForm,
@@ -307,9 +304,6 @@ describe("damage records and insurance claims", () => {
       payoutCents: 2_340_50,
     });
     expect(shown?.claimPolicy).toEqual({ insurer: "Example Insurance", policyNumber: "DMG-1" });
-    expect((await loadDamageAttention(web.db, actor.operatorId)).claimsUnderWay.total).toBe(
-      underWay - 1,
-    );
   });
 
   it("refuses a policy the car was never on", async () => {

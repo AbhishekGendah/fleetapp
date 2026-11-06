@@ -7,6 +7,8 @@ import { describeDownloadBudgets } from "@fleetapp/e2e/download-size";
  */
 describeDownloadBudgets({
   "/": 190,
+  // Added 6 Nov 2026: the full Needs attention list, the shared list like /rentals.
+  "/attention": 190,
   "/cars": 190,
   "/cars/new": 430,
   "/cars/insurance": 190,

@@ -208,3 +208,27 @@ their own later slice.
 - Next: slice 2 (the Operator dashboard and rental page with the navy strip)
   and slice 3 (the nine improvements), once Abhi says go.
 
+
+## As built: slice 2, the dashboard (6 Nov 2026)
+
+- Greeting with the day above it; New rental, Add car and Add Renter in
+  one row (a new soft button style for the quieter two).
+- Finish setting up: how many steps are done, a progress bar and the one
+  step to do next.
+- Needs attention: one list, the five most urgent, the real total in the
+  red bubble, and "See all N" opening the full list (/attention: pages of
+  25, search, a filter by kind). Labels and colours:
+  - red: Overdue (late back from a rental), Missing or Expired (rego or
+    insurance), Late (pickup missed), Not ready (handover today);
+  - amber: Due soon (rego or insurance), Open (damage), Late (back from
+    the workshop), Licence due, Not ready (handover later this week);
+  - blue: To review (Renter details), To refund (bond).
+  - Within a colour, the longest waiting first.
+- Claims under way left the dashboard: each claim is followed on its
+  damage record (a car's Damage tab). There is no fleet-wide damage page
+  yet.
+- Today: handovers and returns by time, then Later this week. A later
+  day's date opens the calendar on its month for now; it opens on the day
+  itself once the calendar is redesigned.
+- Your cars: Out, Available and Workshop counts, each opening the cars
+  list filtered (a new "In the workshop" filter: in service or off road).

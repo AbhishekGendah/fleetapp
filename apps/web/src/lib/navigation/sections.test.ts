@@ -5,6 +5,7 @@ import { currentSection } from "./sections";
 describe("currentSection", () => {
   it.each([
     ["/", "home"],
+    ["/attention", "home"],
     ["/rentals", "rentals"],
     ["/rentals/new", "rentals"],
     ["/rentals/abc-123", "rentals"],
@@ -21,6 +22,7 @@ describe("currentSection", () => {
 
   it("does not match a section by its first letters alone", () => {
     expect(currentSection("/settings-x")).toBeNull();
+    expect(currentSection("/attentions")).toBeNull();
     expect(currentSection("/rentals/calendarish")).toBe("rentals");
     expect(currentSection("/privacy-notice")).toBeNull();
   });

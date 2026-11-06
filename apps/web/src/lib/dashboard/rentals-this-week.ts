@@ -1,4 +1,5 @@
 import {
+  MOMENTS_BEFORE_HANDOVER,
   RENTAL_MOMENTS,
   rentalMomentOf,
   type BookingProblem,
@@ -20,12 +21,6 @@ import type { RentalClock } from "../rentals/rental-records";
  * every rental, only those with something happening.
  */
 const MOST_RENTALS_THIS_WEEK = 300;
-/** A booking that has not yet been handed over can still have problems to sort out. */
-const MOMENTS_BEFORE_HANDOVER: readonly RentalMoment[] = [
-  "late_pickup",
-  "pickup_today",
-  "starting_this_week",
-];
 
 export interface RentalThisWeek extends RentalSummary {
   moment: RentalMoment;
