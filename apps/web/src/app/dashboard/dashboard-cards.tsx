@@ -8,7 +8,7 @@ import {
 } from "@fleetapp/core";
 import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
-import { Card, SectionLabel } from "@fleetapp/ui/card";
+import { SectionLabel } from "@fleetapp/ui/card";
 import { cn } from "@fleetapp/ui/cn";
 import { InlineRecordLink, ROW_CLASSES, RowLink } from "@fleetapp/ui/row-link";
 import { CarFront, ChevronRight, Plus, UserPlus } from "lucide-react";
@@ -32,30 +32,11 @@ import {
   renterPath,
 } from "../../lib/paths";
 import { WORKSHOP_FILTER_VALUE } from "../../lib/vehicles/vehicle-queries";
+import { SectionCard } from "../../components/section-card";
 import { AttentionBadge, AttentionText } from "../attention/attention-row";
 
 const ROW_LINE_CLASSES = "flex items-center gap-3 border-t py-2";
 const CHEVRON_CLASSES = "text-teal size-5 shrink-0";
-
-/** A white card named by its small capitals label, as a region screen readers can jump to. */
-function DashboardCard(props: {
-  headingId: string;
-  heading: string;
-  aside?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card>
-      <section aria-labelledby={props.headingId} className="flex flex-col px-4 pt-4 pb-1 sm:px-5">
-        <div className="flex min-h-7 items-center justify-between gap-2 pb-1">
-          <SectionLabel id={props.headingId}>{props.heading}</SectionLabel>
-          {props.aside}
-        </div>
-        {props.children}
-      </section>
-    </Card>
-  );
-}
 
 function SeeAllLink({ total }: { total: number }) {
   return (
@@ -78,7 +59,7 @@ function SeeAllLink({ total }: { total: number }) {
 export function NeedsAttentionCard({ attention }: { attention: AttentionList }) {
   const shown = attention.items.slice(0, DASHBOARD_LIST_LENGTH);
   return (
-    <DashboardCard
+    <SectionCard
       headingId="attention-heading"
       heading="Needs attention"
       aside={
@@ -105,7 +86,7 @@ export function NeedsAttentionCard({ attention }: { attention: AttentionList }) 
         </ul>
       )}
       {attention.total > shown.length ? <SeeAllLink total={attention.total} /> : null}
-    </DashboardCard>
+    </SectionCard>
   );
 }
 
@@ -194,7 +175,7 @@ export function TodayCard({ data, timeZone }: { data: DashboardData; timeZone: s
   const today = weekMoments(data.rentals, TODAY_MOMENTS);
   const later = weekMoments(data.rentals, LATER_MOMENTS);
   return (
-    <DashboardCard headingId="today-heading" heading="Today">
+    <SectionCard headingId="today-heading" heading="Today">
       {today.length === 0 ? (
         <p className="text-muted-foreground border-t py-3 text-sm">Nothing today.</p>
       ) : (
@@ -223,7 +204,7 @@ export function TodayCard({ data, timeZone }: { data: DashboardData; timeZone: s
           </ul>
         )}
       </section>
-    </DashboardCard>
+    </SectionCard>
   );
 }
 
@@ -246,7 +227,7 @@ export function YourCarsCard({ data }: { data: DashboardData }) {
     statuses.reduce((sum, status) => sum + (data.fleetCounts[status] ?? 0), 0);
   const total = Object.values(data.fleetCounts).reduce((sum, count) => sum + (count ?? 0), 0);
   return (
-    <DashboardCard
+    <SectionCard
       headingId="cars-heading"
       heading="Your cars"
       aside={
@@ -278,7 +259,7 @@ export function YourCarsCard({ data }: { data: DashboardData }) {
           className="bg-attention-soft text-attention"
         />
       </div>
-    </DashboardCard>
+    </SectionCard>
   );
 }
 
