@@ -73,7 +73,8 @@
     "./row-link": "./src/components/row-link.tsx",
     "./segmented-links": "./src/components/segmented-links.tsx",
     "./week-strip": "./src/components/week-strip.tsx",
-    "./page-width": "./src/lib/page-width.ts"
+    "./page-width": "./src/lib/page-width.ts",
+    "./typing-pause": "./src/lib/typing-pause.ts"
   },
   "scripts": {
     "lint": "eslint .",

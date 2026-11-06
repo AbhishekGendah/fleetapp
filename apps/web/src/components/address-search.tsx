@@ -2,15 +2,13 @@
 
 import { describeErrorForLog, type AustralianStateCode } from "@fleetapp/core";
 import { SuggestionBox } from "@fleetapp/ui/suggestion-box";
+import { SEARCH_AS_YOU_TYPE_DELAY_MS } from "@fleetapp/ui/typing-pause";
 import { useEffect, useRef, useState } from "react";
 
 import { getAddressAction, searchAddressesAction } from "../app/address-lookup-actions";
 import type { AddressParts } from "../lib/address-lookup/address-from-components";
 import type { AddressSuggestion } from "../lib/address-lookup/google-places";
 import { ADDRESS_SEARCH_MINIMUM_LENGTH } from "../lib/address-lookup/lookup-input";
-
-/** Wait for a pause in typing, so each word costs one lookup, not one per key. */
-const TYPING_PAUSE_MS = 300;
 
 /** Where suggestions and chosen addresses come from: the signed-in User's, or a Renter link's. */
 export interface AddressLookup {
@@ -74,7 +72,7 @@ function useAddressSuggestions(search: SuggestionSearch): AddressSuggestion[] {
         .then((found) => {
           setResults({ query, suggestions: found });
         });
-    }, TYPING_PAUSE_MS);
+    }, SEARCH_AS_YOU_TYPE_DELAY_MS);
     return () => clearTimeout(timer);
   }, [lookup, query, isEnabled, nearState, sessionToken]);
 

@@ -5,15 +5,10 @@ import { parseAsString, useQueryStates } from "nuqs";
 import type * as React from "react";
 import { useEffect, useRef } from "react";
 
+import { SEARCH_AS_YOU_TYPE_DELAY_MS } from "../lib/typing-pause";
 import { AutoSubmitSelect } from "./auto-submit-select";
 import { Button } from "./button";
 import { Input } from "./input";
-
-/**
- * How long after the last key the search runs (Abhi's A2): soon enough to
- * feel instant, late enough not to ask the server on every letter.
- */
-export const SEARCH_AS_YOU_TYPE_DELAY_MS = 300;
 
 type HistoryMode = "push" | "replace";
 
