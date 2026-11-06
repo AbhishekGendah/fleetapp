@@ -25,6 +25,9 @@
   --color-primary-foreground: #ffffff;
   --color-primary-dark: #0a2b38;
   --color-primary-soft: #e5f4f5;
+  /* Words on navy (the strip on single-item pages): labels, and quieter lines. Both over 9:1. */
+  --color-on-primary-label: #bfe3e7;
+  --color-on-primary-muted: #d7eef0;
 
   /* Teal carries text (links, the current tab); cyan is decoration only. */
   --color-teal: #167884;
@@ -43,6 +46,15 @@
   --color-attention: #b45309;
   --color-attention-soft: #fef3c7;
   --color-attention-border: #fde68a;
+
+  /*
+   * Rental status labels (6 Nov 2026 look): out on rent in light cyan with
+   * navy text, booked in light blue with deep blue text. Both well over
+   * 4.5:1 (WCAG 1.4.3), and the two fills differ in lightness as well as colour.
+   */
+  --color-out-soft: #cfeef1;
+  --color-booked: #1e3a8a;
+  --color-booked-soft: #dbeafe;
 
   --color-destructive: #b91c1c;
   --color-destructive-foreground: #ffffff;

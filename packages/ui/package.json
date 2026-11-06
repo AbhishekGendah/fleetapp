@@ -67,7 +67,11 @@
     "./contract-editor": "./src/components/contract-editor.tsx",
     "./contract-reader": "./src/components/contract-reader.tsx",
     "./signature-pad": "./src/components/signature-pad.tsx",
-    "./car-outline": "./src/components/car-outline.tsx"
+    "./car-outline": "./src/components/car-outline.tsx",
+    "./menu": "./src/components/menu.tsx",
+    "./record-strip": "./src/components/record-strip.tsx",
+    "./row-link": "./src/components/row-link.tsx",
+    "./page-width": "./src/lib/page-width.ts"
   },
   "scripts": {
     "lint": "eslint .",

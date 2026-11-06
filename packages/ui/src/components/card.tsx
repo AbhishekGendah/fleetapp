@@ -61,4 +61,23 @@ const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
 );
 CardFooter.displayName = "CardFooter";
 
-export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter };
+/** The small capitals that name a card's section (6 Nov 2026 look). */
+export const SECTION_LABEL_CLASSES = "text-xs font-extrabold tracking-[0.08em] uppercase";
+
+interface SectionLabelProps extends React.HTMLAttributes<HTMLElement> {
+  /** A heading where it starts a section of the page; a span where it only labels a value. */
+  as?: "h2" | "h3" | "span";
+}
+
+/**
+ * A card's section name in small grey capitals, e.g. "Needs attention".
+ * Type it in ordinary case: the capitals are only the look, so screen
+ * readers say it as words rather than spelling it out.
+ */
+function SectionLabel({ as: Tag = "h2", className, ...props }: SectionLabelProps) {
+  return (
+    <Tag className={cn("text-muted-foreground", SECTION_LABEL_CLASSES, className)} {...props} />
+  );
+}
+
+export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter, SectionLabel };

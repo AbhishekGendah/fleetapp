@@ -19,6 +19,12 @@ const buttonVariants = cva(
         danger:
           "border border-destructive/40 bg-background text-destructive shadow-sm hover:bg-destructive/10",
         link: "text-primary underline-offset-4 hover:underline",
+        /** The main action on the navy strip: white, so it stands out from the navy. */
+        inverse:
+          "bg-primary-foreground text-primary font-bold shadow-sm hover:bg-primary-soft focus-visible:ring-primary-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-primary",
+        /** Other actions on the navy strip: an outline, white words. */
+        "inverse-outline":
+          "border border-primary-foreground/40 text-primary-foreground font-bold hover:bg-primary-foreground/10 focus-visible:ring-primary-foreground",
       },
       size: {
         default: "h-11 px-4 py-2",

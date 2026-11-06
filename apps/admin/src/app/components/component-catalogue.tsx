@@ -18,7 +18,14 @@ import {
 import { BRAND } from "@fleetapp/ui/brand";
 import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  SectionLabel,
+} from "@fleetapp/ui/card";
 import { Checkbox } from "@fleetapp/ui/checkbox";
 import { BookingsCalendar, type CalendarEntry } from "@fleetapp/ui/bookings-calendar";
 import { Drawer } from "@fleetapp/ui/drawer";
@@ -56,7 +63,20 @@ import { ImageViewer, ImageViewerOpener } from "@fleetapp/ui/image-viewer";
 import { PageHeader } from "@fleetapp/ui/page-header";
 import { ProblemPanel } from "@fleetapp/ui/problem-panel";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
-import { Camera, Gauge, History, Paperclip, Plus, Trash2, XCircle } from "lucide-react";
+import { Menu, MenuButtonItem, MenuLinkItem, MenuSeparator } from "@fleetapp/ui/menu";
+import { RecordStrip } from "@fleetapp/ui/record-strip";
+import { InlineRecordLink, ROW_CLASSES, RowLink } from "@fleetapp/ui/row-link";
+import {
+  Camera,
+  Gauge,
+  History,
+  LogOut,
+  Paperclip,
+  Plus,
+  Settings,
+  Trash2,
+  XCircle,
+} from "lucide-react";
 import { useState } from "react";
 
 import { ADMIN_LABEL } from "../admin-label";
@@ -574,6 +594,99 @@ function DataListExample() {
 }
 
 /** Each shared piece, shown as it is used. */
+function MenuExample() {
+  const [chosen, setChosen] = useState("nothing yet");
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <Menu
+        trigger="E"
+        triggerLabel="Example menu"
+        triggerClassName="bg-primary text-primary-foreground focus-visible:ring-ring size-11 rounded-full font-extrabold outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+        align="start"
+      >
+        <MenuLinkItem href="#example-menu-details">Example details</MenuLinkItem>
+        <MenuLinkItem href="#example-menu-settings" isCurrent>
+          <Settings aria-hidden />
+          Example settings
+        </MenuLinkItem>
+        <MenuSeparator />
+        <MenuButtonItem onSelect={() => setChosen("Example action")}>
+          <LogOut aria-hidden />
+          Example action
+        </MenuButtonItem>
+      </Menu>
+      <span className="text-muted-foreground text-sm">Chosen: {chosen}</span>
+    </div>
+  );
+}
+
+function RecordStripExample() {
+  return (
+    <div className="overflow-hidden rounded-xl">
+      <RecordStrip
+        backHref="#example-list"
+        backLabel="Rentals"
+        title={
+          <>
+            <InlineRecordLink tone="onPrimary" href="#example-car">
+              1ABC234
+            </InlineRecordLink>
+            {" · "}
+            <InlineRecordLink tone="onPrimary" href="#example-renter">
+              Jamie Park
+            </InlineRecordLink>
+          </>
+        }
+        subtitle="Toyota Corolla · weekly, no end date"
+        badges={<Badge tone="out">Out since Fri 6 Nov</Badge>}
+        facts={[
+          { label: "Owing", value: "$0.00", note: "All paid up" },
+          { label: "Next rent", value: "$350.00", note: "Fri 13 Nov, direct debit" },
+          { label: "Bond", value: "$500.00", note: "Held" },
+          { label: "At handover", value: "24,310 km", note: "Fuel full" },
+        ]}
+        actions={
+          <>
+            <Button variant="inverse-outline">Add charge</Button>
+            <Button variant="inverse-outline">Swap car</Button>
+            <Button variant="inverse" asChild>
+              <a href="#example-return">Start return</a>
+            </Button>
+          </>
+        }
+      />
+    </div>
+  );
+}
+
+const EXAMPLE_ROWS = [
+  { rego: "1ABC234", renter: "Jamie Park", what: "Rego due Thu 12 Nov", tone: "attention" },
+  { rego: "4GHI567", renter: "Alex Ng", what: "Damage reported, not yet claimed", tone: "danger" },
+] as const;
+
+function RowLinksExample() {
+  return (
+    <ul className="flex flex-col">
+      {EXAMPLE_ROWS.map((row) => (
+        <li
+          key={row.rego}
+          className={`${ROW_CLASSES} flex min-h-15 items-center gap-3 border-t px-2 py-2`}
+        >
+          <span className="flex flex-1 flex-col gap-0.5">
+            <InlineRecordLink href={`#example-car-${row.rego}`}>{row.rego}</InlineRecordLink>
+            <span className="text-muted-foreground text-sm">
+              <RowLink href={`#example-row-${row.rego}`}>{row.what}</RowLink>
+              {" · out with "}
+              <InlineRecordLink href={`#example-renter-${row.rego}`}>{row.renter}</InlineRecordLink>
+            </span>
+          </span>
+          <Badge tone={row.tone}>{row.tone === "danger" ? "Open" : "Due soon"}</Badge>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function ComponentCatalogue() {
   return (
     <div className="flex flex-col gap-4">
@@ -643,7 +756,39 @@ export function ComponentCatalogue() {
           <Badge tone="attention">In service</Badge>
           <Badge tone="danger">Suspended</Badge>
           <Badge>Archived</Badge>
+          <Badge tone="out">Out</Badge>
+          <Badge tone="booked">Booked</Badge>
         </div>
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Section label"
+        note="Names a card's section in small grey capitals. Typed in ordinary case, so it is read out as words."
+      >
+        <SectionLabel>Needs attention</SectionLabel>
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Menu"
+        note="A button that opens a short list: links and actions. Enter, Space or the arrows open it; Escape closes it."
+      >
+        <div className="flex">
+          <MenuExample />
+        </div>
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Navy strip"
+        note="Opens every single-item page: its name, status, key facts and buttons. Edge to edge at the top of the page."
+      >
+        <RecordStripExample />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Whole-row links"
+        note="On a computer the row opens its main thing and names or regos open their own record. On a phone, one tap per row."
+      >
+        <RowLinksExample />
       </CatalogueSection>
 
       <CatalogueSection
