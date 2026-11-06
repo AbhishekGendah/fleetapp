@@ -177,6 +177,24 @@ their own later slice.
   More on phones, and a Calendar button on Rentals. The timeline (cars
   down the side) becomes the Calendar page's second view.
 
+### Calendar page (agreed 6 Nov)
+
+- **Computer: Month view.**
+  - Monday-first grid; today circled.
+  - Labels per day: handover (teal), return (amber), and reminders and
+    rent runs (grey). Each opens its rental, car or list.
+  - A day's number opens that day.
+- **Computer: By car view** (was Timeline):
+  - cars down the side, two weeks across, today's column shaded;
+  - bars for out (navy), booked (light blue) and workshop (amber), plus
+    a key;
+  - a bar opens the rental and a rego opens the car;
+  - clicking a free spot starts New rental with that car and date.
+- **Top of the page**: previous / next, Today, a searchable car filter
+  (every car, "rego · make model"), and New rental.
+- **Phone**: Day by day (this week's strip with dots, then a card per
+  day) or By car (scrolls sideways). Calendar sits under More.
+
 ## As built: slice 1 (6 Nov 2026)
 
 - Theme tokens (packages/ui/src/styles/theme.css and brand.ts): page
