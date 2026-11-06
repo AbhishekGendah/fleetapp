@@ -2,7 +2,7 @@ import { canSwapCar, formatDateTimeInTimeZone, type DocumentEmailState } from "@
 import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
 import { ConfirmButton } from "@fleetapp/ui/confirm-button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
 import { ArrowLeftRight, ClipboardCheck, XCircle } from "lucide-react";
@@ -164,7 +164,7 @@ export async function SwapCard({ rental, user }: { rental: RentalDetail; user: S
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Car swap</CardTitle>
+        <SectionLabel>Car swap</SectionLabel>
         <CardDescription>
           The car handed back gets a return checklist, the new car a handover checklist, then the
           Renter signs the swap form on your phone. The rest of the rental stays the same.

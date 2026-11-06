@@ -116,23 +116,35 @@ export function describeRentalValue(field: string, value: unknown, timeZone: str
 
 /** A rate's start date, as the rental page lists them. */
 
+/** A rental's rate as an amount and what it is for: a day for a short hire, else a week. */
+export interface RentalRate {
+  cents: number;
+  per: "day" | "week";
+}
+
 /**
- * A rental's rate in words: "$70.00 a day" for a short hire, "$350.00 a
- * week" for a long-term rental (seven daily rates when it has no weekly
- * price) or one from before rent in blocks.
+ * A rental's rate: a day for a short hire, a week for a long-term rental
+ * (seven daily rates when it has no weekly price) or one from before rent
+ * in blocks. Null when it has no rate at all.
  */
-export function rentalRateText(rate: {
+export function rentalRateOf(rate: {
   weeklyRateCents: number | null;
   dailyRateCents: number | null;
   isLongTerm: boolean | null;
-}): string {
+}): RentalRate | null {
   if (rate.isLongTerm === false && rate.dailyRateCents !== null) {
-    return `${formatCents(rate.dailyRateCents)} a day`;
+    return { cents: rate.dailyRateCents, per: "day" };
   }
   const weekly =
     rate.weeklyRateCents ??
     (rate.dailyRateCents === null ? null : rate.dailyRateCents * DAYS_PER_WEEK);
-  return weekly === null ? "No rate" : `${formatCents(weekly)} a week`;
+  return weekly === null ? null : { cents: weekly, per: "week" };
+}
+
+/** A rental's rate in words: "$70.00 a day" or "$350.00 a week". */
+export function rentalRateText(rate: Parameters<typeof rentalRateOf>[0]): string {
+  const rentalRate = rentalRateOf(rate);
+  return rentalRate ? `${formatCents(rentalRate.cents)} a ${rentalRate.per}` : "No rate";
 }
 
 /**

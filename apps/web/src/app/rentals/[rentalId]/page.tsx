@@ -1,257 +1,56 @@
 import type { Metadata } from "next";
-import {
-  formatCents,
-  formatDateTimeInTimeZone,
-  isHandoverAllowed,
-  isRecordId,
-  RENTAL_TYPE_LABELS,
-  renterDisplayName,
-} from "@fleetapp/core";
+import { isRecordId, todayInTimeZone } from "@fleetapp/core";
 import { ACTIVITY_ENTITY_TYPES } from "@fleetapp/db/schema";
-import { ActionButton } from "@fleetapp/ui/action-button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
-import { FormDialog } from "@fleetapp/ui/form-dialog";
-import { PageHeader } from "@fleetapp/ui/page-header";
-import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
 import { TabLinks } from "@fleetapp/ui/tab-links";
-import { CalendarCheck, CircleX, History, ReceiptText } from "lucide-react";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { DetailLines } from "../../../components/detail-lines";
 import { ForgetEndedChecklists } from "../../../components/forget-ended-checklists";
-import { loadChecklistsOnPhone } from "../../../lib/handover/handover-queries";
 import { HistoryCard } from "../../../components/history-card";
-import { possessionAndHoldIdsOf } from "../../../lib/handover/possession-records";
 import { appDb } from "../../../lib/app-db";
-import { loadBondAccount } from "../../../lib/bonds/bond-account";
-import { carPath, rentalPath, RENTALS_PATH, renterPath } from "../../../lib/paths";
-import { recordTabs, TAB_PARAM, type RecordTab } from "../../../lib/record-tabs";
-import { canHearRenterPayments } from "../../../lib/payments/app-payments";
-import { loadRentalProblems } from "../../../lib/rentals/booking-checks";
-import { bookingProblemMessage } from "../../../lib/rentals/rental-messages";
+import { loadBondAccount, type BondAccount } from "../../../lib/bonds/bond-account";
 import {
-  describeRentalValue,
-  rentalFieldLabel,
-  rentalRateText,
-  rentTimingText,
-} from "../../../lib/rentals/rental-labels";
+  loadChecklistsOnPhone,
+  loadCompletedHandover,
+} from "../../../lib/handover/handover-queries";
+import { possessionAndHoldIdsOf } from "../../../lib/handover/possession-records";
+import { loadRentalLedger } from "../../../lib/ledger/ledger-queries";
+import { TAB_PARAM } from "../../../lib/record-tabs";
+import { describeRentalValue, rentalFieldLabel } from "../../../lib/rentals/rental-labels";
 import { loadRental, type RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { RentalClock } from "../../../lib/rentals/rental-records";
 import { requireUser, type SignedInUser } from "../../../lib/require-user";
 import { AppShell } from "../../app-shell";
-import { RentalBadges } from "../rental-status-badge";
-import { bookDraftAction, cancelRentalAction } from "./actions";
-import { CancelRentalForm } from "./cancel-form";
+import { BillingCard } from "./billing-card";
 import { BondCard } from "./bond-card";
 import { ChangesCard } from "./changes-card";
 import { ContractCard } from "./contract-card";
-import { BillingCard } from "./billing-card";
-import { MoneyCard } from "./money-card";
+import { loadReturnProgress, ReturnCard } from "./handover-card";
+import { hasMoneyToShow, MoneyCard } from "./money-card";
+import { NextStepCard } from "./next-step-card";
+import {
+  CancelCard,
+  LatestMoneyCard,
+  RatesCard,
+  RentalDamageCard,
+  RentalDetailsCard,
+} from "./overview-cards";
+import { loadRentalPapers, PapersCard, PapersSummaryCard, type RentalPaper } from "./papers-card";
 import { PaymentsCard } from "./payments-card";
-import { HandoverCard, ReturnCard } from "./handover-card";
+import { RentalStrip, type RentalStripData } from "./rental-strip";
+import { RENTAL_TAB_LINKS, RENTAL_TABS, type RentalTabKey } from "./rental-tabs";
 import { SwapCard } from "./swap-card";
-import { DamageList } from "../../cars/damage-list";
-import { listRentalDamage } from "../../../lib/damage/damage-queries";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const TABS = [
-  { key: "summary", label: "Summary", icon: ReceiptText },
-  { key: "log", label: "Log", icon: History },
-] as const satisfies readonly [RecordTab, ...RecordTab[]];
-const TAB_LINKS = recordTabs(TABS, rentalPath);
-/** A draft or a booking can still be cancelled; after handover it is returned instead. */
-const CANCELLABLE = new Set(["draft", "booked"]);
-
-function SummaryCard({ rental, timeZone }: { rental: RentalDetail; timeZone: string }) {
-  const onClock = (moment: Date) => formatDateTimeInTimeZone(moment, timeZone);
-  const lines: [string, React.ReactNode][] = [
-    [
-      "Renter",
-      <Link key="renter" href={renterPath(rental.renterId)} className="text-teal underline">
-        {renterDisplayName(rental.renterFullName, rental.renterPreferredName)}
-      </Link>,
-    ],
-    [
-      "Car",
-      <Link key="car" href={carPath(rental.vehicleId)} className="text-teal underline">
-        {rental.rego} · {rental.make} {rental.model}
-      </Link>,
-    ],
-    ["Kind", RENTAL_TYPE_LABELS[rental.type]],
-    ["Starts", onClock(rental.plannedStart)],
-    ["Ends", rental.plannedEnd ? onClock(rental.plannedEnd) : "No end date yet (ongoing)"],
-    ["Rate", rentalRateText(rental)],
-    ["Bond", formatCents(rental.bondCents)],
-    ["Rent", rentTimingText(rental)],
-    ["Notes", rental.notes ?? "None"],
-  ];
-  if (rental.cancellationReason) {
-    lines.push(["Why it was cancelled", rental.cancellationReason]);
-  }
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Rental</CardTitle>
-        <CardDescription>
-          Made with your settings as they were then (version {rental.settingsVersion}). Later
-          changes to Settings do not apply to it.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <DetailLines lines={lines} />
-      </CardContent>
-    </Card>
-  );
-}
-
-/** Only a rental not yet handed over has anything to check before handover. */
-const BEFORE_HANDOVER = new Set(["draft", "booked"]);
-
-/**
- * What must be fixed before the car changes hands, checked now under the
- * rules the rental was made with. Warnings were allowed when booking; the
- * handover (a later slice) is blocked until these are fixed.
- */
-async function BeforeHandoverCard({
-  rental,
-  clock,
-  user,
-}: {
-  rental: RentalDetail;
-  clock: RentalClock;
-  user: SignedInUser;
-}) {
-  if (!BEFORE_HANDOVER.has(rental.status)) {
-    return null;
-  }
-  const problems = await loadRentalProblems(appDb, user.operatorId, rental, clock, {
-    canHearRenterPayments,
-  });
-  if (typeof problems === "string") {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Before handover</CardTitle>
-          <CardDescription>
-            {problems === "car_not_found"
-              ? "The car has been archived. Restore it, or cancel this rental."
-              : "The Renter has been archived. Restore them, or cancel this rental."}
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    );
-  }
-  if (problems.length === 0) {
-    return null;
-  }
-  const isReady = isHandoverAllowed(problems);
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{isReady ? "Worth knowing" : "Before handover"}</CardTitle>
-        <CardDescription>
-          {isReady
-            ? "Nothing stops the handover, but check these."
-            : "The car cannot be handed over until these are fixed."}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ul className="list-disc pl-5 text-sm">
-          {problems.map((problem) => (
-            <li key={problem.code}>{bookingProblemMessage(problem)}</li>
-          ))}
-        </ul>
-      </CardContent>
-    </Card>
-  );
-}
-
-function RatesCard({ rental }: { rental: RentalDetail }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Rates</CardTitle>
-        <CardDescription>
-          Each rate applies from its start; earlier weeks keep theirs.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <RecordList label="Rates">
-          {rental.rates.map((rate) => (
-            <RecordItem key={rate.key} title={rate.startsText} amount={rate.rateText} />
-          ))}
-        </RecordList>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ActionsCard({ rental }: { rental: RentalDetail }) {
-  if (!CANCELLABLE.has(rental.status)) {
-    return null;
-  }
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{rental.status === "draft" ? "Book or cancel" : "Cancel"}</CardTitle>
-        <CardDescription>
-          {rental.status === "draft"
-            ? "A draft does not hold the car. Book it to hold the car for these dates."
-            : "Cancelling lets the car go for these dates. The rental and its Log are kept."}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        {rental.status === "draft" ? (
-          <ActionButton
-            action={bookDraftAction.bind(null, rental.id)}
-            label="Book this car"
-            pendingLabel="Booking…"
-            variant="default"
-            icon={<CalendarCheck aria-hidden />}
-          />
-        ) : null}
-        <FormDialog
-          triggerLabel="Cancel this rental"
-          title="Cancel this rental"
-          triggerIcon={<CircleX aria-hidden />}
-        >
-          <CancelRentalForm action={cancelRentalAction.bind(null, rental.id)} />
-        </FormDialog>
-      </CardContent>
-    </Card>
-  );
-}
-
-/** Damage found under this rental: at its return, or later and confirmed as theirs. */
-async function RentalDamageCard({ rental, user }: { rental: RentalDetail; user: SignedInUser }) {
-  const records = await listRentalDamage(appDb, user.operatorId, rental.id);
-  if (records.length === 0) {
-    return null;
-  }
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Damage</CardTitle>
-        <CardDescription>
-          Recorded only. Charging the Renter for damage comes with closing the rental.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <DamageList records={records} emptyText="" />
-      </CardContent>
-    </Card>
-  );
-}
-
 /** The rental's own changes, its bond entries, and who had which car when. */
-async function RentalLogTab({ rental, user }: { rental: RentalDetail; user: SignedInUser }) {
-  const [bond, held] = await Promise.all([
-    loadBondAccount(appDb, user.operatorId, rental),
-    possessionAndHoldIdsOf(appDb, user.operatorId, rental.id),
-  ]);
+async function RentalLogTab(props: {
+  rental: RentalDetail;
+  user: SignedInUser;
+  bond: BondAccount;
+}) {
+  const { rental, user } = props;
+  const held = await possessionAndHoldIdsOf(appDb, user.operatorId, rental.id);
   return (
     <HistoryCard
       user={user}
@@ -259,7 +58,7 @@ async function RentalLogTab({ rental, user }: { rental: RentalDetail; user: Sign
         { entityType: ACTIVITY_ENTITY_TYPES.rental, entityIds: [rental.id] },
         {
           entityType: ACTIVITY_ENTITY_TYPES.bondMovement,
-          entityIds: bond.movements.map((movement) => movement.id),
+          entityIds: props.bond.movements.map((movement) => movement.id),
         },
         // Who had which car, and when (review A6-12).
         { entityType: ACTIVITY_ENTITY_TYPES.possession, entityIds: held.possessionIds },
@@ -269,6 +68,102 @@ async function RentalLogTab({ rental, user }: { rental: RentalDetail; user: Sign
       describeValue={describeRentalValue}
     />
   );
+}
+
+/** What the strip, the Next step and the Overview share, loaded once. */
+async function loadRentalPageData(
+  rental: RentalDetail,
+  user: SignedInUser,
+): Promise<RentalStripData & { papers: RentalPaper[] }> {
+  const [ledger, bond, papers, handover, returnProgress] = await Promise.all([
+    rental.status === "draft" ? null : loadRentalLedger(appDb, user.operatorId, rental.id),
+    loadBondAccount(appDb, user.operatorId, rental),
+    loadRentalPapers(rental.id, user),
+    rental.handedOverAt
+      ? loadCompletedHandover(appDb, user.operatorId, {
+          rentalId: rental.id,
+          vehicleId: rental.vehicleId,
+        })
+      : null,
+    loadReturnProgress(rental, user),
+  ]);
+  return { ledger, bond, papers, handover, returnProgress };
+}
+
+/** Details, changes, the return and swap, damage and rates; on a computer, latest money and papers. */
+function OverviewTab(props: {
+  rental: RentalDetail;
+  user: SignedInUser;
+  clock: RentalClock;
+  data: Awaited<ReturnType<typeof loadRentalPageData>>;
+}) {
+  const { rental, user, clock, data } = props;
+  const ledger = data.ledger;
+  return (
+    <>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start">
+        <div className="flex flex-col gap-4">
+          <RentalDetailsCard rental={rental} timeZone={user.operatorTimezone} />
+          <ChangesCard rental={rental} user={user} clock={clock} />
+          {data.returnProgress ? (
+            <ReturnCard rentalId={rental.id} progress={data.returnProgress} />
+          ) : null}
+          <SwapCard rental={rental} user={user} />
+          <RatesCard rental={rental} />
+        </div>
+        <div className="flex flex-col gap-4">
+          {ledger && hasMoneyToShow(rental.status, ledger.lines.length) ? (
+            <div className="hidden md:block">
+              <LatestMoneyCard rentalId={rental.id} ledger={ledger} />
+            </div>
+          ) : null}
+          <RentalDamageCard rental={rental} user={user} />
+          <div className="hidden md:block">
+            <PapersSummaryCard
+              rentalId={rental.id}
+              papers={data.papers}
+              timeZone={user.operatorTimezone}
+              today={todayInTimeZone(clock.now, clock.timeZone)}
+            />
+          </div>
+        </div>
+      </div>
+      <CancelCard rental={rental} />
+    </>
+  );
+}
+
+/** The tab chosen in the address: what each holds (docs/plans/look-and-feel.md). */
+function ChosenTab(props: {
+  tab: RentalTabKey;
+  rental: RentalDetail;
+  user: SignedInUser;
+  clock: RentalClock;
+  data: Awaited<ReturnType<typeof loadRentalPageData>>;
+}) {
+  const { tab, rental, user, clock, data } = props;
+  switch (tab) {
+    case "overview":
+      return <OverviewTab rental={rental} user={user} clock={clock} data={data} />;
+    case "money":
+      return (
+        <>
+          <MoneyCard rental={rental} user={user} clock={clock} />
+          <PaymentsCard rental={rental} user={user} clock={clock} />
+          <BondCard rental={rental} user={user} clock={clock} />
+          <BillingCard rental={rental} user={user} clock={clock} />
+        </>
+      );
+    case "papers":
+      return (
+        <>
+          <ContractCard rental={rental} user={user} clock={clock} />
+          <PapersCard rental={rental} user={user} papers={data.papers} />
+        </>
+      );
+    case "log":
+      return <RentalLogTab rental={rental} user={user} bond={data.bond} />;
+  }
 }
 
 /** The tab is named by the car, never the Renter (batch 7 decision 8). */
@@ -286,7 +181,11 @@ export async function generateMetadata(props: {
   return { title: rental ? `Rental · ${rental.rego}` : "Rental" };
 }
 
-/** One rental: who, which car, when, for how much, what is still needed, and its Log. */
+/**
+ * One rental (docs/plans/look-and-feel.md, "One rental's page"): the navy
+ * strip, the Next step while booked, then tabs for its Overview, Money,
+ * Papers and Log.
+ */
 export default async function RentalPage(props: {
   params: Promise<{ rentalId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -300,47 +199,32 @@ export default async function RentalPage(props: {
   if (!rental) {
     notFound();
   }
-  const tab = TAB_LINKS.chosen(searchParams[TAB_PARAM]);
-  const checklistsOnPhone = await loadChecklistsOnPhone(appDb, user.operatorId, rental.id);
+  const tab = RENTAL_TAB_LINKS.chosen(searchParams[TAB_PARAM]);
+  const [checklistsOnPhone, data] = await Promise.all([
+    loadChecklistsOnPhone(appDb, user.operatorId, rental.id),
+    loadRentalPageData(rental, user),
+  ]);
 
   return (
-    <AppShell user={user}>
+    <AppShell user={user} strip={<RentalStrip rental={rental} data={data} clock={clock} />}>
       <ForgetEndedChecklists rentalId={rental.id} {...checklistsOnPhone} />
-      <PageHeader
-        backHref={RENTALS_PATH}
-        backLabel="Rentals"
-        title={`${rental.rego} · ${renterDisplayName(rental.renterFullName, rental.renterPreferredName)}`}
-        aside={<RentalBadges rental={rental} />}
+      <NextStepCard
+        rental={rental}
+        user={user}
+        clock={clock}
+        papers={data.papers}
+        bond={data.bond}
       />
       <TabLinks
         label="Rental sections"
-        tabs={TABS.map((item) => ({
-          href: TAB_LINKS.href(rental.id, item.key),
+        tabs={RENTAL_TABS.map((item) => ({
+          href: RENTAL_TAB_LINKS.href(rental.id, item.key),
           label: item.label,
           isCurrent: item.key === tab,
           icon: <item.icon aria-hidden />,
         }))}
       />
-      {tab === "summary" ? (
-        <>
-          <BeforeHandoverCard rental={rental} clock={clock} user={user} />
-          <ContractCard rental={rental} user={user} clock={clock} />
-          <SummaryCard rental={rental} timeZone={user.operatorTimezone} />
-          <ChangesCard rental={rental} user={user} clock={clock} />
-          <SwapCard rental={rental} user={user} />
-          <ReturnCard rental={rental} user={user} />
-          <RentalDamageCard rental={rental} user={user} />
-          <HandoverCard rental={rental} user={user} />
-          <MoneyCard rental={rental} user={user} clock={clock} />
-          <BillingCard rental={rental} user={user} clock={clock} />
-          <PaymentsCard rental={rental} user={user} clock={clock} />
-          <BondCard rental={rental} user={user} clock={clock} />
-          <RatesCard rental={rental} />
-          <ActionsCard rental={rental} />
-        </>
-      ) : (
-        <RentalLogTab rental={rental} user={user} />
-      )}
+      <ChosenTab tab={tab} rental={rental} user={user} clock={clock} data={data} />
     </AppShell>
   );
 }

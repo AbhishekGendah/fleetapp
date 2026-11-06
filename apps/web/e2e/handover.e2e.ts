@@ -1,15 +1,16 @@
 import { DEFAULT_HANDOVER_PHOTOS } from "@fleetapp/core";
 import { expectAccessible } from "@fleetapp/e2e/accessibility";
 import { scriptKilobytes } from "@fleetapp/e2e/download-size";
-import { FAKE_ADDRESS } from "@fleetapp/e2e/fake-places";
 import { expect, test, type Page } from "@playwright/test";
 
 import { PHONE_VIEWPORT } from "./e2e-settings";
 import { expectNoSidewaysScroll } from "./phone-checks";
 import {
   addCarToBook,
+  addRenterReadyToRent,
   fillRental,
   openRentalOf,
+  openRentalTab,
   type RentalParties,
   type TypedMoment,
 } from "./rental-steps";
@@ -24,7 +25,12 @@ import { recordSignedContract } from "./test-records";
  * Then the car comes back: the same photos beside the handover's, new
  * damage, the Renter not there, the car off to the workshop.
  */
-const RENTER = { name: "Hana Handover", email: "hana.handover@example.test" };
+const RENTER = {
+  name: "Hana Handover",
+  email: "hana.handover@example.test",
+  phone: "0412000501",
+  licenceNumber: "7654321",
+};
 const CAR_REGO = "E2E501";
 const PARTIES: RentalParties = { renterName: RENTER.name, carRego: CAR_REGO };
 /**
@@ -48,37 +54,6 @@ const AUGUST_2: TypedMoment = {
   meridiem: "a",
 };
 const AUGUST_30 = { ...AUGUST_2, day: "30" };
-
-/** A Renter with everything renting needs, entered as an Operator would. */
-async function addRenterReadyToRent(page: Page): Promise<void> {
-  await page.goto("/renters/new", { waitUntil: "networkidle" });
-  await page.getByRole("textbox", { name: /^Full name/ }).fill(RENTER.name);
-  await page.getByRole("textbox", { name: /^Phone/ }).pressSequentially("0412000501");
-  await page.getByRole("textbox", { name: /^Email/ }).fill(RENTER.email);
-  await page.getByLabel(/^Date of birth/).fill("1990-04-02");
-  await page.getByRole("combobox", { name: /^Home address/ }).fill("1 Exa");
-  await page
-    .getByRole("listbox")
-    .getByRole("option", { name: new RegExp(FAKE_ADDRESS.mainText) })
-    .click();
-  await page.getByRole("button", { name: "Add Renter" }).click();
-  await expect(page.getByRole("heading", { name: RENTER.name })).toBeVisible();
-
-  await page.getByRole("link", { name: "Licence", exact: true }).first().click();
-  await page.getByRole("button", { name: "Add licence" }).click();
-  const licence = page.getByRole("dialog");
-  await licence.getByLabel(/^Issued in/).selectOption("WA");
-  await licence.getByRole("textbox", { name: /^Licence number/ }).fill("7654321");
-  // Class C and a full licence are already chosen.
-  await licence.getByLabel(/^Expires/).fill("2031-01-31");
-  await licence.getByRole("button", { name: "Save licence" }).click();
-  await expect(licence).toBeHidden();
-  for (const side of ["Front", "Back"]) {
-    const slot = page.getByRole("listitem").filter({ hasText: side }).first();
-    await slot.locator('input[type="file"]').setInputFiles(await samplePhoto(page, `${side}.jpg`));
-    await expect(slot.getByText(/^Added /)).toBeVisible();
-  }
-}
 
 async function takePhoto(page: Page, buttonName: string): Promise<void> {
   const row = page
@@ -113,7 +88,7 @@ function holdMarkSave(page: Page, description: string): { release: () => Promise
 
 test.describe.serial("handing a car over", () => {
   test("sets up a ready Renter, a car, a booking and a signed contract", async ({ page }) => {
-    await addRenterReadyToRent(page);
+    await addRenterReadyToRent(page, RENTER);
     // No rego or insurance on file: the handover asks why the car goes anyway (review A8-2).
     await addCarToBook(page, CAR_REGO, { isPaperworkOnFile: false });
     await fillRental(page, PARTIES, AUGUST_2, AUGUST_30);
@@ -225,11 +200,12 @@ test.describe.serial("handing a car over", () => {
       await accept.click();
 
       await expect(page).toHaveURL(new RegExp(`/rentals/${rentalId}$`));
-      await expect(page.getByText("Handed over", { exact: true })).toBeVisible();
+      await expect(page.getByText(/^Out since /)).toBeVisible();
+      await expect(page.getByRole("button", { name: "Start handover" })).toHaveCount(0);
+      await openRentalTab(page, "Papers");
       const report = page.getByRole("link", { name: "Open handover report" });
       const response = await page.request.get((await report.getAttribute("href")) ?? "");
       expect(response.headers()["content-type"]).toBe("application/pdf");
-      await expect(page.getByRole("button", { name: "Start handover" })).toHaveCount(0);
       // Whether the copies really went, from their own record (review G9-9).
       await expect(page.getByText(/^Emailed to the Renter/)).toBeVisible();
       await expectAccessible(page);
@@ -306,13 +282,14 @@ test.describe.serial("handing a car over", () => {
       await finish.click();
 
       await expect(page).toHaveURL(new RegExp(`/rentals/${rentalId}$`));
-      await expect(page.getByText("Returned", { exact: true }).first()).toBeVisible();
-      await expect(page.getByText(/^The car came back on /)).toBeVisible();
+      await expect(page.getByText("To close", { exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Start return" })).toHaveCount(0);
+      await openRentalTab(page, "Money");
       await expect(page.getByText("Held until")).toBeVisible();
+      await openRentalTab(page, "Papers");
       const report = page.getByRole("link", { name: "Open return report" });
       const response = await page.request.get((await report.getAttribute("href")) ?? "");
       expect(response.headers()["content-type"]).toBe("application/pdf");
-      await expect(page.getByRole("button", { name: "Start return" })).toHaveCount(0);
       await expectAccessible(page);
     });
 

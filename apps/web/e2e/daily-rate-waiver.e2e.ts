@@ -30,7 +30,7 @@ test.describe.serial("waiving the daily rate", () => {
     test.use({ viewport: PHONE_VIEWPORT });
 
     test("waives the daily rate from the keyboard, and the button goes", async ({ page }) => {
-      await openRentalPage(page, rentalId, PARTIES);
+      await openRentalPage(page, rentalId, PARTIES, "money");
       await expect(page.getByText(/at the daily rate: back after 1 days?/).first()).toBeVisible();
       const waive = page.getByRole("button", { name: "Waive the daily rate" });
       await expectNoSidewaysScroll(page);

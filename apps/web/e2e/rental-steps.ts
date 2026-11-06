@@ -1,5 +1,7 @@
+import { FAKE_ADDRESS } from "@fleetapp/e2e/fake-places";
 import { expect, type Page } from "@playwright/test";
 
+import { samplePhoto } from "./sample-photo";
 import { recordCurrentPaperwork } from "./test-records";
 
 /** A moment typed into a date and time picker. */
@@ -134,4 +136,56 @@ export async function addRenter(page: Page, renter: NewRenter): Promise<void> {
   await page.getByRole("textbox", { name: /^Email/ }).fill(renter.email);
   await page.getByRole("button", { name: "Add Renter" }).click();
   await expect(page.getByRole("heading", { name: renter.name })).toBeVisible();
+}
+
+/** One of a rental page's tabs (docs/plans/look-and-feel.md, "One rental's page"). */
+export type RentalTabName = "Overview" | "Money" | "Papers" | "Log";
+
+/** Opens a tab of the rental's page from its tab links, and waits for it to be the current one. */
+export async function openRentalTab(page: Page, tab: RentalTabName): Promise<void> {
+  const link = page
+    .getByRole("navigation", { name: "Rental sections" })
+    .getByRole("link", { name: tab, exact: true });
+  await link.click();
+  await expect(link).toHaveAttribute("aria-current", "page");
+  await page.waitForLoadState("networkidle");
+}
+
+/**
+ * A Renter with everything renting needs, entered as an Operator would:
+ * date of birth, home address, a full licence and both its scans. Each
+ * Renter needs their own licence number: a second Renter with the same one
+ * is refused as a likely duplicate.
+ */
+export async function addRenterReadyToRent(
+  page: Page,
+  renter: NewRenter & { licenceNumber: string },
+): Promise<void> {
+  await page.goto("/renters/new", { waitUntil: "networkidle" });
+  await page.getByRole("textbox", { name: /^Full name/ }).fill(renter.name);
+  await page.getByRole("textbox", { name: /^Phone/ }).pressSequentially(renter.phone);
+  await page.getByRole("textbox", { name: /^Email/ }).fill(renter.email);
+  await page.getByLabel(/^Date of birth/).fill("1990-04-02");
+  await page.getByRole("combobox", { name: /^Home address/ }).fill("1 Exa");
+  await page
+    .getByRole("listbox")
+    .getByRole("option", { name: new RegExp(FAKE_ADDRESS.mainText) })
+    .click();
+  await page.getByRole("button", { name: "Add Renter" }).click();
+  await expect(page.getByRole("heading", { name: renter.name })).toBeVisible();
+
+  await page.getByRole("link", { name: "Licence", exact: true }).first().click();
+  await page.getByRole("button", { name: "Add licence" }).click();
+  const licence = page.getByRole("dialog");
+  await licence.getByLabel(/^Issued in/).selectOption("WA");
+  await licence.getByRole("textbox", { name: /^Licence number/ }).fill(renter.licenceNumber);
+  // Class C and a full licence are already chosen.
+  await licence.getByLabel(/^Expires/).fill("2031-01-31");
+  await licence.getByRole("button", { name: "Save licence" }).click();
+  await expect(licence).toBeHidden();
+  for (const side of ["Front", "Back"]) {
+    const slot = page.getByRole("listitem").filter({ hasText: side }).first();
+    await slot.locator('input[type="file"]').setInputFiles(await samplePhoto(page, `${side}.jpg`));
+    await expect(slot.getByText(/^Added /)).toBeVisible();
+  }
 }

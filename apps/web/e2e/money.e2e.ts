@@ -21,7 +21,7 @@ const RENTAL_PAGE_BUDGET_KB = 400;
 let rentalId = "";
 
 function openRental(page: Page): Promise<void> {
-  return openRentalPage(page, rentalId, PARTIES);
+  return openRentalPage(page, rentalId, PARTIES, "money");
 }
 
 test.describe.serial("a rental's money", () => {
@@ -38,7 +38,9 @@ test.describe.serial("a rental's money", () => {
 
     test("shows the rent owing, and adds a charge and a payment", async ({ page }) => {
       await openRental(page);
-      await expect(page.getByRole("heading", { name: "Money", exact: true })).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "Charges and payments", exact: true }),
+      ).toBeVisible();
       await expect(page.getByText(/^Owing \$/).first()).toBeVisible();
       await expect(page.getByText(/^(Part-week|Weekly) rent$/).first()).toBeVisible();
       await page.waitForLoadState("networkidle");

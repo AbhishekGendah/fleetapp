@@ -10,7 +10,7 @@ import {
   todayInTimeZone,
 } from "@fleetapp/core";
 import { Badge } from "@fleetapp/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
 import { Plus, Undo2 } from "lucide-react";
@@ -116,7 +116,7 @@ export async function BondCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Bond</CardTitle>
+        <SectionLabel>Bond</SectionLabel>
         <CardDescription>
           Entries are never changed: a mistake is corrected by an entry that cancels it. No GST
           applies to a bond.

@@ -52,7 +52,7 @@ test.describe.serial("a Renter's direct debit and bond", () => {
   });
 
   test("hands the link over on the spot as a code to scan, or by email", async ({ page }) => {
-    await openRentalPage(page, rentalId, PARTIES);
+    await openRentalPage(page, rentalId, PARTIES, "money");
     await expect(page.getByText("Not set up", { exact: true })).toBeVisible();
     await expect(page.getByText(/direct debit is not set up/)).toBeVisible();
 
@@ -116,7 +116,7 @@ test.describe.serial("a Renter's direct debit and bond", () => {
   test("the rental shows the direct debit set up and the bond paid, and handover is clear", async ({
     page,
   }) => {
-    await openRentalPage(page, rentalId, PARTIES);
+    await openRentalPage(page, rentalId, PARTIES, "money");
     await expect(page.getByText("Set up", { exact: true })).toBeVisible();
     await expect(page.getByRole("listitem").filter({ hasText: "Bond · Card" })).toContainText(
       "Paid",

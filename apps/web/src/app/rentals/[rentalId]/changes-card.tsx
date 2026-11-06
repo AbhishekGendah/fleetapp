@@ -17,7 +17,7 @@ import {
 } from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
 import { Badge, type BadgeTone } from "@fleetapp/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
 import { CalendarClock, XCircle, Infinity as InfinityIcon, Undo2, Wallet } from "lucide-react";
@@ -255,7 +255,7 @@ export async function ChangesCard(props: {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Changes</CardTitle>
+        <SectionLabel>Changes</SectionLabel>
         <CardDescription>
           A new end takes effect at once. A new weekly rate is sent to the Renter to sign, and
           counts only once they have.

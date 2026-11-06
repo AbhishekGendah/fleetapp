@@ -20,7 +20,7 @@ const INVOICE_TITLE = /^(Tax invoice|Invoice) [A-Z0-9\-/.]*\d+$/;
 let rentalId = "";
 
 function openRental(page: Page): Promise<void> {
-  return openRentalPage(page, rentalId, PARTIES);
+  return openRentalPage(page, rentalId, PARTIES, "money");
 }
 
 function billingCard(page: Page) {

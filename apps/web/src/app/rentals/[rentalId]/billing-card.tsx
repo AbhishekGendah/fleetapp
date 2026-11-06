@@ -8,7 +8,7 @@ import {
 } from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
 import { Button } from "@fleetapp/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
 import { FileText, Mail, ReceiptText } from "lucide-react";
@@ -120,7 +120,7 @@ export async function BillingCard(props: {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Invoices and receipts</CardTitle>
+        <SectionLabel>Invoices and receipts</SectionLabel>
         <CardDescription>
           Issued by themselves as rent is charged and payments are recorded, and emailed to the
           Renter. Each is fixed once issued: a mistake is put right with a credit note.

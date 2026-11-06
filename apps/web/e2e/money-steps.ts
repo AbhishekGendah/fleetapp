@@ -50,12 +50,16 @@ export async function runNightly(page: Page): Promise<void> {
   expect(run.ok()).toBe(true);
 }
 
-/** Opens the rental's page and waits for it to be the rental asked for. */
+/** A rental page's tabs by their address (`?tab=`); Overview is the plain address. */
+export type RentalTabKey = "money" | "papers" | "log";
+
+/** Opens the rental's page (at one of its tabs) and waits for it to be the rental asked for. */
 export async function openRentalPage(
   page: Page,
   rentalId: string,
   parties: RentalParties,
+  tab?: RentalTabKey,
 ): Promise<void> {
-  await page.goto(`/rentals/${rentalId}`, { waitUntil: "networkidle" });
+  await page.goto(`/rentals/${rentalId}${tab ? `?tab=${tab}` : ""}`, { waitUntil: "networkidle" });
   await rentalIdOnPage(page, parties);
 }

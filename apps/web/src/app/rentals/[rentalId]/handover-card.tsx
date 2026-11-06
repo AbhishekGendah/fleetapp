@@ -1,210 +1,146 @@
-import {
-  canSwapCar,
-  formatDateTimeInTimeZone,
-  type DocumentEmailState,
-  type InspectionKind,
-  type RentalStatus,
-} from "@fleetapp/core";
+import { canSwapCar, type InspectionKind } from "@fleetapp/core";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { Badge } from "@fleetapp/ui/badge";
-import { Button } from "@fleetapp/ui/button";
+import { Button, type ButtonProps } from "@fleetapp/ui/button";
 import { ConfirmButton } from "@fleetapp/ui/confirm-button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 import { ClipboardCheck, XCircle } from "lucide-react";
 import Link from "next/link";
 
 import { appDb } from "../../../lib/app-db";
-import {
-  listChecklistReports,
-  loadDocumentEmailStates,
-  type ChecklistReport,
-} from "../../../lib/contracts/document-emails";
 import { loadRentalHandoverStatus } from "../../../lib/handover/handover-queries";
 import { rentalHandoverPath, rentalReturnPath } from "../../../lib/paths";
 import { swapUnderWay } from "../../../lib/rentals/car-swaps";
 import type { RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { SignedInUser } from "../../../lib/require-user";
 import { cancelHandoverAction, startHandoverAction } from "./handover/actions";
-import { IssuedPaper } from "./issued-paper";
 import { cancelReturnAction, startReturnAction } from "./return/actions";
 
 const SWAP_FIRST = "A car swap is under way. Finish or cancel it first.";
 
-/** How each checklist reads on the rental's page, and what it starts from. */
-interface ChecklistCardWording {
-  title: string;
-  /** The rental's status the checklist begins from. */
-  startsFrom: RentalStatus;
-  description: string;
-  doneDescription: (at: string) => string;
-  doneBadge: string;
+/** How each checklist is started, carried on and stopped from the rental's page. */
+interface ChecklistWording {
   verb: string;
-  report: { kind: "handover_report" | "return_report"; label: string };
   path: (rentalId: string) => string;
   start: (rentalId: string) => Promise<void>;
   cancel: (rentalId: string, inspectionId: string) => Promise<void>;
 }
 
-const WORDING: Readonly<Record<InspectionKind, ChecklistCardWording>> = {
+const WORDING: Readonly<Record<InspectionKind, ChecklistWording>> = {
   handover: {
-    title: "Handover",
-    startsFrom: "booked",
-    description:
-      "On your phone, with the Renter at the car: photos, kilometres, fuel and damage, then the Renter signs to accept it. It keeps working with poor signal.",
-    doneDescription: (at) =>
-      `The Renter accepted the car on ${at}. The report is fixed and can never be changed.`,
-    doneBadge: "Handed over",
     verb: "handover",
-    report: { kind: "handover_report", label: "Open handover report" },
     path: rentalHandoverPath,
     start: startHandoverAction,
     cancel: cancelHandoverAction,
   },
   return: {
-    title: "Return",
-    startsFrom: "active",
-    description:
-      "When the car comes back: the same photos beside the handover's, kilometres, fuel and any new damage, then the return time and the Renter's signature if they are there. It keeps working with poor signal.",
-    doneDescription: (at) =>
-      `The car came back on ${at}. The report is fixed and can never be changed.`,
-    doneBadge: "Returned",
     verb: "return",
-    report: { kind: "return_report", label: "Open return report" },
     path: rentalReturnPath,
     start: startReturnAction,
     cancel: cancelReturnAction,
   },
 };
 
-function DoneCard(props: {
-  wording: ChecklistCardWording;
+/** The checklist's main button: start it, or carry on with the one under way. */
+export function ChecklistMainButton(props: {
+  kind: InspectionKind;
   rentalId: string;
-  at: string;
-  report: ChecklistReport | undefined;
-  emails: ReadonlyMap<string, DocumentEmailState>;
+  inProgressId: string | null;
+  variant?: ButtonProps["variant"];
 }) {
-  const { wording, report } = props;
+  const wording = WORDING[props.kind];
+  const classes = "w-full md:w-auto";
+  if (props.inProgressId) {
+    return (
+      <Button asChild variant={props.variant} className={classes}>
+        <Link href={wording.path(props.rentalId)}>
+          <ClipboardCheck aria-hidden />
+          Continue {wording.verb}
+        </Link>
+      </Button>
+    );
+  }
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{wording.title}</CardTitle>
-        <CardDescription>{wording.doneDescription(props.at)}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <p>
-          <Badge tone="good">{wording.doneBadge}</Badge>
-        </p>
-        {report ? (
-          <IssuedPaper
-            rentalId={props.rentalId}
-            kind={report.kind}
-            documentId={report.documentId}
-            label={wording.report.label}
-            emails={props.emails}
-          />
-        ) : null}
-      </CardContent>
-    </Card>
+    <form action={wording.start.bind(null, props.rentalId)}>
+      <Button type="submit" variant={props.variant} className={classes}>
+        <ClipboardCheck aria-hidden />
+        Start {wording.verb}
+      </Button>
+    </form>
   );
+}
+
+/** Stops the checklist under way; what was taken so far is thrown away. */
+export function CancelChecklistButton(props: {
+  kind: InspectionKind;
+  rentalId: string;
+  inProgressId: string;
+}) {
+  const wording = WORDING[props.kind];
+  return (
+    <ConfirmButton
+      label={`Cancel this ${wording.verb}`}
+      icon={<XCircle aria-hidden />}
+      title={`Cancel this ${wording.verb}?`}
+      description="The photos and damage marks taken so far are thrown away."
+      confirmLabel={`Yes, cancel the ${wording.verb}`}
+      pendingLabel="Cancelling…"
+      keepLabel={`No, keep the ${wording.verb}`}
+      action={wording.cancel.bind(null, props.rentalId, props.inProgressId)}
+    />
+  );
+}
+
+/** Where the rental's return stands while the car is out: under way, or waiting for a swap. */
+export interface ReturnProgress {
+  inProgressId: string | null;
+  isSwapUnderWay: boolean;
+}
+
+export async function loadReturnProgress(
+  rental: RentalDetail,
+  user: SignedInUser,
+): Promise<ReturnProgress | null> {
+  if (rental.status !== "active") {
+    return null;
+  }
+  const [status, swap] = await Promise.all([
+    loadRentalHandoverStatus(appDb, user.operatorId, rental.id, "return"),
+    canSwapCar(rental.status)
+      ? withTenant(appDb, user.operatorId, (tx) => swapUnderWay(tx, user.operatorId, rental.id))
+      : Promise.resolve(null),
+  ]);
+  return { inProgressId: status.inProgressId, isSwapUnderWay: swap !== null };
 }
 
 /**
- * One of the car's checklists on the rental's page: start it (from booked
- * for the handover, from out for the return) or carry on with the one under
- * way; once finished, when, and its report.
+ * The return on the Overview, once there is something to say: a return
+ * under way (carry on from the strip, or cancel it here), or one waiting
+ * for a car swap to finish. Its start button is on the navy strip; its
+ * report is on the Papers tab.
  */
-async function ChecklistCard(props: {
-  kind: InspectionKind;
-  rental: RentalDetail;
-  user: SignedInUser;
-  doneAt: Date | null;
-  /** Why it cannot start now (a car swap under way), shown instead of the start button. */
-  waitingFor?: string | null;
-}) {
-  const wording = WORDING[props.kind];
-  const { rental, user } = props;
-  if (props.doneAt) {
-    // The rental's own first handover or final return: a swap's are on the Swap card.
-    const report = (await listChecklistReports(appDb, user.operatorId, rental.id)).find(
-      (candidate) => candidate.kind === wording.report.kind && !candidate.isForSwap,
-    );
-    const emails = await loadDocumentEmailStates(
-      appDb,
-      user.operatorId,
-      report ? [report.documentId] : [],
-    );
-    return (
-      <DoneCard
-        wording={wording}
-        rentalId={rental.id}
-        at={formatDateTimeInTimeZone(props.doneAt, user.operatorTimezone)}
-        report={report}
-        emails={emails}
-      />
-    );
-  }
-  if (rental.status !== wording.startsFrom) {
+export function ReturnCard({ rentalId, progress }: { rentalId: string; progress: ReturnProgress }) {
+  if (!progress.isSwapUnderWay && !progress.inProgressId) {
     return null;
   }
-  const status = await loadRentalHandoverStatus(appDb, user.operatorId, rental.id, props.kind);
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{wording.title}</CardTitle>
-        <CardDescription>{wording.description}</CardDescription>
+        <SectionLabel>Return</SectionLabel>
+        <CardDescription>
+          {progress.inProgressId
+            ? "A return is under way. Carry on with it from Continue return at the top."
+            : SWAP_FIRST}
+        </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3 sm:flex-row">
-        {status.inProgressId ? (
-          <>
-            <Button asChild className="w-full sm:w-auto">
-              <Link href={wording.path(rental.id)}>
-                <ClipboardCheck aria-hidden />
-                Continue {wording.verb}
-              </Link>
-            </Button>
-            <ConfirmButton
-              label={`Cancel this ${wording.verb}`}
-              icon={<XCircle aria-hidden />}
-              title={`Cancel this ${wording.verb}?`}
-              description="The photos and damage marks taken so far are thrown away."
-              confirmLabel={`Yes, cancel the ${wording.verb}`}
-              pendingLabel="Cancelling…"
-              keepLabel={`No, keep the ${wording.verb}`}
-              action={wording.cancel.bind(null, rental.id, status.inProgressId)}
-            />
-          </>
-        ) : props.waitingFor ? (
-          <p className="text-muted-foreground text-sm">{props.waitingFor}</p>
-        ) : (
-          <form action={wording.start.bind(null, rental.id)}>
-            <Button type="submit" className="w-full sm:w-auto">
-              <ClipboardCheck aria-hidden />
-              Start {wording.verb}
-            </Button>
-          </form>
-        )}
-      </CardContent>
+      {progress.inProgressId ? (
+        <CardContent>
+          <CancelChecklistButton
+            kind="return"
+            rentalId={rentalId}
+            inProgressId={progress.inProgressId}
+          />
+        </CardContent>
+      ) : null}
     </Card>
-  );
-}
-
-/** The car changing hands at the start: the checklist, then the Renter's acceptance and report. */
-export function HandoverCard({ rental, user }: { rental: RentalDetail; user: SignedInUser }) {
-  return <ChecklistCard kind="handover" rental={rental} user={user} doneAt={rental.handedOverAt} />;
-}
-
-/** The car coming back: the checklist beside the handover's, then the return report. */
-export async function ReturnCard({ rental, user }: { rental: RentalDetail; user: SignedInUser }) {
-  const swap = canSwapCar(rental.status)
-    ? await withTenant(appDb, user.operatorId, (tx) => swapUnderWay(tx, user.operatorId, rental.id))
-    : null;
-  return (
-    <ChecklistCard
-      kind="return"
-      rental={rental}
-      user={user}
-      doneAt={rental.returnedAt}
-      waitingFor={swap ? SWAP_FIRST : null}
-    />
   );
 }

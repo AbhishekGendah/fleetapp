@@ -4,7 +4,13 @@ import { expect, test } from "@playwright/test";
 import { PHONE_VIEWPORT } from "./e2e-settings";
 import { expectPdf } from "./pdf-checks";
 import { expectNoSidewaysScroll, expectTappableButtons } from "./phone-checks";
-import { addCarToBook, fillRental, type RentalParties, type TypedMoment } from "./rental-steps";
+import {
+  addCarToBook,
+  fillRental,
+  openRentalTab,
+  type RentalParties,
+  type TypedMoment,
+} from "./rental-steps";
 
 /**
  * Bookings as an Operator makes them: a car booked for a Renter, a second
@@ -49,7 +55,7 @@ test.describe.serial("bookings", () => {
     await page.getByRole("button", { name: "Book", exact: true }).click();
 
     await expect(page.getByRole("heading", { name: `${CAR_REGO} · ${RENTER_NAME}` })).toBeVisible();
-    await expect(page.getByText("Booked", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText(/^Booked · handover /)).toBeVisible();
     await expect(page.getByText("Before handover", { exact: true })).toBeVisible();
     await expect(page.getByText(/Still needed before the car is handed over/)).toBeVisible();
     await expectAccessible(page);
@@ -68,6 +74,7 @@ test.describe.serial("bookings", () => {
       .getByRole("link", { name: new RegExp(RENTER_NAME) })
       .first()
       .click();
+    await openRentalTab(page, "Papers");
 
     await expect(page.getByText(/Not on file yet/)).toBeVisible();
     await expect(page.getByRole("listitem").filter({ hasText: "Licence number" })).toBeVisible();
@@ -85,6 +92,7 @@ test.describe.serial("bookings", () => {
       .click();
     const bondLine = (label: string) =>
       page.locator("dt", { hasText: label }).locator("xpath=following-sibling::dd[1]");
+    await openRentalTab(page, "Money");
     await expect(page.getByText("Bond still to receive before handover: $500.00.")).toBeVisible();
 
     await page.getByRole("button", { name: "Record bond received" }).click();
@@ -142,7 +150,7 @@ test.describe.serial("bookings", () => {
     await bookButton.click();
     // The page comes back as a booking: no longer a draft to book.
     await expect(bookButton).toBeHidden();
-    await expect(page.getByText("Booked", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText(/^Booked · handover /)).toBeVisible();
   });
 
   test("cancels a booking with a reason, letting the car go", async ({ page }) => {
@@ -178,7 +186,10 @@ test.describe.serial("bookings", () => {
       .getByRole("link", { name: new RegExp(RENTER_NAME) })
       .first()
       .click();
-    await page.getByRole("link", { name: new RegExp(`^${CAR_REGO}`) }).click();
+    await page
+      .getByRole("link", { name: new RegExp(`^${CAR_REGO}`) })
+      .first()
+      .click();
     await expect(page.getByRole("heading", { name: CAR_REGO })).toBeVisible();
     await page
       .getByRole("navigation", { name: "Car sections" })
@@ -222,6 +233,7 @@ test.describe("rentals at phone width", () => {
       .getByRole("link", { name: new RegExp(RENTER_NAME) })
       .first()
       .click();
+    await openRentalTab(page, "Money");
     await expect(page.getByRole("heading", { name: "Bond", exact: true })).toBeVisible();
     await expectNoSidewaysScroll(page);
     await expectTappableButtons(page, ["Record bond received"]);

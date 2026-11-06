@@ -7,6 +7,7 @@ import {
   addCarToBook,
   fillRental,
   openRentalOf,
+  openRentalTab,
   type RentalParties,
   type TypedMoment,
 } from "./rental-steps";
@@ -133,6 +134,11 @@ test.describe.serial("signing a contract", () => {
 
   test("the Operator sends the contract, and the rental shows it waiting", async ({ page }) => {
     await openRentalOf(page, PARTIES);
+    // The Next step names the contract as the missing thing, and opens where it is sent.
+    await expect(page.getByText("Contract not signed yet")).toBeVisible();
+    await page.getByRole("link", { name: "Send contract" }).click();
+    await expect(page).toHaveURL(/\?tab=papers$/);
+    await page.waitForLoadState("networkidle");
     await page.getByRole("button", { name: "Send for signing" }).click();
 
     await expect(page.getByText(/^Emailed\. It works until/)).toBeVisible();
@@ -205,7 +211,8 @@ test.describe.serial("signing a contract", () => {
   test("the rental shows the contract signed, and opens the signed PDF", async ({ page }) => {
     await openRentalOf(page, PARTIES);
 
-    await expect(page.getByText("Contract signed", { exact: true })).toBeVisible();
+    await expect(page.getByText(/^Contract signed /)).toBeVisible();
+    await openRentalTab(page, "Papers");
     await expect(page.getByRole("button", { name: "Send for signing" })).toHaveCount(0);
     const signed = page.getByRole("link", { name: "Open signed contract" });
     const response = await page.request.get((await signed.getAttribute("href")) ?? "");

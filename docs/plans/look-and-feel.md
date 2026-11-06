@@ -232,3 +232,40 @@ their own later slice.
   itself once the calendar is redesigned.
 - Your cars: Out, Available and Workshop counts, each opening the cars
   list filtered (a new "In the workshop" filter: in service or off road).
+
+## As built: one rental's page (6 Nov 2026)
+
+- Navy strip: rego · Renter, each a link (to the car, to the Renter); the
+  car with "weekly" or "daily" and its end ("no end date" when ongoing);
+  the status in plain words: Draft, "Booked · handover today" (or its
+  day), "Out since Fri 6 Nov", "To close" (was Returned), Closed,
+  Cancelled, plus Overdue and At risk when they apply.
+- Facts before handover: Handover (day and time), Rent ($ and "a week" or
+  "a day"), Bond (Not paid yet, $X still to pay, On its way, Paid). Once
+  out: Owing (from the ledger; "All paid up" at $0.00, "Since <day>" when
+  behind, or in credit), Bond (Held, Refunded, Kept), At handover (km and
+  fuel of the car the Renter has now).
+- Not yet: Next rent. Nothing in the app says the next rent's amount and
+  day today; working it out on this page would be a second way of
+  working out rent, so it waits for the rent run to give it.
+- The strip's button: Start return (or Continue return) once out, unless a
+  car swap is under way. Add charge and Swap car stay in their cards (both
+  are forms in a pop-up), so they are not repeated on the strip.
+- Next step (draft or booked): ticks for contract signed, bond paid and the
+  Renter's details approved (no problem about the Renter: details missing,
+  licence, age, provisional, Do not rent). The main button: Book this car
+  (a draft); Continue handover; Start handover once the contract is signed
+  and nothing is in the way; otherwise the first missing thing (Send
+  contract opens Papers, Take the bond opens Money, Check <name>'s details
+  opens the Renter), with Start handover still offered beside it so a
+  reason can be given at the handover. The problems the booking checks
+  find are listed under it, as before.
+- Tabs: Overview (details, changes, the return under way, swap, rates,
+  damage, cancel; on a computer also Latest money and Signed papers), Money
+  (charges and payments, How <name> pays, bond, invoices and receipts),
+  Papers (the contract to send, then every signed paper with Open and
+  Email again, and the reports still to come), Log. An old `?tab=summary`
+  address opens Overview.
+- Not yet: the Money tab's Charged and Paid totals (it shows the balance
+  as before: adding up charged and paid is new money logic, for its own
+  plan), and the Log's "By" filter (the Log list has no filters yet).

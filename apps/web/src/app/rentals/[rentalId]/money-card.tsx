@@ -1,6 +1,6 @@
 import { todayInTimeZone, type RentalStatus } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { BadgePercent, Plus, ReceiptText, Undo2 } from "lucide-react";
 import Link from "next/link";
@@ -32,6 +32,11 @@ import {
  * (review A4-5): a payment can still be refunded and a charge reversed.
  */
 const HAS_MONEY: ReadonlySet<RentalStatus> = new Set(["booked", "active", "returned", "closed"]);
+
+/** Whether the rental's money is shown at all (see HAS_MONEY). */
+export function hasMoneyToShow(status: RentalStatus, lineCount: number): boolean {
+  return HAS_MONEY.has(status) || (status === "cancelled" && lineCount > 0);
+}
 /** The newest lines shown here; the Renter's Money tab has them all. */
 const LINES_SHOWN = 8;
 
@@ -64,15 +69,14 @@ export async function MoneyCard(props: {
   clock: RentalClock;
 }) {
   const { rental, user, clock } = props;
-  const isCancelled = rental.status === "cancelled";
-  if (!HAS_MONEY.has(rental.status) && !isCancelled) {
+  if (!HAS_MONEY.has(rental.status) && rental.status !== "cancelled") {
     return null;
   }
   const [ledger, chargeTypes] = await Promise.all([
     loadRentalLedger(appDb, user.operatorId, rental.id),
     listChargeTypes(appDb, user.operatorId),
   ]);
-  if (isCancelled && ledger.lines.length === 0) {
+  if (!hasMoneyToShow(rental.status, ledger.lines.length)) {
     return null;
   }
   const today = todayInTimeZone(clock.now, clock.timeZone);
@@ -81,7 +85,7 @@ export async function MoneyCard(props: {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Money</CardTitle>
+        <SectionLabel>Charges and payments</SectionLabel>
         <CardDescription>
           Rent is charged weekly in advance from the handover, by itself. Lines are never changed: a
           mistake is reversed.

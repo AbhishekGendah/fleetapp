@@ -14,7 +14,8 @@ import type { LedgerLineView, LedgerView } from "../../lib/ledger/ledger-queries
 /** Lines that lower what is owed show with a minus. */
 const LOWERS_BALANCE = new Set(["payment", "credit"]);
 
-function lineTitle(line: LedgerLineView): string {
+/** What a line was for: its charge type, or its kind and how it was paid. */
+export function lineTitle(line: LedgerLineView): string {
   if (line.kind === "charge" && line.chargeTypeLabel) {
     return line.chargeTypeLabel;
   }
@@ -22,7 +23,8 @@ function lineTitle(line: LedgerLineView): string {
   return line.method ? `${kind} · ${PAYMENT_METHOD_LABELS[line.method]}` : kind;
 }
 
-function signedAmount(line: LedgerLineView, ledger: LedgerView): string {
+/** The line's amount, with a minus when it lowers what is owed. */
+export function signedAmount(line: LedgerLineView, ledger: LedgerView): string {
   const reversed = ledger.lines.find((other) => other.id === line.reversesId);
   const lowers =
     line.kind === "reversal"

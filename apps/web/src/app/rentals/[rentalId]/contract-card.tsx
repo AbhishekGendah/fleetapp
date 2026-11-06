@@ -1,13 +1,7 @@
-import {
-  formatDateTimeInTimeZone,
-  isContractSignable,
-  mergeFieldLabel,
-  missingMergeFields,
-} from "@fleetapp/core";
+import { isContractSignable, mergeFieldLabel, missingMergeFields } from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
-import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 import { FileText, XCircle } from "lucide-react";
 import Link from "next/link";
 
@@ -15,7 +9,6 @@ import { RenterLinkSender } from "../../../components/renter-link-sender";
 import { RenterLinkStatus } from "../../../components/renter-link-status";
 import { appDb } from "../../../lib/app-db";
 import { loadContractData } from "../../../lib/contracts/contract-data";
-import { loadDocumentEmailStates } from "../../../lib/contracts/document-emails";
 import { loadSigningStatus, type SigningStatus } from "../../../lib/contracts/signing-links";
 import { withPaperCheck } from "../../../lib/contracts/signing";
 import { loadDefaultTemplate } from "../../../lib/contracts/templates";
@@ -24,49 +17,13 @@ import type { RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { RentalClock } from "../../../lib/rentals/rental-records";
 import { NoBusinessEmailWarning } from "../../../components/no-business-email-warning";
 import type { SignedInUser } from "../../../lib/require-user";
-import { IssuedPaper } from "./issued-paper";
 import { cancelSigningLinkAction, sendSigningLinkAction } from "./signing-actions";
-
-async function SignedContractCard({
-  rentalId,
-  signed,
-  user,
-}: {
-  rentalId: string;
-  signed: NonNullable<SigningStatus["signed"]>;
-  user: SignedInUser;
-}) {
-  const emails = await loadDocumentEmailStates(appDb, user.operatorId, [signed.documentId]);
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Contract</CardTitle>
-        <CardDescription>
-          Signed by the Renter on {formatDateTimeInTimeZone(signed.issuedAt, user.operatorTimezone)}
-          . The signed PDF is fixed and can never be changed.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <p>
-          <Badge tone="good">Contract signed</Badge>
-        </p>
-        <IssuedPaper
-          rentalId={rentalId}
-          kind="contract"
-          documentId={signed.documentId}
-          label="Open signed contract"
-          emails={emails}
-        />
-      </CardContent>
-    </Card>
-  );
-}
 
 function NoTemplateCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Contract</CardTitle>
+        <SectionLabel>Contract</SectionLabel>
         <CardDescription>
           You have no contract template yet. Write yours once and it is filled in for each rental.
         </CardDescription>
@@ -116,7 +73,7 @@ function SigningControls({
 }
 
 /**
- * The rental's contract: once signed, the signed PDF; before that, a preview
+ * The rental's contract before it is signed (the signed PDF is in Signed papers): a preview
  * from the business's default template, which details it still needs, and
  * sending it to the Renter to sign on their phone.
  */
@@ -130,10 +87,8 @@ export async function ContractCard({
   clock: RentalClock;
 }) {
   const signing = await loadSigningStatus(appDb, user.operatorId, rental.id, clock.now);
-  if (signing.signed) {
-    return <SignedContractCard rentalId={rental.id} signed={signing.signed} user={user} />;
-  }
-  if (!isContractSignable(rental.status)) {
+  // Once signed, the contract is in the Signed papers list.
+  if (signing.signed || !isContractSignable(rental.status)) {
     return null;
   }
   const template = await loadDefaultTemplate(appDb, user.operatorId, "contract");
@@ -145,7 +100,7 @@ export async function ContractCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Contract</CardTitle>
+        <SectionLabel>Contract</SectionLabel>
         <CardDescription>
           From your template “{template.name}” (version {template.latestVersion}), filled in with
           this rental’s details. The Renter reads and signs it on their phone; the first time they

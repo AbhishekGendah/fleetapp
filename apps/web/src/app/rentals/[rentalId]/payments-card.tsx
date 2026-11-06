@@ -4,12 +4,13 @@ import {
   formatDateTimeInTimeZone,
   PAYMENT_METHOD_LABELS,
   PAYMENT_STATUS_LABELS,
+  renterFirstName,
   type DirectDebitState,
 } from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
 import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
 import { Settings, XCircle } from "lucide-react";
 import Link from "next/link";
@@ -44,11 +45,11 @@ const STATE_TONES: Readonly<Record<DirectDebitState, "good" | "attention" | "dan
     not_set_up: undefined,
   };
 
-function NotOfferedCard(props: { isSiteReady: boolean }) {
+function NotOfferedCard(props: { isSiteReady: boolean; heading: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Direct debit and bond by Stripe</CardTitle>
+        <SectionLabel>{props.heading}</SectionLabel>
         <CardDescription>
           {props.isSiteReady
             ? "Once your Stripe account is Ready, Renters set up their direct debit and pay the bond on Stripe's secure page."
@@ -155,23 +156,31 @@ export async function PaymentsCard(props: {
     isStripeOfferedToRenters(deps, user.operatorId),
     loadRentalPayments(appDb, user.operatorId, rental),
   ]);
+  // "How Jamie pays": direct debit and the bond, by Stripe.
+  const heading = `How ${renterFirstName(rental.renterFullName, rental.renterPreferredName)} pays`;
   const hasRecords = payments.payments.length > 0 || payments.directDebit !== "not_set_up";
   if (!hasRecords) {
     if (!isOpen) {
       return null;
     }
     if (!isOffered) {
-      return <NotOfferedCard isSiteReady={deps.canHearRenterPayments && deps.payments !== null} />;
+      return (
+        <NotOfferedCard
+          isSiteReady={deps.canHearRenterPayments && deps.payments !== null}
+          heading={heading}
+        />
+      );
     }
   }
   const canSendLink = isOpen && isOffered;
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Direct debit and bond by Stripe</CardTitle>
+        <SectionLabel>{heading}</SectionLabel>
         <CardDescription>
-          The Renter sets up their direct debit and pays the bond on Stripe&apos;s secure page. To
-          change bank account, send the link again: the new direct debit replaces the old.
+          Direct debit and bond by Stripe. The Renter sets up their direct debit and pays the bond
+          on Stripe&apos;s secure page. To change bank account, send the link again: the new direct
+          debit replaces the old.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
