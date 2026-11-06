@@ -39,7 +39,7 @@ export function TabLinks({ tabs, label }: { tabs: readonly TabLink[]; label: str
           className={cn(
             "focus-visible:ring-ring flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 text-center text-xs leading-tight font-semibold shadow-sm transition-colors focus-visible:ring-2 focus-visible:outline-none md:min-h-11 md:flex-row md:gap-2 md:rounded-full md:px-4 md:text-sm [&_svg]:size-5 [&_svg]:shrink-0 md:[&_svg]:size-4",
             tab.isCurrent
-              ? "border-teal bg-teal text-white"
+              ? "border-primary bg-primary text-white"
               : "bg-card text-foreground hover:bg-muted border-border",
           )}
         >

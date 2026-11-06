@@ -110,7 +110,7 @@ export function DateTimePicker({
           onFocus={moveToFirstPart}
           onBlur={onBlur}
           className={cn(
-            "border-input bg-card ring-offset-background focus-within:ring-ring flex h-11 w-full items-center rounded-md border pl-3 text-base shadow-sm focus-within:ring-2 focus-within:ring-offset-2",
+            "border-input bg-card ring-offset-background focus-within:ring-ring flex h-11 w-full items-center rounded-lg border pl-3 text-base shadow-sm focus-within:ring-2 focus-within:ring-offset-2",
             isInvalid && "border-destructive",
             isDisabled && "cursor-not-allowed opacity-50",
           )}

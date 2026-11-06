@@ -25,6 +25,6 @@ export const BRAND = {
     text: "#0F172A",
     mutedText: "#475569",
     border: "#E2E8F0",
-    page: "#F8FAFC",
+    page: "#F5F7F9",
   },
 } as const;

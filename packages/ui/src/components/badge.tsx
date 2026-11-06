@@ -7,9 +7,9 @@ export type BadgeTone = "neutral" | "good" | "attention" | "danger";
 
 const TONE_CLASSES: Readonly<Record<BadgeTone, string>> = {
   neutral: "bg-muted text-muted-foreground",
-  good: "bg-primary-soft text-teal",
+  good: "bg-primary-soft text-primary",
   attention: "bg-attention-soft text-attention",
-  danger: "bg-destructive/10 text-destructive",
+  danger: "bg-destructive-soft text-destructive",
 };
 
 /** A short label on a record, such as its status. */
@@ -25,7 +25,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap",
+        "inline-flex rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap",
         TONE_CLASSES[tone],
         className,
       )}

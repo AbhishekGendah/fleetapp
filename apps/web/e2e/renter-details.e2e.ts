@@ -2,7 +2,7 @@ import { expectAccessible } from "@fleetapp/e2e/accessibility";
 import { FAKE_ADDRESS } from "@fleetapp/e2e/fake-places";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
-import { PHONE_VIEWPORT } from "./e2e-settings";
+import { MINIMUM_TOUCH_TARGET_PX, PHONE_VIEWPORT } from "./e2e-settings";
 import { expectNoSidewaysScroll } from "./phone-checks";
 import { samplePhoto } from "./sample-photo";
 import { latestEmailTo } from "./test-inbox";
@@ -80,7 +80,10 @@ test("a Renter sends their details from their phone; the business sends back, th
   await expect(renterPage.getByText(/will check your details\.$/)).toBeVisible();
 
   await page.goto(renterUrl, { waitUntil: "networkidle" });
-  await page.getByRole("link", { name: "Review what they sent" }).click();
+  // A link drawn as a button keeps its text and a fingertip's height.
+  const review = page.getByRole("link", { name: "Review what they sent" });
+  expect((await review.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(MINIMUM_TOUCH_TARGET_PX);
+  await review.click();
   await expect(page.getByRole("heading", { name: "Review what they sent" })).toBeVisible();
   await expect(page.getByText("5550101")).toBeVisible();
   await expectAccessible(page);

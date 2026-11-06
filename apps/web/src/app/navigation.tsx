@@ -79,7 +79,7 @@ export function TabBarNavigation() {
             aria-current={isActive ? "page" : undefined}
             className={cn(
               "flex min-h-14 flex-col items-center justify-center gap-1 text-xs font-medium",
-              isActive ? "text-teal" : "text-muted-foreground",
+              isActive ? "text-primary font-bold" : "text-muted-foreground",
             )}
           >
             <item.icon className="size-6" aria-hidden />

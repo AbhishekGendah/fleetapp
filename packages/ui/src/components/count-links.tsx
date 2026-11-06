@@ -36,7 +36,7 @@ export function CountLinks({
           className={cn(
             "focus-visible:ring-ring inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold shadow-sm transition-colors focus-visible:ring-2 focus-visible:outline-none",
             link.isCurrent
-              ? "border-teal bg-teal text-white"
+              ? "border-primary bg-primary text-white"
               : "bg-card text-foreground hover:bg-muted border-border",
           )}
         >

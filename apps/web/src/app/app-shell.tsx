@@ -1,8 +1,10 @@
 import { cn } from "@fleetapp/ui/cn";
 import { ExpiringImage } from "@fleetapp/ui/expiring-image";
 import { Logo, LogoMark } from "@fleetapp/ui/logo";
+import Link from "next/link";
 
 import { loadOperatorLogoUrl } from "../lib/files/operator-logo";
+import { HOME_PATH } from "../lib/paths";
 import type { SignedInUser } from "../lib/require-user";
 import { SidebarNavigation, TabBarNavigation } from "./navigation";
 import { PhoneSignOutButton } from "../components/phone-sign-out-button";
@@ -28,15 +30,26 @@ export async function AppShell({
     <div className="flex min-h-dvh">
       <PhoneWeekLimit />
       <aside className="bg-card hidden w-60 shrink-0 flex-col gap-6 border-r p-4 md:flex">
-        <Logo className="px-2" />
+        {/* The logo goes home, as on the admin site (Abhi's suggestion, 6 Nov). */}
+        {/* The spoken name keeps the logo's visible words (WCAG 2.5.3), then says where it goes. */}
+        <Link href={HOME_PATH} className="flex min-h-11 items-center px-2">
+          <Logo />
+          <span className="sr-only">, home</span>
+        </Link>
         <SidebarNavigation />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="bg-card border-b">
+        <header className="bg-card sticky top-0 z-20 border-b">
           <div className="flex items-center justify-between gap-3 px-4 py-2">
             <div className="flex min-w-0 items-center gap-3">
-              <LogoMark className="md:hidden" />
+              <Link
+                href={HOME_PATH}
+                aria-label="Home"
+                className="flex min-h-11 items-center md:hidden"
+              >
+                <LogoMark />
+              </Link>
               {logoUrl ? (
                 <ExpiringImage src={logoUrl} alt="" className="h-8 max-w-24 shrink-0" />
               ) : null}
