@@ -7,6 +7,12 @@ import { E2E_OPERATORS, PHONE_VIEWPORT } from "./e2e-settings";
 const SUSPENDED_OPERATOR = E2E_OPERATORS.find((operator) => operator.isSuspended)!.legalName;
 const ACTIVE_OPERATOR = E2E_OPERATORS.find((operator) => !operator.isSuspended)!.legalName;
 
+/** A computer-width window, short enough that a business's page scrolls under the top bar. */
+const DESKTOP_WIDTH_PX = 1280;
+const SHORT_WINDOW_HEIGHT_PX = 420;
+/** Far enough that the page's title has gone under the top bar, not past it. */
+const PARTLY_SCROLLED_PX = 120;
+
 test.use({ viewport: PHONE_VIEWPORT });
 
 test("the logo goes to a home page whose counts open the list behind them (A1)", async ({
@@ -44,4 +50,24 @@ test("a business's page has Details, Invites and Log tabs, the Log a page at a t
   await expect(page).toHaveURL(/\/log$/);
   await expect(page.getByLabel("Search the log")).toBeVisible();
   await expectAccessible(page);
+
+  // Scrolled, nothing draws over the top bar (the page title once did, 6 Nov 2026).
+  // A wide, short window, as Abhi saw it, so the page scrolls a little under the bar.
+  await page.setViewportSize({ width: DESKTOP_WIDTH_PX, height: SHORT_WINDOW_HEIGHT_PX });
+  await page.evaluate((top) => window.scrollTo(0, top), PARTLY_SCROLLED_PX);
+  const isTopBarOnTop = await page.evaluate(() => {
+    const header = document.querySelector("header");
+    if (!header) {
+      return false;
+    }
+    const box = header.getBoundingClientRect();
+    const spots = [0.1, 0.5, 0.9].flatMap((across) =>
+      [0.15, 0.5, 0.85].map((down) => [box.left + box.width * across, box.top + box.height * down]),
+    );
+    return spots.every(([x = 0, y = 0]) => {
+      const point = document.elementFromPoint(x, y);
+      return point !== null && header.contains(point);
+    });
+  });
+  expect(isTopBarOnTop).toBe(true);
 });

@@ -16,19 +16,15 @@ interface PageHeaderProps {
 
 /**
  * The top of every page below a main section: a back arrow to the page one
- * level up, and the page's title. On a phone it stays at the top while the
- * page scrolls, so the way back is always in reach. Back goes up a level
+ * level up, and the page's title. It scrolls with the page: the app's own
+ * top bar is what stays put (6 Nov 2026), and two bars both pinned to the
+ * top drew one over the other. Back goes up a level
  * rather than to the last page seen, so it still works when the page was
  * opened from a link or a bookmark.
  */
 export function PageHeader(props: PageHeaderProps): React.JSX.Element {
   return (
-    <div
-      className={cn(
-        "bg-background/95 sticky top-0 z-20 -mx-4 -mt-4 flex min-h-14 items-center gap-2 border-b px-2 py-1 backdrop-blur md:static md:m-0 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none",
-        props.className,
-      )}
-    >
+    <div className={cn("flex min-h-14 items-center gap-2", props.className)}>
       <a
         href={props.backHref}
         aria-label={`Back to ${props.backLabel}`}

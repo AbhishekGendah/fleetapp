@@ -21,7 +21,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh">
       {/* Stays at the top while the page scrolls (Abhi's A8). */}
-      <header className="bg-card sticky top-0 z-20 border-b">
+      <header className="bg-card sticky top-0 z-30 border-b">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-2">
           {/* The spoken name keeps the logo's visible words (WCAG 2.5.3), then says where it goes. */}
           <Link href={HOME_PATH} className="flex min-h-11 items-center">

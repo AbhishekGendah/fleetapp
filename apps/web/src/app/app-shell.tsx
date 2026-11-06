@@ -40,7 +40,7 @@ export async function AppShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="bg-card sticky top-0 z-20 border-b">
+        <header className="bg-card sticky top-0 z-30 border-b">
           <div className="flex items-center justify-between gap-3 px-4 py-2">
             <div className="flex min-w-0 items-center gap-3">
               <Link
