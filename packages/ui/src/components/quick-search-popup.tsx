@@ -22,9 +22,13 @@ import {
   type QuickSearchResult,
 } from "./quick-search";
 
-/** Every result is a full-width row at least 44px tall (rule 24); its name bold teal, underlined when pointed at. */
+/**
+ * Every result is a full-width row at least 44px tall (rule 24); its name bold
+ * teal, underlined when pointed at. One from older text, while the newer is
+ * being found, is faded and cannot be opened.
+ */
 const RESULT_CLASSES =
-  "group flex min-h-11 cursor-pointer flex-col justify-center px-4 py-2 outline-none select-none data-[highlighted]:bg-primary-soft";
+  "group flex min-h-11 cursor-pointer flex-col justify-center px-4 py-2 outline-none select-none transition-opacity data-[highlighted]:bg-primary-soft data-[disabled]:cursor-default data-[disabled]:opacity-60";
 
 interface FoundGroups {
   groups: readonly QuickSearchGroup[];
@@ -39,7 +43,9 @@ function logSearchFailure(error: unknown): void {
 /**
  * Results for the typed text, asked for after a pause in typing. The last
  * results stay in view while the next are found, so the list does not
- * flicker on each key; an answer for older text is never shown.
+ * flicker on each key, but `isSearching` marks them as older text's: they
+ * must not be opened then (a quick arrow and Enter would open a result the
+ * current text never found). An answer for older text is never shown.
  */
 function useFoundGroups(
   search: QuickSearchProps["search"],
@@ -81,6 +87,8 @@ function useFoundGroups(
 }
 
 interface ResultListProps {
+  /** Found for older text, while the current text's are found: shown, but not opened. */
+  isStale: boolean;
   linkComponent: QuickSearchProps["linkComponent"];
   /** Opens results in place of the current history step: the sheet's own, which back would only reopen. */
   shouldReplaceStep: boolean;
@@ -90,6 +98,7 @@ interface ResultListProps {
 
 function ResultLink({
   result,
+  isStale,
   linkComponent: LinkComponent,
   shouldReplaceStep,
   onOpened,
@@ -97,6 +106,9 @@ function ResultLink({
   return (
     <Autocomplete.Item
       value={result}
+      // Disabled, a click or Enter (which clicks the highlighted link) is refused before
+      // the link sees it, and the arrows pass it by.
+      disabled={isStale}
       className={RESULT_CLASSES}
       onClick={() => onOpened(result.href)}
       render={
@@ -122,7 +134,7 @@ function ResultList({
   found,
   minimumLength,
   ...linkProps
-}: ResultListProps & {
+}: Omit<ResultListProps, "isStale"> & {
   text: string;
   found: FoundGroups;
   minimumLength: number;
@@ -143,7 +155,12 @@ function ResultList({
             </Autocomplete.GroupLabel>
             <Autocomplete.Collection>
               {(result: QuickSearchResult) => (
-                <ResultLink key={result.key} result={result} {...linkProps} />
+                <ResultLink
+                  key={result.key}
+                  result={result}
+                  isStale={found.isSearching}
+                  {...linkProps}
+                />
               )}
             </Autocomplete.Collection>
           </Autocomplete.Group>

@@ -25,6 +25,11 @@ function searchBox(page: Page): Locator {
   return page.getByRole("combobox", { name: "Search", exact: true });
 }
 
+/** The booked car, under Cars in the results. */
+function carResultOf(page: Page): Locator {
+  return page.getByRole("group", { name: "Cars" }).getByRole("option", { name: /Toyota Corolla/ });
+}
+
 /** Types into the box the way a person does, so the search's code loads on the way. */
 async function typeSearch(page: Page, text: string): Promise<void> {
   await searchBox(page).focus();
@@ -84,9 +89,7 @@ test.describe.serial("the top bar's search", () => {
     await expect(box).toBeFocused();
 
     await page.keyboard.type(PARTIES.carRego);
-    const carResult = page
-      .getByRole("group", { name: "Cars" })
-      .getByRole("option", { name: /Toyota Corolla/ });
+    const carResult = carResultOf(page);
     await expect(carResult).toBeVisible();
     // Cars come first, so the first result is the car.
     await page.keyboard.press("ArrowDown");
@@ -98,6 +101,43 @@ test.describe.serial("the top bar's search", () => {
     ).toBeVisible();
     await expect(page).toHaveURL(/\/cars\/[0-9a-f-]+$/);
     await expect(page.getByRole("listbox")).toBeHidden();
+  });
+
+  test("never opens a result of older text while the newer text is searched", async ({ page }) => {
+    await page.goto("/cars", { waitUntil: "networkidle" });
+    const olderText = PARTIES.carRego.slice(0, -1);
+    await typeSearch(page, olderText);
+    const carResult = carResultOf(page);
+    await expect(carResult).toBeVisible();
+    await page.keyboard.press("ArrowDown");
+    await expect(carResult).toHaveAttribute("data-highlighted", "");
+
+    // The next search is held until let go, as on a slow connection.
+    let letGo: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      letGo = resolve;
+    });
+    await page.route("**/*", async (route) => {
+      if (route.request().method() === "POST" && route.request().headers()["next-action"]) {
+        await held;
+      }
+      await route.fallback();
+    });
+
+    await page.keyboard.type(PARTIES.carRego.slice(-1));
+    // Still in view, so the list does not flicker, but marked as not for this text.
+    await expect(carResult).toHaveAttribute("aria-disabled", "true");
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Enter");
+    await carResult.click({ force: true });
+    // Opening a result empties the box at once, so a kept box means none was opened.
+    await expect(searchBox(page)).toHaveValue(PARTIES.carRego);
+
+    letGo();
+    await expect(carResult).not.toHaveAttribute("aria-disabled", "true");
+    await expect(page).toHaveURL(/\/cars$/);
+    await page.unrouteAll({ behavior: "wait" });
   });
 
   test("Escape closes the results and keeps the focus in the box", async ({ page }) => {
