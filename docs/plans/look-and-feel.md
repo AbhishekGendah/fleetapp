@@ -86,3 +86,17 @@ you test (an "Issue" or a note on a row is enough).
 - New features (weekly debits etc.: Phase 4 plans).
 - A dark mode (possible later; not asked for).
 - Renaming the product (one file, packages/ui/src/brand.ts, when needed).
+
+## As built: slice 1 (6 Nov 2026)
+
+- Theme tokens (packages/ui/src/styles/theme.css and brand.ts): page
+  #F5F7F9, a soft card shadow, a soft red for danger labels.
+- Shared pieces: cards (16 px corners, shadow, transparent edge kept for
+  high-contrast mode), navy bold card titles, status labels (Badge) bolder
+  with clearer colours, buttons and boxes rounder, the current tab and count
+  filled navy.
+- App frames: top bar stays put, logo goes Home (both apps); the Operator
+  app keeps its Home tab on phones (approved).
+- Next: slice 2 (the Operator dashboard and rental page with the navy strip)
+  and slice 3 (the nine improvements), once Abhi says go.
+

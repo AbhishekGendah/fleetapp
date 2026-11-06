@@ -1187,7 +1187,15 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
 
 ## Next
 
-**6 Nov, on hold for Abhi:** theme approved (direction A with B's navy
+**6 Nov, built with Abhi's go-ahead:** the new look's shared pieces and app
+frames (look-and-feel slice 1) and his admin suggestions A1 to A8 (admin
+home, search as you type, New Operator pop-up, business page tabs, paged
+log, setup section, top bar stays put). Test sheet rows A-69 to A-76 and
+O-442 to O-444. Still on hold until he says go: the Operator app's
+dashboard and rental page restyle (slice 2), the nine improvements, and his
+Operator app suggestions.
+
+**Earlier on 6 Nov:** theme approved (direction A with B's navy
 strip on a rental page, docs/plans/look-and-feel.md). Abhi is going through
 the app for quality-of-life suggestions; **nothing is built until he says
 go**. Waiting on him: his suggestions plus the plan's nine improvements,
