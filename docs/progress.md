@@ -1200,7 +1200,8 @@ updates applied on top (GitHub Actions pinned; prettier, typescript-eslint,
 0051) by GitHub at 17:30 UTC on 5 Nov. Putting the apps live from GitHub
 failed: building outside Vercel can't read Vercel's secret settings, so the
 deploy step now sends the checked commit to Vercel to build (migrate.yml). Checked at 18:10 UTC: Vercel now builds the commit and accepts every
-setting except `APP_STAGE` for Production, the one step below.
+setting except `APP_STAGE` for Production, the one step below. Done by Abhi on 6 Nov:
+`APP_STAGE=development` now ticked for Production in both dev projects.
 **Abhi:** `APP_STAGE=development` must also be ticked for **Production** in
 both dev Vercel projects (the dev site is those projects' Production; the
 earlier step said Preview and Development only, which was wrong). Until
