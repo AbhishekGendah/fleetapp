@@ -555,6 +555,40 @@ test.describe("menu", () => {
   });
 });
 
+test.describe("quick search", () => {
+  test("groups results as you type, and opens one from the keyboard", async ({ page }) => {
+    await openCatalogue(page);
+    const box = page.getByRole("combobox", { name: "Example search" });
+    await box.focus();
+    await page.keyboard.type("j");
+    // One letter searches nothing.
+    await expect(page.getByRole("listbox")).toBeHidden();
+
+    await page.keyboard.type("am");
+    const results = page.getByRole("listbox");
+    await expect(results.getByRole("group")).toHaveCount(2);
+    await expect(results.getByRole("group", { name: "Renters" })).toBeVisible();
+    await expect(results.getByRole("group", { name: "Rentals" })).toBeVisible();
+    await expect(results.getByRole("option")).toHaveCount(2);
+
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/#example-search-renter$/);
+    await expect(box).toHaveValue("");
+  });
+
+  test("says when nothing matches, and Escape closes it", async ({ page }) => {
+    await openCatalogue(page);
+    const box = page.getByRole("combobox", { name: "Example search" });
+    await box.focus();
+    await page.keyboard.type("zz");
+    await expect(page.getByText("No matches for “zz”")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByText("No matches for “zz”")).toBeHidden();
+    await expect(box).toBeFocused();
+  });
+});
+
 test.describe("whole-row links", () => {
   const ROW_LINK = "Rego due Thu 12 Nov";
 

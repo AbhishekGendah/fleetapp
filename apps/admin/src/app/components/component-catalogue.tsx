@@ -66,6 +66,7 @@ import { PageHeader } from "@fleetapp/ui/page-header";
 import { ProblemPanel } from "@fleetapp/ui/problem-panel";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
 import { Menu } from "@fleetapp/ui/menu";
+import { QuickSearch, type QuickSearchGroup } from "@fleetapp/ui/quick-search";
 import { RecordStrip } from "@fleetapp/ui/record-strip";
 import { InlineRecordLink, ROW_CLASSES, RowLink } from "@fleetapp/ui/row-link";
 import {
@@ -652,6 +653,62 @@ function MenuExample() {
   );
 }
 
+/** Made-up records for the quick search, matched in the browser as the real one matches on the server. */
+const EXAMPLE_SEARCH_GROUPS: readonly QuickSearchGroup[] = [
+  {
+    label: "Cars",
+    items: [
+      { key: "car", href: "#example-search-car", title: "1ABC234", detail: "Toyota Corolla" },
+    ],
+  },
+  {
+    label: "Renters",
+    items: [
+      {
+        key: "renter",
+        href: "#example-search-renter",
+        title: "Jamie Park",
+        detail: "0412 345 678",
+      },
+    ],
+  },
+  {
+    label: "Rentals",
+    items: [
+      {
+        key: "rental",
+        href: "#example-search-rental",
+        title: "Jamie Park · 1ABC234",
+        detail: "Out",
+      },
+    ],
+  },
+];
+const EXAMPLE_SEARCH_MINIMUM_LENGTH = 2;
+const EXAMPLE_SEARCH_MAXIMUM_LENGTH = 60;
+
+async function searchExampleRecords(text: string): Promise<readonly QuickSearchGroup[]> {
+  const typed = text.toLowerCase();
+  return EXAMPLE_SEARCH_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) =>
+      `${item.title} ${item.detail}`.toLowerCase().includes(typed),
+    ),
+  })).filter((group) => group.items.length > 0);
+}
+
+function QuickSearchExample() {
+  return (
+    <QuickSearch
+      label="Example search"
+      placeholder="Try “jam” or “1abc”"
+      search={searchExampleRecords}
+      minimumLength={EXAMPLE_SEARCH_MINIMUM_LENGTH}
+      maximumLength={EXAMPLE_SEARCH_MAXIMUM_LENGTH}
+    />
+  );
+}
+
 function RecordStripExample() {
   return (
     <div className="overflow-hidden rounded-xl">
@@ -807,6 +864,13 @@ export function ComponentCatalogue() {
         <div className="flex">
           <MenuExample />
         </div>
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Quick search"
+        note="The top bar's search as you type: results grouped by kind, each a link. Arrows move, Enter opens, Escape closes. On a phone, a search button opens it across the top."
+      >
+        <QuickSearchExample />
       </CatalogueSection>
 
       <CatalogueSection
