@@ -75,6 +75,19 @@ existing number setting box.
 - Browser test: an overdue rental shows first in Needs attention on a
   phone and on a computer, with axe.
 
+## Also proposed here (left out of part A)
+
+Both are new money arithmetic, so they belong with this plan rather than
+the screens:
+- **Next rent on the rental strip:** the date and amount of the next rent
+  charge, worked out by the same code the rent run uses (one way of
+  calculating rent, never a second copy), with unit tests at block and
+  period edges.
+- **Charged / Paid / Owing totals on the Money tab:** summed from the
+  ledger (rule 11), with reversals and corrections netted, integer cents,
+  GST shown as stored on each line; unit tests including refunds and
+  credits.
+
 ## Test sheet
 
 New rows: the Overdue line, the setting.

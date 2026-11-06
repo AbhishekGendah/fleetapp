@@ -1185,7 +1185,43 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
     error linked to its box; outline buttons keep their light border;
     test runners clean up from the app folder even if a stop fails.
 
+- **Look slice 2 (6 Nov, Abhi's go-ahead; branch
+  `claude/compassionate-albattani-mdnp3i`, preview first).** Built to the
+  approved mockups (docs/plans/look-and-feel.md, "As built" notes):
+  - App frame: side menu stays put (Home, Rentals, Calendar, Cars, Renters,
+    Settings); phone tab bar with More; business name in the top bar; the
+    round initial opens Business details, Settings and Sign out.
+  - Search in the top bar as you type (Cars / Renters / Rentals), the
+    session's business only; on phones behind a search button.
+  - Dashboard: Needs attention top 5 by urgency with "See all N" and a full
+    /attention page; Today with links; Your cars tiles; no Owed card.
+  - One rental's page: navy strip, Next step card, tabs Overview, Money,
+    Papers, Log.
+  - Rentals list: Renter, Car, When, Rent, Owing (from the ledger), Status;
+    filters Out, Booked, Draft, To close, Finished; cards on phones.
+  - Calendar page: Month, By car (the old Timeline, which redirects) and
+    Day by day on phones; open a day; car filter.
+  - Shared pieces: Menu, navy strip, row links, section label, view switch,
+    week strip, quick search (all in the admin component catalogue).
+  - Left out on purpose: "Next rent" on the strip and Charged/Paid totals on
+    Money (new money arithmetic: proposed in docs/plans/look-slice-2-overdue.md);
+    the Log "By" filter; grey reminders and rent runs on the month grid (no
+    data yet). Claims under way now show only on each car's Damage tab.
+  - Budget raised on purpose: /rentals/calendar 270 to 345 KB (car filter).
+  - Test sheet: rows O-445 to O-469 and A-77 added; O-27, O-28, O-226,
+    O-233, O-234, O-280 to O-283, O-303, O-317 to O-323 and O-348 updated.
+
 ## Next
+
+**6 Nov, look slice 2 built on a branch** (see Done). Waiting on Abhi:
+1. Try the preview link and say what to change before it goes to main.
+2. Delete the 26 duplicate rows at the top of the test sheet (a copy of the
+   header and A-01 to A-25 was added there by mistake; the originals are
+   intact below).
+3. Approve or change docs/plans/look-slice-2-overdue.md (one grace-days
+   setting, default 2; plus Next rent and Charged/Paid totals).
+4. Then: business Renters plan (qol-suggestions O1); Cars and Renters
+   pages in the new look (mockups first); B2 speed work; Phase 4 slices 5-8.
 
 **End of 6 Nov, pick up here:** live on the dev site: the new look
 (slice 1), admin A1 to A8, the pointing-hand fix and the title bar no
@@ -1262,6 +1298,13 @@ metadata generator (about 40 KB off each form page); running the
 generator needs Abhi's say-so.
 
 ## Open items
+
+- Handover offline: the offline helper only keeps pages first opened under
+  `/rentals/`. A handover page reached by tapping through from the Rentals
+  list or Home is only kept for poor signal after one reload (found in look
+  slice 2; the browser test reloads first). Needs its own small fix.
+- Two buttons named "Search" on a phone's Renters list (the list's own and
+  the top bar's); one may need a clearer spoken name.
 
 - **Before launch: docs/launch-checklist.md** (relaxed admin sign-in, full
   security review, production settings, legal).
