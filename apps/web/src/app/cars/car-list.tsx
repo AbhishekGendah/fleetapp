@@ -4,6 +4,7 @@ import type { DataListDefinition } from "@fleetapp/ui/data-list";
 import {
   ARCHIVED_FILTER_VALUE,
   STATUS_FILTER_KEY,
+  WORKSHOP_FILTER_VALUE,
   type VehicleSummary,
 } from "../../lib/vehicles/vehicle-queries";
 import type { CarListRow } from "../../lib/vehicles/car-list-rows";
@@ -95,6 +96,7 @@ export const CAR_LIST: DataListDefinition<CarListRow> = {
           value: status,
           label: VEHICLE_STATUS_LABELS[status],
         })),
+        { value: WORKSHOP_FILTER_VALUE, label: "In the workshop" },
         { value: ARCHIVED_FILTER_VALUE, label: "Archived" },
       ],
     },

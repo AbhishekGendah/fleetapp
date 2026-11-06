@@ -4,6 +4,7 @@ import {
   type ListPage,
   type ListQuery,
   type VehicleStatus,
+  VEHICLE_STATUSES_IN_WORKSHOP,
 } from "@fleetapp/core";
 import type { ExportFormat } from "@fleetapp/core/spreadsheet";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
@@ -16,7 +17,7 @@ import {
 import { odometerReadings, vehicleSales, vehicles } from "@fleetapp/db/schema";
 import { qualified } from "@fleetapp/db/qualified";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, asc, count, eq, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 
 import {
   currentInsuranceEndsOn,
@@ -30,6 +31,8 @@ import { countedReading } from "./odometer";
 
 /** The filter value that shows archived cars instead of current ones. */
 export const ARCHIVED_FILTER_VALUE = "archived";
+/** The filter value for every car in the workshop: in service or off road. */
+export const WORKSHOP_FILTER_VALUE = "workshop";
 export const STATUS_FILTER_KEY = "status";
 
 /** The latest counted reading: what the car's odometer is taken to show now. */
@@ -106,8 +109,14 @@ export const VEHICLE_LIST_RULES: DatabaseListRules = {
     now: idleSince,
   },
   filterBy: {
-    [STATUS_FILTER_KEY]: (value) =>
-      value === ARCHIVED_FILTER_VALUE ? undefined : sql`${vehicles.status} = ${value}`,
+    [STATUS_FILTER_KEY]: (value) => {
+      if (value === ARCHIVED_FILTER_VALUE) {
+        return undefined;
+      }
+      return value === WORKSHOP_FILTER_VALUE
+        ? inArray(vehicles.status, [...VEHICLE_STATUSES_IN_WORKSHOP])
+        : sql`${vehicles.status} = ${value}`;
+    },
   },
   tieBreaker: vehicles.id,
 };
