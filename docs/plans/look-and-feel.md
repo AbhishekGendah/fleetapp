@@ -269,3 +269,60 @@ their own later slice.
 - Not yet: the Money tab's Charged and Paid totals (it shows the balance
   as before: adding up charged and paid is new money logic, for its own
   plan), and the Log's "By" filter (the Log list has no filters yet).
+
+## As built: the Rentals list and the Calendar (6 Nov 2026)
+
+- **Rentals list**:
+  - Header: Calendar (outline, with its icon) and New rental. The Timeline
+    button is gone: the timeline is the Calendar's By car view.
+  - Status filters as counts, in plain words: All, Out, Booked, Draft (only
+    while there are drafts, so they stay findable; a draft holds no car, so
+    it is not counted as Booked), To close, Finished (closed and cancelled;
+    a cancelled one still says Cancelled). Old addresses (?status=active,
+    returned, closed, cancelled) open the filter that holds them now. The
+    shared list's Status box is still there too, as on Cars.
+  - Columns: Renter and Car (rego) as their own links, When (the row's link
+    to the rental), Rent ("$350.00/wk" or "/day"), Owing, Status (Out navy,
+    Booked blue, To close amber, Draft, Closed and Cancelled grey; Overdue,
+    At risk and Starting soon as before).
+  - When: "Starts Sat 7 Nov, 9:00 am" (or "today"), "Since Fri 6 Nov,
+    ongoing", "Back today 3:30 pm", "Fri 9 Oct to Tue 10 Nov" (a phone says
+    "Back Tue 10 Nov"), "Was due back Tue 3 Nov", "Returned Tue 3 Nov", a
+    finished one's span.
+  - Owing: added up from each rental's ledger lines (one query for the page,
+    the same rule as everywhere), red and bold when owed; "–" while nothing
+    has been charged or paid on it. On a phone: "$450.00 owing", "Paid up",
+    "$20.00 in credit", or the rent while nothing is charged. No overdue or
+    grace rules here (their own plan).
+  - Order: most relevant first: out (soonest back first, ongoing after),
+    then bookings and drafts (soonest first), then to close (longest
+    waiting first), then finished (latest first). A column heading still
+    sorts by that column.
+  - Phone: a card per rental (name and status, "rego · make model", When
+    and the money), one tap opening the rental.
+- **Calendar** (one page; Month or By car, in the address as ?view=car):
+  - Top: Calendar and New rental; previous and next (a month, a week on a
+    phone, two weeks By car), the stretch's name, Today, a searchable car
+    filter ("All cars" or one, by rego, make or model), and the view switch.
+  - Month (computer): Monday first, today circled navy, handovers teal and
+    returns amber ("9:00 am Handover · Jamie · 1ABC234"), each opening its
+    rental; long labels wrap rather than being cut short. A day's number
+    opens that day (?day=2026-11-07): it is ringed, and its handovers and
+    returns are listed above the grid. The dashboard's Later this week dates
+    now open their day.
+  - Day by day (phone, the usual view there): previous and next week, the
+    week's seven days with a dot where something is on (today filled navy),
+    then a card per day with something on (and the day asked for), each row
+    opening the rental.
+  - By car (was the Timeline): cars down the side (rego opening the car,
+    make and model under it), out navy, booked light blue, workshop amber,
+    finished grey, a key, today's column shaded; a bar opens its rental and
+    a free day starts New rental with that car and day (kept from the
+    timeline). Zoom (Days, Weeks, Months) and Show cars stay. On a phone it
+    swipes sideways inside its box. The old /rentals/timeline address opens
+    it (on its day and zoom).
+  - Not yet: grey reminders and rent runs on the month (the calendar has no
+    such data yet: rego due dates and the rent run would be new sources),
+    and the timeline's search box, "Only these cars" and "Go to a date"
+    (the car filter, previous/next and Today replace them), and the car's
+    pop-up quick view (the rego now opens the car's page).
