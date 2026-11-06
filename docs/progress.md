@@ -1207,8 +1207,10 @@ both dev Vercel projects (the dev site is those projects' Production; the
 earlier step said Preview and Development only, which was wrong). Until
 then every new build of the dev site stops at the test-inbox safety check,
 so the admin site stays on an old build using the deleted login password and
-won't open. Then turn off Vercel's own deploys from main once a GitHub
-deploy has worked.
+won't open. 6 Nov: the first full GitHub deploy worked (check, database,
+both apps live; admin site confirmed by Abhi), so Vercel's own deploys from
+main are now off (`git.deploymentEnabled` in both vercel.json): GitHub is
+the only way code reaches the dev site. Branch previews still build.
 
 Overnight 5 to 6 Nov: browser tests added for the Renter's details sent
 from a phone and reviewed (send back, approve), the insurance policy page,
