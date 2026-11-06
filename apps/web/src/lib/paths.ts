@@ -120,21 +120,51 @@ export const NEW_RENTAL_PATH = `${RENTALS_PATH}/new`;
 export const RENTALS_CALENDAR_PATH = `${RENTALS_PATH}/calendar`;
 export const RENTALS_TIMELINE_PATH = `${RENTALS_PATH}/timeline`;
 
-/** The calendar's page address names the month it opens on: "2026-11". */
-export const CALENDAR_MONTH_PARAM = "month";
-const MONTH_TEXT_LENGTH = "2026-11".length;
-
 /**
- * The calendar on the month a day is in.
- * TODO(calendar redesign): open on the day itself and mark it, once the
- * calendar page can (docs/plans/look-and-feel.md, Calendar page).
+ * The Calendar page's address: which view (Month, or By car), the month or
+ * day it opens on, and one car. Each is left out for its usual: Month (Day
+ * by day on a phone), this month, every car.
  */
-export function calendarDayPath(isoDate: string): string {
-  const month = isoDate.slice(0, MONTH_TEXT_LENGTH);
-  return `${RENTALS_CALENDAR_PATH}?${new URLSearchParams({ [CALENDAR_MONTH_PARAM]: month })}`;
+export const CALENDAR_VIEW_PARAM = "view";
+/** The By car view (was the fleet timeline): ?view=car. */
+export const CALENDAR_BY_CAR_VIEW = "car";
+/** "2026-11". */
+export const CALENDAR_MONTH_PARAM = "month";
+/** "2026-11-07": the day it opens on, marked, with that day's handovers and returns listed. */
+export const CALENDAR_DAY_PARAM = "day";
+export const CALENDAR_CAR_PARAM = "car";
+
+export interface CalendarAddress {
+  isByCar?: boolean;
+  month?: string;
+  day?: string;
+  vehicleId?: string;
 }
 
-/** The rentals list filtered to one status, e.g. the active ones. */
+export function calendarPath(address: CalendarAddress = {}): string {
+  const query = new URLSearchParams();
+  if (address.isByCar) {
+    query.set(CALENDAR_VIEW_PARAM, CALENDAR_BY_CAR_VIEW);
+  }
+  if (address.month) {
+    query.set(CALENDAR_MONTH_PARAM, address.month);
+  }
+  if (address.day) {
+    query.set(CALENDAR_DAY_PARAM, address.day);
+  }
+  if (address.vehicleId) {
+    query.set(CALENDAR_CAR_PARAM, address.vehicleId);
+  }
+  const text = query.toString();
+  return text ? `${RENTALS_CALENDAR_PATH}?${text}` : RENTALS_CALENDAR_PATH;
+}
+
+/** The calendar opened on a day: e.g. a day of the dashboard's Later this week. */
+export function calendarDayPath(isoDate: string): string {
+  return calendarPath({ day: isoDate });
+}
+
+/** The rentals list filtered to one status, e.g. "out" (rental-list-status). */
 export function rentalsWithStatusPath(status: string): string {
   return `${RENTALS_PATH}?${new URLSearchParams({ status })}`;
 }

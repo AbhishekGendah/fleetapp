@@ -20,15 +20,16 @@ describePageChecks({
     "/rentals",
     "/rentals/new",
     "/rentals/calendar",
+    // Added 6 Nov 2026: the Calendar's By car view (was /rentals/timeline, now a redirect).
+    "/rentals/calendar?view=car",
     "/settings",
     "/settings/contracts",
-    // Batch 7 (review A10-9): the rest of Settings, the timeline, the
+    // Batch 7 (review A10-9): the rest of Settings, the
     // privacy notice and the new insurance form.
     "/settings/charges",
     "/settings/invoices",
     "/settings/payments",
     "/settings/demo-data",
-    "/rentals/timeline",
     "/privacy-notice",
     "/cars/insurance/new",
     // Not "/suspended": the test login's business is not paused, so it would

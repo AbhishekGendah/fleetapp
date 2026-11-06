@@ -202,10 +202,12 @@ test.describe.serial("demo data", () => {
     });
   });
 
-  test("with all cars, the calendar shows only pickups and returns", async ({ page }) => {
+  test("the calendar shows handovers and returns; an ongoing rental has no return", async ({
+    page,
+  }) => {
     await page.goto("/rentals/calendar", { waitUntil: "networkidle" });
-    await expect(page.getByRole("link", { name: /Pickup: DEMO17 · / }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /(^|m )DEMO02 · / })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /Handover · .+ · DEMO17$/ }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /Return · .+ · DEMO02$/ })).toHaveCount(0);
     await expectAccessible(page);
   });
 });

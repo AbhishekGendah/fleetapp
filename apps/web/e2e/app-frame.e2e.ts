@@ -61,7 +61,7 @@ test.describe("on a computer", () => {
   });
 
   test("Calendar has its own menu item, and Rentals is not current there", async ({ page }) => {
-    await page.goto("/rentals/timeline", { waitUntil: "networkidle" });
+    await page.goto("/rentals/calendar?view=car", { waitUntil: "networkidle" });
     const sideMenu = page.getByRole("complementary").getByRole("navigation", { name: "Main" });
     await expect(sideMenu.getByRole("link")).toHaveText([
       "Home",

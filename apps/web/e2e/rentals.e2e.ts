@@ -175,7 +175,7 @@ test.describe.serial("bookings", () => {
   }) => {
     await page.goto("/rentals/calendar?month=2027-03", { waitUntil: "networkidle" });
     await expect(
-      page.getByRole("link", { name: new RegExp(`${CAR_REGO} · ${RENTER_NAME}`) }).first(),
+      page.getByRole("link", { name: `9:00 am Handover · Rita · ${CAR_REGO}` }).first(),
     ).toBeVisible();
     await expectAccessible(page);
 
