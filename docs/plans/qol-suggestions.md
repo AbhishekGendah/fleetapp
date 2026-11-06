@@ -27,7 +27,9 @@ nine improvements in docs/plans/look-and-feel.md.
 
 ## Operator app
 
-(To come.)
+| # | Page | Suggestion | Recommendation |
+|---|---|---|---|
+| O1 | Renters | A business that rents several cars at once (Abhi's friend, 6 Nov) | Keep the word Renter (CLAUDE.md terminology). A Renter can be a **person** or a **business** (ABN, billing contact). A business Renter's rentals each name a **driver**: a person with a checked licence, because fines are matched to whoever had the car (rule 15) and nominations need the driver. The business gets one statement across its cars. Schema and money change: needs its own plan and approval. Awaiting Abhi's call on when. |
 
 ## As built: admin site (6 Nov 2026)
 

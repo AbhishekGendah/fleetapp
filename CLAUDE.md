@@ -182,6 +182,18 @@ Never use "client", "customer" or "tenant" for these in code.
     an axe-core accessibility check (WCAG 2.2 AA, no exceptions without a
     written reason), and a JavaScript download budget. A budget is raised
     only on purpose, with the reason in the commit.
+34. Every screen, now and future, uses the agreed look
+    (docs/plans/look-and-feel.md, approved by Abhi 6 Nov 2026):
+    - the theme;
+    - white cards with small capital section labels;
+    - status labels that differ in lightness, not only colour;
+    - the navy strip on single-item pages;
+    - names and regos as bold teal links (underline on hover), with the
+      rest of a row opening the main thing;
+    - one tap per row on phones;
+    - tables that become cards on phones.
+
+    A new page gets a mockup in the same style before it is built.
 
 ## How to work
 - Read the relevant docs/design/*.md file before working on an area.
