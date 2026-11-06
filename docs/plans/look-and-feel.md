@@ -121,6 +121,13 @@ until Abhi says go.
   - Bond to refund.
   - Damage open.
   - Late back from the workshop.
+- **Needs attention shows the 5 most urgent** with "See all N" to a full
+  page (shared list: pages, search, filter by kind). The count bubble
+  shows the real total. Urgency order:
+  - red: overdue, missing, handover today not ready;
+  - amber: due soon, damage open, late from the workshop;
+  - blue: to review, to refund;
+  - within each, the longest waiting first.
 - **Moved out of Needs attention**: idle cars (shown with the car counts
   as "available"); claims under way (they belong on the Damage page).
 - **Wording**: details to review reads "Sent their licence and contact
