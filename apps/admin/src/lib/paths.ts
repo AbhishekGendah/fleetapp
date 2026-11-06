@@ -13,6 +13,16 @@ export function operatorPath(operatorId: string): string {
   return `${OPERATORS_PATH}/${operatorId}`;
 }
 
+/** A business page's Invites tab (Abhi's A5). */
+export function operatorInvitesPath(operatorId: string): string {
+  return `${operatorPath(operatorId)}/invites`;
+}
+
+/** A business page's Log tab (Abhi's A5, A6). */
+export function operatorLogPath(operatorId: string): string {
+  return `${operatorPath(operatorId)}/log`;
+}
+
 export function devOutboxEmailPath(emailId: string): string {
   return `${DEV_OUTBOX_PATH}/${emailId}`;
 }

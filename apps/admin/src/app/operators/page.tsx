@@ -1,19 +1,13 @@
 import type { Metadata } from "next";
 import { listQueryString, pageOfRows, parseListQuery } from "@fleetapp/core";
-import { Button } from "@fleetapp/ui/button";
 import { DataList } from "@fleetapp/ui/data-list";
-import Link from "next/link";
 
 import { appDb } from "../../lib/app-db";
 import { listOperators } from "../../lib/operators/queries";
-import {
-  NEW_OPERATOR_PATH,
-  OPERATORS_EXPORT_PATH,
-  OPERATORS_PATH,
-  operatorPath,
-} from "../../lib/paths";
+import { OPERATORS_EXPORT_PATH, OPERATORS_PATH, operatorPath } from "../../lib/paths";
 import { requireAdmin } from "../../lib/require-admin";
 import { AdminShell } from "../admin-shell";
+import { NewOperatorButton } from "./new-operator-button";
 import { OPERATOR_LIST, OPERATOR_LIST_RULES } from "./operator-list";
 
 /** Its own tab name: the layout adds the product's (review A10-2). */
@@ -34,9 +28,7 @@ export default async function OperatorsPage(props: {
     <AdminShell>
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">Operators</h1>
-        <Button asChild>
-          <Link href={NEW_OPERATOR_PATH}>New Operator</Link>
-        </Button>
+        <NewOperatorButton />
       </div>
 
       {operators.length === 0 ? (

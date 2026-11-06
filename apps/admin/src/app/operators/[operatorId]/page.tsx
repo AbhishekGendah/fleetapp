@@ -1,21 +1,12 @@
 import type { Metadata } from "next";
-import { operatorDisplayName } from "@fleetapp/core";
-import { describeActivity } from "@fleetapp/db/activity";
+import { formatFileSize } from "@fleetapp/core";
+import { Badge } from "@fleetapp/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@fleetapp/ui/card";
-import { PageHeader } from "@fleetapp/ui/page-header";
-import { notFound } from "next/navigation";
-import { z } from "zod";
 
-import { appDb } from "../../../lib/app-db";
 import { formatAdminDateTime } from "../../../lib/format";
-import { OPERATORS_PATH } from "../../../lib/paths";
-import { getOperatorDetail, type OperatorDetail } from "../../../lib/operators/queries";
-import { INVITE_STATUS_LABELS } from "../../../lib/operators/status-labels";
-import { requireAdmin } from "../../../lib/require-admin";
-import { AdminShell } from "../../admin-shell";
-import { OperatorStatusBadge } from "../../status-badge";
+import type { OperatorDetail } from "../../../lib/operators/queries";
 import { INVITE_RESULT_PARAM, INVITE_RESULTS } from "../invite-result";
-import { OperatorActions } from "./operator-actions";
+import { loadOperatorForPage, OperatorFrame } from "./operator-frame";
 
 /** Its own tab name: the layout adds the product's (review A10-2). */
 export const metadata: Metadata = { title: "Operator" };
@@ -31,64 +22,36 @@ const INVITE_RESULT_MESSAGES: Record<string, { text: string; isProblem: boolean 
   },
 };
 
-/** An Admin can resend unless the invite is already accepted or the Operator is suspended. */
-function canResendInvite(operator: OperatorDetail): boolean {
-  return operator.status !== "active" && operator.status !== "suspended";
-}
-
 interface OperatorPageProps {
   params: Promise<{ operatorId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
+/** A business's page, Details tab: who they are and how far through setup (Abhi's A5, A7). */
 export default async function OperatorPage(props: OperatorPageProps) {
-  await requireAdmin();
-
-  const { operatorId } = await props.params;
-  // Checked before it reaches the database, which would reject a malformed ID
-  // with an error rather than finding nothing.
-  if (!z.uuid().safeParse(operatorId).success) {
-    notFound();
-  }
-
-  const operator = await getOperatorDetail(appDb, operatorId, new Date());
-  if (!operator) {
-    notFound();
-  }
-
+  const operator = await loadOperatorForPage((await props.params).operatorId);
   const inviteResult = (await props.searchParams)[INVITE_RESULT_PARAM];
   const resultMessage =
     typeof inviteResult === "string" ? INVITE_RESULT_MESSAGES[inviteResult] : undefined;
 
   return (
-    <AdminShell>
-      <div className="flex flex-col gap-2">
-        <PageHeader
-          backHref={OPERATORS_PATH}
-          backLabel="Operators"
-          title={operatorDisplayName(operator)}
-          aside={<OperatorStatusBadge status={operator.status} />}
-        />
-        {resultMessage ? (
+    <OperatorFrame
+      operator={operator}
+      current="details"
+      notice={
+        resultMessage ? (
           <p
             className={resultMessage.isProblem ? "text-destructive text-sm" : "text-sm"}
             role="status"
           >
             {resultMessage.text}
           </p>
-        ) : null}
-      </div>
-
-      <OperatorActions
-        operatorId={operator.id}
-        isSuspended={operator.suspendedAt !== null}
-        canResendInvite={canResendInvite(operator)}
-      />
-
+        ) : null
+      }
+    >
       <DetailsCard operator={operator} />
-      <InvitesCard operator={operator} />
-      <HistoryCard operator={operator} />
-    </AdminShell>
+      <SetupCard operator={operator} />
+    </OperatorFrame>
   );
 }
 
@@ -96,7 +59,7 @@ function DetailsCard({ operator }: { operator: OperatorDetail }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Details</CardTitle>
+        <CardTitle>Details</CardTitle>
       </CardHeader>
       <CardContent>
         <dl className="grid gap-2 text-sm sm:grid-cols-[10rem_1fr]">
@@ -122,46 +85,56 @@ function DetailsCard({ operator }: { operator: OperatorDetail }) {
   );
 }
 
-function InvitesCard({ operator }: { operator: OperatorDetail }) {
+/** A yes/no line of setup: done in the good colour, still to do in amber. */
+function SetupLine(props: { label: string; isDone: boolean; doneText: string; todoText: string }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Invites</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ul className="flex flex-col gap-3 text-sm">
-          {operator.invites.map((invite) => (
-            <li key={invite.id} className="flex flex-col">
-              <span className="font-medium">{INVITE_STATUS_LABELS[invite.status]}</span>
-              <span className="text-muted-foreground">
-                Created {formatAdminDateTime(invite.createdAt)} · expires{" "}
-                {formatAdminDateTime(invite.expiresAt)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </CardContent>
-    </Card>
+    <>
+      <dt className="text-muted-foreground">{props.label}</dt>
+      <dd>
+        <Badge tone={props.isDone ? "good" : "attention"}>
+          {props.isDone ? props.doneText : props.todoText}
+        </Badge>
+      </dd>
+    </>
   );
 }
 
-function HistoryCard({ operator }: { operator: OperatorDetail }) {
+/** How far the business is through its own setup checklist, and how it is using the app (A7). */
+function SetupCard({ operator }: { operator: OperatorDetail }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Log</CardTitle>
+        <CardTitle>Setup and use</CardTitle>
       </CardHeader>
       <CardContent>
-        <ul className="flex flex-col gap-2 text-sm">
-          {operator.history.map((entry) => (
-            <li key={entry.id} className="flex flex-col sm:flex-row sm:gap-2">
-              <span className="text-muted-foreground">{formatAdminDateTime(entry.occurredAt)}</span>
-              <span>
-                {describeActivity(entry.entityType, entry.action)} by {entry.actorType}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <dl className="grid items-center gap-2 text-sm sm:grid-cols-[10rem_1fr]">
+          <SetupLine
+            label="Business details"
+            isDone={operator.hasBusinessDetails}
+            doneText="Entered"
+            todoText="Not entered yet"
+          />
+          <SetupLine
+            label="Stripe payments"
+            isDone={operator.isStripeReady}
+            doneText="Ready"
+            todoText="Not ready yet"
+          />
+          <SetupLine
+            label="Stripe payouts"
+            isDone={operator.isStripePayoutReady}
+            doneText="Ready"
+            todoText="Not ready yet"
+          />
+          <dt className="text-muted-foreground">Direct debit (BECS)</dt>
+          <dd>{operator.becsStatus ?? "Not asked for yet"}</dd>
+          <dt className="text-muted-foreground">Last sign-in</dt>
+          <dd>
+            {operator.lastSignedInAt ? formatAdminDateTime(operator.lastSignedInAt) : "Never"}
+          </dd>
+          <dt className="text-muted-foreground">Storage used</dt>
+          <dd>{formatFileSize(operator.storageUsedBytes)}</dd>
+        </dl>
       </CardContent>
     </Card>
   );

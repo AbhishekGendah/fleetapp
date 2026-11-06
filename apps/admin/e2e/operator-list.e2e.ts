@@ -85,10 +85,21 @@ test.describe("at phone width", () => {
   });
 });
 
-test("a link drawn as a button keeps its text and tap size", async ({ page }) => {
+test("New Operator opens its form in a pop-up, a fingertip tall (A3)", async ({ page }) => {
   await openList(page);
-  const newOperator = page.getByRole("link", { name: "New Operator" });
-  await expect(newOperator).toBeVisible();
+  const newOperator = page.getByRole("button", { name: "New Operator" });
   const box = await newOperator.boundingBox();
   expect(box?.height ?? 0).toBeGreaterThanOrEqual(MINIMUM_TOUCH_TARGET_PX);
+  await newOperator.click();
+  const dialog = page.getByRole("dialog", { name: "New Operator" });
+  await expect(dialog.getByRole("textbox", { name: /^Legal business name/ })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+});
+
+test("search runs as you type, without pressing Enter (A2)", async ({ page }) => {
+  await openList(page);
+  await page.getByLabel("Search by name or email").pressSequentially("charlie");
+  await expect(tableRows(page)).toHaveCount(1);
+  await expect(page).toHaveURL(/q=charlie/);
 });

@@ -5,6 +5,7 @@ import {
   type OperatorStatus,
 } from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
+import type { ActorType } from "@fleetapp/db/schema";
 import {
   ACTIVITY_ACTIONS,
   ACTIVITY_ENTITY_TYPES,
@@ -16,8 +17,21 @@ import {
 } from "@fleetapp/db/schema";
 import { and, asc, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 
-/** Enough history to see what happened recently; the full log stays in the database. */
-const OPERATOR_HISTORY_LIMIT = 50;
+/**
+ * The latest lines the Log page lists, a page at a time (Abhi's A6); older
+ * ones stay in the database.
+ */
+export const OPERATOR_HISTORY_LIMIT = 1000;
+
+/** A User of the Operator signing in. */
+const SIGNED_IN = and(
+  eq(activityLog.entityType, ACTIVITY_ENTITY_TYPES.user),
+  eq(activityLog.action, ACTIVITY_ACTIONS.signedIn),
+);
+/** Files that take up storage: uploaded and not yet purged, deleted or not. */
+const STORED_FILE = and(isNotNull(files.confirmedAt), isNull(files.purgedAt));
+// Sizes only: the admin role cannot read what any file is (rule 5).
+const STORED_BYTES = sql<number>`coalesce(sum(${files.sizeBytes}), 0)::bigint`.mapWith(Number);
 
 export interface OperatorSummary {
   id: string;
@@ -30,6 +44,10 @@ export interface OperatorSummary {
   /** Everything it has in storage, including deleted files not yet purged. */
   storageUsedBytes: number;
   createdAt: Date;
+  /** Whether it has entered its business details (the ABN is the one they all need). */
+  hasBusinessDetails: boolean;
+  /** Whether Stripe lets it take payments yet. */
+  isStripeReady: boolean;
 }
 
 /**
@@ -55,21 +73,12 @@ export async function listOperators(database: AnyDatabase, now: Date): Promise<O
         occurredAt: activityLog.occurredAt,
       })
       .from(activityLog)
-      .where(
-        and(
-          eq(activityLog.entityType, ACTIVITY_ENTITY_TYPES.user),
-          eq(activityLog.action, ACTIVITY_ACTIONS.signedIn),
-        ),
-      )
+      .where(SIGNED_IN)
       .orderBy(activityLog.operatorId, desc(activityLog.occurredAt)),
-    // Sizes only: the admin role cannot read what any file is (rule 5).
     database
-      .select({
-        operatorId: files.operatorId,
-        bytes: sql<number>`coalesce(sum(${files.sizeBytes}), 0)::bigint`.mapWith(Number),
-      })
+      .select({ operatorId: files.operatorId, bytes: STORED_BYTES })
       .from(files)
-      .where(and(isNotNull(files.confirmedAt), isNull(files.purgedAt)))
+      .where(STORED_FILE)
       .groupBy(files.operatorId),
   ]);
 
@@ -95,6 +104,8 @@ export async function listOperators(database: AnyDatabase, now: Date): Promise<O
     lastSignedInAt: lastSignInByOperator.get(operator.id) ?? null,
     storageUsedBytes: storageByOperator.get(operator.id) ?? 0,
     createdAt: operator.createdAt,
+    hasBusinessDetails: Boolean(operator.abn),
+    isStripeReady: operator.stripeChargesEnabled,
   }));
 }
 
@@ -110,7 +121,7 @@ export interface HistoryEntry {
   id: string;
   entityType: string;
   action: string;
-  actorType: string;
+  actorType: ActorType;
   occurredAt: Date;
 }
 
@@ -124,6 +135,14 @@ export interface OperatorDetail {
   user: { fullName: string; email: string } | null;
   invites: InviteSummary[];
   history: HistoryEntry[];
+  /** Setup, as the Operator's own checklist sees it (Abhi's A7). */
+  hasBusinessDetails: boolean;
+  isStripeReady: boolean;
+  isStripePayoutReady: boolean;
+  /** Stripe's word for the direct-debit capability, e.g. "active"; null if not asked for yet. */
+  becsStatus: string | null;
+  lastSignedInAt: Date | null;
+  storageUsedBytes: number;
 }
 
 export async function getOperatorDetail(
@@ -136,7 +155,7 @@ export async function getOperatorDetail(
     return null;
   }
 
-  const [userRows, inviteRows, historyRows] = await Promise.all([
+  const [userRows, inviteRows, historyRows, signInRows, storageRows] = await Promise.all([
     database
       .select({ fullName: users.fullName, email: users.email })
       .from(users)
@@ -160,6 +179,16 @@ export async function getOperatorDetail(
       .where(eq(activityLog.operatorId, operatorId))
       .orderBy(desc(activityLog.occurredAt))
       .limit(OPERATOR_HISTORY_LIMIT),
+    database
+      .select({ occurredAt: activityLog.occurredAt })
+      .from(activityLog)
+      .where(and(eq(activityLog.operatorId, operatorId), SIGNED_IN))
+      .orderBy(desc(activityLog.occurredAt))
+      .limit(1),
+    database
+      .select({ bytes: STORED_BYTES })
+      .from(files)
+      .where(and(eq(files.operatorId, operatorId), STORED_FILE)),
   ]);
 
   return {
@@ -181,5 +210,11 @@ export async function getOperatorDetail(
       sentAt: invite.sentAt,
     })),
     history: historyRows,
+    hasBusinessDetails: Boolean(operator.abn),
+    isStripeReady: operator.stripeChargesEnabled,
+    isStripePayoutReady: operator.stripePayoutsEnabled,
+    becsStatus: operator.stripeBecsCapabilityStatus,
+    lastSignedInAt: signInRows[0]?.occurredAt ?? null,
+    storageUsedBytes: storageRows[0]?.bytes ?? 0,
   };
 }

@@ -25,6 +25,7 @@ import type { OperatorActionDependencies } from "../src/lib/operators/dependenci
 import { EmailAlreadyInUseError, OperatorSuspendedError } from "../src/lib/operators/errors";
 import type { CreateOperatorInput } from "../src/lib/operators/operator-input";
 import { OPERATOR_LIST, OPERATOR_LIST_RULES } from "../src/app/operators/operator-list";
+import { summariseForAdminHome } from "../src/lib/operators/home-summary";
 import { getOperatorDetail, listOperators } from "../src/lib/operators/queries";
 import { resendInvite } from "../src/lib/operators/resend-invite";
 import { reactivateOperator, suspendOperator } from "../src/lib/operators/suspension";
@@ -197,6 +198,28 @@ describe("Operators and invites", () => {
 
       const csv = toCsv(exportTable(OPERATOR_LIST.columns, rows, "Australia/Perth"));
       expect(csv).toContain("'=HYPERLINK");
+    });
+
+    it("summarises businesses for the admin home and the setup a new one still needs (A1, A7)", async () => {
+      const { operatorId } = await createOperator(deps, adminUserId, newOperatorInput());
+
+      const summaries = await listOperators(connection.db, new Date());
+      const mine = summaries.find((summary) => summary.id === operatorId)!;
+      const home = summariseForAdminHome(summaries, new Date());
+      const detail = await getOperatorDetail(connection.db, operatorId, new Date());
+
+      expect(mine.hasBusinessDetails).toBe(false);
+      expect(mine.isStripeReady).toBe(false);
+      expect(home.total).toBe(summaries.length);
+      expect(home.countByStatus.get(mine.status)).toBeGreaterThan(0);
+      // Not signed up yet (invited), so not listed as still setting up.
+      expect(home.setupGaps.some((gap) => gap.operatorId === operatorId)).toBe(false);
+      expect(detail).toMatchObject({
+        hasBusinessDetails: false,
+        isStripeReady: false,
+        lastSignedInAt: null,
+        storageUsedBytes: 0,
+      });
     });
 
     it("shows how much each Operator stores, from sizes alone", async () => {
