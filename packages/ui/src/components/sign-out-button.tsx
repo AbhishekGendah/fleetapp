@@ -18,7 +18,7 @@ function errorName(error: unknown): string {
 // Loaded only when there is something to warn about, so every page stays small.
 const UnsentWarning = lazy(() => import("./unsent-warning"));
 
-interface SignOutButtonProps {
+export interface SignOutOptions {
   signInHref: string;
   /**
    * What would be lost by signing out on this device, if anything (e.g.
@@ -29,11 +29,24 @@ interface SignOutButtonProps {
   forgetOnDevice?: () => Promise<void>;
 }
 
+export interface SignOut {
+  /** Starts signing out: asks first when something would be lost. */
+  handleSignOut: () => Promise<void>;
+  isSigningOut: boolean;
+  /**
+   * The problem line and the "Not sent yet" question. Render it where it
+   * stays on screen while signing out, not inside a menu that closes.
+   */
+  feedback: React.ReactNode;
+}
+
 /**
- * Signs out, then loads the sign-in page afresh. A full page load rather than
- * an in-app move, so nothing from the signed-in session stays in memory.
+ * Signing out, for any control that starts it (a button, or an account
+ * menu's item). Signs out, then loads the sign-in page afresh: a full page
+ * load rather than an in-app move, so nothing from the signed-in session
+ * stays in memory.
  */
-export function SignOutButton(props: SignOutButtonProps): React.JSX.Element {
+export function useSignOut(props: SignOutOptions): SignOut {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [unsent, setUnsent] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -77,11 +90,8 @@ export function SignOutButton(props: SignOutButtonProps): React.JSX.Element {
     await signOutNow();
   }
 
-  return (
+  const feedback = (
     <>
-      <Button variant="outline" onClick={handleSignOut} disabled={isSigningOut}>
-        {isSigningOut ? "Signing out…" : "Sign out"}
-      </Button>
       {problem ? (
         <p role="alert" className="text-destructive max-w-48 text-xs">
           {problem}
@@ -97,6 +107,25 @@ export function SignOutButton(props: SignOutButtonProps): React.JSX.Element {
           />
         </Suspense>
       ) : null}
+    </>
+  );
+  return { handleSignOut, isSigningOut, feedback };
+}
+
+/** What a sign-out control says: "Sign out", or that it is under way. */
+export function signOutLabel(isSigningOut: boolean): string {
+  return isSigningOut ? "Signing out…" : "Sign out";
+}
+
+/** A Sign out button, as on the admin site and the suspended page. */
+export function SignOutButton(props: SignOutOptions): React.JSX.Element {
+  const { handleSignOut, isSigningOut, feedback } = useSignOut(props);
+  return (
+    <>
+      <Button variant="outline" onClick={handleSignOut} disabled={isSigningOut}>
+        {signOutLabel(isSigningOut)}
+      </Button>
+      {feedback}
     </>
   );
 }

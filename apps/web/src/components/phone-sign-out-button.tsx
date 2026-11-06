@@ -1,6 +1,6 @@
 "use client";
 
-import { SignOutButton } from "@fleetapp/ui/sign-out-button";
+import { SignOutButton, type SignOutOptions } from "@fleetapp/ui/sign-out-button";
 
 import { countAllQueued, forgetEverythingOnPhone } from "../lib/handover/offline/phone-tidy-up";
 import { SIGN_IN_PATH } from "../lib/paths";
@@ -15,18 +15,20 @@ function unsentText(count: number): string {
 }
 
 /**
- * Sign out, wiping every checklist from this phone (review A2-11), after
- * warning if photos or damage marks are still waiting to send.
+ * How the Operator app signs out, wherever it is started from: wiping every
+ * checklist from this phone (review A2-11), after warning if photos or
+ * damage marks are still waiting to send.
  */
+export const PHONE_SIGN_OUT: SignOutOptions = {
+  signInHref: SIGN_IN_PATH,
+  findUnsent: async () => {
+    const count = await countAllQueued();
+    return count > 0 ? unsentText(count) : null;
+  },
+  forgetOnDevice: forgetEverythingOnPhone,
+};
+
+/** A Sign out button that signs out as {@link PHONE_SIGN_OUT} says. */
 export function PhoneSignOutButton(): React.JSX.Element {
-  return (
-    <SignOutButton
-      signInHref={SIGN_IN_PATH}
-      findUnsent={async () => {
-        const count = await countAllQueued();
-        return count > 0 ? unsentText(count) : null;
-      }}
-      forgetOnDevice={forgetEverythingOnPhone}
-    />
-  );
+  return <SignOutButton {...PHONE_SIGN_OUT} />;
 }
