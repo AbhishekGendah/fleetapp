@@ -121,7 +121,10 @@ test.describe.serial("handing a car over", () => {
         ).toBeVisible();
       }
 
-      // The page is kept on the phone once visited: it opens with no signal.
+      // The page is kept on the phone once visited: it opens with no signal. Loaded afresh
+      // first: the worker only looks after pages first opened under /rentals/, and this one
+      // was reached in the app from the Rentals list (/rentals?q=...).
+      await page.reload({ waitUntil: "networkidle" });
       await page.evaluate(() => navigator.serviceWorker.ready);
       await page.reload({ waitUntil: "networkidle" });
       await context.setOffline(true);

@@ -18,7 +18,9 @@ describeDownloadBudgets({
   // Added 1 Nov 2026 with bookings. The form carries the date picker and record picker.
   "/rentals": 190,
   "/rentals/new": 510,
-  "/rentals/calendar": 270,
+  // Raised 6 Nov 2026 from 270 (315 KB measured): the redesigned Calendar adds the searchable car
+  // filter (the shared record picker) and the view switch; plus about 10%.
+  "/rentals/calendar": 345,
   // Added 1 Nov 2026 with contract templates (the add-template form).
   "/settings/contracts": 375,
   // Added 3 Nov 2026 with the ledger: the charge type forms (404 KB measured).

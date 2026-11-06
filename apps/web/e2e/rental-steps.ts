@@ -1,5 +1,5 @@
 import { FAKE_ADDRESS } from "@fleetapp/e2e/fake-places";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 import { samplePhoto } from "./sample-photo";
 import { recordCurrentPaperwork } from "./test-records";
@@ -93,14 +93,25 @@ export async function rentalIdOnPage(page: Page, parties: RentalParties): Promis
   return new URL(page.url()).pathname.split("/").at(-1) ?? "";
 }
 
-/** Opens the Renter's rental from the Rentals list, checking it is the one for their car. */
+/**
+ * Opens the Renter's rental from the Rentals list, searched by their car's
+ * rego (the list puts rentals out first, so a booking may be past its first
+ * page), checking it is the one for their car.
+ */
 export async function openRentalOf(page: Page, parties: RentalParties): Promise<string> {
-  await page.goto("/rentals", { waitUntil: "networkidle" });
-  await page
-    .getByRole("link", { name: new RegExp(parties.renterName) })
-    .first()
-    .click();
+  await page.goto(rentalsFoundBy(parties.carRego), { waitUntil: "networkidle" });
+  await rentalLinkOf(page, parties.renterName).first().click();
   return rentalIdOnPage(page, parties);
+}
+
+/** The Rentals list searched for some words, e.g. a rego. */
+export function rentalsFoundBy(words: string, query: Record<string, string> = {}): string {
+  return `/rentals?${new URLSearchParams({ ...query, q: words })}`;
+}
+
+/** A rental's own link on the Rentals list: its When, named with the Renter. */
+export function rentalLinkOf(page: Page, renterName: string): Locator {
+  return page.getByRole("link", { name: new RegExp(`^${renterName}'s rental, `) });
 }
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;

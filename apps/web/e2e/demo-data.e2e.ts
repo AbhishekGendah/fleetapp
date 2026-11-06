@@ -206,8 +206,10 @@ test.describe.serial("demo data", () => {
     page,
   }) => {
     await page.goto("/rentals/calendar", { waitUntil: "networkidle" });
-    await expect(page.getByRole("link", { name: /Handover · .+ · DEMO17$/ }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /Return · .+ · DEMO02$/ })).toHaveCount(0);
+    // On a phone: Day by day, this week's cards.
+    const rowOf = (rego: string) => page.getByRole("listitem").filter({ hasText: `${rego} · ` });
+    await expect(rowOf("DEMO17").filter({ hasText: "Handover" }).first()).toBeVisible();
+    await expect(rowOf("DEMO02").filter({ hasText: "Return" })).toHaveCount(0);
     await expectAccessible(page);
   });
 });

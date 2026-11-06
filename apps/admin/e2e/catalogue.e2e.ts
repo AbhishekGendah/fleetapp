@@ -360,26 +360,45 @@ test.describe("record picker", () => {
 });
 
 test.describe("bookings calendar", () => {
-  test("shows the month's bookings, each linking to its rental", async ({ page }) => {
+  test("shows the month Monday first, each handover and return linking to its rental", async ({
+    page,
+  }) => {
     await openCatalogue(page);
-    await expect(page.getByRole("tab", { name: "Month view" })).toHaveAttribute(
-      "aria-selected",
-      "true",
+    const calendar = page.locator(".bookings-calendar");
+    await expect(calendar.getByRole("columnheader").first()).toHaveText(/Monday/);
+    const handover = calendar.getByRole("link", { name: "10:00 am Handover · Sam · 1ABC234" });
+    await expect(handover).toHaveAttribute("href", "#booking-1");
+    await expect(calendar.getByRole("link", { name: /Return · Alex · 1XYZ789$/ })).toHaveAttribute(
+      "href",
+      "#booking-2",
     );
-    const booking = page.getByRole("link", { name: /1ABC234 · Sam Example/ }).first();
-    await expect(booking).toHaveAttribute("href", "#booking-1");
+    // A day's number is a link to that day, read out with its date.
+    await expect(calendar.getByRole("link", { name: /^Open 8 December 2026/ })).toHaveText("8");
+  });
+});
+
+test.describe("view switch and week strip", () => {
+  test("mark the view showing and today", async ({ page }) => {
+    await openCatalogue(page);
+    const views = page.getByRole("navigation", { name: "Example views" });
+    await expect(views.getByRole("link", { name: "Month" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await expect(views.getByRole("link", { name: "By car" })).not.toHaveAttribute("aria-current");
+    const week = page.getByRole("navigation", { name: "Example week" });
+    await expect(week.getByRole("link")).toHaveCount(7);
+    await expect(week.locator('[aria-current="date"]')).toContainText(/Wed\s*2/);
+    await expect(week.getByRole("link", { name: /^Tue\s*1\s*, has bookings$/ })).toBeVisible();
   });
 
   test.describe("at phone width", () => {
     test.use({ viewport: PHONE_VIEWPORT });
 
-    test("lists the bookings rather than squeezing a month grid", async ({ page }) => {
+    test("the view switch uses its phone name", async ({ page }) => {
       await openCatalogue(page);
-      await expect(page.getByRole("link", { name: /1XYZ789 · Alex Sample/ }).first()).toBeVisible();
-      await expect(page.getByRole("tab", { name: "List view" })).toHaveAttribute(
-        "aria-selected",
-        "true",
-      );
+      const views = page.getByRole("navigation", { name: "Example views" });
+      await expect(views.getByRole("link", { name: "Day by day" })).toBeVisible();
     });
   });
 });

@@ -8,6 +8,8 @@ import {
   addCarToBook,
   fillRental,
   openRentalTab,
+  rentalLinkOf,
+  rentalsFoundBy,
   type RentalParties,
   type TypedMoment,
 } from "./rental-steps";
@@ -69,11 +71,8 @@ test.describe.serial("bookings", () => {
       await page.getByRole("button", { name: "Add template" }).click();
       await expect(page.getByText("Used for new rentals").first()).toBeVisible();
     }
-    await page.goto("/rentals", { waitUntil: "networkidle" });
-    await page
-      .getByRole("link", { name: new RegExp(RENTER_NAME) })
-      .first()
-      .click();
+    await page.goto(rentalsFoundBy(CAR_REGO), { waitUntil: "networkidle" });
+    await rentalLinkOf(page, RENTER_NAME).first().click();
     await openRentalTab(page, "Papers");
 
     await expect(page.getByText(/Not on file yet/)).toBeVisible();
@@ -85,11 +84,8 @@ test.describe.serial("bookings", () => {
   test("records bond received, lists the rest before handover, and corrects an entry", async ({
     page,
   }) => {
-    await page.goto("/rentals", { waitUntil: "networkidle" });
-    await page
-      .getByRole("link", { name: new RegExp(RENTER_NAME) })
-      .first()
-      .click();
+    await page.goto(rentalsFoundBy(CAR_REGO), { waitUntil: "networkidle" });
+    await rentalLinkOf(page, RENTER_NAME).first().click();
     const bondLine = (label: string) =>
       page.locator("dt", { hasText: label }).locator("xpath=following-sibling::dd[1]");
     await openRentalTab(page, "Money");
@@ -182,10 +178,8 @@ test.describe.serial("bookings", () => {
     await page.goto("/rentals", { waitUntil: "networkidle" });
     await page.getByRole("searchbox").fill(CAR_REGO);
     await page.keyboard.press("Enter");
-    await page
-      .getByRole("link", { name: new RegExp(RENTER_NAME) })
-      .first()
-      .click();
+    await page.waitForURL(/q=/);
+    await rentalLinkOf(page, RENTER_NAME).first().click();
     await page
       .getByRole("link", { name: new RegExp(`^${CAR_REGO}`) })
       .first()
@@ -228,11 +222,8 @@ test.describe("rentals at phone width", () => {
 
   test("a rental's page, with its bond, fits the screen", async ({ page }) => {
     // A booking still waiting for its bond, so the bond card has its button.
-    await page.goto("/rentals?status=booked", { waitUntil: "networkidle" });
-    await page
-      .getByRole("link", { name: new RegExp(RENTER_NAME) })
-      .first()
-      .click();
+    await page.goto(rentalsFoundBy(CAR_REGO, { status: "booked" }), { waitUntil: "networkidle" });
+    await rentalLinkOf(page, RENTER_NAME).first().click();
     await openRentalTab(page, "Money");
     await expect(page.getByRole("heading", { name: "Bond", exact: true })).toBeVisible();
     await expectNoSidewaysScroll(page);
