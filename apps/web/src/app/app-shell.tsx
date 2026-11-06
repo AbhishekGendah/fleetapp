@@ -10,6 +10,7 @@ import { HOME_PATH } from "../lib/paths";
 import type { SignedInUser } from "../lib/require-user";
 import { SidebarNavigation, TabBarNavigation } from "./navigation";
 import { AccountMenu } from "../components/account-menu";
+import { HeaderSearch } from "../components/header-search";
 import { PhoneWeekLimit } from "../components/phone-week-limit";
 
 /**
@@ -22,7 +23,6 @@ export async function AppShell({
   user,
   children,
   strip,
-  search,
   isWide = false,
 }: {
   user: SignedInUser;
@@ -32,8 +32,6 @@ export async function AppShell({
    * top bar and the page's content.
    */
   strip?: React.ReactNode;
-  /** The search box, in the middle of the top bar. */
-  search?: React.ReactNode;
   /** Uses the whole screen's width, for a page that shows more the wider it is (the timeline). */
   isWide?: boolean;
 }) {
@@ -70,8 +68,10 @@ export async function AppShell({
                 {user.operatorName}
               </span>
             </div>
-            {/* The middle: the search box when given, and the space that pushes the account button right. */}
-            <div className="flex min-w-0 flex-1 justify-end md:justify-center">{search}</div>
+            {/* The middle: the search box (its button on a phone), and the space that pushes the account button right. */}
+            <div className="flex min-w-0 flex-1 justify-end md:justify-center">
+              <HeaderSearch />
+            </div>
             <AccountMenu initial={accountInitial(user)} />
           </div>
         </header>

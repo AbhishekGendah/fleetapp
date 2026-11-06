@@ -21,11 +21,9 @@ export async function addTestRenter(
   web: TestConnection,
   owner: ActingUser,
   fullName = "Sam Example",
+  phone = "0412345678",
 ): Promise<string> {
-  const parsed = parseRenterForm(
-    { ...emptyRenterForm(), fullName, phone: "0412345678" },
-    "2026-10-30",
-  );
+  const parsed = parseRenterForm({ ...emptyRenterForm(), fullName, phone }, "2026-10-30");
   return createRenter(web.db, owner, parsed.data!);
 }
 

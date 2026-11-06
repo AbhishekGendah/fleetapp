@@ -28,11 +28,11 @@ import { and, asc, count, desc, eq, inArray, isNull, sql, type SQL } from "drizz
 export const STATUS_FILTER_KEY = "status";
 
 /** Each rental's Renter and car, matched on the Operator too (the two-column links). */
-const RENTER_OF_RENTAL = and(
+export const RENTER_OF_RENTAL = and(
   eq(renters.id, rentals.renterId),
   eq(renters.operatorId, rentals.operatorId),
 );
-const CAR_OF_RENTAL = and(
+export const CAR_OF_RENTAL = and(
   eq(vehicles.id, rentals.vehicleId),
   eq(vehicles.operatorId, rentals.operatorId),
 );
