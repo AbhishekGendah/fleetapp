@@ -67,6 +67,16 @@ export function detailsStillNeeded(renter: RenterCompleteness): DetailNeededBefo
   return DETAILS_NEEDED_BEFORE_RENTING.filter((detail) => isMissing[detail]);
 }
 
+/** The first word of a full name, e.g. "Jamie" from "Jamie Park". */
+export function firstNameOf(fullName: string): string {
+  return fullName.trim().split(/\s+/)[0] || fullName;
+}
+
+/** What to call a Renter in a short line ("How Jamie pays"): their preferred name, else their first name. */
+export function renterFirstName(fullName: string, preferredName: string | null): string {
+  return preferredName?.trim() || firstNameOf(fullName);
+}
+
 /** "Sam Example (Sammy)": the preferred name only when it differs. */
 export function renterDisplayName(fullName: string, preferredName: string | null): string {
   return preferredName && preferredName !== fullName ? `${fullName} (${preferredName})` : fullName;

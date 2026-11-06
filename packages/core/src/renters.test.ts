@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { countryName, isOverseasCountryCode, overseasCountryOptions } from "./countries";
-import { ageOn, detailsStillNeeded, renterDisplayName } from "./renters";
+import {
+  ageOn,
+  detailsStillNeeded,
+  firstNameOf,
+  renterDisplayName,
+  renterFirstName,
+} from "./renters";
 
 describe("a Renter's age", () => {
   it("goes up on the birthday itself, not the day after", () => {
@@ -61,5 +67,17 @@ describe("overseas countries", () => {
     expect(countryName("NZ")).toBe("New Zealand");
     expect(isOverseasCountryCode("AU")).toBe(false);
     expect(overseasCountryOptions()[0]?.label).toBe("Afghanistan");
+  });
+});
+
+describe("a Renter's first name", () => {
+  it("uses the preferred name when there is one, else the first word of the full name", () => {
+    expect(renterFirstName("Samantha Example", "Sam")).toBe("Sam");
+    expect(renterFirstName("  Jamie   Park ", null)).toBe("Jamie");
+    expect(renterFirstName("Jamie Park", "  ")).toBe("Jamie");
+  });
+
+  it("keeps a one-word name whole", () => {
+    expect(firstNameOf("Cher")).toBe("Cher");
   });
 });

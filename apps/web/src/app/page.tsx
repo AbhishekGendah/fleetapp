@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import {
+  firstNameOf,
   formatDayInTimeZone,
   getGreeting,
   getSetupChecklist,
@@ -28,10 +29,6 @@ export const metadata: Metadata = { title: "Dashboard" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function firstNameOf(fullName: string): string {
-  return fullName.trim().split(/\s+/)[0] ?? fullName;
-}
 
 /**
  * The Operator's dashboard (docs/plans/look-and-feel.md, slice 2). On a
