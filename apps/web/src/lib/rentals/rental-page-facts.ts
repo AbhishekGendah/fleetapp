@@ -11,8 +11,8 @@ import {
   type FuelLevel,
   type RentalStatus,
 } from "@fleetapp/core";
-import type { BadgeTone } from "@fleetapp/ui/badge";
 
+import { RENTAL_STATUS_BADGES, type RentalStatusBadge } from "./rental-list-status";
 import type { RentalClock } from "./rental-records";
 import { rentalRateOf } from "./rental-labels";
 
@@ -30,10 +30,7 @@ export interface RentalFact {
   note?: string;
 }
 
-export interface RentalStatusWords {
-  text: string;
-  tone: BadgeTone;
-}
+export type RentalStatusWords = RentalStatusBadge;
 
 const TODAY_WORD = "Today";
 
@@ -54,8 +51,6 @@ export function rentalStatusWords(
   clock: RentalClock,
 ): RentalStatusWords {
   switch (rental.status) {
-    case "draft":
-      return { text: "Draft", tone: "neutral" };
     case "booked": {
       const day = dayWords(rental.plannedStart, clock);
       return {
@@ -68,12 +63,8 @@ export function rentalStatusWords(
         text: rental.handedOverAt ? `Out since ${dayWords(rental.handedOverAt, clock)}` : "Out",
         tone: "out",
       };
-    case "returned":
-      return { text: "To close", tone: "attention" };
-    case "closed":
-      return { text: "Closed", tone: "neutral" };
-    case "cancelled":
-      return { text: "Cancelled", tone: "neutral" };
+    default:
+      return RENTAL_STATUS_BADGES[rental.status];
   }
 }
 

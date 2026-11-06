@@ -1,16 +1,7 @@
-import { RENTAL_STATUS_LABELS, type RentalStatus } from "@fleetapp/core";
-import { Badge, type BadgeTone } from "@fleetapp/ui/badge";
+import { Badge } from "@fleetapp/ui/badge";
 
+import { RENTAL_STATUS_BADGES } from "../../lib/rentals/rental-list-status";
 import type { RentalSummary } from "../../lib/rentals/rental-queries";
-
-const STATUS_TONES: Readonly<Record<RentalStatus, BadgeTone>> = {
-  draft: "neutral",
-  booked: "good",
-  active: "good",
-  returned: "neutral",
-  closed: "neutral",
-  cancelled: "neutral",
-};
 
 /** What is wrong with a rental out on rent: overdue, or at risk because the car is not back. */
 export function RentalAlertBadges({
@@ -26,15 +17,19 @@ export function RentalAlertBadges({
   );
 }
 
-/** The rental's step, then anything that needs a look: overdue, at risk, starting soon. */
+/**
+ * The rental's step in plain words (Out, To close), then anything that needs
+ * a look: overdue, at risk, starting soon.
+ */
 export function RentalBadges({
   rental,
 }: {
   rental: Pick<RentalSummary, "status" | "isOverdue" | "isAtRisk" | "isStartingSoon">;
 }) {
+  const badge = RENTAL_STATUS_BADGES[rental.status];
   return (
     <span className="flex flex-wrap gap-1">
-      <Badge tone={STATUS_TONES[rental.status]}>{RENTAL_STATUS_LABELS[rental.status]}</Badge>
+      <Badge tone={badge.tone}>{badge.text}</Badge>
       <RentalAlertBadges rental={rental} />
       {rental.isStartingSoon && !rental.isAtRisk ? (
         <Badge tone="attention">Starting soon</Badge>

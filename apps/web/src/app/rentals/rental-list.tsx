@@ -1,79 +1,182 @@
-import {
-  formatDateTimeInTimeZone,
-  RENTAL_STATUS_LABELS,
-  RENTAL_STATUSES,
-  renterDisplayName,
-} from "@fleetapp/core";
+import { formatCents, renterDisplayName } from "@fleetapp/core";
+import { cn } from "@fleetapp/ui/cn";
 import type { DataListDefinition } from "@fleetapp/ui/data-list";
+import { InlineRecordLink, RowLink } from "@fleetapp/ui/row-link";
+import Link from "next/link";
 
-import { rentalRateText } from "../../lib/rentals/rental-labels";
-import { STATUS_FILTER_KEY, type RentalSummary } from "../../lib/rentals/rental-queries";
+import { carPath, rentalPath, renterPath } from "../../lib/paths";
+import { rentalRateOf } from "../../lib/rentals/rental-labels";
+import {
+  RENTAL_LIST_STATUS_LABELS,
+  RENTAL_LIST_STATUSES,
+  RENTAL_STATUS_BADGES,
+} from "../../lib/rentals/rental-list-status";
+import {
+  RELEVANCE_ORDER,
+  STATUS_FILTER_KEY,
+  type RentalSummary,
+} from "../../lib/rentals/rental-queries";
+import type { RentalClock } from "../../lib/rentals/rental-records";
+import { rentalWhenWords, type RentalWhenWords } from "../../lib/rentals/rental-when";
 import { RentalBadges } from "./rental-status-badge";
 
-const ONGOING = "Ongoing";
+/** A rental as the list shows it: its When in words, and what its Renter owes on it. */
+export interface RentalListRow extends RentalSummary {
+  when: RentalWhenWords;
+  /** From its ledger (rule 11); none when nothing has been charged or paid on it yet. */
+  balanceCents: number | null;
+}
 
-/** The rentals list on the Operator's clock (rule 10). */
-export function rentalList(timeZone: string): DataListDefinition<RentalSummary> {
-  const onClock = (moment: Date) => formatDateTimeInTimeZone(moment, timeZone);
-  return {
-    columns: [
-      {
-        key: "renter",
-        label: "Renter",
-        isCardTitle: true,
-        isSortable: true,
-        exportValue: (rental) =>
-          renterDisplayName(rental.renterFullName, rental.renterPreferredName),
-      },
-      {
-        key: "rego",
-        label: "Car",
-        isSortable: true,
-        exportValue: (rental) => `${rental.rego} ${rental.make} ${rental.model}`,
-        render: (rental) => (
-          <span>
-            <span className="font-medium">{rental.rego}</span>{" "}
-            <span className="text-muted-foreground">
-              {rental.make} {rental.model}
-            </span>
+const NOTHING_YET = "–";
+const RATE_UNITS = { day: "day", week: "wk" } as const;
+
+/** "$350.00/wk" or "$70.00/day". */
+function rentShortText(rental: RentalSummary): string {
+  const rate = rentalRateOf(rental);
+  return rate ? `${formatCents(rate.cents)}/${RATE_UNITS[rate.per]}` : NOTHING_YET;
+}
+
+function renterName(rental: RentalSummary): string {
+  return renterDisplayName(rental.renterFullName, rental.renterPreferredName);
+}
+
+/** Red and bold while the Renter owes on it (rule 34: weight as well as colour). */
+function OwingAmount({ rental }: { rental: RentalListRow }) {
+  if (rental.balanceCents === null) {
+    return <span className="text-muted-foreground">{NOTHING_YET}</span>;
+  }
+  return (
+    <span
+      className={cn("tabular-nums", rental.balanceCents > 0 && "text-destructive font-extrabold")}
+    >
+      {formatCents(rental.balanceCents)}
+    </span>
+  );
+}
+
+/** "$450.00 owing", "Paid up", "$20.00 in credit", or the rent while nothing is charged yet. */
+function phoneMoneyText(rental: RentalListRow): string {
+  if (rental.balanceCents === null) {
+    return rentShortText(rental);
+  }
+  if (rental.balanceCents > 0) {
+    return `${formatCents(rental.balanceCents)} owing`;
+  }
+  return rental.balanceCents < 0 ? `${formatCents(-rental.balanceCents)} in credit` : "Paid up";
+}
+
+/** The row's own link: the When words, named with the Renter so it makes sense alone (WCAG 2.5.3). */
+function WhenLink({ rental, words }: { rental: RentalListRow; words: string }) {
+  return (
+    <RowLink asChild>
+      <Link href={rentalPath(rental.id)} aria-label={`${renterName(rental)}'s rental, ${words}`}>
+        {words}
+      </Link>
+    </RowLink>
+  );
+}
+
+/**
+ * A rental's card on a phone (6 Nov 2026 look): name and status on top,
+ * the car, then when and the money. One tap anywhere opens the rental.
+ */
+export function RentalCard({ rental }: { rental: RentalListRow }) {
+  const isOwing = rental.balanceCents !== null && rental.balanceCents > 0;
+  return (
+    <>
+      <span className="flex items-start justify-between gap-2">
+        <span className="text-base font-bold">{renterName(rental)}</span>
+        <RentalBadges rental={rental} />
+      </span>
+      <span className="text-muted-foreground text-sm">
+        {rental.rego} · {rental.make} {rental.model}
+      </span>
+      <span className="flex items-center justify-between gap-2 text-sm">
+        <WhenLink rental={rental} words={rental.when.shortText} />
+        <span className={cn("tabular-nums", isOwing && "text-destructive font-extrabold")}>
+          {phoneMoneyText(rental)}
+        </span>
+      </span>
+    </>
+  );
+}
+
+/** The Rentals list (docs/plans/look-and-feel.md, "Rentals list"). */
+export const RENTAL_LIST: DataListDefinition<RentalListRow> = {
+  columns: [
+    {
+      key: "renter",
+      label: "Renter",
+      isCardTitle: true,
+      isSortable: true,
+      exportValue: renterName,
+      render: (rental) => (
+        <InlineRecordLink asChild>
+          <Link href={renterPath(rental.renterId)}>{renterName(rental)}</Link>
+        </InlineRecordLink>
+      ),
+    },
+    {
+      key: "rego",
+      label: "Car",
+      isSortable: true,
+      exportValue: (rental) => `${rental.rego} ${rental.make} ${rental.model}`,
+      render: (rental) => (
+        <span>
+          <InlineRecordLink asChild>
+            <Link href={carPath(rental.vehicleId)}>{rental.rego}</Link>
+          </InlineRecordLink>{" "}
+          <span className="text-muted-foreground">
+            {rental.make} {rental.model}
           </span>
-        ),
-      },
-      {
-        key: "start",
-        label: "Starts",
-        isSortable: true,
-        exportValue: (rental) => onClock(rental.plannedStart),
-      },
-      {
-        key: "end",
-        label: "Ends",
-        isSortable: true,
-        exportValue: (rental) => (rental.plannedEnd ? onClock(rental.plannedEnd) : ONGOING),
-      },
-      {
-        key: "weeklyRate",
-        label: "Rate",
-        exportValue: (rental) => rentalRateText(rental),
-      },
-      {
-        key: "status",
-        label: "Status",
-        isSortable: true,
-        exportValue: (rental) => RENTAL_STATUS_LABELS[rental.status],
-        render: (rental) => <RentalBadges rental={rental} />,
-      },
-    ],
-    filters: [
-      {
-        key: STATUS_FILTER_KEY,
-        label: "Status",
-        options: RENTAL_STATUSES.map((status) => ({
-          value: status,
-          label: RENTAL_STATUS_LABELS[status],
-        })),
-      },
-    ],
-    defaultSort: { column: "start", direction: "desc" },
-  };
+        </span>
+      ),
+    },
+    {
+      key: "start",
+      label: "When",
+      isSortable: true,
+      exportValue: (rental) => rental.when.text,
+      render: (rental) => <WhenLink rental={rental} words={rental.when.text} />,
+    },
+    { key: "rent", label: "Rent", exportValue: rentShortText },
+    {
+      key: "owing",
+      label: "Owing",
+      isAlignedEnd: true,
+      exportValue: (rental) => rental.balanceCents,
+      render: (rental) => <OwingAmount rental={rental} />,
+    },
+    {
+      key: "status",
+      label: "Status",
+      isSortable: true,
+      exportValue: (rental) => RENTAL_STATUS_BADGES[rental.status].text,
+      render: (rental) => <RentalBadges rental={rental} />,
+    },
+  ],
+  filters: [
+    {
+      key: STATUS_FILTER_KEY,
+      label: "Status",
+      options: RENTAL_LIST_STATUSES.map((status) => ({
+        value: status,
+        label: RENTAL_LIST_STATUS_LABELS[status],
+      })),
+    },
+  ],
+  defaultSort: { column: RELEVANCE_ORDER, direction: "asc" },
+};
+
+/** The page's rentals with their When and balance, on the Operator's clock (rule 10). */
+export function rentalListRows(
+  rentals: readonly RentalSummary[],
+  balances: ReadonlyMap<string, number>,
+  clock: RentalClock,
+): RentalListRow[] {
+  return rentals.map((rental) => ({
+    ...rental,
+    when: rentalWhenWords(rental, clock),
+    balanceCents: balances.get(rental.id) ?? null,
+  }));
 }

@@ -3,7 +3,6 @@ import {
   formatCalendarDate,
   formatDateTimeInTimeZone,
   MILLISECONDS_PER_DAY,
-  RENTAL_STATUSES,
   todayInTimeZone,
   type ListPage,
   type ListQuery,
@@ -23,7 +22,8 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { isRentalOfCar } from "./rental-of-car";
 import { rentalRateText } from "./rental-labels";
 import type { RentalClock } from "./rental-records";
-import { and, asc, count, desc, eq, isNull, sql, type SQL } from "drizzle-orm";
+import { rentalListStatusOf, RENTAL_STATUSES_OF } from "./rental-list-status";
+import { and, asc, count, desc, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 
 export const STATUS_FILTER_KEY = "status";
 
@@ -101,6 +101,8 @@ function summaryColumnsAt({ now, timeZone }: RentalClock) {
     weeklyRateCents: rateInForce("weekly_rate_cents", now, todayInTimeZone(now, timeZone)),
     dailyRateCents: rateInForce("daily_rate_cents", now, todayInTimeZone(now, timeZone)),
     isLongTerm: rentals.isLongTerm,
+    handedOverAt: rentals.handedOverAt,
+    returnedAt: rentals.returnedAt,
     isOverdue: isOverdueAt(now),
     isStartingSoon: isStartingSoonAt(now),
     isAtRisk: isAtRiskAt(now),
@@ -126,14 +128,34 @@ export interface RentalSummary {
   dailyRateCents: number | null;
   /** Long-term or a short hire; none on a rental from before rent in blocks. */
   isLongTerm: boolean | null;
+  handedOverAt: Date | null;
+  returnedAt: Date | null;
   isOverdue: boolean;
   isStartingSoon: boolean;
   isAtRisk: boolean;
 }
 
+/** Not a column: the Rentals list's own order, most relevant first. */
+export const RELEVANCE_ORDER = "relevance";
+
+/**
+ * Out first, the soonest back at the top (ongoing ones after); then bookings
+ * and drafts, the soonest to start first; then those to close, the longest
+ * waiting first; then the finished, the latest first.
+ */
+const MOST_RELEVANT_FIRST = sql`(
+  case ${rentals.status} when 'active' then 0 when 'booked' then 1 when 'draft' then 2
+    when 'returned' then 3 else 4 end,
+  case when ${rentals.status} = 'active' then extract(epoch from ${rentals.plannedEnd})
+    when ${rentals.status} in ('booked', 'draft') then extract(epoch from ${rentals.plannedStart})
+    when ${rentals.status} = 'returned' then extract(epoch from coalesce(${rentals.returnedAt}, ${rentals.plannedEnd}))
+    else -extract(epoch from ${rentals.plannedStart}) end
+)`;
+
 export const RENTAL_LIST_RULES: DatabaseListRules = {
   searchIn: [renters.fullName, renters.preferredName, vehicles.rego],
   sortBy: {
+    [RELEVANCE_ORDER]: MOST_RELEVANT_FIRST,
     start: rentals.plannedStart,
     end: rentals.plannedEnd,
     renter: sql`lower(${renters.fullName})`,
@@ -141,10 +163,10 @@ export const RENTAL_LIST_RULES: DatabaseListRules = {
     status: rentals.status,
   },
   filterBy: {
-    [STATUS_FILTER_KEY]: (value) =>
-      RENTAL_STATUSES.some((status) => status === value)
-        ? sql`${rentals.status} = ${value}`
-        : undefined,
+    [STATUS_FILTER_KEY]: (value) => {
+      const group = rentalListStatusOf(value);
+      return group ? inArray(rentals.status, [...RENTAL_STATUSES_OF[group]]) : undefined;
+    },
   },
   tieBreaker: rentals.id,
 };
@@ -310,9 +332,13 @@ export async function loadRental(
 export interface CalendarBooking {
   rentalId: string;
   status: RentalStatus;
+  renterId: string;
   vehicleId: string;
   rego: string;
+  make: string;
+  model: string;
   renterFullName: string;
+  renterPreferredName: string | null;
   heldFrom: Date;
   /** None while ongoing. */
   heldUntil: Date | null;
@@ -329,9 +355,13 @@ export async function listCalendarBookings(
       .select({
         rentalId: rentals.id,
         status: rentals.status,
+        renterId: rentals.renterId,
         vehicleId: carHolds.vehicleId,
         rego: vehicles.rego,
+        make: vehicles.make,
+        model: vehicles.model,
         renterFullName: renters.fullName,
+        renterPreferredName: renters.preferredName,
         heldFrom: sql<Date>`lower(${carHolds.heldDuring})`.mapWith(carHolds.createdAt),
         heldUntil: sql<Date | null>`upper(${carHolds.heldDuring})`.mapWith(carHolds.createdAt),
       })
@@ -357,10 +387,17 @@ export async function listCalendarBookings(
   );
 }
 
-/** Whether the Operator has made any rental at all. */
-export async function hasAnyRental(database: AnyDatabase, operatorId: string): Promise<boolean> {
-  const [row] = await withTenant(database, operatorId, (tx) =>
-    tx.select({ id: rentals.id }).from(rentals).where(eq(rentals.operatorId, operatorId)).limit(1),
+/** How many of the Operator's rentals are at each status, for the list's filters. */
+export async function countRentalsByStatus(
+  database: AnyDatabase,
+  operatorId: string,
+): Promise<Partial<Record<RentalStatus, number>>> {
+  const rows = await withTenant(database, operatorId, (tx) =>
+    tx
+      .select({ status: rentals.status, total: count() })
+      .from(rentals)
+      .where(eq(rentals.operatorId, operatorId))
+      .groupBy(rentals.status),
   );
-  return row !== undefined;
+  return Object.fromEntries(rows.map((row) => [row.status, row.total]));
 }
