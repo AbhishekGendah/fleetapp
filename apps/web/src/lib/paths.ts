@@ -8,6 +8,7 @@ export const RESET_PASSWORD_PATH = "/reset-password";
 export const SETTINGS_PATH = "/settings";
 /** The business details card on the Settings page, for linking straight to it. */
 export const BUSINESS_DETAILS_ANCHOR = "business-details";
+export const BUSINESS_DETAILS_PATH = `${SETTINGS_PATH}#${BUSINESS_DETAILS_ANCHOR}`;
 export const CONTRACTS_PATH = `${SETTINGS_PATH}/contracts`;
 export const CHARGE_TYPES_PATH = `${SETTINGS_PATH}/charges`;
 export const INVOICE_SETTINGS_PATH = `${SETTINGS_PATH}/invoices`;

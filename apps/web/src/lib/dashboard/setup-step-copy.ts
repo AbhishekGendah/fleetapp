@@ -1,12 +1,6 @@
 import type { SetupStepKey } from "@fleetapp/core";
 
-import {
-  BUSINESS_DETAILS_ANCHOR,
-  CARS_PATH,
-  CONTRACTS_PATH,
-  PAYMENT_SETTINGS_PATH,
-  SETTINGS_PATH,
-} from "../paths";
+import { BUSINESS_DETAILS_PATH, CARS_PATH, CONTRACTS_PATH, PAYMENT_SETTINGS_PATH } from "../paths";
 
 export interface SetupStepCopy {
   title: string;
@@ -20,7 +14,7 @@ export const SETUP_STEP_COPY: Record<SetupStepKey, SetupStepCopy> = {
   business_details: {
     title: "Add your business details",
     description: "Your ABN, address and contact details, for contracts and invoices.",
-    href: `${SETTINGS_PATH}#${BUSINESS_DETAILS_ANCHOR}`,
+    href: BUSINESS_DETAILS_PATH,
     actionLabel: "Add details",
   },
   stripe: {

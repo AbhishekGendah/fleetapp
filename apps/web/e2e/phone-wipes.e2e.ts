@@ -5,6 +5,7 @@ import { PHONE_VIEWPORT } from "./e2e-settings";
 import { bookedRental } from "./money-steps";
 import type { RentalParties } from "./rental-steps";
 import { samplePhoto } from "./sample-photo";
+import { startSignOut } from "./frame-steps";
 
 /**
  * What a handover phone keeps of a Renter, and when it lets go (reviews
@@ -149,7 +150,7 @@ test.describe.serial("what the handover phone keeps", () => {
     await row.locator('input[type="file"]').setInputFiles(await samplePhoto(page, "front.jpg"));
     await expect(page.getByText(/1 waiting to send/)).toBeVisible();
 
-    await page.getByRole("button", { name: "Sign out" }).click();
+    await startSignOut(page);
     const warning = page.getByRole("alertdialog", { name: "Not sent yet" });
     await expect(warning).toContainText("1 photo or damage mark on this phone hasn't been sent");
     await expectAccessible(page);
@@ -158,7 +159,7 @@ test.describe.serial("what the handover phone keeps", () => {
     await expect(page.getByRole("heading", { name: `Handover: ${CAR_REGO}` })).toBeVisible();
 
     await page.route("**/api/auth/sign-out", (route) => route.fulfill({ json: { success: true } }));
-    await page.getByRole("button", { name: "Sign out" }).click();
+    await startSignOut(page);
     await warning.getByRole("button", { name: "Sign out and lose them" }).click();
     await page.waitForURL(/\/sign-in/);
     expect(await hasPhoneDatabase(page)).toBe(false);
