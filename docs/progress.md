@@ -1192,9 +1192,9 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
 longer drawing over the top bar. Checks are faster (web browser tests in
 three groups, no slow library install): push to live about 8 minutes.
 Waiting on Abhi:
-1. Vercel Authentication (Settings, Deployment Protection) on fleetapp-web,
-   then fleetapp-admin, so preview links are protected (rule: previews are
-   protected). Then visual changes go to a branch first for a quick preview.
+1. Done 6 Nov: Vercel Authentication (Standard Protection) confirmed on
+   both projects, so preview links need a Vercel sign-in. From now on
+   visual changes go to a branch first for a quick preview link.
 2. Go or wait on B2 (loading placeholders, faster tabs, speed reports).
 3. His Operator app suggestions; the look slice 2 (dashboard, rental page);
    the nine improvements; the Phase 4 plans (slices 5 to 8).
