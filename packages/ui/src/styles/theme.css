@@ -68,6 +68,19 @@
     border-color: var(--color-border);
   }
 
+  /*
+   * Tailwind 4 draws buttons with the plain arrow; show the pointing hand on
+   * anything pressable, as links already do (Abhi, 6 Nov 2026).
+   */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  summary,
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled) {
+    cursor: pointer;
+  }
+
   /* Tick boxes and radio buttons in the brand teal, not the browser's blue. */
   input[type="checkbox"],
   input[type="radio"] {

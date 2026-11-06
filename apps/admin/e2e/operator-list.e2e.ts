@@ -90,6 +90,8 @@ test("New Operator opens its form in a pop-up, a fingertip tall (A3)", async ({ 
   const newOperator = page.getByRole("button", { name: "New Operator" });
   const box = await newOperator.boundingBox();
   expect(box?.height ?? 0).toBeGreaterThanOrEqual(MINIMUM_TOUCH_TARGET_PX);
+  // The pointing hand on hover, as on links (Tailwind 4 shows the arrow on buttons).
+  await expect(newOperator).toHaveCSS("cursor", "pointer");
   await newOperator.click();
   const dialog = page.getByRole("dialog", { name: "New Operator" });
   await expect(dialog.getByRole("textbox", { name: /^Legal business name/ })).toBeVisible();
