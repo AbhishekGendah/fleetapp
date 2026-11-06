@@ -160,7 +160,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm --filter ${{ matrix.app }} exec playwright install --with-deps chromium
+      # The browser only: GitHub's Ubuntu image already has the system libraries
+      # Chromium needs, and installing them (--with-deps) sometimes took 9
+      # minutes waiting on Ubuntu's package mirrors (6 Nov 2026).
+      - run: pnpm --filter ${{ matrix.app }} exec playwright install chromium
 
       - run: pnpm --filter ${{ matrix.app }} e2e --shard=${{ matrix.shard }}
         env:
