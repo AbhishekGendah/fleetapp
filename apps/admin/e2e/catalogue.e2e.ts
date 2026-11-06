@@ -504,3 +504,84 @@ test.describe("car outline", () => {
     await expect(page.getByText("2 marked, mark-1 chosen.")).toBeVisible();
   });
 });
+
+test.describe("menu", () => {
+  test("opens from the keyboard, picks with arrows, closes back to its button", async ({
+    page,
+  }) => {
+    await openCatalogue(page);
+    const trigger = page.getByRole("button", { name: "Example menu" });
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+
+    const menu = page.getByRole("menu");
+    await expect(menu.getByRole("menuitem")).toHaveText([
+      "Example details",
+      "Example settings",
+      "Example action",
+    ]);
+    await expect(menu.getByRole("menuitem", { name: "Example settings" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+    await expect(trigger).toBeFocused();
+
+    await page.keyboard.press("Enter");
+    await expect(menu).toBeVisible();
+    await page.keyboard.press("End");
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("Chosen: Example action")).toBeVisible();
+  });
+});
+
+test.describe("whole-row links", () => {
+  const ROW_LINK = "Rego due Thu 12 Nov";
+
+  test("on a computer, the row and the names in it are separate links", async ({ page }) => {
+    await openCatalogue(page);
+    const rowLink = page.getByRole("link", { name: ROW_LINK });
+    await expect(page.getByRole("link", { name: "Jamie Park" })).toBeVisible();
+
+    // A click on the row's empty space opens the row's own link.
+    const row = page.getByRole("listitem").filter({ has: rowLink });
+    await row.scrollIntoViewIfNeeded();
+    const box = (await row.boundingBox())!;
+    await page.mouse.click(box.x + box.width - 120, box.y + box.height / 2);
+    await expect(page).toHaveURL(/#example-row-1ABC234$/);
+
+    await page.getByRole("link", { name: "Jamie Park" }).click();
+    await expect(page).toHaveURL(/#example-renter-1ABC234$/);
+  });
+
+  test.describe("on a phone", () => {
+    test.use({ viewport: PHONE_VIEWPORT });
+
+    test("names are plain words, so a tap anywhere opens the row", async ({ page }) => {
+      await openCatalogue(page);
+      await expect(page.getByRole("link", { name: "Jamie Park" })).toHaveCount(0);
+      const name = page.getByText("Jamie Park", { exact: true }).locator("visible=true");
+      // Tapped where the name shows: the row's own link is on top there.
+      await name.scrollIntoViewIfNeeded();
+      const box = (await name.boundingBox())!;
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      await expect(page).toHaveURL(/#example-row-1ABC234$/);
+    });
+  });
+});
+
+test.describe("navy strip", () => {
+  test.use({ viewport: PHONE_VIEWPORT });
+
+  test("fits a phone, with full-width buttons a fingertip tall", async ({ page }) => {
+    await openCatalogue(page);
+    const strip = page.getByRole("region", { name: "2XYZ789 · Riley Chen" });
+    await expect(strip.getByRole("link", { name: "Back to Rentals" })).toBeVisible();
+    const main = strip.getByRole("link", { name: "Start return" });
+    const swap = strip.getByRole("button", { name: "Swap car" });
+    const [mainBox, swapBox] = [(await main.boundingBox())!, (await swap.boundingBox())!];
+    expect(mainBox.width).toBeCloseTo(swapBox.width, 0);
+    expect(mainBox.height).toBeGreaterThanOrEqual(MINIMUM_TOUCH_TARGET_PX);
+  });
+});

@@ -63,7 +63,7 @@ import { ImageViewer, ImageViewerOpener } from "@fleetapp/ui/image-viewer";
 import { PageHeader } from "@fleetapp/ui/page-header";
 import { ProblemPanel } from "@fleetapp/ui/problem-panel";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
-import { Menu, MenuButtonItem, MenuLinkItem, MenuSeparator } from "@fleetapp/ui/menu";
+import { Menu } from "@fleetapp/ui/menu";
 import { RecordStrip } from "@fleetapp/ui/record-strip";
 import { InlineRecordLink, ROW_CLASSES, RowLink } from "@fleetapp/ui/row-link";
 import {
@@ -603,18 +603,24 @@ function MenuExample() {
         triggerLabel="Example menu"
         triggerClassName="bg-primary text-primary-foreground focus-visible:ring-ring size-11 rounded-full font-extrabold outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
         align="start"
-      >
-        <MenuLinkItem href="#example-menu-details">Example details</MenuLinkItem>
-        <MenuLinkItem href="#example-menu-settings" isCurrent>
-          <Settings aria-hidden />
-          Example settings
-        </MenuLinkItem>
-        <MenuSeparator />
-        <MenuButtonItem onSelect={() => setChosen("Example action")}>
-          <LogOut aria-hidden />
-          Example action
-        </MenuButtonItem>
-      </Menu>
+        items={[
+          { kind: "link", label: "Example details", href: "#example-menu-details" },
+          {
+            kind: "link",
+            label: "Example settings",
+            href: "#example-menu-settings",
+            icon: <Settings aria-hidden />,
+            isCurrent: true,
+          },
+          { kind: "separator", key: "before-action" },
+          {
+            kind: "action",
+            label: "Example action",
+            onSelect: () => setChosen("Example action"),
+            icon: <LogOut aria-hidden />,
+          },
+        ]}
+      />
       <span className="text-muted-foreground text-sm">Chosen: {chosen}</span>
     </div>
   );
@@ -629,11 +635,11 @@ function RecordStripExample() {
         title={
           <>
             <InlineRecordLink tone="onPrimary" href="#example-car">
-              1ABC234
+              2XYZ789
             </InlineRecordLink>
             {" · "}
             <InlineRecordLink tone="onPrimary" href="#example-renter">
-              Jamie Park
+              Riley Chen
             </InlineRecordLink>
           </>
         }

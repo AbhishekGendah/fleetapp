@@ -91,7 +91,7 @@ export function RecordStrip(props: RecordStripProps): React.JSX.Element {
                 className="bg-primary-foreground/10 flex min-w-0 flex-col gap-0.5 rounded-xl p-2.5 md:px-3.5 md:py-3"
               >
                 <dt className={cn("text-on-primary-label", SECTION_LABEL_CLASSES)}>{fact.label}</dt>
-                <dd className="text-base font-extrabold break-words md:text-xl">{fact.value}</dd>
+                <dd className="text-base font-extrabold md:text-xl">{fact.value}</dd>
                 {fact.note ? (
                   <dd className="text-on-primary-muted text-xs md:text-sm">{fact.note}</dd>
                 ) : null}

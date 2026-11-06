@@ -1,17 +1,34 @@
 "use client";
 
-import { Menu as BaseMenu } from "@base-ui/react/menu";
 import * as React from "react";
 
-import { cn } from "../lib/utils";
 import { buttonVariants } from "./button";
 
-/** Every item is a full-width row at least 44px tall (rule 24). */
-const ITEM_CLASSES =
-  "flex min-h-11 w-full cursor-pointer items-center gap-3 px-4 text-left text-sm font-semibold text-foreground outline-none select-none data-[highlighted]:bg-muted data-[disabled]:cursor-default data-[disabled]:opacity-50 [&_svg]:size-5 [&_svg]:shrink-0 [&_svg]:text-muted-foreground";
+/** One choice in a Menu: a link to another page, something to do here, or a dividing line. */
+export type MenuEntry =
+  | {
+      kind: "link";
+      label: string;
+      href: string;
+      icon?: React.ReactNode;
+      /** Marks the item as the page being shown. */
+      isCurrent?: boolean;
+    }
+  | {
+      kind: "action";
+      label: string;
+      onSelect: () => void;
+      icon?: React.ReactNode;
+      isDisabled?: boolean;
+    }
+  | { kind: "separator"; key: string };
 
-/** The page being shown is marked in teal, as in the side menu. */
-const CURRENT_ITEM_CLASSES = "text-teal font-bold [&_svg]:text-teal";
+/** An app's own link component (Next's Link), so moving between pages stays in the app. */
+export type MenuLinkComponent = React.ComponentType<{
+  href: string;
+  className?: string;
+  children?: React.ReactNode;
+}>;
 
 export interface MenuProps {
   /** What the trigger shows: text, an icon, or an initial. */
@@ -24,87 +41,58 @@ export interface MenuProps {
   side?: "top" | "bottom";
   /** Which edge of the trigger the menu lines up with. */
   align?: "start" | "center" | "end";
-  /** MenuLinkItem, MenuButtonItem and MenuSeparator. */
-  children: React.ReactNode;
+  items: readonly MenuEntry[];
+  /** Draws link items; a plain link (a full page load) unless given. */
+  linkComponent?: MenuLinkComponent;
 }
+
+/** The loaded menu opens as soon as it appears: it was loaded by pressing the trigger. */
+export interface MenuPopupProps extends MenuProps {
+  triggerClassName: string;
+}
+
+// The menu itself (Base UI and its positioning) is loaded only when wanted:
+// it sits in the frame of every page, and most visits never open it.
+function loadMenuPopup(): Promise<{ default: React.ComponentType<MenuPopupProps> }> {
+  return import("./menu-popup");
+}
+const MenuPopup = React.lazy(loadMenuPopup);
 
 /**
  * A button that opens a short list of choices: links to other pages, or
  * actions. Built on Base UI's Menu, so it opens with Enter, Space or the
  * arrow keys, arrows move between items, typing a letter jumps to an item,
  * and Escape closes it and returns focus to the button.
+ *
+ * Until first first pressed, the button is a stand-in that looks the same. Its
+ * code starts loading when the button is pointed at or focused, and the
+ * press opens the menu as soon as it has.
  */
 export function Menu(props: MenuProps): React.JSX.Element {
-  return (
-    <BaseMenu.Root>
-      <BaseMenu.Trigger
-        aria-label={props.triggerLabel}
-        className={props.triggerClassName ?? buttonVariants({ variant: "outline" })}
-      >
-        {props.trigger}
-      </BaseMenu.Trigger>
-      <BaseMenu.Portal>
-        <BaseMenu.Positioner
-          className="z-50 outline-none"
-          side={props.side ?? "bottom"}
-          align={props.align ?? "end"}
-          sideOffset={6}
-        >
-          <BaseMenu.Popup className="bg-card text-card-foreground shadow-card max-h-[var(--available-height)] min-w-52 overflow-y-auto rounded-xl border py-1 outline-none">
-            {props.children}
-          </BaseMenu.Popup>
-        </BaseMenu.Positioner>
-      </BaseMenu.Portal>
-    </BaseMenu.Root>
-  );
-}
+  const [isWanted, setIsWanted] = React.useState(false);
+  const triggerClassName = props.triggerClassName ?? buttonVariants({ variant: "outline" });
 
-export interface MenuLinkItemProps {
-  /** Where it goes; with `asChild`, the link inside says instead. */
-  href?: string;
-  /** Marks the item as the page being shown. */
-  isCurrent?: boolean;
-  /**
-   * With `asChild`, the one element inside (an app's own link, such as
-   * Next's Link) is drawn as the item, so moving between pages stays in the app.
-   */
-  asChild?: boolean;
-  children: React.ReactNode;
-}
-
-/** A choice that opens another page. Closes the menu as it goes. */
-export function MenuLinkItem(props: MenuLinkItemProps): React.JSX.Element {
-  const childElement =
-    props.asChild && React.isValidElement(props.children) ? props.children : undefined;
-  return (
-    <BaseMenu.LinkItem
-      href={props.href}
-      closeOnClick
-      aria-current={props.isCurrent ? "page" : undefined}
-      className={cn(ITEM_CLASSES, props.isCurrent && CURRENT_ITEM_CLASSES)}
-      render={childElement}
+  const standIn = (
+    <button
+      type="button"
+      aria-haspopup="menu"
+      aria-expanded={false}
+      aria-label={props.triggerLabel}
+      className={triggerClassName}
+      onPointerEnter={() => void loadMenuPopup()}
+      onFocus={() => void loadMenuPopup()}
+      onClick={() => setIsWanted(true)}
     >
-      {childElement ? undefined : props.children}
-    </BaseMenu.LinkItem>
+      {props.trigger}
+    </button>
   );
-}
 
-export interface MenuButtonItemProps {
-  onSelect: () => void;
-  isDisabled?: boolean;
-  children: React.ReactNode;
-}
-
-/** A choice that does something here, such as Sign out. Closes the menu first. */
-export function MenuButtonItem(props: MenuButtonItemProps): React.JSX.Element {
+  if (!isWanted) {
+    return standIn;
+  }
   return (
-    <BaseMenu.Item className={ITEM_CLASSES} disabled={props.isDisabled} onClick={props.onSelect}>
-      {props.children}
-    </BaseMenu.Item>
+    <React.Suspense fallback={standIn}>
+      <MenuPopup {...props} triggerClassName={triggerClassName} />
+    </React.Suspense>
   );
-}
-
-/** A thin line between groups of choices, e.g. before Sign out. */
-export function MenuSeparator(): React.JSX.Element {
-  return <BaseMenu.Separator className="my-1 border-t" />;
 }

@@ -36,8 +36,10 @@ const INLINE_LINK_TONE_CLASSES = {
   onPrimary: "text-primary-foreground",
 } as const;
 
+// w-fit: as a flex item (a name on its own line) it must not stretch across
+// the row, or it would cover the space that opens the row's main link.
 const INLINE_LINK_CLASSES =
-  "relative z-10 rounded-sm font-bold no-underline decoration-2 underline-offset-[3px] outline-none hover:underline focus-visible:underline focus-visible:ring-2 focus-visible:ring-ring";
+  "relative z-10 w-fit rounded-sm font-bold no-underline decoration-2 underline-offset-[3px] outline-none hover:underline focus-visible:underline focus-visible:ring-2 focus-visible:ring-ring";
 
 interface LinkPieceProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
   /** With `asChild`, the one element inside (Next's Link, say) is drawn as the link. */
