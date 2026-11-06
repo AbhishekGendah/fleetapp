@@ -4,7 +4,7 @@ import { timelineCellWidth, TIMELINE_ZOOM_LEVELS, type TimelineZoom } from "@fle
 import { DayPilot, DayPilotScheduler } from "@daypilot/daypilot-lite-react";
 import * as React from "react";
 
-import { BOOKING_TONE_COLOURS, type BookingTone } from "./booking-tones";
+import { BOOKING_TONE_COLOURS, WORKSHOP_COLOURS, type BookingTone } from "./booking-tones";
 import "./fleet-timeline.css";
 
 /** A bar's look: a rental's step, or time in the workshop or off the road. */
@@ -14,6 +14,10 @@ export interface TimelineRow {
   id: string;
   /** e.g. the car's rego. */
   label: string;
+  /** Under the label, e.g. "Toyota Corolla". */
+  description?: string;
+  /** The label opens this, e.g. the car's page. */
+  href?: string;
 }
 
 export interface TimelineBar {
@@ -51,18 +55,18 @@ export interface FleetTimelineProps {
   today: string;
   zoom: TimelineZoom;
   scrollTarget: TimelineScrollTarget;
-  /** A car's name pressed: e.g. to show the car. */
-  onRowChosen?: (rowId: string) => void;
   /** An empty day tapped on a row: e.g. to start a rental there. */
   onDayChosen?: (rowId: string, date: string) => void;
 }
 
-const ROW_HEADER_WIDTH_PX = 112;
+const ROW_HEADER_WIDTH_PX = 128;
 const BAR_HEIGHT_PX = 36;
+/** Room above and below each bar, so a row is about 54px tall like the agreed look. */
+const ROW_MARGIN_PX = 8;
+const BAR_RADIUS_PX = 8;
 /** Even a one-day booking zoomed right out can be tapped (WCAG 2.5.8). */
 const BAR_MIN_WIDTH_PX = 24;
 const DAY_FORMAT = "yyyy-MM-dd";
-const WORKSHOP_CLASS = "fleet-timeline-workshop";
 const TODAY_COLOUR = "var(--color-primary-soft)";
 /** Before the box is measured: about a phone's width. */
 const FIRST_GUESS_WIDTH_PX = 360;
@@ -102,12 +106,10 @@ function useBoxWidth(box: React.RefObject<HTMLDivElement | null>): number {
 
 function handleBeforeEventRender(args: DayPilot.SchedulerBeforeEventRenderArgs): void {
   const tags = args.data.tags as BarTags;
-  if (tags.tone === "workshop") {
-    args.data.cssClass = WORKSHOP_CLASS;
-    return;
-  }
-  args.data.backColor = BOOKING_TONE_COLOURS[tags.tone];
-  args.data.fontColor = "#ffffff";
+  const colours = tags.tone === "workshop" ? WORKSHOP_COLOURS : BOOKING_TONE_COLOURS[tags.tone];
+  args.data.backColor = colours.background;
+  args.data.fontColor = colours.text;
+  args.data.borderColor = colours.background;
 }
 
 /** A rental's bar is a plain link, so Tab reaches it and it is read out with its dates. */
@@ -133,18 +135,18 @@ function handleBeforeEventDomAdd(args: DayPilot.SchedulerBeforeEventDomAddArgs):
  * shaded. It fills its box's width at each zoom, never narrower than stays
  * readable (then it swipes sideways inside its box), and scrolls smoothly
  * through the stretch it is given. Read only: changes are made on the
- * rental's page. Each car's name is a button.
+ * rental's page. Each car's name is a link to it (6 Nov 2026 look), with
+ * its make and model under it.
  */
 export function FleetTimeline(props: FleetTimelineProps): React.JSX.Element {
-  const { rows, bars, startDate, days, today, zoom, scrollTarget, onRowChosen, onDayChosen } =
-    props;
+  const { rows, bars, startDate, days, today, zoom, scrollTarget, onDayChosen } = props;
   const box = React.useRef<HTMLDivElement>(null);
   const scheduler = React.useRef<DayPilotScheduler>(null);
   const boxWidth = useBoxWidth(box);
   const level = TIMELINE_ZOOM_LEVELS[zoom];
 
   const resources = React.useMemo(
-    () => rows.map((row) => ({ id: row.id, name: row.label })),
+    () => rows.map((row) => ({ id: row.id, name: row.label, tags: row })),
     [rows],
   );
   const events = React.useMemo(
@@ -175,18 +177,21 @@ export function FleetTimeline(props: FleetTimelineProps): React.JSX.Element {
   }
 
   function handleBeforeRowHeaderDomAdd(args: DayPilot.SchedulerBeforeRowHeaderDomAddArgs): void {
-    if (!onRowChosen) {
-      return;
-    }
-    const rowId = String(args.row.id);
+    const row = (args.row.data as { tags: TimelineRow }).tags;
+    const label = row.href ? (
+      <a className="fleet-timeline-row-link" href={row.href}>
+        {row.label}
+      </a>
+    ) : (
+      <span className="fleet-timeline-row-label">{row.label}</span>
+    );
     args.element = (
-      <button
-        type="button"
-        className="fleet-timeline-row-button"
-        onClick={() => onRowChosen(rowId)}
-      >
-        {args.row.name}
-      </button>
+      <span className="fleet-timeline-row">
+        {label}
+        {row.description ? (
+          <span className="fleet-timeline-row-description">{row.description}</span>
+        ) : null}
+      </span>
     );
   }
 
@@ -202,6 +207,9 @@ export function FleetTimeline(props: FleetTimelineProps): React.JSX.Element {
         cellWidth={cellWidth}
         rowHeaderWidth={ROW_HEADER_WIDTH_PX}
         eventHeight={BAR_HEIGHT_PX}
+        rowMarginTop={ROW_MARGIN_PX}
+        rowMarginBottom={ROW_MARGIN_PX}
+        eventBorderRadius={BAR_RADIUS_PX}
         durationBarVisible={false}
         // The bar's own link holds its text; DayPilot's floating copy would draw it twice.
         floatingEvents={false}
@@ -233,21 +241,24 @@ export function FleetTimeline(props: FleetTimelineProps): React.JSX.Element {
 
 /** What each colour means, under the timeline. */
 export function TimelineLegend(): React.JSX.Element {
-  const keys: readonly { label: string; className: string; colour?: string }[] = [
-    { label: "Booked", className: "", colour: BOOKING_TONE_COLOURS.booked },
-    { label: "Out", className: "", colour: BOOKING_TONE_COLOURS.active },
-    { label: "Finished", className: "", colour: BOOKING_TONE_COLOURS.finished },
-    { label: "Workshop or off road", className: WORKSHOP_CLASS },
-    { label: "Today", className: "", colour: TODAY_COLOUR },
+  const keys: readonly { label: string; colour: string }[] = [
+    { label: "Out", colour: BOOKING_TONE_COLOURS.active.background },
+    { label: "Booked", colour: BOOKING_TONE_COLOURS.booked.background },
+    { label: "Workshop or off road", colour: WORKSHOP_COLOURS.background },
+    { label: "Finished", colour: BOOKING_TONE_COLOURS.finished.background },
+    { label: "Today", colour: TODAY_COLOUR },
   ];
   return (
-    <ul aria-label="What the colours mean" className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+    <ul
+      aria-label="What the colours mean"
+      className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-sm"
+    >
       {keys.map((key) => (
         <li key={key.label} className="flex items-center gap-1.5">
           <span
             aria-hidden="true"
-            className={`inline-block h-3 w-5 rounded-sm border ${key.className}`}
-            style={key.colour ? { background: key.colour } : undefined}
+            className="border-border inline-block h-3.5 w-6 rounded border"
+            style={{ background: key.colour }}
           />
           {key.label}
         </li>

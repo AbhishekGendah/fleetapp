@@ -3,7 +3,6 @@
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/react/daygrid";
 import enAuLocale from "@fullcalendar/react/locales/en-au";
-import listPlugin from "@fullcalendar/react/list";
 import classicThemePlugin from "@fullcalendar/react/themes/classic";
 import "@fullcalendar/react/skeleton.css";
 import "@fullcalendar/react/themes/classic/theme.css";
@@ -12,60 +11,68 @@ import * as React from "react";
 
 import "./bookings-calendar.css";
 
-import { isPhoneWidth } from "../lib/phone-width";
-import { BOOKING_TONE_COLOURS, type BookingTone } from "./booking-tones";
+import { todayInTimeZone } from "@fleetapp/core";
 
-export type { BookingTone } from "./booking-tones";
+import { cn } from "../lib/utils";
+
+/** A handover (teal) or a return (amber), as the dashboard's Today card says them. */
+export type CalendarEntryTone = "handover" | "return";
 
 export interface CalendarEntry {
   id: string;
-  /** e.g. "1ABC234 · Sam Example". */
+  /** e.g. "10:00 am Handover · Jamie · 1ABC234". */
   title: string;
-  /**
-   * ISO moments. An ongoing rental is given the end of the window it is
-   * shown in. A single moment, such as a pickup, has no end.
-   */
-  start: string;
-  end?: string;
+  /** The day it is on, on the Operator's clock: "2026-11-06". */
+  date: string;
+  /** Its place in the day, e.g. its moment in milliseconds: the earliest first. */
+  order: number;
   /** The rental's page. */
   href: string;
-  tone: BookingTone;
+  tone: CalendarEntryTone;
 }
 
 export interface BookingsCalendarProps {
   entries: readonly CalendarEntry[];
-  /** The Operator's timezone: times show on their clock (rule 10). */
+  /** The Operator's timezone: today is their today (rule 10). */
   timeZone: string;
-  /** The day the calendar opens on, "2026-12-01". */
-  initialDate: string;
-  /** Told when the person moves to another month or view, to load its bookings. */
-  onWindowChange?: (window: { from: Date; to: Date }) => void;
+  /** The month shown, "2026-11". The page moves between months; the grid has no buttons of its own. */
+  month: string;
+  /** A day's number pressed: e.g. to open that day ("2026-11-07"). */
+  onDayChosen: (date: string) => void;
+  /** The day asked for, ringed. */
+  chosenDay?: string;
 }
 
-/** A phone shows the list; the month grid is too narrow to read there (rule 24). */
-const MONTH_VIEW = "dayGridMonth";
-const LIST_VIEW = "listMonth";
+const TONE_COLOURS: Readonly<Record<CalendarEntryTone, { color: string; contrastColor: string }>> =
+  {
+    handover: { color: "var(--color-out-soft)", contrastColor: "var(--color-primary)" },
+    return: { color: "var(--color-attention-soft)", contrastColor: "var(--color-attention)" },
+  };
 
 /**
- * Bookings on FullCalendar's free (MIT) month and list views: a month
- * grid on a computer, a list on a phone, either one a tap away. Each booking
- * opens its rental. Times are on the Operator's clock.
+ * The month on FullCalendar's free (MIT) month grid, in the 6 Nov 2026 look:
+ * Monday first, today circled navy, each handover and return a label that
+ * opens its rental, and each day's number a link to that day. For a
+ * computer: on a phone the page shows its day-by-day view instead.
  */
 export function BookingsCalendar({
   entries,
   timeZone,
-  initialDate,
-  onWindowChange,
+  month,
+  onDayChosen,
+  chosenDay,
 }: BookingsCalendarProps): React.JSX.Element {
   const events = React.useMemo(
     () =>
       entries.map((entry) => ({
         id: entry.id,
         title: entry.title,
-        start: entry.start,
-        end: entry.end,
+        start: entry.date,
+        allDay: true,
         url: entry.href,
-        color: BOOKING_TONE_COLOURS[entry.tone],
+        className: `bookings-calendar-${entry.tone}`,
+        ...TONE_COLOURS[entry.tone],
+        extendedProps: { order: entry.order },
       })),
     [entries],
   );
@@ -73,27 +80,33 @@ export function BookingsCalendar({
   return (
     <div className="bookings-calendar">
       <FullCalendar
-        plugins={[dayGridPlugin, listPlugin, classicThemePlugin]}
+        // A new month is a new grid: the page address says which.
+        key={month}
+        plugins={[dayGridPlugin, classicThemePlugin]}
         locale={enAuLocale}
         timeZone={timeZone}
-        initialView={isPhoneWidth() ? LIST_VIEW : MONTH_VIEW}
-        initialDate={initialDate}
-        headerToolbar={{
-          start: "prev,next today",
-          center: "title",
-          end: `${MONTH_VIEW},${LIST_VIEW}`,
-        }}
-        todayText="Today"
-        // The button reads "Today"; its spoken name must say the same (WCAG 2.5.3).
-        todayHint="Today"
-        monthText="Month"
-        noEventsText="No bookings in this month."
+        initialView="dayGridMonth"
+        initialDate={`${month}-01`}
+        firstDay={1}
+        headerToolbar={false}
+        fixedWeekCount={false}
+        dayHeaderFormat={{ weekday: "short" }}
         height="auto"
-        // A solid bar, not a dot: easier to read and to tap.
         eventDisplay="block"
-        eventTimeFormat={{ hour: "numeric", minute: "2-digit" }}
+        eventOrder="order"
         events={events}
-        datesSet={(info) => onWindowChange?.({ from: info.start, to: info.end })}
+        // Each day's number is FullCalendar's own link to the day, read out with its full date
+        // and reached by Tab and Enter; it opens the page's day instead of a day view.
+        navLinks
+        navLinkHint="Open $0"
+        navLinkDayClick={(date) => onDayChosen(todayInTimeZone(date, timeZone))}
+        dayCellClass={(info) =>
+          cn(
+            info.isOther && "bookings-calendar-other-month",
+            todayInTimeZone(info.date, timeZone) === chosenDay && "bookings-calendar-chosen-day",
+          )
+        }
+        dayCellTopInnerClass={(info) => cn("bookings-calendar-day", info.isToday && "is-today")}
       />
     </div>
   );

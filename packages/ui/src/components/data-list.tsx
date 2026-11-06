@@ -23,6 +23,8 @@ export interface DataListColumn<Row> extends ListColumn<Row> {
   render?: (row: Row) => React.ReactNode;
   /** The card's heading on a phone; every other column is a line beneath it. */
   isCardTitle?: boolean;
+  /** Amounts line up at the right of the table. */
+  isAlignedEnd?: boolean;
 }
 
 export type DataListDefinition<Row> = ListDefinition<Row, DataListColumn<Row>>;
@@ -42,6 +44,13 @@ export interface DataListProps<Row> {
    * stretches over. Use instead of `rowHref`.
    */
   hasRowLinksInCells?: boolean;
+  /**
+   * The whole of a row's card on a phone, laid out for that list (6 Nov 2026
+   * look: name and status on top, then the lines that matter), instead of
+   * a line per column. It must hold the row's one RowLink, which the card
+   * stretches it over, so one tap anywhere opens the row.
+   */
+  renderCard?: (row: Row) => React.ReactNode;
   /** What one row is, e.g. { one: "Operator", many: "Operators" }. */
   itemName: { one: string; many: string };
   searchLabel: string;
@@ -134,6 +143,9 @@ function rowsTable<Row extends RowData>(props: DataListProps<Row>): ListTable<Ro
 
 function Table<Row extends RowData>(props: DataListProps<Row> & { table: ListTable<Row> }) {
   const { definition, query } = props;
+  const alignedEnd = new Set(
+    definition.columns.filter((column) => column.isAlignedEnd).map((column) => column.key),
+  );
   return (
     <table className="hidden w-full text-left text-sm md:table">
       <thead className="text-muted-foreground border-b">
@@ -142,7 +154,7 @@ function Table<Row extends RowData>(props: DataListProps<Row> & { table: ListTab
             <th
               key={column.key}
               scope="col"
-              className="py-1 pr-4 font-medium"
+              className={cn("py-1 pr-4 font-medium", column.isAlignedEnd && "text-right")}
               aria-sort={
                 query.sort.column === column.key
                   ? query.sort.direction === "asc"
@@ -167,7 +179,10 @@ function Table<Row extends RowData>(props: DataListProps<Row> & { table: ListTab
             )}
           >
             {row.getAllCells().map((cell) => (
-              <td key={cell.id} className="py-3 pr-4">
+              <td
+                key={cell.id}
+                className={cn("py-3 pr-4", alignedEnd.has(cell.column.id) && "text-right")}
+              >
                 {flexRender(cell.column.columnDef.cell, cell.getContext()) as React.ReactNode}
               </td>
             ))}
@@ -178,7 +193,26 @@ function Table<Row extends RowData>(props: DataListProps<Row> & { table: ListTab
   );
 }
 
+/** Each row's own card, as the list lays it out, the row's link stretched over it. */
+function OwnCards<Row>(props: DataListProps<Row> & { renderCard: (row: Row) => React.ReactNode }) {
+  return (
+    <ul className="flex flex-col gap-3 md:hidden">
+      {props.page.rows.map((row) => (
+        <li key={props.rowKey(row)}>
+          <Card className={cn(ROW_CLASSES, "active:bg-muted/60")}>
+            <CardContent className="flex flex-col gap-1 p-4">{props.renderCard(row)}</CardContent>
+          </Card>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function Cards<Row extends RowData>(props: DataListProps<Row> & { table: ListTable<Row> }) {
+  const { renderCard } = props;
+  if (renderCard) {
+    return <OwnCards {...props} renderCard={renderCard} />;
+  }
   const titleKey = (
     props.definition.columns.find((column) => column.isCardTitle) ?? props.definition.columns[0]
   )?.key;

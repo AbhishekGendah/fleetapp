@@ -71,6 +71,8 @@
     "./menu": "./src/components/menu.tsx",
     "./record-strip": "./src/components/record-strip.tsx",
     "./row-link": "./src/components/row-link.tsx",
+    "./segmented-links": "./src/components/segmented-links.tsx",
+    "./week-strip": "./src/components/week-strip.tsx",
     "./page-width": "./src/lib/page-width.ts"
   },
   "scripts": {

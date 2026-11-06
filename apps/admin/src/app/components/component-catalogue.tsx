@@ -59,6 +59,8 @@ import { Select } from "@fleetapp/ui/select";
 import { Textarea } from "@fleetapp/ui/textarea";
 import { TabLinks } from "@fleetapp/ui/tab-links";
 import { CountLinks } from "@fleetapp/ui/count-links";
+import { SegmentedLinks } from "@fleetapp/ui/segmented-links";
+import { WeekStrip, type WeekStripDay } from "@fleetapp/ui/week-strip";
 import { ImageViewer, ImageViewerOpener } from "@fleetapp/ui/image-viewer";
 import { PageHeader } from "@fleetapp/ui/page-header";
 import { ProblemPanel } from "@fleetapp/ui/problem-panel";
@@ -361,26 +363,49 @@ function RecordPickerExample() {
 const EXAMPLE_BOOKINGS: readonly CalendarEntry[] = [
   {
     id: "booking-1",
-    title: "1ABC234 · Sam Example",
-    start: "2026-12-01T01:00:00Z",
-    end: "2026-12-15T01:00:00Z",
+    title: "10:00 am Handover · Sam · 1ABC234",
+    date: "2026-12-01",
+    order: 1,
     href: "#booking-1",
-    tone: "active",
+    tone: "handover",
   },
   {
     id: "booking-2",
-    title: "1XYZ789 · Alex Sample",
-    start: "2026-12-08T02:00:00Z",
-    end: "2026-12-22T02:00:00Z",
+    title: "3:30 pm Return · Alex · 1XYZ789",
+    date: "2026-12-08",
+    order: 2,
     href: "#booking-2",
-    tone: "booked",
+    tone: "return",
   },
 ];
 
 const EXAMPLE_TIMELINE_ROWS = [
-  { id: "car-1", label: "1ABC234" },
-  { id: "car-2", label: "1XYZ789" },
-  { id: "car-3", label: "1DEF456" },
+  { id: "car-1", label: "1ABC234", description: "Toyota Camry", href: "#car-1" },
+  { id: "car-2", label: "1XYZ789", description: "Kia Niro", href: "#car-2" },
+  { id: "car-3", label: "1DEF456", description: "Hyundai Ioniq", href: "#car-3" },
+];
+
+const EXAMPLE_TODAY = "2026-12-02";
+
+function exampleDay(date: string, weekday: string, hasItems: boolean): WeekStripDay {
+  return {
+    date,
+    weekday,
+    dayNumber: String(Number(date.slice(-2))),
+    href: `#day-${date}`,
+    hasItems,
+    isToday: date === EXAMPLE_TODAY,
+  };
+}
+
+const EXAMPLE_WEEK: readonly WeekStripDay[] = [
+  exampleDay("2026-11-30", "Mon", false),
+  exampleDay("2026-12-01", "Tue", true),
+  exampleDay(EXAMPLE_TODAY, "Wed", false),
+  exampleDay("2026-12-03", "Thu", false),
+  exampleDay("2026-12-04", "Fri", true),
+  exampleDay("2026-12-05", "Sat", false),
+  exampleDay("2026-12-06", "Sun", false),
 ];
 
 const EXAMPLE_TIMELINE_BARS: readonly TimelineBar[] = [
@@ -828,6 +853,26 @@ export function ComponentCatalogue() {
       </CatalogueSection>
 
       <CatalogueSection
+        title="View switch"
+        note="Two ways of showing the same page, each a link with its own address; the one showing is filled navy. A view can have another name on a phone."
+      >
+        <SegmentedLinks
+          label="Example views"
+          links={[
+            { href: "#month", label: "Month", phoneLabel: "Day by day", isCurrent: true },
+            { href: "#by-car", label: "By car", isCurrent: false },
+          ]}
+        />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Week strip"
+        note="A phone's week: each day a link, a dot on days with something on, today filled navy."
+      >
+        <WeekStrip label="Example week" days={EXAMPLE_WEEK} />
+      </CatalogueSection>
+
+      <CatalogueSection
         title="Page header"
         note="Every page below a main section: a back arrow one level up, and the title. Stays at the top on a phone."
       >
@@ -1009,12 +1054,13 @@ export function ComponentCatalogue() {
 
       <CatalogueSection
         title="Bookings calendar"
-        note="A month grid on a computer, a list on a phone. Each booking opens its rental."
+        note="The month on a computer, Monday first, today circled. Handovers teal, returns amber, each opening its rental; a day's number opens that day. Phones use the week strip instead."
       >
         <BookingsCalendar
           entries={EXAMPLE_BOOKINGS}
           timeZone="Australia/Perth"
-          initialDate="2026-12-01"
+          month="2026-12"
+          onDayChosen={() => undefined}
         />
       </CatalogueSection>
 
@@ -1041,7 +1087,7 @@ export function ComponentCatalogue() {
 
       <CatalogueSection
         title="Fleet timeline"
-        note="One row per car, days across, each booking a bar that opens its rental. Swipe sideways on a phone."
+        note="One row per car, days across: out navy, booked light blue, workshop amber, today shaded. A rego opens its car and a bar its rental. Swipe sideways on a phone."
       >
         <FleetTimeline
           rows={EXAMPLE_TIMELINE_ROWS}
