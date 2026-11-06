@@ -133,6 +133,13 @@ until Abhi says go.
 - **Wording**: details to review reads "Sent their licence and contact
   details to approve".
 
+### The navy strip rule (agreed 6 Nov)
+
+Every single-item page (one rental, one car, one Renter) opens with the
+navy strip: its name, status and key facts. Lists and the dashboard stay
+white. It is one shared piece in packages/ui. Cars and Renters get it in
+their own later slice.
+
 ### One rental's page (agreed 6 Nov)
 
 - Navy strip at the top:
