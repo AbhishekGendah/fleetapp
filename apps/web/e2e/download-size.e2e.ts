@@ -27,8 +27,9 @@ describeDownloadBudgets({
   "/settings/charges": 445,
   // Added 3 Nov 2026 with invoices: the same form pieces as /settings/charges.
   "/settings/invoices": 445,
-  // Added 3 Nov 2026 with Stripe: one button and a link, like /settings/demo-data.
-  "/settings/payments": 200,
+  // Raised 7 Nov 2026 from 200 (318 KB measured): the grace days box is the shared number
+  // setting form (form checks as typed), as on /settings; plus about 10%.
+  "/settings/payments": 350,
   // Added 2 Nov 2026 with the test site's demo data button.
   "/settings/demo-data": 190,
 });
