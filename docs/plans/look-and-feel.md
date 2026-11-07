@@ -245,9 +245,8 @@ their own later slice.
   out: Owing (from the ledger; "All paid up" at $0.00, "Since <day>" when
   behind, or in credit), Bond (Held, Refunded, Kept), At handover (km and
   fuel of the car the Renter has now).
-- Not yet: Next rent. Nothing in the app says the next rent's amount and
-  day today; working it out on this page would be a second way of
-  working out rent, so it waits for the rent run to give it.
+- Next rent: added 7 Nov 2026 from the rent run's own rule (see
+  docs/plans/look-slice-2-overdue.md, As built).
 - The strip's button: Start return (or Continue return) once out, unless a
   car swap is under way. Add charge and Swap car stay in their cards (both
   are forms in a pop-up), so they are not repeated on the strip.
@@ -266,9 +265,9 @@ their own later slice.
   Papers (the contract to send, then every signed paper with Open and
   Email again, and the reports still to come), Log. An old `?tab=summary`
   address opens Overview.
-- Not yet: the Money tab's Charged and Paid totals (it shows the balance
-  as before: adding up charged and paid is new money logic, for its own
-  plan), and the Log's "By" filter (the Log list has no filters yet).
+- The Money tab's Charged, Paid and Owing totals: added 7 Nov 2026 (see
+  docs/plans/look-slice-2-overdue.md, As built).
+- Not yet: the Log's "By" filter (the Log list has no filters yet).
 
 ## As built: the Rentals list and the Calendar (6 Nov 2026)
 
