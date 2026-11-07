@@ -6,6 +6,7 @@ import type { PaymentsReach } from "../rentals/booking-checks";
 import type { RentalClock } from "../rentals/rental-records";
 import { loadOperatorSettings } from "../settings/operator-settings";
 import { loadBondsToRefund, type BondToRefund } from "./bonds-to-refund";
+import { loadOverdueRentals, type OverdueRental } from "./overdue-rentals";
 import {
   loadLicencesDue,
   loadPaperworkDue,
@@ -27,6 +28,8 @@ import {
 /** Everything Needs attention is made from, each kind as loaded (its first so many, and its total). */
 export interface AttentionSources {
   window: DashboardWindow;
+  /** Rentals with money owing past the business's grace days, longest late first. */
+  overduePayments: FewOfMany<OverdueRental>;
   /** This week's rentals: the overdue and late ones, and today's and the week's moments. */
   rentals: RentalThisWeek[];
   notReady: BookingReadiness[];
@@ -55,19 +58,35 @@ export async function loadAttentionSources(
   const settings = await loadOperatorSettings(database, operatorId);
   const vehicleExpiry = { today: window.today, warningDays: settings.vehicleExpiryWarningDays };
   const licenceExpiry = { today: window.today, warningDays: settings.licenceExpiryWarningDays };
-  const [rentals, paperworkDue, workshopLate, licencesDue, reviewsWaiting, openDamage, bonds] =
-    await Promise.all([
-      loadRentalsThisWeek(database, operatorId, window, clock),
-      loadPaperworkDue(database, operatorId, vehicleExpiry, limitPerKind),
-      loadWorkshopLate(database, operatorId, window.today, limitPerKind),
-      loadLicencesDue(database, operatorId, licenceExpiry, limitPerKind),
-      loadReviewsWaiting(database, operatorId, limitPerKind),
-      loadOpenDamage(database, operatorId, limitPerKind),
-      loadBondsToRefund(database, operatorId, limitPerKind),
-    ]);
+  // Today's setting, not a rental's copy: Needs attention only shows things (rule 14 is for charging).
+  const overdueRequest = {
+    today: window.today,
+    graceDays: settings.paymentGraceDays,
+    limit: limitPerKind,
+  };
+  const [
+    overduePayments,
+    rentals,
+    paperworkDue,
+    workshopLate,
+    licencesDue,
+    reviewsWaiting,
+    openDamage,
+    bonds,
+  ] = await Promise.all([
+    loadOverdueRentals(database, operatorId, overdueRequest),
+    loadRentalsThisWeek(database, operatorId, window, clock),
+    loadPaperworkDue(database, operatorId, vehicleExpiry, limitPerKind),
+    loadWorkshopLate(database, operatorId, window.today, limitPerKind),
+    loadLicencesDue(database, operatorId, licenceExpiry, limitPerKind),
+    loadReviewsWaiting(database, operatorId, limitPerKind),
+    loadOpenDamage(database, operatorId, limitPerKind),
+    loadBondsToRefund(database, operatorId, limitPerKind),
+  ]);
   const notReady = await loadBookingReadiness(database, operatorId, rentals, clock, request.reach);
   return {
     window,
+    overduePayments,
     rentals,
     notReady,
     paperworkDue,

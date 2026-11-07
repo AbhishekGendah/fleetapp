@@ -13,9 +13,17 @@ import {
 } from "@fleetapp/core";
 
 import type { DamageOnDashboard } from "../damage/damage-queries";
-import { carDamagePath, carPath, rentalPath, renterPath, renterReviewPath } from "../paths";
+import {
+  carDamagePath,
+  carPath,
+  rentalMoneyPath,
+  rentalPath,
+  renterPath,
+  renterReviewPath,
+} from "../paths";
 import type { AttentionSources } from "./attention-sources";
 import type { BondToRefund } from "./bonds-to-refund";
+import type { OverdueRental } from "./overdue-rentals";
 import { handoverBlockerLabel } from "./dashboard-labels";
 import type {
   CarInWorkshop,
@@ -32,6 +40,7 @@ import type { BookingReadiness, RentalThisWeek } from "./rentals-this-week";
  * top five and the full page's list are the same list.
  */
 export const ATTENTION_KINDS = [
+  "overdue_payment",
   "overdue_return",
   "late_pickup",
   "not_ready",
@@ -46,6 +55,7 @@ export type AttentionKind = (typeof ATTENTION_KINDS)[number];
 
 /** Each kind as the full page's filter names it. */
 export const ATTENTION_KIND_LABELS: Readonly<Record<AttentionKind, string>> = {
+  overdue_payment: "Overdue payments",
   overdue_return: "Late back from a rental",
   late_pickup: "Late pickups",
   not_ready: "Not ready for handover",
@@ -56,6 +66,12 @@ export const ATTENTION_KIND_LABELS: Readonly<Record<AttentionKind, string>> = {
   details_to_review: "Details to review",
   bond_to_refund: "Bonds to refund",
 };
+
+/**
+ * Money overdue is the most urgent of all (docs/plans/look-slice-2-overdue.md):
+ * it comes before every other kind, even other reds.
+ */
+const LEADING_KINDS: readonly AttentionKind[] = ["overdue_payment"];
 
 /** Red first, then amber, then blue (Abhi, 6 Nov 2026). */
 export const ATTENTION_URGENCIES = ["red", "amber", "blue"] as const;
@@ -112,6 +128,7 @@ type RentalForAttention = Pick<
 /** What the list is made from: the loaded sources, or the same shape in a test. */
 export interface AttentionInput extends Pick<
   AttentionSources,
+  | "overduePayments"
   | "notReady"
   | "paperworkDue"
   | "workshopLate"
@@ -175,6 +192,24 @@ function asOneLine(labels: readonly string[]): string {
 function blockerLabels(rentalId: string, notReady: readonly BookingReadiness[]): string[] {
   const blockers = notReady.find((booking) => booking.rentalId === rentalId)?.blockers ?? [];
   return blockers.map(handoverBlockerLabel);
+}
+
+/** Money owing past its grace days: "$450.00 overdue · 9 days late", opening the rental's Money tab. */
+function overduePaymentItem(rental: OverdueRental): AttentionItem {
+  const { overdueCents, daysLate, oldestDueOn } = rental.overdue;
+  return {
+    key: `overdue_payment-${rental.rentalId}`,
+    kind: "overdue_payment",
+    urgency: "red",
+    label: "Overdue",
+    who: renterLink(rental),
+    fix: {
+      text: `${formatCents(overdueCents)} overdue`,
+      href: rentalMoneyPath(rental.rentalId),
+    },
+    more: [`${plural(daysLate, "day")} late`, carLink(rental)],
+    waitingSince: oldestDueOn,
+  };
 }
 
 function overdueReturn(rental: RentalForAttention, clock: Clock): AttentionItem[] {
@@ -394,6 +429,11 @@ function bondItem(bond: BondToRefund, clock: Clock): AttentionItem {
 
 /** Most urgent first: by colour, then the longest waiting, then a steady order. */
 export function compareAttention(first: AttentionItem, second: AttentionItem): number {
+  const byLeading =
+    Number(LEADING_KINDS.includes(second.kind)) - Number(LEADING_KINDS.includes(first.kind));
+  if (byLeading !== 0) {
+    return byLeading;
+  }
   const byUrgency =
     ATTENTION_URGENCIES.indexOf(first.urgency) - ATTENTION_URGENCIES.indexOf(second.urgency);
   if (byUrgency !== 0) {
@@ -414,6 +454,7 @@ export function attentionList(input: AttentionInput, timeZone: string): Attentio
   const clock = { today: input.window.today, timeZone };
   const rentalRows = rentalItems(input, clock);
   const items = [
+    ...input.overduePayments.items.map(overduePaymentItem),
     ...rentalRows,
     ...input.paperworkDue.items.map((car) => paperworkItem(car, input.vehicleWarningDays, clock)),
     ...input.openDamage.items.map((damage) => damageItem(damage, clock)),
@@ -425,6 +466,7 @@ export function attentionList(input: AttentionInput, timeZone: string): Attentio
   const total =
     rentalRows.length +
     [
+      input.overduePayments,
       input.paperworkDue,
       input.openDamage,
       input.workshopLate,

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { attentionList, attentionSearchText, type AttentionInput } from "./attention-items";
 import type { CarPaperworkDue } from "./fleet-overview";
+import type { OverdueRental } from "./overdue-rentals";
 
 const TIME_ZONE = "Australia/Sydney";
 const TODAY = "2026-11-06";
@@ -12,6 +13,7 @@ const none = { total: 0, items: [] };
 function input(changes: Partial<AttentionInput>): AttentionInput {
   return {
     window: { today: TODAY },
+    overduePayments: none,
     rentals: [],
     notReady: [],
     paperworkDue: none,
@@ -57,6 +59,17 @@ function car(id: string, changes: Partial<CarPaperworkDue>): CarPaperworkDue {
   };
 }
 
+function overdueRental(id: string, overdue: OverdueRental["overdue"]): OverdueRental {
+  return {
+    rentalId: id,
+    renterId: `renter-${id}`,
+    renterFullName: `Renter ${id}`,
+    vehicleId: `car-${id}`,
+    rego: `REGO${id}`,
+    overdue,
+  };
+}
+
 const keysOf = (changes: Partial<AttentionInput>) =>
   attentionList(input(changes), TIME_ZONE).items.map((item) => item.key);
 
@@ -89,6 +102,56 @@ describe("the Needs attention list", () => {
       "damage_open-d1",
       "details_to_review-r1-1767225600000",
     ]);
+  });
+
+  it("puts money overdue first of all, longest late first, even before a car with no rego", () => {
+    const keys = keysOf({
+      overduePayments: {
+        total: 2,
+        items: [
+          overdueRental("o2", { overdueCents: 100_00, daysLate: 3, oldestDueOn: "2026-11-03" }),
+          overdueRental("o1", { overdueCents: 450_00, daysLate: 9, oldestDueOn: "2026-10-28" }),
+        ],
+      },
+      rentals: [
+        rental("late", "overdue", { start: "2026-09-01T00:00:00Z", end: "2026-10-01T00:00:00Z" }),
+      ],
+      paperworkDue: {
+        total: 1,
+        items: [car("x", { regoExpiresOn: null, isRegisteredToday: false })],
+      },
+    });
+
+    expect(keys).toEqual([
+      "overdue_payment-o1",
+      "overdue_payment-o2",
+      "paperwork-x",
+      "overdue_return-late",
+    ]);
+  });
+
+  it("says how much is overdue and how late, and opens the rental's Money tab", () => {
+    const [item] = attentionList(
+      input({
+        overduePayments: {
+          total: 1,
+          items: [
+            overdueRental("o1", { overdueCents: 450_00, daysLate: 9, oldestDueOn: "2026-10-28" }),
+          ],
+        },
+      }),
+      TIME_ZONE,
+    ).items;
+
+    expect(item).toMatchObject({
+      kind: "overdue_payment",
+      urgency: "red",
+      label: "Overdue",
+      who: { text: "Renter o1", href: "/renters/renter-o1" },
+      fix: { text: "$450.00 overdue", href: "/rentals/o1?tab=money" },
+      more: ["9 days late", { text: "REGOo1", href: "/cars/car-o1" }],
+    });
+    expect(attentionSearchText(item!)).toContain("$450.00 overdue · 9 days late");
   });
 
   it("puts the longest waiting first within a colour, dates and moments together", () => {
@@ -143,6 +206,12 @@ describe("the Needs attention list", () => {
     const list = attentionList(
       input({
         paperworkDue: { total: 12, items: [car("1", { regoExpiresOn: "2026-11-20" })] },
+        overduePayments: {
+          total: 7,
+          items: [
+            overdueRental("o1", { overdueCents: 100_00, daysLate: 3, oldestDueOn: "2026-11-03" }),
+          ],
+        },
         bondsToRefund: {
           total: 3,
           items: [
@@ -165,8 +234,8 @@ describe("the Needs attention list", () => {
       TIME_ZONE,
     );
     // The pickup today is ready, so it needs nothing.
-    expect(list.total).toBe(12 + 3 + 1);
-    expect(list.items).toHaveLength(3);
+    expect(list.total).toBe(12 + 7 + 3 + 1);
+    expect(list.items).toHaveLength(4);
     const bond = list.items.find((item) => item.kind === "bond_to_refund");
     expect(bond).toMatchObject({
       label: "To refund",

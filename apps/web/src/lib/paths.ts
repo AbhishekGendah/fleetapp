@@ -175,6 +175,11 @@ export function rentalPath(rentalId: string): string {
   return `${RENTALS_PATH}/${rentalId}`;
 }
 
+/** The rental's Money tab: what is charged, paid and owing (rental-tabs). */
+export function rentalMoneyPath(rentalId: string): string {
+  return `${rentalPath(rentalId)}?tab=money`;
+}
+
 /** A car swap's checklist on the phone: the old car's return, or the new car's handover. */
 export function rentalSwapPath(rentalId: string, car: "old" | "new"): string {
   return `${rentalPath(rentalId)}/swap/${car}`;
