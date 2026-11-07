@@ -355,3 +355,18 @@ their own later slice.
   page rather than in a pop-up layer, because Base UI's pop-up hides the
   rest of the page from screen readers while open, which the accessibility
   check flags. It looks the same.
+
+## Cars and Renters pages (mockups, 7 Nov 2026)
+
+Mockups on the design canvas (Cars list, one car, Renters list, one Renter;
+phone and computer). Abhi's decisions so far:
+
+- Car status word **Out** (not "Rented"), matching Home and Rentals.
+- **No licence number** shown on a Renter's page or lists; licence shows as
+  class, state and expiry only. Licence photos never show, only "on file".
+- New Renter filters approved: Renting now, Booked, To review (plus All, Do
+  not rent, Archived).
+- One car's page keeps all **9 tabs** (Overview, Rentals, Rego & insurance,
+  Damage, Costs, Photos, Documents, Odometer, Log).
+- Lists show the phone number only, never the email.
+- Still to go through: each tab of the car and Renter pages, one by one.
