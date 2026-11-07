@@ -125,6 +125,11 @@ test.describe.serial("the Renters list and a Renter's page", () => {
       ).toBeVisible();
 
       await searchRenters(page, RENTING.name);
+      // The row must be the searched list's own before the click, or it can land on one that
+      // is being replaced and go nowhere (seen once in CI).
+      await expect(
+        renterRow(page, RENTING.name).getByRole("link", { name: RENTING.name, exact: true }),
+      ).toBeVisible();
       // A click on Since lands on the name's link, stretched over the row (forced: the cell is
       // covered by that link, which is the point).
       await renterRow(page, RENTING.name).getByRole("cell").last().click({ force: true });
