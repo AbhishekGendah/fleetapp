@@ -38,7 +38,7 @@ export default async function ResetPasswordPage(props: ResetPasswordPageProps) {
           ) : (
             <Link
               href={FORGOT_PASSWORD_PATH}
-              className="hover:text-primary inline-flex min-h-11 items-center text-sm"
+              className="text-teal hover:text-primary inline-flex min-h-11 items-center text-sm font-semibold"
             >
               Send me a new link
             </Link>

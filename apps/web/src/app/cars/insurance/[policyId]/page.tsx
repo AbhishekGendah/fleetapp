@@ -68,7 +68,7 @@ function CoveredCarsCard({ detail }: { detail: PolicyDetail }) {
               >
                 <Link
                   href={carPath(car.id)}
-                  className="hover:text-primary inline-flex min-h-11 items-center font-medium"
+                  className="text-teal hover:text-primary inline-flex min-h-11 items-center font-semibold"
                 >
                   {carLabel(car)}
                 </Link>

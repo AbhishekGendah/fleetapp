@@ -80,7 +80,7 @@ export default function ForgotPasswordPage() {
           )}
           <Link
             href={SIGN_IN_PATH}
-            className="hover:text-primary inline-flex min-h-11 items-center justify-center text-center text-sm"
+            className="text-teal hover:text-primary inline-flex min-h-11 items-center justify-center text-center text-sm font-semibold"
           >
             Back to sign in
           </Link>
