@@ -1221,16 +1221,41 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
   (the library skipped it under NODE_ENV=test), with tests for refused and
   trusted addresses in both apps.
 
+- **Cars and Renters pages in the new look (7 Nov, Abhi approved the
+  mockups).** Cars list (filters All, Out, Available, In the workshop,
+  Archived; a Now column; one tap per card on phones), one car's page (navy
+  strip, Overview and the other eight tabs; Damage grouped Open, Claims
+  under way, Repaired or left), Renters list (filters All, Renting now,
+  Booked, To review, Do not rent, Archived; phone only, Owing, licence
+  expiry only) and one Renter's page (navy strip with Owing and days late,
+  Overview with Call/Text/Email). "Rented" is now "Out" everywhere;
+  "Waiting for review" is now "To review". No schema change, no new money
+  arithmetic.
+  - Privacy: the licence number is off every screen (only in the Edit
+    licence pop-up, the review page and Download everything we hold);
+    licence photos are "on file" with Open (same short-lived link, logged);
+    the Renters export no longer carries email.
+  - Left out (no data or no money rule yet): "How they pay", Bond and
+    Invoices across all a Renter's rentals and "bond held" on the strip; a
+    "Details missing" list label; the Log "By" filter; a few small mockup
+    lines. Old addresses (?status=rented, waiting_review, ?tab=details)
+    still open the right place.
+  - Budgets added on purpose: a car's page 500 KB, a Renter's page 445 KB
+    (measured plus about 10%; they had none before).
+  - Test sheet: rows O-477 to O-488 and A-79 added; O-146, O-168, O-175,
+    O-192, O-193, O-235, O-284 and O-329 updated.
+
 ## Next
 
-**7 Nov: look slice 2 is live on the dev site** (Abhi tried the preview and
-was happy; main fast-forwarded to 29a98ad, CI and Migrate and deploy both
-passed at 02:02 UTC). Now building, approved 7 Nov:
-docs/plans/look-slice-2-overdue.md (Overdue in Needs attention, one shared
-grace-days setting, default 2, also for slice 6's late fee; Next rent on the
-strip; Charged/Paid/Owing totals). Deep review before a preview. Waiting on
-Abhi: his small cosmetic changes (later, his call). Then: business Renters plan (qol-suggestions O1); Cars and Renters
-   pages in the new look (mockups first); B2 speed work; Phase 4 slices 5-8.
+**7 Nov: Cars and Renters pages are on the branch preview** (on top of the
+overdue batch, the no-underline links and cancelled bookings counting as
+overdue, none on main yet). Waiting on Abhi: try the preview; then main is
+fast-forwarded so it all goes to the dev site. Decision for him: should the
+"Review what they sent" page keep showing the licence number the Renter
+typed (to check against their photo)? Small questions still open: the rego
+on the overdue line, and "First rent" repeating the weekly price on
+bookings. Then: business Renters plan (qol-suggestions O1); B2 speed work;
+Phase 4 slices 5-8; his cosmetic changes last.
 
 **End of 6 Nov, pick up here:** live on the dev site: the new look
 (slice 1), admin A1 to A8, the pointing-hand fix and the title bar no
@@ -1308,6 +1333,9 @@ generator needs Abhi's say-so.
 
 ## Open items
 
+- Browser test flake (7 Nov): the accessibility check can run before a
+  page's tab name appears (seen once on Needs attention). Fix in the shared
+  test helper by waiting for the title first.
 - From the overdue slice's deep review (7 Nov, both checkers confirmed no
   bug): (1) only app code stops a reversal of a reversal; a database check
   would make it impossible (schema change: plan first). (2) A booking's
