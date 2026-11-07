@@ -522,3 +522,18 @@ phone and computer). Abhi's decisions so far:
   strip's "bond $500.00 held"; the Money card's one-line explanation of what
   is overdue; "2 rentals since Jul 2026 · no fines yet" under Rentals (no
   fines yet); the Log's "By" filter.
+
+## Business Renters pages (mockups, approved by Abhi 7 Nov 2026)
+
+Sixteen boards on the design canvas (rows "Business Renters" onwards) for
+docs/plans/business-renters.md: the Renters list with Business and "Driver
+for …" labels (grey outline, lighter than any status) and Businesses and
+Drivers filters; Add a Renter with Person or Business first (the contact's
+email is required); one business Renter (tabs Overview, Drivers, Rentals,
+Money, Details, Notes, Log); a driver's page ("Drives for", "Cars driven");
+new rental with the driver picker ("Driver to be named"; a driver with a car
+out is warned, not refused; unreviewed details can't be picked); a business
+rental (booked: "Name a driver"; out: "driver Sam Lee", Change driver, "Who
+had the car"); the three-step driver change on a phone; the business
+statement PDF ("Not a tax invoice", grouped by car). A driver's Owing reads
+"<business> pays". The Log's "By" filter is drawn but not built yet.
