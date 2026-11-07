@@ -41,7 +41,8 @@ test.describe.serial("a rental's money", () => {
       await expect(
         page.getByRole("heading", { name: "Charges and payments", exact: true }),
       ).toBeVisible();
-      await expect(page.getByText(/^Owing \$/).first()).toBeVisible();
+      // Charged, paid and owing, added up from the lines (the Renter's own tab says "Owing $…").
+      await expect(page.getByRole("term").filter({ hasText: /^Charged$/ })).toBeVisible();
       await expect(page.getByText(/^(Part-week|Weekly) rent$/).first()).toBeVisible();
       await page.waitForLoadState("networkidle");
       expect(await scriptKilobytes(page)).toBeLessThanOrEqual(RENTAL_PAGE_BUDGET_KB);

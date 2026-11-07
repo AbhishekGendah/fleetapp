@@ -2,11 +2,13 @@ import {
   formatCalendarDate,
   formatCents,
   LEDGER_LINE_KIND_LABELS,
+  ledgerTotals,
   PAYMENT_METHOD_LABELS,
 } from "@fleetapp/core";
 import { Badge } from "@fleetapp/ui/badge";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
 
+import { balanceAmountText, BalanceText } from "../../components/balance-amount";
 import { DetailLines } from "../../components/detail-lines";
 import { balanceText } from "../../lib/ledger/balance-text";
 import type { LedgerLineView, LedgerView } from "../../lib/ledger/ledger-queries";
@@ -78,21 +80,54 @@ export function LedgerLineList(props: LedgerLineListProps) {
   );
 }
 
-/** The balance, how long it has been owed, and the lines (or a note that there are none yet). */
-export function LedgerSummary(props: LedgerLineListProps) {
-  const { ledger } = props;
+function Total({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <dt className="text-muted-foreground text-sm">{label}</dt>
+      <dd className="text-lg font-bold break-words tabular-nums">{children}</dd>
+    </div>
+  );
+}
+
+/**
+ * Charged, paid and owing side by side, each added up from the lines with
+ * reversals and corrections netted (rule 11); owing red, credit teal.
+ */
+function LedgerTotals({ ledger }: { ledger: LedgerView }) {
+  const totals = ledgerTotals(ledger.lines);
+  return (
+    <dl className="grid grid-cols-3 gap-3">
+      <Total label="Charged">{formatCents(totals.chargedCents)}</Total>
+      <Total label="Paid">{formatCents(totals.paidCents)}</Total>
+      <Total label="Owing">
+        <BalanceText
+          balanceCents={totals.balanceCents}
+          text={balanceAmountText(totals.balanceCents)}
+        />
+      </Total>
+    </dl>
+  );
+}
+
+/**
+ * The balance (or, with `hasTotals`, charged, paid and owing), how long it
+ * has been owed, and the lines (or a note that there are none yet).
+ */
+export function LedgerSummary(props: LedgerLineListProps & { hasTotals?: boolean }) {
+  const { ledger, hasTotals, ...listProps } = props;
+  const owingSince = ledger.oldestOwingOn
+    ? ([["Owing since", formatCalendarDate(ledger.oldestOwingOn)]] as const)
+    : [];
   return (
     <>
+      {hasTotals ? <LedgerTotals ledger={ledger} /> : null}
       <DetailLines
-        lines={[
-          ["Balance", balanceText(ledger.balanceCents)],
-          ...(ledger.oldestOwingOn
-            ? ([["Owing since", formatCalendarDate(ledger.oldestOwingOn)]] as const)
-            : []),
-        ]}
+        lines={
+          hasTotals ? owingSince : [["Balance", balanceText(ledger.balanceCents)], ...owingSince]
+        }
       />
       {ledger.lines.length > 0 ? (
-        <LedgerLineList {...props} />
+        <LedgerLineList ledger={ledger} {...listProps} />
       ) : (
         <p className="text-muted-foreground text-sm">Nothing charged or paid yet.</p>
       )}

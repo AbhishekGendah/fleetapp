@@ -93,6 +93,7 @@ export async function MoneyCard(props: {
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <LedgerSummary
+          hasTotals
           ledger={ledger}
           label="Money lines"
           limit={LINES_SHOWN}
