@@ -45,6 +45,11 @@ Add to this list whenever something is relaxed or put off "until launch".
 
 ## Settings and services for production
 
+- [ ] Measure Home and Needs attention with a realistic history (hundreds of
+      rentals, years of ledger lines): Overdue reads every non-cancelled
+      rental's ledger lines on each load (look slice 2, 7 Nov 2026). If slow,
+      let the database leave out rentals whose lines sum to zero (still worked
+      out from the ledger, rule 11).
 - [ ] Production Vercel projects have `APP_STAGE=production` for every
       environment (Production and Preview). Branch previews on the dev
       projects accept sign-ins from their own *.vercel.app address (added
