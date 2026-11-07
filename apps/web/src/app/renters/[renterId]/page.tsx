@@ -174,7 +174,7 @@ function SharedContactNote({ contacts }: { contacts: readonly SharedContact[] })
             <li key={contact.id}>
               <Link
                 href={renterPath(contact.id)}
-                className="text-teal inline-flex min-h-11 items-center font-semibold hover:underline"
+                className="text-teal hover:text-primary inline-flex min-h-11 items-center font-semibold"
               >
                 {contact.fullName}
                 {contact.isArchived ? " (archived)" : ""}: same {sharedWhat(contact)} →

@@ -272,7 +272,7 @@ export async function ChangesCard(props: {
         {isChangeable && canChangeRate(rental.status) && !changeTemplate ? (
           <p className="text-muted-foreground text-sm">
             To change the weekly rate, first write your{" "}
-            <Link href={CONTRACTS_PATH} className="text-teal underline">
+            <Link href={CONTRACTS_PATH} className="text-teal hover:text-primary font-semibold">
               Change of terms form in Settings → Contracts
             </Link>
             .

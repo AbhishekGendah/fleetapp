@@ -63,7 +63,10 @@ export async function RentalsTab(props: {
               <RecordItem
                 key={rental.id}
                 title={
-                  <Link href={rentalPath(rental.id)} className="text-teal underline">
+                  <Link
+                    href={rentalPath(rental.id)}
+                    className="text-teal hover:text-primary font-semibold"
+                  >
                     {props.titleOf(rental)}
                   </Link>
                 }

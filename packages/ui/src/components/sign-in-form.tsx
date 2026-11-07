@@ -173,7 +173,7 @@ function PasswordStep(props: SignInFormProps & { onNeedsCode(): void }) {
       {props.forgotPasswordHref ? (
         <a
           href={props.forgotPasswordHref}
-          className="inline-flex min-h-11 items-center justify-center text-center text-sm hover:underline"
+          className="hover:text-primary inline-flex min-h-11 items-center justify-center text-center text-sm"
         >
           Forgot your password?
         </a>

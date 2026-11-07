@@ -30,7 +30,7 @@ export function NoticeNotSent(props: { renterName: string; outcome: unknown }) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Link href={PRIVACY_NOTICE_PATH} className="text-teal underline">
+        <Link href={PRIVACY_NOTICE_PATH} className="text-teal hover:text-primary font-semibold">
           Open the privacy notice
         </Link>
       </CardContent>

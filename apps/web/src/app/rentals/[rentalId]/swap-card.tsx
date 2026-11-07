@@ -119,7 +119,7 @@ async function SwapStarter({ rental, user }: { rental: RentalDetail; user: Signe
     return (
       <p className="text-muted-foreground text-sm">
         To swap the car, first write your{" "}
-        <Link href={CONTRACTS_PATH} className="text-teal underline">
+        <Link href={CONTRACTS_PATH} className="text-teal hover:text-primary font-semibold">
           Car swap form in Settings → Contracts
         </Link>
         .

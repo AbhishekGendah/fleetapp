@@ -80,7 +80,7 @@ export default async function HomePage() {
                 <li key={gap.operatorId} className="flex flex-wrap items-center gap-2 py-2">
                   <Link
                     href={operatorPath(gap.operatorId)}
-                    className="inline-flex min-h-11 items-center font-semibold hover:underline"
+                    className="hover:text-primary inline-flex min-h-11 items-center font-semibold"
                   >
                     {gap.name}
                   </Link>

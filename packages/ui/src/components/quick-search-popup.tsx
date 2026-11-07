@@ -24,7 +24,7 @@ import {
 
 /**
  * Every result is a full-width row at least 44px tall (rule 24); its name bold
- * teal, underlined when pointed at. One from older text, while the newer is
+ * teal, navy when pointed at. One from older text, while the newer is
  * being found, is faded and cannot be opened.
  */
 const RESULT_CLASSES =
@@ -119,9 +119,7 @@ function ResultLink({
         )
       }
     >
-      <span className="text-teal font-bold decoration-2 underline-offset-[3px] group-hover:underline">
-        {result.title}
-      </span>
+      <span className="text-teal group-hover:text-primary font-bold">{result.title}</span>
       {result.detail ? (
         <span className="text-muted-foreground text-sm">{result.detail}</span>
       ) : null}

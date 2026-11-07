@@ -35,7 +35,7 @@ export function SectionLink({ href, children }: { href: string; children: React.
   return (
     <Link
       href={href}
-      className="text-teal hover:text-primary inline-flex min-h-11 items-center gap-1 text-sm font-bold hover:underline"
+      className="text-teal hover:text-primary inline-flex min-h-11 items-center gap-1 text-sm font-bold"
     >
       {children}
       <span aria-hidden>›</span>

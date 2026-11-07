@@ -222,7 +222,10 @@ export function RentalForm(props: RentalFormProps) {
             </ul>
           ) : null}
           {shownState.link ? (
-            <Link href={shownState.link.href} className="text-teal text-sm underline">
+            <Link
+              href={shownState.link.href}
+              className="text-teal hover:text-primary text-sm font-semibold"
+            >
               {shownState.link.label}
             </Link>
           ) : null}

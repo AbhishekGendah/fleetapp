@@ -18,14 +18,14 @@
 }
 .fleet-timeline .fleet-timeline-row-link:focus-visible {
   outline: none;
-  text-decoration: underline;
+  color: var(--color-primary);
 }
 .fleet-timeline .fleet-timeline-row-link:focus-visible::after {
   outline: 3px solid var(--color-ring);
   outline-offset: -3px;
 }
 
-/* A car: its rego, a bold teal link (underlined on hover), and its make and model under it. */
+/* A car: its rego, a bold teal link (navy on hover), and its make and model under it. */
 .fleet-timeline .fleet-timeline-row {
   position: relative;
   display: flex;
@@ -56,7 +56,6 @@
 }
 .fleet-timeline .fleet-timeline-row-link:hover {
   color: var(--color-primary);
-  text-decoration: underline;
 }
 .fleet-timeline .fleet-timeline-row-description {
   color: var(--color-muted-foreground);

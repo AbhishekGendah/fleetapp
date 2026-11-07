@@ -103,7 +103,7 @@ until Abhi says go.
   The second line says what's wrong, and the label says how urgent.
   - On a computer, the whole row opens the main thing (the rental, or
     the place to fix it). Names and regos inside it are their own links
-    (bold teal, underline on hover) to the Renter or the car. The row's
+    (bold teal, navy on hover, never underlined: Abhi, 7 Nov) to the Renter or the car. The row's
     link is stretched over the row, so there are no links inside links.
   - On phones, one tap per row (44 px targets).
 - **Handover / return rows** open the rental page (its main button is the

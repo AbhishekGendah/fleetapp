@@ -33,7 +33,12 @@ export function RenterPrivacyNotice(props: {
       <p>{notice.policyText}</p>
       {notice.policyUrl ? (
         <p>
-          <a href={notice.policyUrl} target="_blank" rel="noopener" className="text-teal underline">
+          <a
+            href={notice.policyUrl}
+            target="_blank"
+            rel="noopener"
+            className="text-teal hover:text-primary font-semibold"
+          >
             {POLICY_LINK_TEXT}
           </a>
         </p>
@@ -53,7 +58,12 @@ export function RenterPrivacyLine(props: { business: PrivacyNoticeBusiness }) {
     <p className="text-muted-foreground text-sm">
       {name} keeps what is recorded here, and the signature, with the rental.{" "}
       {privacyPolicyUrl ? (
-        <a href={privacyPolicyUrl} target="_blank" rel="noopener" className="text-teal underline">
+        <a
+          href={privacyPolicyUrl}
+          target="_blank"
+          rel="noopener"
+          className="text-teal hover:text-primary font-semibold"
+        >
           How {name} looks after your information
         </a>
       ) : (

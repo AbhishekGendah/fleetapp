@@ -16,7 +16,7 @@ export function NoBusinessEmailWarning(props: { user: SignedInUser }) {
     <p className="text-attention text-sm" role="note">
       Your business has no email in its details, so Renters can&rsquo;t reply to what you send, and
       you won&rsquo;t get your own copies of signed documents and reports.{" "}
-      <Link href={SETTINGS_PATH} className="underline">
+      <Link href={SETTINGS_PATH} className="hover:text-primary font-semibold">
         Add it in Settings
       </Link>
       .

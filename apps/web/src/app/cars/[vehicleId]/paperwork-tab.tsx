@@ -44,7 +44,7 @@ function PolicyLine(props: {
       title={
         <Link
           href={policyPath(policy.id)}
-          className="text-teal inline-flex min-h-11 items-center gap-1 hover:underline"
+          className="text-teal hover:text-primary inline-flex min-h-11 items-center gap-1"
         >
           {policy.insurer} · {policy.policyNumber}
           <ChevronRight className="size-4" aria-hidden />
@@ -103,7 +103,7 @@ function InsuranceCard(props: {
           {policies.length === 0 ? "Not on any policy." : "The policies this car is on now."}{" "}
           <Link
             href={INSURANCE_PATH}
-            className="text-teal inline-flex min-h-11 items-center font-semibold hover:underline"
+            className="text-teal hover:text-primary inline-flex min-h-11 items-center font-semibold"
           >
             All policies
           </Link>

@@ -44,7 +44,7 @@ export default async function CarModelsPage(props: {
               : `${unlisted.length} ${unlisted.length === 1 ? "car has" : "cars have"} a make or model not in the list.`}{" "}
             <Link
               href={TYPED_BY_OPERATORS_PATH}
-              className="text-teal font-semibold hover:underline"
+              className="text-teal hover:text-primary font-semibold"
             >
               Review
             </Link>

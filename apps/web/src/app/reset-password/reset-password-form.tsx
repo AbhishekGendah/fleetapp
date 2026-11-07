@@ -74,7 +74,7 @@ export function ResetPasswordForm(props: { token: string }) {
       {formError ? (
         <Link
           href={FORGOT_PASSWORD_PATH}
-          className="inline-flex min-h-11 items-center justify-center text-center text-sm hover:underline"
+          className="hover:text-primary inline-flex min-h-11 items-center justify-center text-center text-sm"
         >
           Send me a new link
         </Link>

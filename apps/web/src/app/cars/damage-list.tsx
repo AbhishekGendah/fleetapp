@@ -28,10 +28,7 @@ export function DamageList(props: { records: readonly DamageSummary[]; emptyText
         <RecordItem
           key={record.id}
           title={
-            <Link
-              href={carDamagePath(record.vehicleId, record.id)}
-              className="underline-offset-4 hover:underline"
-            >
+            <Link href={carDamagePath(record.vehicleId, record.id)} className="hover:text-primary">
               {record.description}
             </Link>
           }

@@ -6,7 +6,7 @@ function ResultLink({ link }: { link: FormResultLink | undefined }) {
   return link ? (
     <a
       href={link.href}
-      className="text-teal inline-flex min-h-11 items-center text-sm font-semibold hover:underline"
+      className="text-teal hover:text-primary inline-flex min-h-11 items-center text-sm font-semibold"
     >
       {link.label} →
     </a>

@@ -95,7 +95,7 @@ function SortHeading<Row>(props: DataListProps<Row> & { column: DataListColumn<R
     page: 1,
   })}`;
   return (
-    <a href={href} className="inline-flex min-h-11 items-center gap-1 hover:underline">
+    <a href={href} className="hover:text-primary inline-flex min-h-11 items-center gap-1">
       {column.label}
       <span aria-hidden="true">{isSorted ? (query.sort.direction === "asc" ? "▲" : "▼") : ""}</span>
     </a>

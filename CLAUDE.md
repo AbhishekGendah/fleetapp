@@ -188,7 +188,7 @@ Never use "client", "customer" or "tenant" for these in code.
     - white cards with small capital section labels;
     - status labels that differ in lightness, not only colour;
     - the navy strip on single-item pages;
-    - names and regos as bold teal links (underline on hover), with the
+    - names and regos as bold teal links (navy on hover, never underlined), with the
       rest of a row opening the main thing;
     - one tap per row on phones;
     - tables that become cards on phones.

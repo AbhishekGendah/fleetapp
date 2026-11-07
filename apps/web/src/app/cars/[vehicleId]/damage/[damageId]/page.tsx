@@ -111,7 +111,10 @@ function WhoHadItCard({ detail, ids }: { detail: DamageDetail; ids: Ids }) {
       <CardContent className="flex flex-col gap-3 text-sm">
         {record.rentalId && detail.renterFullName ? (
           <p>
-            <Link href={rentalPath(record.rentalId)} className="text-teal underline">
+            <Link
+              href={rentalPath(record.rentalId)}
+              className="text-teal hover:text-primary font-semibold"
+            >
               {detail.renterFullName}
             </Link>
           </p>

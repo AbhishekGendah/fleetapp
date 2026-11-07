@@ -51,7 +51,7 @@
 }
 .bookings-calendar .bookings-calendar-day:hover {
   cursor: pointer;
-  text-decoration: underline;
+  background: var(--color-primary-soft);
 }
 .bookings-calendar .bookings-calendar-day:focus-visible {
   outline: 2px solid var(--color-ring);

@@ -48,7 +48,10 @@ export default async function ContractTemplatesPage() {
                 <RecordItem
                   key={template.id}
                   title={
-                    <Link href={contractTemplatePath(template.id)} className="text-teal underline">
+                    <Link
+                      href={contractTemplatePath(template.id)}
+                      className="text-teal hover:text-primary font-semibold"
+                    >
                       {template.name}
                     </Link>
                   }

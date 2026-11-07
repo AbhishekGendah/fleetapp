@@ -43,7 +43,7 @@ export function SetupChecklistCard({ steps }: { steps: SetupStep[] }) {
         {nextStep ? (
           <Link
             href={SETUP_STEP_COPY[nextStep.key].href}
-            className="text-primary flex min-h-11 items-center justify-between gap-2 font-bold hover:underline"
+            className="text-primary hover:text-primary-dark flex min-h-11 items-center justify-between gap-2 font-bold"
           >
             Next: {midSentence(SETUP_STEP_COPY[nextStep.key].title)}
             <ChevronRight aria-hidden className="text-teal size-5 shrink-0" />

@@ -42,7 +42,7 @@ function SeeAllLink({ total }: { total: number }) {
   return (
     <Link
       href={ATTENTION_PATH}
-      className="text-teal hover:text-primary flex min-h-12 items-center justify-center gap-1 border-t text-sm font-bold hover:underline"
+      className="text-teal hover:text-primary flex min-h-12 items-center justify-center gap-1 border-t text-sm font-bold"
     >
       See all {total}
       <span className="hidden md:inline"> that need attention</span>
@@ -209,7 +209,7 @@ export function TodayCard({ data, timeZone }: { data: DashboardData; timeZone: s
 }
 
 const CAR_TILE_CLASSES =
-  "focus-visible:ring-ring flex min-h-21 flex-col items-center justify-center rounded-xl font-bold outline-none hover:underline focus-visible:ring-2";
+  "focus-visible:ring-ring flex min-h-21 flex-col items-center justify-center rounded-xl font-bold outline-none hover:brightness-95 focus-visible:ring-2";
 
 function CarTile(props: { href: string; count: number; label: string; className: string }) {
   return (
@@ -233,7 +233,7 @@ export function YourCarsCard({ data }: { data: DashboardData }) {
       aside={
         <Link
           href={CARS_PATH}
-          className="text-teal hover:text-primary inline-flex min-h-11 items-center text-sm font-bold hover:underline"
+          className="text-teal hover:text-primary inline-flex min-h-11 items-center text-sm font-bold"
         >
           All {total}
         </Link>

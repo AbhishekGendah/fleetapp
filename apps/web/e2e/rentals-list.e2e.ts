@@ -22,6 +22,8 @@ const PAID_AHEAD_DOLLARS = "100";
 const CREDIT_WORDS = "$100.00 in credit";
 const STATUS_WORDS = ["All", "Out", "Booked", "To close", "Finished"];
 const DESKTOP_VIEWPORT = { width: 1280, height: 900 };
+/** The theme's navy (--color-primary, #0d3747). */
+const NAVY = "rgb(13, 55, 71)";
 
 async function searchList(page: Page, text: string, query = ""): Promise<void> {
   await page.goto(`/rentals${query}`, { waitUntil: "networkidle" });
@@ -105,6 +107,17 @@ test.describe.serial("the Rentals list", () => {
       await expect(owing).toHaveText(CREDIT_WORDS);
       await expect(owing.locator("span")).toHaveClass(/text-teal/);
       await expect(owing.locator("span")).not.toHaveClass(/text-destructive/);
+    });
+
+    test("links are never underlined, and turn navy on hover", async ({ page }) => {
+      await searchList(page, BOOKED_PARTIES.carRego);
+      const name = tableRow(page, BOOKED.name).getByRole("link", {
+        name: BOOKED.name,
+        exact: true,
+      });
+      await name.hover();
+      await expect(name).toHaveCSS("text-decoration-line", "none");
+      await expect(name).toHaveCSS("color", NAVY);
     });
 
     test("the name and rego open their own records; the rest of the row the rental", async ({
