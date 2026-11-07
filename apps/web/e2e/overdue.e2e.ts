@@ -156,8 +156,10 @@ test.describe.serial("overdue money", () => {
       page,
     }) => {
       await openRentalPage(page, rentalId, PARTIES, "money");
+      // In the page's main part: the navy strip above it has an Owing of its own.
       const totalOf = (label: string) =>
         page
+          .getByRole("main")
           .locator("dt", { hasText: new RegExp(`^${label}$`) })
           .locator("xpath=following-sibling::dd[1]");
       await expect(totalOf("Charged")).toHaveText("$470.00");
