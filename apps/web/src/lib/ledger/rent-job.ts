@@ -1,5 +1,4 @@
 import {
-  blockAt,
   blocksBetween,
   blockStartsAt,
   describeErrorForLog,
@@ -10,23 +9,26 @@ import {
   MILLISECONDS_PER_DAY,
   rentLinesToAdd,
   todayInTimeZone,
-  type BlockRate,
   type BlockRentTerms,
-  type ChargedRentLine,
   type RentLineToAdd,
-  type RentProgress,
 } from "@fleetapp/core";
 import { recordActivity } from "@fleetapp/db/activity";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, ledgerLines, rentals } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, gte, inArray, isNotNull, or, sql } from "drizzle-orm";
-import { alias } from "drizzle-orm/pg-core";
 
 import type { BillingDependencies } from "../billing/billing-context";
 import { issuePendingDocumentsQuietly } from "../billing/billing-run";
 import { findDueOperators, forEachOperator, type OperatorRun } from "../jobs/due-operators";
 import { loadBlockRates } from "../rentals/block-rates";
+import {
+  blockTermsOf,
+  loadChargedRentLines,
+  readBlockRental,
+  rentProgressOf,
+  type BlockRental as SharedBlockRental,
+} from "./block-rent-terms";
 import { builtInChargeType, type ChargeType } from "./charge-types";
 import { loadOperatorGst, type OperatorGst } from "./operator-gst";
 
@@ -44,17 +46,8 @@ export interface RentAdded {
 
 const NOTHING_ADDED: RentAdded = { charged: 0, corrected: 0 };
 
-/** What the run needs about one rental, read again under its lock. */
-interface BlockRental {
-  id: string;
-  handedOverAt: Date;
-  returnedAt: Date | null;
-  isLongTerm: boolean;
-  graceMinutes: number;
-  longTermMinimumDays: number;
-  bookedBlocks: number | null;
-  dailyRateWaivedReason: string | null;
-}
+/** A block rental the run charges: one that has been handed over. */
+type BlockRental = SharedBlockRental & { handedOverAt: Date };
 
 interface RentContext {
   operatorId: string;
@@ -68,101 +61,8 @@ async function lockBlockRental(
   operatorId: string,
   rentalId: string,
 ): Promise<BlockRental | null> {
-  const [row] = await tx
-    .select({
-      id: rentals.id,
-      handedOverAt: rentals.handedOverAt,
-      returnedAt: rentals.returnedAt,
-      isLongTerm: rentals.isLongTerm,
-      graceMinutes: rentals.graceMinutes,
-      longTermMinimumDays: rentals.longTermMinimumDays,
-      bookedBlocks: rentals.bookedBlocks,
-      dailyRateWaivedReason: rentals.dailyRateWaivedReason,
-    })
-    .from(rentals)
-    .where(
-      and(
-        eq(rentals.operatorId, operatorId),
-        eq(rentals.id, rentalId),
-        eq(rentals.rentModel, "blocks"),
-      ),
-    )
-    .for("update");
-  if (!row?.handedOverAt || row.isLongTerm === null) {
-    return null;
-  }
-  return {
-    ...row,
-    handedOverAt: row.handedOverAt,
-    isLongTerm: row.isLongTerm,
-    graceMinutes: row.graceMinutes ?? 0,
-    longTermMinimumDays: row.longTermMinimumDays ?? 1,
-  };
-}
-
-/** The rental's block rent lines so far, each marked if the business has reversed it. */
-async function loadChargedRentLines(
-  tx: AnyTransaction,
-  operatorId: string,
-  rental: BlockRental,
-): Promise<ChargedRentLine[]> {
-  const reversal = alias(ledgerLines, "reversal");
-  const rows = await tx
-    .select({
-      kind: ledgerLines.kind,
-      periodStartsAt: ledgerLines.periodStartsAt,
-      amountCents: ledgerLines.amountCents,
-      gstCents: ledgerLines.gstCents,
-      isCorrection: ledgerLines.isCorrection,
-      reversalId: reversal.id,
-    })
-    .from(ledgerLines)
-    .leftJoin(
-      reversal,
-      and(eq(reversal.reversesId, ledgerLines.id), eq(reversal.operatorId, ledgerLines.operatorId)),
-    )
-    .where(
-      and(
-        eq(ledgerLines.operatorId, operatorId),
-        eq(ledgerLines.rentalId, rental.id),
-        isNotNull(ledgerLines.periodStartsAt),
-      ),
-    );
-  return rows.flatMap((row) =>
-    (row.kind === "charge" || row.kind === "credit") && row.periodStartsAt
-      ? [
-          {
-            kind: row.kind,
-            periodFirstBlock: blockAt(rental.handedOverAt, row.periodStartsAt),
-            amountCents: row.amountCents,
-            gstCents: row.gstCents,
-            isCorrection: row.isCorrection,
-            isReversed: row.reversalId !== null,
-          },
-        ]
-      : [],
-  );
-}
-
-function termsOf(rental: BlockRental, rates: readonly BlockRate[]): BlockRentTerms {
-  return {
-    isLongTerm: rental.isLongTerm,
-    graceMinutes: rental.graceMinutes,
-    longTermMinimumDays: rental.longTermMinimumDays,
-    bookedBlocks: rental.bookedBlocks ?? 0,
-    rates,
-    isDailyRateWaived: rental.dailyRateWaivedReason !== null,
-  };
-}
-
-function progressOf(rental: BlockRental, now: Date): RentProgress {
-  return {
-    // Before the handover moment (only a test clock gets there) nothing is due yet.
-    currentBlock: blockAt(rental.handedOverAt, now),
-    blocksUsed: rental.returnedAt
-      ? blocksBetween(rental.handedOverAt, rental.returnedAt, rental.graceMinutes)
-      : null,
-  };
+  const rental = await readBlockRental(tx, operatorId, rentalId, true);
+  return rental?.handedOverAt ? { ...rental, handedOverAt: rental.handedOverAt } : null;
 }
 
 /**
@@ -266,9 +166,9 @@ async function chargeBlockRental(
       return NOTHING_ADDED;
     }
     const gst = await loadOperatorGst(tx, context.operatorId);
-    const terms = termsOf(rental, await loadBlockRates(tx, context.operatorId, rental.id));
+    const terms = blockTermsOf(rental, await loadBlockRates(tx, context.operatorId, rental.id));
     const charged = await loadChargedRentLines(tx, context.operatorId, rental);
-    const toAdd = rentLinesToAdd(terms, progressOf(rental, context.now), charged);
+    const toAdd = rentLinesToAdd(terms, rentProgressOf(rental, context.now), charged);
     if (toAdd.length === 0) {
       return NOTHING_ADDED;
     }
