@@ -1247,15 +1247,16 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
 
 ## Next
 
-**7 Nov: Cars and Renters pages are on the branch preview** (on top of the
-overdue batch, the no-underline links and cancelled bookings counting as
-overdue, none on main yet). Waiting on Abhi: try the preview; then main is
-fast-forwarded so it all goes to the dev site. Decision for him: should the
-"Review what they sent" page keep showing the licence number the Renter
-typed (to check against their photo)? Small questions still open: the rego
-on the overdue line, and "First rent" repeating the weekly price on
-bookings. Then: business Renters plan (qol-suggestions O1); B2 speed work;
-Phase 4 slices 5-8; his cosmetic changes last.
+**7 Nov: everything is on the dev site** (Abhi: "send all to the dev
+site"): the overdue batch, no-underline links, cancelled bookings counting
+as overdue, and the Cars and Renters pages (main fast-forwarded to 2bb3ec5).
+**From 7 Nov we work straight off the dev site** (Abhi): changes go to main
+after the full checks, with no branch preview first. Open questions for him:
+should the "Review what they sent" page keep the licence number the Renter
+typed (recommended: keep); the rego on the overdue line; "First rent"
+repeating the weekly price on bookings. Then: business Renters plan
+(qol-suggestions O1); B2 speed work; Phase 4 slices 5-8; his cosmetic
+changes last.
 
 **End of 6 Nov, pick up here:** live on the dev site: the new look
 (slice 1), admin A1 to A8, the pointing-hand fix and the title bar no
@@ -1263,8 +1264,8 @@ longer drawing over the top bar. Checks are faster (web browser tests in
 three groups, no slow library install): push to live about 8 minutes.
 Waiting on Abhi:
 1. Done 6 Nov: Vercel Authentication (Standard Protection) confirmed on
-   both projects, so preview links need a Vercel sign-in. From now on
-   visual changes go to a branch first for a quick preview link.
+   both projects, so preview links need a Vercel sign-in. (Since 7 Nov
+   changes go straight to the dev site instead.)
 2. Go or wait on B2 (loading placeholders, faster tabs, speed reports).
 3. His Operator app suggestions; the look slice 2 (dashboard, rental page);
    the nine improvements; the Phase 4 plans (slices 5 to 8).
