@@ -87,6 +87,22 @@ export function rentFact(rate: Parameters<typeof rentalRateOf>[0]): RentalFact |
     : null;
 }
 
+/**
+ * The next rent charge, as the rent run will make it (lib/ledger/next-rent):
+ * "Next rent $350.00, Fri 13 Nov", or a booking's "First rent", due at the
+ * handover.
+ */
+export function nextRentFact(
+  nextRent: { chargedAt: Date; amountCents: number; isFirst: boolean },
+  clock: RentalClock,
+): RentalFact {
+  return {
+    label: nextRent.isFirst ? "First rent" : "Next rent",
+    value: formatCents(nextRent.amountCents),
+    note: dayWords(nextRent.chargedAt, clock),
+  };
+}
+
 /** What the strip needs to know about the bond: worked out from its entries (bond-account). */
 export interface BondFactInput {
   requiredCents: number;

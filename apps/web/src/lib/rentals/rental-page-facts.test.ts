@@ -5,6 +5,7 @@ import {
   bondFact,
   handoverFact,
   hasRenterProblem,
+  nextRentFact,
   nextStepOf,
   owingFact,
   rentalStatusWords,
@@ -155,6 +156,26 @@ describe("the facts on a rental's strip", () => {
       note: "Fuel full",
     });
     expect(atHandoverFact({ odometerKm: null, fuelLevel: null })).toBeNull();
+  });
+});
+
+describe("the next rent on a rental's strip", () => {
+  it("says the amount and its day on the Operator's clock", () => {
+    // 5 pm UTC on 12 Nov is already Fri 13 Nov in Perth.
+    expect(
+      nextRentFact(
+        { chargedAt: new Date("2026-11-12T17:00:00Z"), amountCents: 350_00, isFirst: false },
+        CLOCK,
+      ),
+    ).toEqual({ label: "Next rent", value: "$350.00", note: "Fri 13 Nov" });
+  });
+
+  it("calls a booking's first rent so, and says today when it is today", () => {
+    expect(nextRentFact({ chargedAt: NOW, amountCents: 210_00, isFirst: true }, CLOCK)).toEqual({
+      label: "First rent",
+      value: "$210.00",
+      note: "Today",
+    });
   });
 });
 

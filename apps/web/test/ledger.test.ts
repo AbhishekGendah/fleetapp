@@ -13,6 +13,7 @@ import { addChargeType, listChargeTypes } from "../src/lib/ledger/charge-types";
 import { waiveDailyRate } from "../src/lib/ledger/daily-rate-waiver";
 import { loadRentalLedger } from "../src/lib/ledger/ledger-queries";
 import { addCharge, recordPayment, reverseLine } from "../src/lib/ledger/ledger-records";
+import { loadNextRent } from "../src/lib/ledger/next-rent";
 import { chargeRentFor, runRentJob } from "../src/lib/ledger/rent-job";
 import {
   createMemoryFileStorage,
@@ -274,6 +275,39 @@ describe("the ledger", () => {
     expect(fixed.status).toBe("saved");
     expect(twice).toEqual({ status: "not_reversible" });
     expect((await loadRentalLedger(web.db, actor.operatorId, rentalId)).balanceCents).toBe(30_00);
+  });
+
+  it("says the next rent before the run charges it: the same amount, from the same moment", async () => {
+    const booking = await kit.readyRental();
+    expect(await loadNextRent(web.db, actor.operatorId, booking.rentalId, HANDOVER)).toMatchObject({
+      amountCents: 350_00,
+      isFirst: true,
+    });
+
+    const { rentalId } = await kit.rentalOut(HANDOVER);
+    await chargeRentFor(web.db, actor.operatorId, afterHandover(1), [rentalId]);
+    const next = await loadNextRent(web.db, actor.operatorId, rentalId, afterHandover(1));
+    expect(next).toEqual({ chargedAt: afterHandover(7), amountCents: 350_00, isFirst: false });
+    // Its week has started but tonight's run has not charged it yet: still that one.
+    expect(await loadNextRent(web.db, actor.operatorId, rentalId, afterHandover(7, 1_000))).toEqual(
+      next,
+    );
+
+    await chargeRentFor(web.db, actor.operatorId, afterHandover(7, 1_000), [rentalId]);
+    expect((await rentLines(rentalId)).at(-1)).toMatchObject({
+      kind: "charge",
+      amountCents: next!.amountCents,
+      periodStartsAt: next!.chargedAt,
+      isCorrection: false,
+    });
+    expect(await loadNextRent(web.db, otherOperator.operatorId, rentalId, afterHandover(8))).toBe(
+      null,
+    );
+
+    await returnAt(rentalId, afterHandover(9));
+    expect(await loadNextRent(web.db, actor.operatorId, rentalId, afterHandover(9, HOUR_MS))).toBe(
+      null,
+    );
   });
 
   it("keeps each business's ledger and charge types to itself", async () => {

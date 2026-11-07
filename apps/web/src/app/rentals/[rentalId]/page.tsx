@@ -14,6 +14,7 @@ import {
 } from "../../../lib/handover/handover-queries";
 import { possessionAndHoldIdsOf } from "../../../lib/handover/possession-records";
 import { loadRentalLedger } from "../../../lib/ledger/ledger-queries";
+import { loadNextRent } from "../../../lib/ledger/next-rent";
 import { TAB_PARAM } from "../../../lib/record-tabs";
 import { describeRentalValue, rentalFieldLabel } from "../../../lib/rentals/rental-labels";
 import { loadRental, type RentalDetail } from "../../../lib/rentals/rental-queries";
@@ -74,9 +75,11 @@ async function RentalLogTab(props: {
 async function loadRentalPageData(
   rental: RentalDetail,
   user: SignedInUser,
+  clock: RentalClock,
 ): Promise<RentalStripData & { papers: RentalPaper[] }> {
-  const [ledger, bond, papers, handover, returnProgress] = await Promise.all([
+  const [ledger, nextRent, bond, papers, handover, returnProgress] = await Promise.all([
     rental.status === "draft" ? null : loadRentalLedger(appDb, user.operatorId, rental.id),
+    loadNextRent(appDb, user.operatorId, rental.id, clock.now),
     loadBondAccount(appDb, user.operatorId, rental),
     loadRentalPapers(rental.id, user),
     rental.handedOverAt
@@ -87,7 +90,7 @@ async function loadRentalPageData(
       : null,
     loadReturnProgress(rental, user),
   ]);
-  return { ledger, bond, papers, handover, returnProgress };
+  return { ledger, nextRent, bond, papers, handover, returnProgress };
 }
 
 /** Details, changes, the return and swap, damage and rates; on a computer, latest money and papers. */
@@ -202,7 +205,7 @@ export default async function RentalPage(props: {
   const tab = RENTAL_TAB_LINKS.chosen(searchParams[TAB_PARAM]);
   const [checklistsOnPhone, data] = await Promise.all([
     loadChecklistsOnPhone(appDb, user.operatorId, rental.id),
-    loadRentalPageData(rental, user),
+    loadRentalPageData(rental, user, clock),
   ]);
 
   return (

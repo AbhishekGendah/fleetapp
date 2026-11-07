@@ -11,12 +11,14 @@ import Link from "next/link";
 
 import type { BondAccount } from "../../../lib/bonds/bond-account";
 import type { LedgerView } from "../../../lib/ledger/ledger-queries";
+import type { NextRent } from "../../../lib/ledger/next-rent";
 import { carPath, RENTALS_PATH, renterPath } from "../../../lib/paths";
 import { rentalRateOf } from "../../../lib/rentals/rental-labels";
 import {
   atHandoverFact,
   bondFact,
   handoverFact,
+  nextRentFact,
   owingFact,
   rentalStatusWords,
   rentFact,
@@ -30,6 +32,8 @@ import { ChecklistMainButton, type ReturnProgress } from "./handover-card";
 /** What the strip shows that is not on the rental itself. */
 export interface RentalStripData {
   ledger: LedgerView | null;
+  /** The next rent charge, from the rent run's own rule; none when nothing more is to come. */
+  nextRent: NextRent | null;
   bond: BondAccount;
   /** The kilometres and fuel at the handover of the car the Renter has now. */
   handover: { odometerKm: number | null; fuelLevel: FuelLevel | null } | null;
@@ -48,10 +52,9 @@ function subtitleOf(rental: RentalDetail, clock: RentalClock): string {
 }
 
 /**
- * The key facts: before the handover, when it is, the rent and the bond;
- * once out, what is owing (from the ledger), the bond and the kilometres at
- * handover. Next rent is left out until the rent run can say it (it would
- * otherwise be a second way of working out rent).
+ * The key facts: before the handover, when it is, the rent, the first rent
+ * and the bond; once out, what is owing (from the ledger), the next rent
+ * (the rent run's own sum), the bond and the kilometres at handover.
  */
 function factsOf(rental: RentalDetail, data: RentalStripData, clock: RentalClock): RentalFact[] {
   const bond = bondFact({
@@ -62,18 +65,21 @@ function factsOf(rental: RentalDetail, data: RentalStripData, clock: RentalClock
     movements: data.bond.movements,
     isHandedOver: rental.handedOverAt !== null,
   });
+  const nextRent = data.nextRent ? nextRentFact(data.nextRent, clock) : null;
   if (!rental.handedOverAt) {
     return [
       ...(rental.status === "draft" || rental.status === "booked"
         ? [handoverFact(rental.plannedStart, clock)]
         : []),
       rentFact(rental),
+      nextRent,
       bond,
     ].filter((fact) => fact !== null);
   }
   const today = todayInTimeZone(clock.now, clock.timeZone);
   return [
     data.ledger ? owingFact(data.ledger, today) : null,
+    nextRent,
     bond,
     data.handover ? atHandoverFact(data.handover) : null,
   ].filter((fact) => fact !== null);
