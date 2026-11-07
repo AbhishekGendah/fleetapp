@@ -106,7 +106,7 @@ interface NeededOverrides {
  * Thrown inside the handover's transaction when, under the car's lock, it
  * can no longer go: nothing is kept.
  */
-class HandoverRefusedError extends Error {
+export class HandoverRefusedError extends Error {
   constructor(readonly result: Exclude<CompleteHandoverResult, { status: "completed" }>) {
     super(result.status);
   }
@@ -253,23 +253,40 @@ async function isRenterStillActive(
   return renter?.status === "active";
 }
 
-/**
- * The Renter, then the driver (the same person for a person's own rental),
- * locked for the handover and checked once more: marked Do not rent or
- * archived since the checks above, the car stays (review A6-1). Gives who
- * the car goes to. A business's car never goes before its driver is named.
- */
-async function lockPartiesForHandover(
+/** The rental's driver now, read under the rental's lock (taken after the Renter's and driver's). */
+async function lockRentalDriver(
   tx: AnyTransaction,
   operatorId: string,
-  view: Pick<HandoverView, "renterId" | "driverId">,
+  rentalId: string,
+): Promise<string | null | undefined> {
+  const [rental] = await tx
+    .select({ driverId: rentals.driverId })
+    .from(rentals)
+    .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, operatorId)))
+    .for("update");
+  return rental?.driverId;
+}
+
+/**
+ * The Renter, then the driver (the same person for a person's own rental),
+ * then the rental, locked for the handover and checked once more: marked Do
+ * not rent or archived since the checks above, or the rental now naming
+ * another driver than the one shown, the car stays (review A6-1, slice 1
+ * review F5). Gives who the car goes to. A business's car never goes before
+ * its driver is named.
+ */
+export async function lockPartiesForHandover(
+  tx: AnyTransaction,
+  operatorId: string,
+  view: Pick<HandoverView, "rentalId" | "renterId" | "driverId">,
 ): Promise<string> {
   const { renterId, driverId } = view;
   const isDriverOther = driverId !== null && driverId !== renterId;
   if (
     driverId === null ||
     !(await isRenterStillActive(tx, operatorId, renterId)) ||
-    (isDriverOther && !(await isRenterStillActive(tx, operatorId, driverId)))
+    (isDriverOther && !(await isRenterStillActive(tx, operatorId, driverId))) ||
+    (await lockRentalDriver(tx, operatorId, view.rentalId)) !== driverId
   ) {
     throw new HandoverRefusedError({ status: "renter_changed" });
   }
