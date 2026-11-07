@@ -1245,6 +1245,26 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
   - Test sheet: rows O-477 to O-488 and A-79 added; O-146, O-168, O-175,
     O-192, O-193, O-235, O-284 and O-329 updated.
 
+- **Business Renters slice 1: foundations (7 Nov, Abhi's go).** Migrations
+  0052 and 0053: a Renter's kind (person by default, fixed once made),
+  business columns (ABN with its checksum, contact email required),
+  organisation_drivers (RLS forced, never deleted), rentals.driver_id and
+  possessions.driver_id (filled from the Renter for every person rental, so
+  the code already deployed keeps working), retention counting driving.
+  Booking checks split into Renter and driver checks (packages/core). Every
+  "who drives" use now reads the driver; money, signing and lists stay on
+  the Renter. CLAUDE.md rule 15 and Terminology updated. Nothing visible.
+  - Deep review, two checkers: five findings confirmed, none reachable yet,
+    all fixed with tests: a finished rental's driver can't change; a link
+    can't be removed while a booking or car out names the driver, and a car
+    goes out only to a current driver; a Renter with a current link can't be
+    archived (no endless retention hold); two-connection lock tests; the
+    handover re-reads the driver under its lock.
+  - Also fixed: the overdue browser tests dated their charges on the UTC
+    date, failing every evening after 4 pm UTC (a day behind Perth).
+  - Abhi decided: a business with current drivers is kept past seven years;
+    a business rental's damage records follow the business's clock.
+
 ## Next
 
 **7 Nov: everything is on the dev site** (Abhi: "send all to the dev
@@ -1256,8 +1276,8 @@ the Renter typed, to check against their photo. Open questions for him: the
 rego on the overdue line; "First rent"
 repeating the weekly price on bookings. Then: business Renters
 (docs/plans/business-renters.md, approved 7 Nov with all 11 decisions;
-mockups approved 7 Nov; slice 1 (data foundations, nothing visible) next
-with his go); B2 speed work; Phase 4 slices 5-8; his cosmetic
+mockups approved 7 Nov; slice 1 on the dev site 7 Nov; slice 2 (adding
+businesses and drivers, the screens) next with his go); B2 speed work; Phase 4 slices 5-8; his cosmetic
 changes last.
 
 **End of 6 Nov, pick up here:** live on the dev site: the new look
