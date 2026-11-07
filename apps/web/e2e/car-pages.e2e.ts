@@ -134,7 +134,7 @@ test.describe.serial("the Cars list and a car's page", () => {
       await searchCars(page, OUT.carRego);
       // As on the Renters list: wait for the searched row itself before clicking on it.
       await expect(
-        carRow(page, OUT.carRego).getByRole("link", { name: OUT.carRego, exact: true }),
+        carRow(page, OUT.carRego).getByRole("link", { name: new RegExp(`^${OUT.carRego}, `) }),
       ).toBeVisible();
       // A click on the odometer lands on the rego's link, stretched over the row (forced: the
       // cell itself is covered by that link, which is the point).
