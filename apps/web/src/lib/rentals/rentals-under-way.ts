@@ -1,12 +1,12 @@
 import { RENTAL_STATUSES, isHoldingCar } from "@fleetapp/core";
 import type { AnyTransaction } from "@fleetapp/db/client";
 import { carHolds, possessions, rentals } from "@fleetapp/db/schema";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, or } from "drizzle-orm";
 
 /** Booked or out: a rental still holding its car. */
 const STATUSES_UNDER_WAY = RENTAL_STATUSES.filter(isHoldingCar);
 
-/** Whether this Renter has a rental booked or out (review A8-1). */
+/** Whether this Renter has a rental booked or out (review A8-1), as the Renter or its driver. */
 export async function hasRenterRentalUnderWay(
   tx: AnyTransaction,
   operatorId: string,
@@ -18,7 +18,7 @@ export async function hasRenterRentalUnderWay(
     .where(
       and(
         eq(rentals.operatorId, operatorId),
-        eq(rentals.renterId, renterId),
+        or(eq(rentals.renterId, renterId), eq(rentals.driverId, renterId)),
         inArray(rentals.status, STATUSES_UNDER_WAY),
       ),
     )

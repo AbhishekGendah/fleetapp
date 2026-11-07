@@ -237,6 +237,8 @@ export async function listRentalPage(
 }
 
 export interface RentalDetail extends RentalSummary {
+  /** Who drives: the Renter for a person; for a business, its named driver, if named yet. */
+  driverId: string | null;
   rentModel: RentModel;
   graceMinutes: number | null;
   longTermMinimumDays: number | null;
@@ -288,6 +290,7 @@ export async function loadRental(
     }
     const [details] = await tx
       .select({
+        driverId: rentals.driverId,
         chargeWeekday: rentals.chargeWeekday,
         rentModel: rentals.rentModel,
         graceMinutes: rentals.graceMinutes,

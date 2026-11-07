@@ -191,6 +191,8 @@ export async function createRental(
       .values({
         ...values,
         operatorId: actor.operatorId,
+        // A person drives their own rentals (rule 15); the database holds it so.
+        driverId: parties.driver.id,
         settingsSnapshot: { ...snapshot.settings },
         settingsVersion: snapshot.version,
       })

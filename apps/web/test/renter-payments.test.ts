@@ -298,6 +298,7 @@ describe("a Renter's direct debit and bond", () => {
     const row = {
       id: rental.rentalId,
       renterId: rental.renterId,
+      driverId: rental.renterId,
       vehicleId: rental.vehicleId,
       plannedStart: new Date("2027-06-01T01:00:00Z"),
       plannedEnd: new Date("2027-06-29T01:00:00Z"),
@@ -350,6 +351,7 @@ describe("a Renter's direct debit and bond", () => {
       {
         id: rental.rentalId,
         renterId: rental.renterId,
+        driverId: rental.renterId,
         vehicleId: rental.vehicleId,
         plannedStart: new Date("2027-06-01T01:00:00Z"),
         plannedEnd: new Date("2027-06-29T01:00:00Z"),

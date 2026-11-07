@@ -61,8 +61,13 @@ async function isStripeOffered(
 /** Both sides of a licence: front and back. */
 const LICENCE_SIDE_COUNT = 2;
 
+type RenterRow = typeof renters.$inferSelect;
+
 export interface BookingParties {
-  renter: typeof renters.$inferSelect;
+  /** Who pays and signs the contract. */
+  renter: RenterRow;
+  /** Who drives: the Renter themselves for a person (the same row). */
+  driver: RenterRow;
   vehicleId: string;
   carStatus: VehicleStatus;
 }
@@ -81,11 +86,58 @@ export interface CarCheck {
 
 type PartiesOrMissing = BookingParties | "renter_not_found" | "car_not_found";
 
-/** The Operator's current Renter and car, or which one is missing. */
+/** Which Renter, driver and car: no driver named means the Renter drives (a person's own rental). */
+interface PartyIds {
+  renterId: string;
+  driverId?: string | null;
+  vehicleId: string;
+}
+
+/** One of the Operator's Renters, locked when asked; a current one only, unless an archived one is allowed. */
+async function findRenter(
+  tx: AnyTransaction,
+  operatorId: string,
+  renterId: string,
+  options: { shouldLock: boolean; isArchivedAllowed: boolean },
+): Promise<RenterRow | undefined> {
+  const query = tx
+    .select()
+    .from(renters)
+    .where(
+      and(
+        eq(renters.id, renterId),
+        eq(renters.operatorId, operatorId),
+        options.isArchivedAllowed ? undefined : isNull(renters.archivedAt),
+      ),
+    );
+  const [renter] = options.shouldLock ? await query.for("update") : await query;
+  return renter;
+}
+
+/**
+ * Who drives: a person drives their own rentals. A business's driver is
+ * whoever the rental names, which the database holds to one of its current
+ * drivers. Naming one (and telling an archived one apart) comes with renting
+ * to a business (plan slice 3); until then a business has no driver here.
+ */
+async function findDriver(
+  tx: AnyTransaction,
+  operatorId: string,
+  renter: RenterRow,
+  ids: PartyIds,
+  shouldLock: boolean,
+): Promise<RenterRow | undefined> {
+  if (renter.kind === "person" || !ids.driverId) {
+    return renter.kind === "person" ? renter : undefined;
+  }
+  return findRenter(tx, operatorId, ids.driverId, { shouldLock, isArchivedAllowed: true });
+}
+
+/** The Operator's current Renter, their driver and the car, or which one is missing. */
 async function findBookingParties(
   tx: AnyTransaction,
   operatorId: string,
-  ids: { renterId: string; vehicleId: string },
+  ids: PartyIds,
   shouldLock: boolean,
 ): Promise<PartiesOrMissing> {
   const carQuery = tx
@@ -102,29 +154,26 @@ async function findBookingParties(
   if (!car) {
     return "car_not_found";
   }
-  const renterQuery = tx
-    .select()
-    .from(renters)
-    .where(
-      and(
-        eq(renters.id, ids.renterId),
-        eq(renters.operatorId, operatorId),
-        isNull(renters.archivedAt),
-      ),
-    );
-  const [renter] = shouldLock ? await renterQuery.for("update") : await renterQuery;
-  return renter ? { renter, vehicleId: ids.vehicleId, carStatus: car.status } : "renter_not_found";
+  const renter = await findRenter(tx, operatorId, ids.renterId, {
+    shouldLock,
+    isArchivedAllowed: false,
+  });
+  const driver = renter ? await findDriver(tx, operatorId, renter, ids, shouldLock) : undefined;
+  return renter && driver
+    ? { renter, driver, vehicleId: ids.vehicleId, carStatus: car.status }
+    : "renter_not_found";
 }
 
 /**
- * The Operator's current Renter and car, both locked for this transaction:
- * the car so two bookings of it are made one after the other, the Renter so
- * their details cannot change under the checks. Otherwise, which one is missing.
+ * The Operator's current Renter, their driver and the car, all locked for
+ * this transaction (car, then Renter, then driver): the car so two bookings
+ * of it are made one after the other, the Renter and driver so their details
+ * cannot change under the checks. Otherwise, which one is missing.
  */
 export function lockBookingParties(
   tx: AnyTransaction,
   operatorId: string,
-  ids: { renterId: string; vehicleId: string },
+  ids: PartyIds,
 ): Promise<PartiesOrMissing> {
   return findBookingParties(tx, operatorId, ids, true);
 }
@@ -186,7 +235,7 @@ async function findCarFacts(
   };
 }
 
-/** What stands between this Renter and this car for these dates, on the Operator's clock. */
+/** What stands between this Renter, their driver and this car for these dates, on the Operator's clock. */
 export async function findBookingProblems(
   tx: AnyTransaction,
   parties: BookingParties,
@@ -194,7 +243,7 @@ export async function findBookingProblems(
   settings: Pick<OperatorSettings, "minimumRenterAgeYears" | "isProvisionalLicenceAllowed">,
   check: CarCheck,
 ): Promise<BookingProblem[]> {
-  const { renter } = parties;
+  const { renter, driver } = parties;
   const dateOf = (moment: Date): string => todayInTimeZone(moment, period.timeZone);
   const today = dateOf(period.now);
   const startDate = dateOf(period.start);
@@ -206,13 +255,15 @@ export async function findBookingProblems(
     coverOn,
   });
   return bookingProblems({
-    renter: {
-      status: renter.status,
-      dateOfBirth: renter.dateOfBirth,
-      residentialAddress: renter.residentialAddress,
-      licenceType: renter.licenceType,
-      licenceExpiresOn: renter.licenceExpiresOn,
-      hasBothLicenceScans: await hasBothLicenceScans(tx, renter.operatorId, renter.id),
+    renter: { status: renter.status },
+    // The licence and its scans are the driver's.
+    driver: {
+      status: driver.status,
+      dateOfBirth: driver.dateOfBirth,
+      residentialAddress: driver.residentialAddress,
+      licenceType: driver.licenceType,
+      licenceExpiresOn: driver.licenceExpiresOn,
+      hasBothLicenceScans: await hasBothLicenceScans(tx, driver.operatorId, driver.id),
     },
     carStatus: parties.carStatus,
     car,
@@ -225,7 +276,7 @@ export async function findBookingProblems(
 }
 
 /**
- * What still stands between a rental's Renter and its car (including bond
+ * What still stands between a rental's Renter, its driver and its car (including bond
  * still to receive, when the rental's rules want it first), checked now under
  * the rules the rental was made with (rule 14). Nothing is locked: this is
  * for showing on the rental's page.
@@ -236,6 +287,7 @@ export async function loadRentalProblems(
   rental: {
     id: string;
     renterId: string;
+    driverId: string | null;
     vehicleId: string;
     plannedStart: Date;
     plannedEnd: Date | null;

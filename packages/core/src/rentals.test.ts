@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   bookingProblems,
   canMoveRental,
+  driverProblems,
+  renterProblems,
   handoverBlockers,
   isBookingRefused,
   isHandoverAllowed,
@@ -10,10 +12,11 @@ import {
   RENTAL_STATUSES,
   weekdayIn,
   type BookingCheckInput,
+  type DriverCheckFacts,
 } from "./rentals";
 import { operatorSettingsSchema, readSettings } from "./settings";
 
-const READY_RENTER: BookingCheckInput["renter"] = {
+const READY_RENTER: DriverCheckFacts = {
   status: "active",
   dateOfBirth: "1990-05-20",
   residentialAddress: "1 Example Street, Perth WA 6000",
@@ -28,9 +31,16 @@ const READY_CAR: BookingCheckInput["car"] = {
   isRegistered: true,
 };
 
-function check(overrides: Partial<BookingCheckInput> = {}) {
+type CheckOverrides = Partial<Omit<BookingCheckInput, "renter" | "driver">> & {
+  /** A person Renter: who books and who drives. */
+  renter?: DriverCheckFacts;
+  /** A business's driver, when the Renter is a business. */
+  driver?: DriverCheckFacts;
+};
+
+function check(overrides: CheckOverrides = {}) {
+  const renter = overrides.renter ?? READY_RENTER;
   return bookingProblems({
-    renter: READY_RENTER,
     carStatus: "available",
     car: READY_CAR,
     coverOn: "2026-11-10",
@@ -39,6 +49,8 @@ function check(overrides: Partial<BookingCheckInput> = {}) {
     today: "2026-11-01",
     rules: { minimumRenterAgeYears: 21, isProvisionalLicenceAllowed: false },
     ...overrides,
+    renter,
+    driver: overrides.driver ?? renter,
   });
 }
 
@@ -183,6 +195,73 @@ describe("booking checks", () => {
         rules: { minimumRenterAgeYears: 21, isProvisionalLicenceAllowed: true },
       }),
     ).toEqual([]);
+  });
+});
+
+describe("booking checks split between the Renter and the driver", () => {
+  const BUSINESS = { status: "active" } as const;
+  const TERMS = {
+    startDate: "2026-11-10",
+    endDate: "2026-12-10",
+    today: "2026-11-01",
+    rules: { minimumRenterAgeYears: 21, isProvisionalLicenceAllowed: false },
+  };
+
+  it("checks only Do not rent on the Renter", () => {
+    expect(renterProblems(BUSINESS)).toEqual([]);
+    expect(renterProblems({ status: "do_not_rent" })).toEqual([
+      { code: "do_not_rent", level: "booking" },
+    ]);
+  });
+
+  it("checks the licence, age and details on the driver", () => {
+    const problems = driverProblems(
+      { ...READY_RENTER, licenceType: "provisional", dateOfBirth: "2006-01-01" },
+      TERMS,
+    );
+    expect(problems.map((problem) => problem.code)).toEqual([
+      "under_minimum_age",
+      "provisional_licence",
+    ]);
+  });
+
+  it("refuses a business's booking when the business or its driver is Do not rent, saying so once", () => {
+    const barredDriver = check({
+      renter: { ...READY_RENTER, status: "active" },
+      driver: { ...READY_RENTER, status: "do_not_rent" },
+    });
+    const bothBarred = check({
+      renter: { ...READY_RENTER, status: "do_not_rent" },
+      driver: { ...READY_RENTER, status: "do_not_rent" },
+    });
+    expect(barredDriver).toEqual([{ code: "do_not_rent", level: "booking" }]);
+    expect(bothBarred).toEqual([{ code: "do_not_rent", level: "booking" }]);
+    expect(isBookingRefused(barredDriver)).toBe(true);
+  });
+
+  it("checks the driver's licence, not the business's", () => {
+    const problems = check({
+      driver: { ...READY_RENTER, licenceExpiresOn: "2026-11-05", hasBothLicenceScans: false },
+    });
+    expect(problems.map((problem) => problem.code)).toEqual([
+      "details_missing",
+      "licence_expired_by_start",
+    ]);
+  });
+
+  it("gives a person Renter exactly the problems one check of them gave before", () => {
+    const person = {
+      ...READY_RENTER,
+      status: "do_not_rent" as const,
+      licenceType: "provisional" as const,
+      hasBothLicenceScans: false,
+    };
+    expect(check({ renter: person, carStatus: "in_service" })).toEqual([
+      { code: "do_not_rent", level: "booking" },
+      { code: "car_not_ready", level: "handover", carStatus: "in_service" },
+      { code: "details_missing", level: "handover", missing: ["licenceScans"] },
+      { code: "provisional_licence", level: "handover" },
+    ]);
   });
 });
 
