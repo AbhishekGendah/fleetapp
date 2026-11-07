@@ -370,3 +370,155 @@ phone and computer). Abhi's decisions so far:
   Damage, Costs, Photos, Documents, Odometer, Log).
 - Lists show the phone number only, never the email.
 - Abhi looked through every tab of both pages and approved the mockups as drawn (7 Nov 2026).
+
+## As built: the Cars list and one car's page (7 Nov 2026)
+
+- **Status labels**: Out (was Rented, everywhere: the car's status word now
+  reads as on Home and Rentals) light cyan; Available outlined on white (a new
+  `available` Badge tone, the lightest); In service and Off road amber; Sold,
+  Written off and Archived grey. In the component catalogue.
+- **Cars list**:
+  - Header: Insurance (outline, with its shield) and Add car.
+  - Filters as counts: All, Out, Available, In the workshop (in service and
+    off road), Archived; Sold and Written off only while there are any, so
+    they stay findable. Old addresses (?status=rented, in_service, off_road,
+    written_off) open the filter that holds them now. The shared list's
+    Status box is still there too.
+  - Columns: Car (the rego, bold teal, is the row's own link: the rest of the
+    row opens the car too; make, model, year and colour under it), Status,
+    Now, Rego (date with Due soon or Expired, Direct debit, or Missing in
+    red), Insurance (the same), Odometer. The exports keep State, Make and
+    model, Year and Colour as their own columns (a list column can now be
+    for the exports only).
+  - Now: "Jamie Park, since Fri 6 Nov", "Alex Ng, back today 3:30 pm", "Jamie
+    Park, was due back Tue 3 Nov" (the name opens the Renter); "Panel repair,
+    back Mon 9 Nov" (or "was due back"); "Idle 4 days"; "Booked by Riley Chen,
+    Sat 7 Nov" when a booking starts today or tomorrow, else "Idle 12 days ·
+    booked by Taylor Smith, Tue 17 Nov". Who has a car comes from their open
+    possession (rule 15), so a car swapped away mid-rental still shows with
+    the Renter until it is back.
+  - Phone: a card per car (rego and status, make and model, then what it is
+    doing and either a paperwork line, "Rego due Thu 12 Nov", "No
+    insurance", or the odometer), one tap opening the car.
+- **One car's page**:
+  - Navy strip: the rego and its state, "2022 Toyota Corolla Ascent Sport ·
+    white · hatch, automatic", the status and what it is doing ("with Jamie
+    Park, since Fri 6 Nov", the name a link). Facts: Odometer (km, "At
+    handover Fri 6 Nov" / "Typed in Mon 2 Nov"), Rego ("Thu 12 Nov", "Due in
+    6 days · VIC"; Direct debit; Missing), Insurance (its end and the
+    insurer), Price ("$350.00/wk", "$60.00 a day"). Buttons: Edit, Record
+    damage (its form in a pop-up) and New rental for this car.
+  - Tabs, in the mockup's order: Overview (was Details; an old ?tab=details
+    opens it), Rentals, Rego & insurance, Damage, Costs, Photos, Documents,
+    Odometer, Log.
+  - Overview: Now (the rental out with its Renter, its When and rate as the
+    row's link to the rental; the next booking, or why there is none), Open
+    damage (three, each opening its record; All damage ›), Details (Edit
+    details); beside them on a computer, Rego and insurance (a line each
+    with Current, Due soon, Expired, Missing or Direct debit; See all ›),
+    Prices, Status (the status form, the transfer-not-lodged warning, and
+    Archive or Restore).
+  - Rentals: the Rentals list's table without the Car column (Renter, When as
+    the row's link, Rent, Owing from the ledger, Status); cards on a phone.
+    The latest 25, as before.
+  - Damage: Open, Claims under way (lodged or approved) and Repaired or left,
+    each row opening its record from anywhere on it.
+  - Rego & insurance and Costs sit side by side on a computer; every card's
+    name is in small capitals; an odometer reading says where it came from
+    ("typed in", "at a handover").
+- **Different from the mockup**:
+  - Record damage is on the strip only (the mockup also had it in the Open
+    damage card and the Damage tab), so the page has one Record damage
+    button whichever tab is open.
+  - "Idle 12 days · booked by Taylor Smith, Tue 17 Nov" says "booked by"
+    (the mockup had just the name), so the line reads as a booking.
+  - Rego and insurance dates in the list stay full dates ("12 Nov 2026"); the
+    mockup wrote a due date as "Thu 12 Nov".
+  - The Overview's Status card keeps today's status form (a choice of In
+    service, Off road and Available, with a reason and an expected day)
+    rather than a "Put in workshop" button.
+- **Not yet** (the app has no data for them): "Pay by direct debit instead"
+  and "Open policy ›" / "10 other cars ›" on the Rego & insurance tab as
+  drawn (the tab keeps today's forms and the policy link); "4 rentals since
+  April" under the Rentals table; the Log's "By" filter (the Log has no
+  filters yet, as on a rental's page).
+
+## As built: the Renters list and one Renter's page (7 Nov 2026)
+
+- **Status labels**: Renting light cyan, Booked blue, Not renting grey, Do not
+  rent solid dark red with white words (a new `refused` Badge tone, the
+  darkest), Overdue red, Licence due amber (Licence expired red), To review
+  and To refund blue, Archived grey. Not renting shows only when nothing else
+  does.
+- **Renters list**:
+  - Filters as counts: All, Renting now, Booked (a car booked and none out),
+    To review (was "Waiting for review"), Do not rent, Archived. Old
+    addresses: ?status=waiting_review opens To review, do_not_rent opens Do
+    not rent, active opens All.
+  - Columns: Renter (the name, bold teal, is the row's own link; the phone
+    under it, never the email), Status, Renting (the car's rego, which
+    opens the car, over "Back today 3:30 pm", "Since Fri 2 Oct, ongoing" or
+    "Starts Sat 7 Nov, 9:00 am"; else "Last back Tue 29 Sep" or "No rentals
+    yet"), Owing ("$450.00" red and bold, "$20.00 in credit" teal, "$0.00",
+    or "–" while nothing has been charged), Licence to (its expiry with Due
+    soon or Expired, or "Not on file"; never the number), Since ("Mar
+    2026"). Search reads "Search by name, phone or email" (a licence number
+    still finds them).
+  - Owing adds up the Renter's rentals' ledger lines by the one ledger rule
+    (rule 11). Overdue works each rental out from its own lines with today's
+    grace days, as Needs attention does (so credit on one rental never hides
+    another's arrears). To refund is Needs attention's bonds to refund.
+    Three queries for a page, scoped to the business.
+  - The exports hold what the list shows: the email is no longer in them.
+  - Phone: a card per Renter (name and labels, the car and when it is back,
+    "Since Mar 2026" and "$180.00 owing" / "Paid up" / "$20.00 in credit"),
+    one tap opening the Renter.
+- **One Renter's page**:
+  - Navy strip: the name; the phone and email, each opening the phone's own
+    app (and "Goes by Sam" when they have a preferred name); their labels.
+    Facts: Owing (from the ledger: "All paid up", "Since Wed 28 Oct", or
+    "9 days late" when a rental is overdue), Renting now (the rego, a link to
+    the car, "Hyundai i30 · back Tue 10 Nov"; Booked and its start; or
+    "Last back …"), Licence ("Full · VIC", "Expires 14 Mar 2029"), With you
+    since ("Jul 2026", "2 rentals": drafts and cancelled bookings not
+    counted). Buttons: Edit and New rental for Sam.
+  - Tabs, in the mockup's order: Overview (new, the page's plain address),
+    Rentals, Money, Details (keeps ?tab=details), Licence, Notes, Log.
+  - Overview: Still needed before renting and the same-phone-or-email note
+    first when they apply; Money (what they owe, big, with Overdue · 9 days,
+    then the three newest lines with their car; All money ›), Now (the car
+    out, its When and rate the row's link; the next booking), Latest note
+    (All notes ›); beside them on a computer, Contact (Call, Text, Email;
+    All details ›), Licence (type, state and class, its expiry with
+    Current, Due soon, Expired or Not on file, and whether both photos are
+    on file; Licence ›) and the Details form (send, cancel, and Review what
+    they sent when they have).
+  - Rentals: the Rentals list's table without the Renter column; Money:
+    Charged, Paid and Owing added up from the lines, then every line with
+    its car; Details: details, status (Do not rent), everything we hold and
+    archive, side by side on a computer; Licence: the licence (never its
+    number) and its photos, each "Front: on file" with Open front, opening
+    through the short-lived link and logged as before (rule 8).
+- **Different from the mockup**:
+  - The details form (Send, Send again, Cancel link, Review what they sent)
+    is on the Overview only; the mockup also drew it on Details. One place
+    to send it from.
+  - Send a link is not on the strip: it is the Overview's details form.
+  - The licence number is in the Edit licence form (opened on purpose, to
+    change it), as it must be kept to nominate a driver for a fine. The
+    Review what they sent page still shows the number the Renter typed, to
+    check it against their photo.
+  - Details missing (as a list label) is not built: whether details are
+    missing needs the licence photos, which the list does not read; the
+    Renter's own page still says what is needed before renting.
+- **Download size**: the Cars and Renters lists keep their 190 KB budgets.
+  New budgets for the single-item pages, on purpose: a car's page 500 KB
+  (453 measured at phone width) and a Renter's page 445 KB (404 measured),
+  about 10% over, as the rental page has; their weight is the shared form
+  pieces (Record damage, status, the details form sender).
+- **Not yet** (not money the app works out for a Renter yet, so left out
+  rather than built): Money tab's How Sam pays, Bond and Invoices and
+  receipts across all their rentals (each rental's page has them), and the
+  strip's "bond $500.00 held"; the Money card's one-line explanation of what
+  is overdue; "2 rentals since Jul 2026 · no fines yet" under Rentals (no
+  fines yet); the Log's "By" filter.

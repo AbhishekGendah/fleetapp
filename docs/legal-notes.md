@@ -229,9 +229,9 @@ of service) and the countries.
   and expiry. The licence number is never in the Log or the list export
   (rule 7). One Renter per licence, archived ones included.
 - **Licence scans** are identity documents (rule 8): kept in the private
-  identity storage, never shown as previews, opened only by pressing View
-  through a 5-minute link, and every View is written to the Renter's Log with
-  who looked. A replaced or removed scan is kept 30 days, then deleted.
+  identity storage, never shown as previews, opened only by pressing Open
+  (was View, 7 Nov 2026) through a 5-minute link, and every opening is
+  written to the Renter's Log with who looked. A replaced or removed scan is kept 30 days, then deleted.
   Licence scans are deleted on a timer (built, step 5, APP 11.2): to the bin
   12 months (an Operator setting, 1 to 60) after the later of being added and
   the Renter's last rental, never while a rental, fine or dispute is open,
@@ -896,3 +896,25 @@ of service) and the countries.
   for its cars being registered and insured).
 - Invoices after a car swap name the car on each charge, so the Renter can
   see which car a charge was for (consumer law: clear tax invoices).
+
+## Cars and Renters pages (7 Nov 2026 look, built)
+
+- **Licence number off the Renter's page and lists** (Abhi, 7 Nov 2026):
+  the page and the Renters list show a licence's type, state, class and
+  expiry only. The number is still held (fines nominations need it) and is
+  in the Edit licence form, which the Operator opens on purpose to change
+  it. Less on screen means less seen over a shoulder or in a screenshot
+  (APP 11, keeping personal information secure). The Review what they sent
+  page still shows the number the Renter typed, so it can be checked
+  against their photo before it is approved.
+- **Licence photos** are only "on file" on the Licence tab: no pictures on
+  the page; Open front or Open back fetches one through the same 5-minute
+  link, written to the Log as before (rule 8).
+- **Lists show the phone, never the email**, and the Renters export no
+  longer includes the email either: less personal information leaves the
+  app in a spreadsheet (APP 11). The export is still logged.
+- **Call, Text and Email** on a Renter's page open the Operator's own phone
+  or email app; the app itself sends nothing, so no Spam Act question
+  arises from these links (the Operator's own messages are theirs to send).
+- Nothing else to disclose: the pages show the business's own records to
+  the business only, scoped to it (rules 1 and 2).
