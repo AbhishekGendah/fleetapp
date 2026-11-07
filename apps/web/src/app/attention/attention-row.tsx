@@ -39,7 +39,7 @@ function Part({ part }: { part: LinePart }) {
  */
 export function AttentionText({ item }: { item: AttentionItem }) {
   return (
-    <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+    <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
       <InlineRecordLink asChild>
         <Link href={item.who.href}>{item.who.text}</Link>
       </InlineRecordLink>
