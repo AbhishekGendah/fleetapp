@@ -24,7 +24,7 @@ export const STATUS_BOX_STATUSES = OPERATOR_VEHICLE_STATUSES.filter(
   (status): status is Exclude<OperatorVehicleStatus, "sold"> => status !== "sold",
 );
 /**
- * What a car is doing. "rented" is only ever set by the system, from who has
+ * What a car is doing. "rented" (shown as Out) is only ever set by the system, from who has
  * the car: at the handover, and back at the return.
  */
 export const VEHICLE_STATUSES = [...OPERATOR_VEHICLE_STATUSES, "rented"] as const;
@@ -35,7 +35,7 @@ export const VEHICLE_STATUSES_IN_WORKSHOP: readonly VehicleStatus[] = ["in_servi
 
 export const VEHICLE_STATUS_LABELS: Readonly<Record<VehicleStatus, string>> = {
   available: "Available",
-  rented: "Rented",
+  rented: "Out",
   in_service: "In service",
   off_road: "Off road",
   sold: "Sold",

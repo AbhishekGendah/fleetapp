@@ -284,7 +284,7 @@ const EXAMPLE_RENTERS: readonly PickableRecord[] = [
 ];
 
 const EXAMPLE_PICKABLE_CARS: readonly PickableRecord[] = [
-  { value: "car-1", label: "1ABC234", description: "Toyota Corolla · Rented" },
+  { value: "car-1", label: "1ABC234", description: "Toyota Corolla · Out" },
   { value: "car-2", label: "1XYZ789", description: "Hyundai Ioniq · Available" },
   { value: "car-3", label: "1DEF456", description: "Kia Niro · In service" },
 ];
@@ -331,7 +331,7 @@ function DrawerExample() {
         Open a panel
       </Button>
       <Drawer isOpen={isOpen} onOpenChange={setIsOpen} title="1ABC234">
-        <p>Toyota Corolla 2024 · Rented to Sam Example since 3 Nov.</p>
+        <p>Toyota Corolla 2024 · Out with Sam Example since 3 Nov.</p>
       </Drawer>
     </>
   );
@@ -914,7 +914,7 @@ export function ComponentCatalogue() {
           label="Example cars by status"
           links={[
             { href: "#all", label: "All", count: 107, isCurrent: true },
-            { href: "#rented", label: "Rented", count: 72 },
+            { href: "#out", label: "Out", count: 72 },
             { href: "#available", label: "Available", count: 9 },
             { href: "#in-service", label: "In service", count: 14 },
           ]}

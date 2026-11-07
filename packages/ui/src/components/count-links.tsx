@@ -12,7 +12,7 @@ export interface CountLink {
 }
 
 /**
- * Counts that open the list behind them, e.g. "Rented 72 · Available 9",
+ * Counts that open the list behind them, e.g. "Out 72 · Available 9",
  * so a long list narrows to what matters in one tap (docs/design/09:
  * every number is tappable). Wraps onto as many lines as a phone needs;
  * each is at least a fingertip tall.
