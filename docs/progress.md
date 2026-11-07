@@ -1251,9 +1251,9 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
 site"): the overdue batch, no-underline links, cancelled bookings counting
 as overdue, and the Cars and Renters pages (main fast-forwarded to 2bb3ec5).
 **From 7 Nov we work straight off the dev site** (Abhi): changes go to main
-after the full checks, with no branch preview first. Open questions for him:
-should the "Review what they sent" page keep the licence number the Renter
-typed (recommended: keep); the rego on the overdue line; "First rent"
+after the full checks, with no branch preview first. Decided 7 Nov: the "Review what they sent" page keeps the licence number
+the Renter typed, to check against their photo. Open questions for him: the
+rego on the overdue line; "First rent"
 repeating the weekly price on bookings. Then: business Renters plan
 (qol-suggestions O1); B2 speed work; Phase 4 slices 5-8; his cosmetic
 changes last.
