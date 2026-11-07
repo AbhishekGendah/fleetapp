@@ -7,22 +7,19 @@ import {
 } from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
 import { Badge, type BadgeTone } from "@fleetapp/ui/badge";
-import { cn } from "@fleetapp/ui/cn";
-import { InlineRecordLink, ROW_CLASSES, RowLink } from "@fleetapp/ui/row-link";
+import { InlineRecordLink } from "@fleetapp/ui/row-link";
 import { Archive, ArchiveRestore, Pencil } from "lucide-react";
 import Link from "next/link";
 
 import { DetailLines } from "../../../components/detail-lines";
 import { SectionCard, SectionLink } from "../../../components/section-card";
-import { editCarPath, rentalPath, renterPath } from "../../../lib/paths";
-import { rentalRateText } from "../../../lib/rentals/rental-labels";
+import { editCarPath, renterPath } from "../../../lib/paths";
 import type { RentalSummary } from "../../../lib/rentals/rental-queries";
 import type { RentalClock } from "../../../lib/rentals/rental-records";
-import { rentalWhenWords } from "../../../lib/rentals/rental-when";
 import { carNowText } from "../../../lib/vehicles/car-now";
 import { describeVehicleValue, VEHICLE_FIELD_LABELS } from "../../../lib/vehicles/vehicle-labels";
 import type { VehicleDetail } from "../../../lib/vehicles/vehicle-queries";
-import { RentalBadges } from "../../rentals/rental-status-badge";
+import { RentalRow } from "../../rentals/rental-row";
 import { DamageList } from "../damage-list";
 import { changeStatusAction, setArchivedAction } from "./actions";
 import type { CarPageData } from "./car-page-data";
@@ -46,31 +43,26 @@ const DETAIL_FIELDS = [
 
 /** How many open damage records the Overview shows; the Damage tab has the rest. */
 const OPEN_DAMAGE_SHOWN = 3;
-const ROW_LINE_CLASSES = "flex items-center gap-3 border-t py-2 min-h-15";
 const QUIET_LINE_CLASSES = "text-muted-foreground border-t py-3 text-sm";
 
-/** One rental as a row: the Renter's name opens them, the rest of the row the rental. */
-function RentalRow(props: { lead: string; rental: RentalSummary; clock: RentalClock }) {
+/** A rental of the car, led by its Renter's name (which opens them). */
+function CarRentalRow(props: { lead: string; rental: RentalSummary; clock: RentalClock }) {
   const { rental } = props;
   const name = renterDisplayName(rental.renterFullName, rental.renterPreferredName);
-  const when = rentalWhenWords(rental, props.clock).text;
   return (
-    <li className={cn(ROW_CLASSES, ROW_LINE_CLASSES)}>
-      <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
-        <span className="font-bold">
+    <RentalRow
+      lead={
+        <>
           {props.lead}{" "}
           <InlineRecordLink asChild>
             <Link href={renterPath(rental.renterId)}>{name}</Link>
           </InlineRecordLink>
-        </span>
-        <RowLink asChild className="text-muted-foreground text-sm">
-          <Link href={rentalPath(rental.id)} aria-label={`${name}'s rental, ${when}`}>
-            {when} · {rentalRateText(rental)}
-          </Link>
-        </RowLink>
-      </span>
-      <RentalBadges rental={rental} />
-    </li>
+        </>
+      }
+      rentalName={`${name}'s rental`}
+      rental={rental}
+      clock={props.clock}
+    />
   );
 }
 
@@ -88,12 +80,12 @@ function NowCard(props: { vehicle: VehicleDetail; data: CarPageData; clock: Rent
     >
       <ul aria-label="Now and next">
         {withRenter ? (
-          <RentalRow lead="Out with" rental={withRenter} clock={props.clock} />
+          <CarRentalRow lead="Out with" rental={withRenter} clock={props.clock} />
         ) : (
           <li className={QUIET_LINE_CLASSES}>{carNowText(props.data.now) ?? "Not out."}</li>
         )}
         {nextBooking ? (
-          <RentalRow lead="Next booking:" rental={nextBooking} clock={props.clock} />
+          <CarRentalRow lead="Next booking:" rental={nextBooking} clock={props.clock} />
         ) : (
           <li className={QUIET_LINE_CLASSES}>
             Next booking: none.
