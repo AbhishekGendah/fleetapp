@@ -1225,9 +1225,7 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
 
 **6 Nov, look slice 2 built on a branch** (see Done). Waiting on Abhi:
 1. Try the preview link and say what to change before it goes to main.
-2. Delete the 26 duplicate rows at the top of the test sheet (a copy of the
-   header and A-01 to A-25 was added there by mistake; the originals are
-   intact below).
+2. His small cosmetic changes from trying the preview (later, his call).
 3. Approve or change docs/plans/look-slice-2-overdue.md (one grace-days
    setting, default 2; plus Next rent and Charged/Paid totals).
 4. Then: business Renters plan (qol-suggestions O1); Cars and Renters
