@@ -254,6 +254,41 @@ describe("the admin login", () => {
     });
   });
 
+  describe("where a sign-in may come from", () => {
+    const PREVIEW_ORIGIN = "https://fleetapp-admin-git-branch-ags.vercel.app";
+
+    async function signInFromOrigin(target: AdminAuth): Promise<number> {
+      const response = await target.handler(
+        new Request(`${TEST_BASE_URL}/api/auth/sign-in/email`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            origin: PREVIEW_ORIGIN,
+            cookie: "some=cookie",
+          },
+          body: JSON.stringify({ email, password: TEST_PASSWORD }),
+        }),
+      );
+      return response.status;
+    }
+
+    it("refuses a sign-in from an address it doesn't trust", async () => {
+      expect(await signInFromOrigin(auth)).toBe(403);
+    });
+
+    it("accepts a sign-in from a trusted preview address", async () => {
+      const previewAuth = createAdminAuth({
+        database: connection.db,
+        baseURL: TEST_BASE_URL,
+        trustedOrigins: [PREVIEW_ORIGIN],
+        secret: TEST_SECRET,
+        issuerName: TEST_ISSUER,
+        recordActivity: async () => {},
+      });
+      expect(await signInFromOrigin(previewAuth)).toBe(200);
+    });
+  });
+
   describe("the authenticator app", () => {
     it("makes a password alone stop being a way in", async () => {
       const signIn = await auth.api.signInEmail({

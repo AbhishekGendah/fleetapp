@@ -1,5 +1,6 @@
 import { createDb } from "@fleetapp/db/client";
 import { createEmailSender } from "@fleetapp/email";
+import { previewTrustedOrigins } from "@fleetapp/auth";
 import { nextCookies } from "better-auth/next-js";
 
 import { env } from "../env";
@@ -15,6 +16,11 @@ export const authDb = createDb(env.AUTH_DATABASE_URL);
 export const auth = createUserAuth({
   database: authDb,
   baseURL: env.APP_URL,
+  trustedOrigins: previewTrustedOrigins({
+    appStage: env.APP_STAGE,
+    vercelEnv: env.VERCEL_ENV,
+    deploymentHosts: [env.VERCEL_URL, env.VERCEL_BRANCH_URL],
+  }),
   secret: env.BETTER_AUTH_SECRET,
   issuerName: env.AUTH_ISSUER_NAME,
   // On the login role's connection: it may add to the test inbox, nothing more.

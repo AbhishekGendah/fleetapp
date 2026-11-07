@@ -40,6 +40,8 @@ export interface UserAuthConfig {
   /** A connection on `web_auth_role`. Injected so the login flow can be tested. */
   database: AnyDatabase;
   baseURL: string;
+  /** Other addresses sign-ins may come from: a preview's own (previewTrustedOrigins). */
+  trustedOrigins?: string[];
   secret: string;
   issuerName: string;
   /** Sends password reset and new-device emails. */
@@ -92,6 +94,7 @@ function buildUserAuthOptions(config: UserAuthConfig) {
   return {
     appName: config.issuerName,
     baseURL: config.baseURL,
+    trustedOrigins: config.trustedOrigins ?? [],
     secret: config.secret,
     // Never the error's own words: they repeat the query's values (review A2-2).
     logger: safeAuthLogger,
@@ -109,6 +112,9 @@ function buildUserAuthOptions(config: UserAuthConfig) {
 
     advanced: {
       database: { generateId: "uuid" as const },
+      // Always checked, tests included: the library skips it under NODE_ENV=test
+      // by default, which would hide a refused address (the preview sign-in bug).
+      disableOriginCheck: false,
     },
 
     user: {

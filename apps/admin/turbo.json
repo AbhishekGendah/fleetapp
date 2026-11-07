@@ -12,7 +12,10 @@
         "APP_URL",
         "EMAIL_TRANSPORT",
         "EMAIL_FROM",
-        "APP_STAGE"
+        "APP_STAGE",
+        "VERCEL_ENV",
+        "VERCEL_URL",
+        "VERCEL_BRANCH_URL"
       ]
     },
     "dev": {
@@ -25,7 +28,10 @@
         "APP_URL",
         "EMAIL_TRANSPORT",
         "EMAIL_FROM",
-        "APP_STAGE"
+        "APP_STAGE",
+        "VERCEL_ENV",
+        "VERCEL_URL",
+        "VERCEL_BRANCH_URL"
       ]
     },
     "test": {

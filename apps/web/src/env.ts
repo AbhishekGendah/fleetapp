@@ -1,7 +1,7 @@
 // Secrets live here: a browser bundle that imports this fails the build.
 import "server-only";
 
-import { authEnvShape } from "@fleetapp/auth";
+import { authEnvShape, vercelEnvShape } from "@fleetapp/auth";
 import { PAYMENTS_TRANSPORTS } from "@fleetapp/core";
 
 import { stripeSettingsProblems, type StripeSettings } from "./lib/payments/stripe-settings";
@@ -20,6 +20,7 @@ const envSchema = z
   .object({
     ...authEnvShape,
     ...emailEnvShape,
+    ...vercelEnvShape,
 
     APP_URL: z.url(),
 
@@ -98,6 +99,9 @@ export const env = envSchema.parse({
   EMAIL_TRANSPORT: process.env.EMAIL_TRANSPORT,
   EMAIL_FROM: process.env.EMAIL_FROM,
   APP_STAGE: process.env.APP_STAGE,
+  VERCEL_ENV: process.env.VERCEL_ENV,
+  VERCEL_URL: process.env.VERCEL_URL,
+  VERCEL_BRANCH_URL: process.env.VERCEL_BRANCH_URL,
   GOOGLE_PLACES_API_KEY: process.env.GOOGLE_PLACES_API_KEY,
   GOOGLE_PLACES_API_URL: process.env.GOOGLE_PLACES_API_URL,
   STORAGE_BUCKET: process.env.STORAGE_BUCKET,

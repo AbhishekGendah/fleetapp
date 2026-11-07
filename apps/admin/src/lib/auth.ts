@@ -1,3 +1,4 @@
+import { previewTrustedOrigins } from "@fleetapp/auth";
 import { describeErrorForLog } from "@fleetapp/core";
 import { createDb } from "@fleetapp/db/client";
 import { adminActivityLog } from "@fleetapp/db/schema";
@@ -19,6 +20,11 @@ export const authDb = createDb(env.AUTH_DATABASE_URL);
 export const auth = createAdminAuth({
   database: authDb,
   baseURL: env.ADMIN_URL,
+  trustedOrigins: previewTrustedOrigins({
+    appStage: env.APP_STAGE,
+    vercelEnv: env.VERCEL_ENV,
+    deploymentHosts: [env.VERCEL_URL, env.VERCEL_BRANCH_URL],
+  }),
   secret: env.BETTER_AUTH_SECRET,
   issuerName: env.AUTH_ISSUER_NAME,
   recordActivity: async (entry) => {

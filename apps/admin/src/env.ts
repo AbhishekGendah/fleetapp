@@ -1,7 +1,7 @@
 // Secrets live here: a browser bundle that imports this fails the build.
 import "server-only";
 
-import { authEnvShape } from "@fleetapp/auth";
+import { authEnvShape, vercelEnvShape } from "@fleetapp/auth";
 import { emailEnvShape, refuseTestInboxInProduction } from "@fleetapp/email";
 import { z } from "zod";
 
@@ -11,6 +11,7 @@ const envSchema = z
   .object({
     ...authEnvShape,
     ...emailEnvShape,
+    ...vercelEnvShape,
 
     ADMIN_URL: z.url(),
 
@@ -39,4 +40,7 @@ export const env = envSchema.parse({
   EMAIL_TRANSPORT: process.env.EMAIL_TRANSPORT,
   EMAIL_FROM: process.env.EMAIL_FROM,
   APP_STAGE: process.env.APP_STAGE,
+  VERCEL_ENV: process.env.VERCEL_ENV,
+  VERCEL_URL: process.env.VERCEL_URL,
+  VERCEL_BRANCH_URL: process.env.VERCEL_BRANCH_URL,
 });
