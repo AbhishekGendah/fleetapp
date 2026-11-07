@@ -839,11 +839,16 @@ export function ComponentCatalogue() {
         <FormPieces />
       </CatalogueSection>
 
-      <CatalogueSection title="Badges" note="A short label on a record, such as its status.">
+      <CatalogueSection
+        title="Badges"
+        note="A short label on a record, such as its status. Each differs in lightness as well as colour: Available is outlined, Do not rent solid."
+      >
         <div className="flex flex-wrap gap-2">
-          <Badge tone="good">Available</Badge>
+          <Badge tone="good">Current</Badge>
+          <Badge tone="available">Available</Badge>
           <Badge tone="attention">In service</Badge>
           <Badge tone="danger">Suspended</Badge>
+          <Badge tone="refused">Do not rent</Badge>
           <Badge>Archived</Badge>
           <Badge tone="out">Out</Badge>
           <Badge tone="booked">Booked</Badge>

@@ -55,6 +55,13 @@
   --color-out-soft: #cfeef1;
   --color-booked: #1e3a8a;
   --color-booked-soft: #dbeafe;
+  /*
+   * Cars and Renters (7 Nov 2026 look): an available car is outlined (white
+   * inside, so it is the lightest label of all), and Do not rent is solid dark
+   * red with white words (the darkest). Both over 7:1 (WCAG 1.4.3 AAA).
+   */
+  --color-teal-dark: #0f5f69;
+  --color-destructive-strong: #991b1b;
 
   --color-destructive: #b91c1c;
   --color-destructive-foreground: #ffffff;
