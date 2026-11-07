@@ -5,6 +5,7 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, inArray, ne } from "drizzle-orm";
 
 import { selectLinesByRental } from "../ledger/rental-balances";
+import { CAR_OF_RENTAL, RENTER_OF_RENTAL } from "../rentals/rental-queries";
 import type { FewOfMany } from "./fleet-overview";
 
 /** A rental whose Renter still owes money past its grace days. */
@@ -69,14 +70,8 @@ export async function loadOverdueRentals(
         rego: vehicles.rego,
       })
       .from(rentals)
-      .innerJoin(
-        renters,
-        and(eq(renters.id, rentals.renterId), eq(renters.operatorId, rentals.operatorId)),
-      )
-      .innerJoin(
-        vehicles,
-        and(eq(vehicles.id, rentals.vehicleId), eq(vehicles.operatorId, rentals.operatorId)),
-      )
+      .innerJoin(renters, RENTER_OF_RENTAL)
+      .innerJoin(vehicles, CAR_OF_RENTAL)
       .where(
         and(
           eq(rentals.operatorId, operatorId),
