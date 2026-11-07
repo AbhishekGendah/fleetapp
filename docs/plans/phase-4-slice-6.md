@@ -20,13 +20,18 @@ which slice 5 already reverses.
 - **When a debit fails, people are told at once:** the business by a
   "Needs attention" alert on the dashboard and an email; the Renter by email
   (SMS once a provider is chosen), with the amount and what happens next.
+  The alert is Needs attention's existing red "Overdue" line (built 7 Nov
+  2026, docs/plans/look-slice-2-overdue.md): slice 5 makes a failed debit
+  overdue at once through `overdueOf` (see its TODO), so this slice adds
+  no second kind for it.
 - **One automatic retry** after 3 banking days (a setting), counting
   weekends and the national and the business's state public and bank
   holidays. Only when the failure can be fixed by waiting (e.g. not enough
   money). If the retry fails, no more tries: the rental is flagged for the
   business.
 - **Late fee** (off by default): when on, one fee per missed rent week,
-  after a grace period, only if the Renter's signed contract states it.
+  after the business's grace days (the one shared setting, default 2),
+  only if the Renter's signed contract states it.
 - **Debit what's owing now:** a button on the rental for the business to
   debit the amount owing, or part of it, at once. Logged, one at a time.
 - **Arrears list ("Owing"):** every Renter owing, how long (current, 1 to 7,
@@ -120,10 +125,16 @@ says "Add your state in Business details so its holidays count".
 
 ## Late fee
 
-- **Settings → Payments:** "Charge a late fee" (off by default), the
-  amount (money box), and "after [3] days" of grace (digits only, 1 to 30).
-  Copied onto each rental (rule 14): turning it on affects new rentals
-  only; older ones read "off".
+- **Settings → Payments:** "Charge a late fee" (off by default) and the
+  amount (money box). Its grace is the business's one **grace days**
+  setting, `paymentGraceDays` (default 2, 0 to 30, digits only), already
+  on Settings → Payments as "Count as overdue after [2] days" and used by
+  Needs attention's Overdue (docs/plans/look-slice-2-overdue.md, approved
+  by Abhi 7 Nov 2026: one setting, not two). The late fee and its grace
+  days are copied onto each rental (rule 14) because they charge money:
+  turning the fee on, or changing the grace days, affects new rentals only;
+  older ones read "off". Needs attention keeps reading today's setting, as
+  it only shows things.
 - **Only if the contract says so:** a new merge field "Late fee" for
   contract templates prints the amount and grace days. A rental gets late
   fees only if its signed contract's template contains that field (checked
@@ -197,8 +208,9 @@ Backwards compatible, proved on a filled database (batch 6).
   when the business was told; unique per direct debit.
 - Every new table: `operator_id NOT NULL`, links including `operator_id`,
   row-level security on and forced, web app login only.
-- Settings (retry days, late fee, grace) live in the existing settings
-  document (Zod schema in packages/core/src/settings.ts); no column.
+- Settings (retry days, late fee) live in the existing settings document
+  (Zod schema in packages/core/src/settings.ts); no column. Grace days is
+  the existing `paymentGraceDays` there, not a new setting.
 
 ## Build steps
 
