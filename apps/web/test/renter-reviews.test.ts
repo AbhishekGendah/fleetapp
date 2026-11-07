@@ -90,7 +90,7 @@ describe("the Operator's review of what a Renter sent", () => {
     const waiting = await listRenterPage(
       web.db,
       actor.operatorId,
-      parseListQuery(RENTER_LIST, { status: "waiting_review" }),
+      parseListQuery(RENTER_LIST, { status: "to-review" }),
     );
     expect(waiting.rows).toContainEqual(
       expect.objectContaining({ id: visit.renterId, isWaitingReview: true }),

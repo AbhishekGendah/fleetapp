@@ -9,15 +9,18 @@ import {
 import { renters } from "@fleetapp/db/schema";
 import type { ExportFormat } from "@fleetapp/core/spreadsheet";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, asc, count, eq, isNotNull, isNull, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, eq, isNotNull, isNull, ne, not, or, sql, type SQL } from "drizzle-orm";
 
 import type { ActingUser } from "../acting-user";
 import { recordListExport } from "../list-export-log";
+import {
+  RENTER_LIST_FILTERS,
+  renterListFilterOf,
+  type RenterListFilter,
+} from "./renter-list-status";
 
 /** The filter value that shows archived Renters instead of current ones. */
-export const ARCHIVED_FILTER_VALUE = "archived";
-/** The filter value for current Renters who sent details the Operator has not reviewed. */
-export const WAITING_REVIEW_FILTER_VALUE = "waiting_review";
+export const ARCHIVED_FILTER_VALUE = "archived" satisfies RenterListFilter;
 
 /**
  * True while the Renter has sent details through their link that wait for
@@ -33,6 +36,36 @@ const isWaitingReview = sql<boolean>`exists (
 )`;
 export const STATUS_FILTER_KEY = "status";
 
+/** A rental of this Renter's in one of these statuses. Table names written out for the sub-query. */
+function hasRentalThat(status: "active" | "booked"): SQL<boolean> {
+  return sql<boolean>`exists (
+    select 1 from "rentals" "theirs"
+    where "theirs"."renter_id" = "renters"."id"
+      and "theirs"."operator_id" = "renters"."operator_id"
+      and "theirs"."status" = ${status}
+  )`;
+}
+
+/** Has a car out now. */
+const isRentingNow = hasRentalThat("active");
+/** Has a car booked, and none out (the list says Renting for those). */
+const isBookedOnly = sql<boolean>`(${hasRentalThat("booked")} and not ${isRentingNow})`;
+
+/** When they last brought a car back, for "Last back Tue 29 Sep". */
+const lastBackAt = sql<Date | null>`(
+  select max("theirs"."returned_at") from "rentals" "theirs"
+  where "theirs"."renter_id" = "renters"."id"
+    and "theirs"."operator_id" = "renters"."operator_id"
+)`.mapWith(renters.createdAt);
+
+/** What each of the list's filters holds (archived ones apart). */
+const FILTER_CONDITIONS: Readonly<Record<Exclude<RenterListFilter, "archived">, SQL>> = {
+  renting: isRentingNow,
+  booked: isBookedOnly,
+  "to-review": isWaitingReview,
+  "do-not-rent": sql`${renters.status} = 'do_not_rent'`,
+};
+
 const summaryColumns = {
   id: renters.id,
   fullName: renters.fullName,
@@ -43,6 +76,8 @@ const summaryColumns = {
   archivedAt: renters.archivedAt,
   licenceExpiresOn: renters.licenceExpiresOn,
   isWaitingReview,
+  createdAt: renters.createdAt,
+  lastBackAt,
 };
 
 export interface RenterSummary {
@@ -55,6 +90,9 @@ export interface RenterSummary {
   archivedAt: Date | null;
   licenceExpiresOn: string | null;
   isWaitingReview: boolean;
+  /** When they were added: "with you since". */
+  createdAt: Date;
+  lastBackAt: Date | null;
 }
 
 /** The phone as typed without spaces, e.g. "0491570006" (phones are kept "0491 570 006"). */
@@ -75,15 +113,12 @@ export const RENTER_LIST_RULES: DatabaseListRules = {
     name: sql`lower(${renters.fullName})`,
     licenceExpires: renters.licenceExpiresOn,
     status: renters.status,
+    since: renters.createdAt,
   },
   filterBy: {
     [STATUS_FILTER_KEY]: (value) => {
-      if (value === ARCHIVED_FILTER_VALUE) {
-        return undefined;
-      }
-      return value === WAITING_REVIEW_FILTER_VALUE
-        ? isWaitingReview
-        : sql`${renters.status} = ${value}`;
+      const filter = renterListFilterOf(value);
+      return filter && filter !== ARCHIVED_FILTER_VALUE ? FILTER_CONDITIONS[filter] : undefined;
     },
   },
   tieBreaker: renters.id,
@@ -91,7 +126,7 @@ export const RENTER_LIST_RULES: DatabaseListRules = {
 
 /** Current Renters unless the archived ones were asked for. */
 function archivedCondition(query: ListQuery): SQL {
-  return query.filters[STATUS_FILTER_KEY] === ARCHIVED_FILTER_VALUE
+  return renterListFilterOf(query.filters[STATUS_FILTER_KEY]) === ARCHIVED_FILTER_VALUE
     ? isNotNull(renters.archivedAt)
     : isNull(renters.archivedAt);
 }
@@ -150,6 +185,32 @@ export async function exportRenters(
     await recordListExport(tx, actor, { list: "renters", format, rows: rows.length });
     return rows;
   });
+}
+
+/** How many of the Operator's Renters each of the list's filters holds, and all current ones. */
+export async function countRentersByFilter(
+  database: AnyDatabase,
+  operatorId: string,
+): Promise<Record<RenterListFilter | "all", number>> {
+  const isCurrent = isNull(renters.archivedAt);
+  const countWhere = (condition: SQL) =>
+    sql<number>`count(*) filter (where ${condition})`.mapWith(Number);
+  const [row] = await withTenant(database, operatorId, (tx) =>
+    tx
+      .select({
+        all: countWhere(isCurrent),
+        renting: countWhere(and(isCurrent, FILTER_CONDITIONS.renting)!),
+        booked: countWhere(and(isCurrent, FILTER_CONDITIONS.booked)!),
+        "to-review": countWhere(and(isCurrent, FILTER_CONDITIONS["to-review"])!),
+        "do-not-rent": countWhere(and(isCurrent, FILTER_CONDITIONS["do-not-rent"])!),
+        archived: countWhere(not(isCurrent)),
+      })
+      .from(renters)
+      .where(eq(renters.operatorId, operatorId)),
+  );
+  return Object.fromEntries(
+    ["all", ...RENTER_LIST_FILTERS].map((key) => [key, row?.[key as keyof typeof row] ?? 0]),
+  ) as Record<RenterListFilter | "all", number>;
 }
 
 /** Whether the Operator has any Renters at all, archived ones included. */

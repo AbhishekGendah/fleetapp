@@ -3,13 +3,7 @@ import type { DataListDefinition } from "@fleetapp/ui/data-list";
 import { InlineRecordLink, RowLink } from "@fleetapp/ui/row-link";
 import Link from "next/link";
 
-import {
-  balanceAmountText,
-  BalanceText,
-  balanceToneOf,
-  creditText,
-  type BalanceTone,
-} from "../../components/balance-amount";
+import { balanceAmountText, BalanceText, balanceWordsText } from "../../components/balance-amount";
 import { carPath, rentalPath, renterPath } from "../../lib/paths";
 import { rentalRateOf } from "../../lib/rentals/rental-labels";
 import {
@@ -56,19 +50,14 @@ function OwingAmount({ rental }: { rental: RentalListRow }) {
   );
 }
 
-const PHONE_BALANCE_TEXT: Record<BalanceTone, (balanceCents: number) => string> = {
-  owing: (balanceCents) => `${formatCents(balanceCents)} owing`,
-  credit: creditText,
-  settled: () => "Paid up",
-};
-
 /** The phone card's money: "$450.00 owing", "Paid up", "$20.00 in credit", or the rent while nothing is charged yet. */
 function PhoneMoney({ rental }: { rental: RentalListRow }) {
   if (rental.balanceCents === null) {
     return <span className="tabular-nums">{rentShortText(rental)}</span>;
   }
-  const text = PHONE_BALANCE_TEXT[balanceToneOf(rental.balanceCents)](rental.balanceCents);
-  return <BalanceText balanceCents={rental.balanceCents} text={text} />;
+  return (
+    <BalanceText balanceCents={rental.balanceCents} text={balanceWordsText(rental.balanceCents)} />
+  );
 }
 
 /** The row's own link: the When words, named with the Renter so it makes sense alone (WCAG 2.5.3). */

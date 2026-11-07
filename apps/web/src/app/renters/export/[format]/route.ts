@@ -2,9 +2,11 @@ import type { NextRequest } from "next/server";
 
 import { appDb } from "../../../../lib/app-db";
 import { listExportResponse } from "../../../../lib/list-export";
+import { loadRenterListExtras } from "../../../../lib/renters/renter-list-extras";
+import { renterListRows } from "../../../../lib/renters/renter-list-rows";
 import { exportRenters } from "../../../../lib/renters/renter-queries";
 import { loadExpiryContext } from "../../../../lib/vehicles/expiry-context";
-import { RENTER_LIST, withLicenceStatuses } from "../../renter-list";
+import { RENTER_LIST } from "../../renter-list";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +24,14 @@ export function GET(
         exportRenters(appDb, { userId: user.id, operatorId: user.operatorId }, query, format),
         loadExpiryContext(user, "licenceExpiryWarningDays"),
       ]);
-      return withLicenceStatuses(renters, licenceExpiry);
+      const clock = { timeZone: user.operatorTimezone, now: new Date() };
+      const extras = await loadRenterListExtras(
+        appDb,
+        user.operatorId,
+        renters.map((renter) => renter.id),
+        clock,
+      );
+      return renterListRows(renters, extras, licenceExpiry, clock);
     },
   });
 }

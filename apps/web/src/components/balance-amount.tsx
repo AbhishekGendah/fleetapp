@@ -31,6 +31,17 @@ export function balanceAmountText(balanceCents: number): string {
     : formatCents(balanceCents);
 }
 
+const BALANCE_WORDS: Readonly<Record<BalanceTone, (balanceCents: number) => string>> = {
+  owing: (balanceCents) => `${formatCents(balanceCents)} owing`,
+  credit: creditText,
+  settled: () => "Paid up",
+};
+
+/** A phone card's balance: "$450.00 owing", "Paid up" or "$20.00 in credit". */
+export function balanceWordsText(balanceCents: number): string {
+  return BALANCE_WORDS[balanceToneOf(balanceCents)](balanceCents);
+}
+
 /** A balance in words, red when owed and teal when in credit (as on the Rentals list). */
 export function BalanceText({ balanceCents, text }: { balanceCents: number; text: string }) {
   return (
