@@ -117,6 +117,47 @@ export function ledgerBalanceCents(lines: readonly LedgerLineAmount[]): number {
   return lines.reduce((total, line) => total + balanceEffect(line, linesById), 0);
 }
 
+/** Which total a kind of line counts in: charged (charges less credits) or paid (payments less refunds). */
+const TOTAL_OF_KIND: Readonly<Record<Exclude<LedgerLineKind, "reversal">, "charged" | "paid">> = {
+  charge: "charged",
+  credit: "charged",
+  payment: "paid",
+  refund: "paid",
+};
+
+export interface LedgerTotals {
+  /** Charges less credits (rent corrections included). */
+  chargedCents: number;
+  /** Payments less refunds. */
+  paidCents: number;
+  /** Charged less paid: what the Renter owes, negative when in credit. */
+  balanceCents: number;
+}
+
+/**
+ * Charged, paid and owing, added up from the lines (rule 11). A reversal
+ * nets against the line it undoes, so a reversed charge is neither charged
+ * nor owed. The balance is always the same as `ledgerBalanceCents`.
+ */
+export function ledgerTotals(lines: readonly LedgerLineAmount[]): LedgerTotals {
+  const linesById = new Map(lines.map((line) => [line.id, line]));
+  const totals = { charged: 0, paid: 0 };
+  for (const line of lines) {
+    const counted = line.kind === "reversal" ? linesById.get(line.reversesId ?? "") : line;
+    if (!counted || counted.kind === "reversal") {
+      continue;
+    }
+    const effect = balanceEffect(line, linesById);
+    const total = TOTAL_OF_KIND[counted.kind];
+    totals[total] += total === "charged" ? effect : -effect;
+  }
+  return {
+    chargedCents: totals.charged,
+    paidCents: totals.paid,
+    balanceCents: totals.charged - totals.paid,
+  };
+}
+
 export interface StatementFigures<Line extends DatedLedgerLine> {
   /** The balance at the start of the first day. */
   openingCents: number;

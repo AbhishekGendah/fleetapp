@@ -6,6 +6,7 @@ import {
   gstForLine,
   isGstRegisteredOn,
   ledgerBalanceCents,
+  ledgerTotals,
   owingCharges,
   reversibleLineIds,
   statementFigures,
@@ -134,6 +135,72 @@ describe("a statement", () => {
       openingCents: ledgerBalanceCents(lines),
       lines: [],
       closingCents: ledgerBalanceCents(lines),
+    });
+  });
+});
+
+describe("charged, paid and owing", () => {
+  it("is all nothing with no lines", () => {
+    expect(ledgerTotals([])).toEqual({ chargedCents: 0, paidCents: 0, balanceCents: 0 });
+  });
+
+  it("nets credits against charges and refunds against payments", () => {
+    const lines = [
+      line("rent", "charge", 350_00, "2026-11-01"),
+      line("cleaning", "charge", 60_00, "2026-11-02"),
+      line("back-early", "credit", 100_00, "2026-11-03"),
+      line("paid", "payment", 400_00, "2026-11-03"),
+      line("refund", "refund", 90_00, "2026-11-04"),
+    ];
+
+    expect(ledgerTotals(lines)).toEqual({
+      chargedCents: 310_00,
+      paidCents: 310_00,
+      balanceCents: 0,
+    });
+  });
+
+  it("leaves out a reversed charge and a reversed payment entirely", () => {
+    const lines = [
+      line("rent", "charge", 350_00, "2026-11-01"),
+      line("wrong", "charge", 99_00, "2026-11-01"),
+      line("undo-charge", "reversal", 99_00, "2026-11-02", "wrong"),
+      line("paid", "payment", 350_00, "2026-11-02"),
+      line("bounced", "reversal", 350_00, "2026-11-03", "paid"),
+    ];
+
+    expect(ledgerTotals(lines)).toEqual({
+      chargedCents: 350_00,
+      paidCents: 0,
+      balanceCents: 350_00,
+    });
+  });
+
+  it("shows the Renter in credit as a negative balance, the same as the ledger's balance", () => {
+    const lines = [
+      line("rent", "charge", 350_00, "2026-11-01"),
+      line("paid", "payment", 370_00, "2026-11-02"),
+    ];
+
+    expect(ledgerTotals(lines)).toEqual({
+      chargedCents: 350_00,
+      paidCents: 370_00,
+      balanceCents: -20_00,
+    });
+    expect(ledgerTotals(lines).balanceCents).toBe(ledgerBalanceCents(lines));
+  });
+
+  it("raises the balance by a refund, which takes back what was paid", () => {
+    const lines = [
+      line("rent", "charge", 350_00, "2026-11-01"),
+      line("paid", "payment", 350_00, "2026-11-02"),
+      line("refund", "refund", 50_00, "2026-11-03"),
+    ];
+
+    expect(ledgerTotals(lines)).toEqual({
+      chargedCents: 350_00,
+      paidCents: 300_00,
+      balanceCents: 50_00,
     });
   });
 });
