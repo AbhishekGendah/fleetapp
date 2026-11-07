@@ -90,7 +90,7 @@ test.describe.serial("a Renter's direct debit and bond", () => {
     await expectAccessible(phone);
 
     await phone.getByRole("button", { name: "Set up direct debit" }).click();
-    await expect(phone.getByText("Stand-in for Stripe")).toBeVisible();
+    await expect(phone.getByRole("heading", { name: "Stand-in for Stripe" })).toBeVisible();
     await phone.getByRole("button", { name: "Accept and set up" }).click();
     await expect(phone.getByText("Your direct debit is set up.")).toBeVisible();
     await expect(phone.getByRole("button", { name: "Change bank account" })).toBeVisible();
@@ -99,7 +99,7 @@ test.describe.serial("a Renter's direct debit and bond", () => {
     const otherTab = await phone.context().newPage();
     await otherTab.goto(linkUrl, { waitUntil: "networkidle" });
     await otherTab.getByRole("button", { name: "Pay $500.00 bond" }).click();
-    await expect(otherTab.getByText("Stand-in for Stripe")).toBeVisible();
+    await expect(otherTab.getByRole("heading", { name: "Stand-in for Stripe" })).toBeVisible();
 
     await phone.getByRole("button", { name: "Pay $500.00 bond" }).click();
     await expect(phone).toHaveURL(otherTab.url());
