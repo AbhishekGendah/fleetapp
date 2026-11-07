@@ -59,6 +59,7 @@ export function formatLinkExpiryInTimeZone(moment: Date, timeZone: string): stri
 const SHORT_DAY_FORMAT = "EEE d MMM";
 const YEAR_FORMAT = "yyyy";
 const CLOCK_TIME_FORMAT = "h:mm aaa";
+const MONTH_YEAR_FORMAT = "MMM yyyy";
 const YEAR_TEXT_LENGTH = 4;
 /** Plain dates are read in UTC, so no timezone moves them a day. */
 const PLAIN_DATE_ZONE = "UTC";
@@ -79,6 +80,11 @@ export function formatShortCalendarDate(isoDate: string, today: string): string 
 /** The day a moment falls on, on the Operator's clock, as a short line reads it: "Sat 7 Nov". */
 export function formatShortDayInTimeZone(moment: Date, timeZone: string, today: string): string {
   return formatShortCalendarDate(todayInTimeZone(moment, timeZone), today);
+}
+
+/** The month a moment falls in, on the Operator's clock: "Mar 2026", e.g. since when a Renter has rented. */
+export function formatMonthYearInTimeZone(moment: Date, timeZone: string): string {
+  return format(new TZDate(moment, timeZone), MONTH_YEAR_FORMAT);
 }
 
 /** The time of day on the Operator's clock, e.g. "10:00 am" (rule 10). */

@@ -5,6 +5,7 @@ import {
   formatDateTimeInTimeZone,
   formatDayInTimeZone,
   formatLinkExpiryInTimeZone,
+  formatMonthYearInTimeZone,
   formatShortCalendarDate,
   formatShortDayInTimeZone,
   formatTimeInTimeZone,
@@ -65,5 +66,17 @@ describe("short days and times for a line of a list", () => {
     const moment = new Date("2026-11-06T04:30:00Z");
     expect(formatTimeInTimeZone(moment, "Australia/Sydney")).toBe("3:30 pm");
     expect(formatTimeInTimeZone(moment, "Australia/Perth")).toBe("12:30 pm");
+  });
+});
+
+describe("a month and year", () => {
+  it("is the month on the Operator's clock, not UTC's", () => {
+    // 31 Oct 2026, 3:00 pm UTC: already 1 Nov in Sydney, still 31 Oct in Perth.
+    const moment = new Date("2026-10-31T15:00:00Z");
+    expect(formatMonthYearInTimeZone(moment, "Australia/Sydney")).toBe("Nov 2026");
+    expect(formatMonthYearInTimeZone(moment, "Australia/Perth")).toBe("Oct 2026");
+    expect(formatMonthYearInTimeZone(new Date("2026-03-15T02:00:00Z"), "Australia/Perth")).toBe(
+      "Mar 2026",
+    );
   });
 });
