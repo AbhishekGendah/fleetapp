@@ -128,7 +128,7 @@ test.describe.serial("demo data", () => {
     const out = cars.getByRole("link", { name: /Out$/ });
     await out.focus();
     await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/\/cars\?status=rented/);
+    await expect(page).toHaveURL(/\/cars\?status=out/);
     await page.getByRole("searchbox").fill("DEMO01");
     await page.keyboard.press("Enter");
     // On a phone the card reads "Now: Aisha Rahman, since …".

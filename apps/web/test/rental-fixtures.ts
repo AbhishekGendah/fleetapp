@@ -1,6 +1,7 @@
 import { LICENCE_SIDES, type BookingProblem } from "@fleetapp/core";
 import { SAMPLE_JPEG } from "@fleetapp/core/testing";
 import type { TestConnection } from "@fleetapp/db/testing";
+import { sql } from "drizzle-orm";
 
 import type { ActingUser } from "../src/lib/acting-user";
 import { confirmUpload, type FileDependencies } from "../src/lib/files/stored-files";
@@ -131,4 +132,43 @@ export async function addRenterReadyToRent(
     await confirmUpload(deps, owner, start.fileId, ["renter_licence_scan"]);
   }
   return renterId;
+}
+
+/**
+ * Records a finished handover straight in the database, as the superuser:
+ * the rental out, the car Out, the Renter holding it since `handedOverAt`.
+ * For tests of what lists show about a rental out, as the handover itself is
+ * proven in handover.test.ts.
+ */
+export async function recordTestHandover(
+  superuser: TestConnection,
+  rentalId: string,
+  handedOverAt: Date,
+): Promise<void> {
+  const at = handedOverAt.toISOString();
+  await superuser.db.execute(sql`
+    with rental as (
+      select r.operator_id, r.vehicle_id, r.renter_id, u.id as user_id
+      from rentals r join users u on u.operator_id = r.operator_id
+      where r.id = ${rentalId} limit 1
+    ), inspection as (
+      insert into inspections (operator_id, rental_id, vehicle_id, kind, status, photo_names,
+        odometer_km, fuel_level, keys_count, started_by_user_id, acceptance_text, completed_at)
+      select operator_id, ${rentalId}, vehicle_id, 'handover', 'completed', '{}', 1000, 'full', 2,
+        user_id, 'Accepted in the test.', ${at}::timestamptz
+      from rental
+      returning id, operator_id, vehicle_id
+    )
+    insert into possessions (operator_id, rental_id, vehicle_id, renter_id, started_at,
+      handover_inspection_id)
+    select inspection.operator_id, ${rentalId}, inspection.vehicle_id, rental.renter_id,
+      ${at}::timestamptz, inspection.id
+    from inspection, rental`);
+  await superuser.db.execute(
+    sql`update rentals set status = 'active', handed_over_at = ${at}::timestamptz where id = ${rentalId}`,
+  );
+  await superuser.db.execute(
+    sql`update vehicles set status = 'rented' from rentals
+      where rentals.id = ${rentalId} and vehicles.id = rentals.vehicle_id`,
+  );
 }

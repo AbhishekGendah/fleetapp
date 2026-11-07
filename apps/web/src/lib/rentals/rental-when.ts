@@ -35,7 +35,7 @@ function same(text: string): RentalWhenWords {
 }
 
 /** "today", or the day as a short line reads it: "Sat 7 Nov". */
-function dayOf(moment: Date, clock: RentalClock): string {
+export function dayOf(moment: Date, clock: RentalClock): string {
   const today = todayInTimeZone(clock.now, clock.timeZone);
   return todayInTimeZone(moment, clock.timeZone) === today
     ? TODAY_WORD

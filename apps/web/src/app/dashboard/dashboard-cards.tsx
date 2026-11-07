@@ -241,7 +241,7 @@ export function YourCarsCard({ data }: { data: DashboardData }) {
     >
       <div className="grid grid-cols-3 gap-2 pb-3">
         <CarTile
-          href={carsWithStatusPath("rented")}
+          href={carsWithStatusPath("out")}
           count={countOf(["rented"])}
           label="Out"
           className="bg-primary-soft text-primary"

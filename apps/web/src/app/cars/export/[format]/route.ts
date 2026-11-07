@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { appDb } from "../../../../lib/app-db";
 import { listExportResponse } from "../../../../lib/list-export";
 import { carListRows } from "../../../../lib/vehicles/car-list-rows";
+import { loadCarRentalsNow } from "../../../../lib/vehicles/car-rentals-now";
 import { loadExpiryContext } from "../../../../lib/vehicles/expiry-context";
 import { exportVehicles } from "../../../../lib/vehicles/vehicle-queries";
 import { CAR_LIST } from "../../car-list";
@@ -23,7 +24,14 @@ export function GET(
         exportVehicles(appDb, { userId: user.id, operatorId: user.operatorId }, query, format),
         loadExpiryContext(user),
       ]);
-      return carListRows(vehicles, expiry, { timeZone: user.operatorTimezone, now: new Date() });
+      const clock = { timeZone: user.operatorTimezone, now: new Date() };
+      const rentalsByCar = await loadCarRentalsNow(
+        appDb,
+        user.operatorId,
+        vehicles.map((vehicle) => vehicle.id),
+        clock,
+      );
+      return carListRows(vehicles, rentalsByCar, expiry, clock);
     },
   });
 }

@@ -4,7 +4,6 @@ import {
   type ListPage,
   type ListQuery,
   type VehicleStatus,
-  VEHICLE_STATUSES_IN_WORKSHOP,
 } from "@fleetapp/core";
 import type { ExportFormat } from "@fleetapp/core/spreadsheet";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
@@ -24,15 +23,23 @@ import {
   currentRegoExpiresOn,
   isRegoOnDirectDebit,
 } from "./expiry-columns";
-import { idleSince, renterWithCar, withRenterSince } from "./car-whereabouts";
+import { idleSince } from "./car-whereabouts";
+import {
+  ARCHIVED_FILTER,
+  CAR_STATUSES_OF,
+  carListFilterCounts,
+  carListFilterOf,
+  WORKSHOP_FILTER,
+  type CarListFilter,
+} from "./car-list-filters";
 import type { ActingUser } from "../acting-user";
 import { recordListExport } from "../list-export-log";
 import { countedReading } from "./odometer";
 
 /** The filter value that shows archived cars instead of current ones. */
-export const ARCHIVED_FILTER_VALUE = "archived";
+export const ARCHIVED_FILTER_VALUE = ARCHIVED_FILTER;
 /** The filter value for every car in the workshop: in service or off road. */
-export const WORKSHOP_FILTER_VALUE = "workshop";
+export const WORKSHOP_FILTER_VALUE = WORKSHOP_FILTER;
 export const STATUS_FILTER_KEY = "status";
 
 /** The latest counted reading: what the car's odometer is taken to show now. */
@@ -59,8 +66,6 @@ const summaryColumns = {
   isRegoOnDirectDebit,
   regoExpiresOn: currentRegoExpiresOn,
   insuranceEndsOn: currentInsuranceEndsOn,
-  renterWithCar,
-  withRenterSince,
   idleSince,
 };
 
@@ -82,9 +87,6 @@ export interface VehicleSummary {
   isRegoOnDirectDebit: boolean;
   regoExpiresOn: string | null;
   insuranceEndsOn: string | null;
-  /** Who has the car now, and since when; null when nobody does. */
-  renterWithCar: string | null;
-  withRenterSince: Date | null;
   /** When it last came back, or was added: for an available car, how long it has sat. */
   idleSince: Date;
 }
@@ -110,12 +112,11 @@ export const VEHICLE_LIST_RULES: DatabaseListRules = {
   },
   filterBy: {
     [STATUS_FILTER_KEY]: (value) => {
-      if (value === ARCHIVED_FILTER_VALUE) {
+      const filter = carListFilterOf(value);
+      if (!filter || filter === ARCHIVED_FILTER) {
         return undefined;
       }
-      return value === WORKSHOP_FILTER_VALUE
-        ? inArray(vehicles.status, [...VEHICLE_STATUSES_IN_WORKSHOP])
-        : sql`${vehicles.status} = ${value}`;
+      return inArray(vehicles.status, [...CAR_STATUSES_OF[filter]]);
     },
   },
   tieBreaker: vehicles.id,
@@ -123,7 +124,7 @@ export const VEHICLE_LIST_RULES: DatabaseListRules = {
 
 /** Current cars unless the archived ones were asked for. */
 function archivedCondition(query: ListQuery): SQL {
-  return query.filters[STATUS_FILTER_KEY] === ARCHIVED_FILTER_VALUE
+  return carListFilterOf(query.filters[STATUS_FILTER_KEY]) === ARCHIVED_FILTER
     ? isNotNull(vehicles.archivedAt)
     : isNull(vehicles.archivedAt);
 }
@@ -193,6 +194,27 @@ export async function exportVehicles(
     await recordListExport(tx, actor, { list: "cars", format, rows: rows.length });
     return rows;
   });
+}
+
+/** How many of the Operator's cars each of the list's filters holds, and all current ones. */
+export async function countCarsByFilter(
+  database: AnyDatabase,
+  operatorId: string,
+): Promise<Record<CarListFilter | "all", number>> {
+  const isArchived = sql<boolean>`${vehicles.archivedAt} is not null`;
+  const rows = await withTenant(database, operatorId, (tx) =>
+    tx
+      .select({ status: vehicles.status, isArchived, total: count() })
+      .from(vehicles)
+      .where(eq(vehicles.operatorId, operatorId))
+      .groupBy(vehicles.status, isArchived),
+  );
+  const current = rows.filter((row) => !row.isArchived);
+  const archived = rows.filter((row) => row.isArchived).reduce((sum, row) => sum + row.total, 0);
+  return carListFilterCounts(
+    Object.fromEntries(current.map((row) => [row.status, row.total])),
+    archived,
+  );
 }
 
 /** Whether the Operator has any cars at all, archived ones included. */
