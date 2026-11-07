@@ -1,74 +1,31 @@
 import type { Metadata } from "next";
-import {
-  ageOn,
-  DETAIL_NEEDED_LABELS,
-  detailsStillNeeded,
-  expiryStatus,
-  formatDateTimeInTimeZone,
-  type DetailNeededBeforeRenting,
-  formatCalendarDate,
-  renterFirstName,
-  todayInTimeZone,
-} from "@fleetapp/core";
+import { renterFirstName } from "@fleetapp/core";
 import { ACTIVITY_ENTITY_TYPES } from "@fleetapp/db/schema";
-import { ActionButton } from "@fleetapp/ui/action-button";
-import { Button } from "@fleetapp/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
-import { PageHeader } from "@fleetapp/ui/page-header";
 import { TabLinks } from "@fleetapp/ui/tab-links";
-import {
-  Archive,
-  ArchiveRestore,
-  CalendarRange,
-  Download,
-  History,
-  IdCard,
-  NotebookPen,
-  Pencil,
-  UserRound,
-  Wallet,
-} from "lucide-react";
-import Link from "next/link";
 
-import { DetailLines } from "../../../components/detail-lines";
-import { NOTICE_PARAM } from "../../../lib/privacy/send-privacy-notice";
-import { NoticeNotSent } from "./notice-not-sent";
 import { HistoryCard } from "../../../components/history-card";
 import { appDb } from "../../../lib/app-db";
-import {
-  editRenterPath,
-  renterEverythingHeldPath,
-  renterPath,
-  RENTERS_PATH,
-} from "../../../lib/paths";
-import { requireUser, type SignedInUser } from "../../../lib/require-user";
-import { renterStatusFormValues } from "../../../lib/renters/renter-input";
-import {
-  describeRenterValue,
-  RENTER_FIELD_LABELS,
-  renterFieldLabel,
-} from "../../../lib/renters/renter-labels";
-import {
-  findRentersSharingContact,
-  type RenterDetail,
-  type SharedContact,
-} from "../../../lib/renters/renter-queries";
-import { listLicenceScans, listRenterFileIds } from "../../../lib/renters/licence-scans";
+import { NOTICE_PARAM } from "../../../lib/privacy/send-privacy-notice";
+import { TAB_PARAM } from "../../../lib/record-tabs";
+import type { RentalClock } from "../../../lib/rentals/rental-records";
 import { listRenterLinkIds } from "../../../lib/renter-links/details-links";
+import { requireUser, type SignedInUser } from "../../../lib/require-user";
+import { listRenterFileIds } from "../../../lib/renters/licence-scans";
+import { describeRenterValue, renterFieldLabel } from "../../../lib/renters/renter-labels";
 import { listNoteIds } from "../../../lib/renters/notes";
-import { loadExpiryContext } from "../../../lib/vehicles/expiry-context";
-import { recordTabs, TAB_PARAM, type RecordTab } from "../../../lib/record-tabs";
+import type { RenterDetail } from "../../../lib/renters/renter-queries";
 import { AppShell } from "../../app-shell";
 import { RecordRentalsCard } from "../../rentals/record-rentals-card";
-import { ExpiryDate } from "../../cars/expiry-date";
-import { RenterStatusBadge } from "../renter-status-badge";
-import { changeRenterStatusAction, setRenterArchivedAction } from "./actions";
-import { DetailsLinkCard } from "./details-link-card";
+import { DetailsTab } from "./details-tab";
 import { LicenceTab } from "./licence-tab";
+import { loadRenterOrNotFound } from "./load-renter";
 import { MoneyTab } from "./money-tab";
 import { NotesTab } from "./notes-tab";
-import { loadRenterOrNotFound } from "./load-renter";
-import { RenterStatusForm } from "./status-form";
+import { NoticeNotSent } from "./notice-not-sent";
+import { RenterOverviewTab } from "./overview-tab";
+import { loadRenterPageData, type RenterPageData } from "./renter-page-data";
+import { RenterStrip } from "./renter-strip";
+import { RENTER_TAB_LINKS, RENTER_TABS, type RenterTabKey } from "./renter-tabs";
 
 /** Its own tab name: the layout adds the product's (review A10-2). */
 export const metadata: Metadata = { title: "Renter" };
@@ -76,257 +33,6 @@ export const metadata: Metadata = { title: "Renter" };
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const TABS = [
-  { key: "details", label: "Details", icon: UserRound },
-  { key: "rentals", label: "Rentals", icon: CalendarRange },
-  { key: "licence", label: "Licence", icon: IdCard },
-  { key: "money", label: "Money", icon: Wallet },
-  { key: "notes", label: "Notes", icon: NotebookPen },
-  { key: "log", label: "Log", icon: History },
-] as const satisfies readonly [RecordTab, ...RecordTab[]];
-const TAB_LINKS = recordTabs(TABS, renterPath);
-const NOT_GIVEN = "Not given";
-
-const LICENCE_DETAILS: readonly DetailNeededBeforeRenting[] = [
-  "licence",
-  "currentLicence",
-  "licenceScans",
-];
-
-function StillNeededCard(props: {
-  renter: RenterDetail;
-  isEditable: boolean;
-  hasBothLicenceScans: boolean;
-  today: string;
-}) {
-  const { renter, isEditable } = props;
-  const missing = detailsStillNeeded({
-    dateOfBirth: renter.dateOfBirth,
-    residentialAddress: renter.residentialAddress,
-    licenceExpiresOn: renter.licenceExpiresOn,
-    hasBothLicenceScans: props.hasBothLicenceScans,
-    today: props.today,
-  });
-  const isLicenceMissing = missing.some((detail) => LICENCE_DETAILS.includes(detail));
-  const isDetailMissing = missing.some((detail) => !LICENCE_DETAILS.includes(detail));
-  if (missing.length === 0) {
-    return null;
-  }
-  return (
-    <Card className="border-attention/40">
-      <CardHeader>
-        <CardTitle>Still needed before renting</CardTitle>
-        <CardDescription>Rentals will not start until these are on file.</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <ul className="list-disc pl-5 text-sm">
-          {missing.map((detail) => (
-            <li key={detail}>{DETAIL_NEEDED_LABELS[detail]}</li>
-          ))}
-        </ul>
-        {isEditable ? (
-          <div className="flex flex-col gap-2 sm:flex-row">
-            {isLicenceMissing ? (
-              <Button asChild className="w-full sm:w-auto">
-                <Link href={TAB_LINKS.href(renter.id, "licence")}>
-                  <IdCard aria-hidden />
-                  Go to the licence
-                </Link>
-              </Button>
-            ) : null}
-            {isDetailMissing ? (
-              <Button
-                asChild
-                variant={isLicenceMissing ? "outline" : "default"}
-                className="w-full sm:w-auto"
-              >
-                <Link href={editRenterPath(renter.id)}>
-                  <Pencil aria-hidden />
-                  Add the details
-                </Link>
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
-}
-
-function sharedWhat(contact: SharedContact): string {
-  return [contact.sharesPhone ? "phone" : null, contact.sharesEmail ? "email" : null]
-    .filter(Boolean)
-    .join(" and ");
-}
-
-/** Maybe the same person entered twice, maybe family: a note, never a block. */
-function SharedContactNote({ contacts }: { contacts: readonly SharedContact[] }) {
-  if (contacts.length === 0) {
-    return null;
-  }
-  return (
-    <Card className="border-attention/40">
-      <CardContent className="flex flex-col gap-2 pt-4 text-sm sm:pt-6">
-        <p className="text-attention font-medium">
-          Another Renter has the same phone or email. Check it is not the same person entered twice.
-        </p>
-        <ul className="flex flex-col gap-1">
-          {contacts.map((contact) => (
-            <li key={contact.id}>
-              <Link
-                href={renterPath(contact.id)}
-                className="text-teal hover:text-primary inline-flex min-h-11 items-center font-semibold"
-              >
-                {contact.fullName}
-                {contact.isArchived ? " (archived)" : ""}: same {sharedWhat(contact)} →
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </CardContent>
-    </Card>
-  );
-}
-
-function dateOfBirthText(dateOfBirth: string | null, today: string): string {
-  return dateOfBirth
-    ? `${formatCalendarDate(dateOfBirth)} (age ${ageOn(dateOfBirth, today)})`
-    : NOT_GIVEN;
-}
-
-function DetailsCard({ renter, today }: { renter: RenterDetail; today: string }) {
-  const lines: readonly [string, string][] = [
-    [RENTER_FIELD_LABELS.fullName, renter.fullName],
-    [RENTER_FIELD_LABELS.preferredName, renter.preferredName ?? NOT_GIVEN],
-    [RENTER_FIELD_LABELS.phone, renter.phone ?? NOT_GIVEN],
-    [RENTER_FIELD_LABELS.email, renter.email ?? NOT_GIVEN],
-    [RENTER_FIELD_LABELS.dateOfBirth, dateOfBirthText(renter.dateOfBirth, today)],
-    [RENTER_FIELD_LABELS.residentialAddress, renter.residentialAddress ?? NOT_GIVEN],
-    [
-      RENTER_FIELD_LABELS.postalAddress,
-      renter.postalAddress ?? (renter.residentialAddress ? "Same as home" : NOT_GIVEN),
-    ],
-    [
-      RENTER_FIELD_LABELS.emergencyContactName,
-      [
-        renter.emergencyContactName,
-        renter.emergencyContactRelationship && `(${renter.emergencyContactRelationship})`,
-        renter.emergencyContactPhone,
-      ]
-        .filter(Boolean)
-        .join(" ") || NOT_GIVEN,
-    ],
-  ];
-  return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between gap-2">
-        <CardTitle>Details</CardTitle>
-        {renter.archivedAt ? null : (
-          <Button asChild variant="outline">
-            <Link href={editRenterPath(renter.id)}>
-              <Pencil aria-hidden />
-              Edit
-            </Link>
-          </Button>
-        )}
-      </CardHeader>
-      <CardContent>
-        <DetailLines lines={lines} />
-      </CardContent>
-    </Card>
-  );
-}
-
-async function DetailsTab({ renter, user }: { renter: RenterDetail; user: SignedInUser }) {
-  const isArchived = renter.archivedAt !== null;
-  const today = todayInTimeZone(new Date(), user.operatorTimezone);
-  const [sharedContacts, scans] = await Promise.all([
-    findRentersSharingContact(appDb, user.operatorId, renter),
-    listLicenceScans(appDb, user.operatorId, renter.id),
-  ]);
-  return (
-    <>
-      <StillNeededCard
-        renter={renter}
-        isEditable={!isArchived}
-        hasBothLicenceScans={scans.front !== null && scans.back !== null}
-        today={today}
-      />
-      <SharedContactNote contacts={sharedContacts} />
-      <DetailsCard renter={renter} today={today} />
-      {isArchived ? null : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Status</CardTitle>
-            <CardDescription>
-              Do not rent stays with your business: no other Operator ever sees it.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RenterStatusForm
-              initialValues={renterStatusFormValues(renter)}
-              action={changeRenterStatusAction.bind(null, renter.id)}
-            />
-          </CardContent>
-        </Card>
-      )}
-      {isArchived ? null : <DetailsLinkCard renter={renter} user={user} />}
-      <Card>
-        <CardHeader>
-          <CardTitle>What we hold</CardTitle>
-          <CardDescription>
-            If the Renter asks what you hold about them, download it all as one zip file: a
-            spreadsheet of their details, licence, notes, rentals, money, signing records, links,
-            damage and Log, with their signed documents, reports, invoices and licence scans. Staff
-            show as &ldquo;the business&rdquo;. The download is recorded in the Log.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button asChild variant="outline" className="w-full sm:w-auto">
-            <a href={renterEverythingHeldPath(renter.id)} download>
-              <Download aria-hidden />
-              Download everything we hold
-            </a>
-          </Button>
-        </CardContent>
-      </Card>
-      {renter.retiredAt ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Details removed</CardTitle>
-            <CardDescription>
-              Seven years after their last rental, this Renter&rsquo;s personal details, documents
-              and photos were removed on{" "}
-              {formatDateTimeInTimeZone(renter.retiredAt, user.operatorTimezone)}. Their money
-              records stay. They can&rsquo;t be restored: add them again if they come back.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>{isArchived ? "Archived" : "Archive"}</CardTitle>
-            <CardDescription>
-              {isArchived
-                ? "Hidden from your list and read-only. Restore to change anything."
-                : "Hides the Renter from your list. Nothing is deleted, and you can restore them."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ActionButton
-              action={setRenterArchivedAction.bind(null, renter.id, !isArchived)}
-              label={isArchived ? "Restore this Renter" : "Archive this Renter"}
-              pendingLabel={isArchived ? "Restoring…" : "Archiving…"}
-              icon={isArchived ? <ArchiveRestore aria-hidden /> : <Archive aria-hidden />}
-            />
-          </CardContent>
-        </Card>
-      )}
-    </>
-  );
-}
-
-/** One Renter: their details and status, and their Log. Later phases add rentals, payments and fines. */
 /**
  * Everything that happened to the Renter: their record, scans and photos
  * sent through their links, notes and links. Loaded only when the tab opens.
@@ -352,52 +58,20 @@ async function RenterLogTab({ renter, user }: { renter: RenterDetail; user: Sign
   );
 }
 
-export default async function RenterPage(props: {
-  params: Promise<{ renterId: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+/** The tab chosen in the address: what each holds (docs/plans/look-and-feel.md). */
+function ChosenTab(props: {
+  tab: RenterTabKey;
+  renter: RenterDetail;
+  user: SignedInUser;
+  data: RenterPageData;
+  clock: RentalClock;
 }) {
-  const user = await requireUser();
-  const [{ renterId }, searchParams] = await Promise.all([props.params, props.searchParams]);
-  const renter = await loadRenterOrNotFound(user, renterId);
-  const tab = TAB_LINKS.chosen(searchParams[TAB_PARAM]);
-  const licenceExpiry = await loadExpiryContext(user, "licenceExpiryWarningDays");
-
-  return (
-    <AppShell user={user}>
-      <PageHeader
-        backHref={RENTERS_PATH}
-        backLabel="Renters"
-        title={renter.fullName}
-        aside={<RenterStatusBadge status={renter.status} isArchived={renter.archivedAt !== null} />}
-      />
-      <div className="text-muted-foreground -mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-        {renter.preferredName && renter.preferredName !== renter.fullName ? (
-          <span>Goes by {renter.preferredName}</span>
-        ) : null}
-        <span className="inline-flex items-center gap-1">
-          Licence:{" "}
-          <ExpiryDate
-            date={renter.licenceExpiresOn}
-            status={expiryStatus(
-              renter.licenceExpiresOn,
-              licenceExpiry.today,
-              licenceExpiry.warningDays,
-            )}
-          />
-        </span>
-      </div>
-      <NoticeNotSent renterName={renter.fullName} outcome={searchParams[NOTICE_PARAM]} />
-      <TabLinks
-        label="Renter sections"
-        tabs={TABS.map((item) => ({
-          href: TAB_LINKS.href(renter.id, item.key),
-          label: item.label,
-          isCurrent: item.key === tab,
-          icon: <item.icon aria-hidden />,
-        }))}
-      />
-      {tab === "details" ? <DetailsTab renter={renter} user={user} /> : null}
-      {tab === "rentals" ? (
+  const { tab, renter, user, data } = props;
+  switch (tab) {
+    case "overview":
+      return <RenterOverviewTab renter={renter} data={data} user={user} clock={props.clock} />;
+    case "rentals":
+      return (
         <RecordRentalsCard
           user={user}
           scope={{ renterId: renter.id }}
@@ -405,11 +79,53 @@ export default async function RenterPage(props: {
           newRentalLabel="New rental"
           isArchived={renter.archivedAt !== null}
         />
-      ) : null}
-      {tab === "licence" ? <LicenceTab renter={renter} user={user} expiry={licenceExpiry} /> : null}
-      {tab === "money" ? <MoneyTab renterId={renter.id} user={user} /> : null}
-      {tab === "notes" ? <NotesTab renter={renter} user={user} /> : null}
-      {tab === "log" ? <RenterLogTab renter={renter} user={user} /> : null}
+      );
+    case "money":
+      return <MoneyTab renterId={renter.id} user={user} />;
+    case "details":
+      return <DetailsTab renter={renter} user={user} />;
+    case "licence":
+      return <LicenceTab renter={renter} user={user} expiry={data.licenceExpiry} />;
+    case "notes":
+      return <NotesTab renter={renter} user={user} />;
+    case "log":
+      return <RenterLogTab renter={renter} user={user} />;
+  }
+}
+
+/**
+ * One Renter (docs/plans/look-and-feel.md, "Cars and Renters pages"): the
+ * navy strip, then tabs for their Overview, Rentals, Money, Details, Licence,
+ * Notes and Log. Their licence number is never shown, nor their licence
+ * photos as pictures (Abhi, 7 Nov 2026).
+ */
+export default async function RenterPage(props: {
+  params: Promise<{ renterId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const user = await requireUser();
+  const [{ renterId }, searchParams] = await Promise.all([props.params, props.searchParams]);
+  const renter = await loadRenterOrNotFound(user, renterId);
+  const tab = RENTER_TAB_LINKS.chosen(searchParams[TAB_PARAM]);
+  const clock: RentalClock = { timeZone: user.operatorTimezone, now: new Date() };
+  const data = await loadRenterPageData(renter, user, clock);
+
+  return (
+    <AppShell
+      user={user}
+      strip={<RenterStrip renter={renter} data={data} timeZone={user.operatorTimezone} />}
+    >
+      <NoticeNotSent renterName={renter.fullName} outcome={searchParams[NOTICE_PARAM]} />
+      <TabLinks
+        label="Renter sections"
+        tabs={RENTER_TABS.map((item) => ({
+          href: RENTER_TAB_LINKS.href(renter.id, item.key),
+          label: item.label,
+          isCurrent: item.key === tab,
+          icon: <item.icon aria-hidden />,
+        }))}
+      />
+      <ChosenTab tab={tab} renter={renter} user={user} data={data} clock={clock} />
     </AppShell>
   );
 }

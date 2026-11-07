@@ -25,7 +25,7 @@ import { monthsText } from "../../../lib/renters/licence-text";
 
 const SCAN_RULE = FILE_PURPOSE_RULES.renter_licence_scan;
 
-/** One side's scan in use, as shown: never the scan itself until View is pressed. */
+/** One side's scan in use, as shown: never the scan itself until Open is pressed. */
 export interface ScanSummary {
   id: string;
   contentType: string;
@@ -60,7 +60,9 @@ function ScanSlot(props: {
   return (
     <li className="bg-background flex flex-col gap-3 rounded-lg border p-3 sm:p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="font-semibold">{sideLabel}</p>
+        <p className="font-semibold">
+          {sideLabel}: {scan ? "on file" : "not on file"}
+        </p>
         <p className="text-muted-foreground text-sm">
           {isSending ? "Sending…" : scan ? `Added ${scan.addedText}` : "Not added yet"}
         </p>
@@ -79,7 +81,8 @@ function ScanSlot(props: {
         <div className="flex items-center gap-2">
           <FileLink
             href={licenceScanPath(renterId, scan.id)}
-            label={`View ${sideLabel.toLowerCase()}`}
+            label={`Open ${sideLabel.toLowerCase()}`}
+            isLabelAnAction
             contentType={scan.contentType}
             imageIndex={props.imageIndex}
           />
@@ -109,8 +112,10 @@ function ScanSlot(props: {
 }
 
 /**
- * The front and back of a Renter's licence. No thumbnails: a scan is only
- * fetched when View is pressed, so every look is deliberate and logged.
+ * The front and back of a Renter's licence, each only "on file": no
+ * thumbnails, never shown as an image on the page (Abhi, 7 Nov 2026). A scan
+ * is only fetched, through a short-lived link, when Open is pressed, so every
+ * look is deliberate and logged (rule 8).
  */
 export function LicenceScanSlots(props: {
   renterId: string;

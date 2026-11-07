@@ -20,6 +20,8 @@ export function FileLink(props: {
   label: string;
   contentType: string;
   imageIndex: number;
+  /** The label already says what pressing does ("Open front"), so it is not prefixed with "Open". */
+  isLabelAnAction?: boolean;
 }) {
   if (isPdf(props.contentType)) {
     return (
@@ -32,7 +34,7 @@ export function FileLink(props: {
   return (
     <ImageViewerOpener
       index={props.imageIndex}
-      label={`Open ${props.label}`}
+      label={props.isLabelAnAction ? props.label : `Open ${props.label}`}
       className={FILE_ROW_CLASS}
     >
       <ImageIcon className="size-4 shrink-0" aria-hidden />

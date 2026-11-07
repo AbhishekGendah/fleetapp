@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { licenceFact, renterOwingFact, withYouSinceFact } from "./renter-page-facts";
+import type { RentalSummary } from "../rentals/rental-queries";
+import { licenceFact, rentingFact, renterOwingFact, withYouSinceFact } from "./renter-page-facts";
 
 const TODAY = "2026-11-06";
 const OVERDUE = { overdueCents: 450_00, daysLate: 9, oldestDueOn: "2026-10-28" };
@@ -48,5 +49,36 @@ describe("a Renter's strip facts", () => {
     });
     expect(withYouSinceFact(added, 1, "Australia/Perth").note).toBe("1 rental");
     expect(withYouSinceFact(added, 0, "Australia/Perth").note).toBe("No rentals yet");
+  });
+});
+
+describe("what a Renter is renting, on their strip", () => {
+  const car = { make: "Hyundai", model: "i30" } as RentalSummary;
+
+  it("names the car and when it is back, or when a booking starts", () => {
+    expect(
+      rentingFact({
+        rental: { ...car, status: "active" },
+        words: "Fri 9 Oct to Tue 10 Nov",
+        shortWords: "Back Tue 10 Nov",
+      }),
+    ).toEqual({ label: "Renting now", note: "Hyundai i30 · back Tue 10 Nov" });
+    expect(
+      rentingFact({
+        rental: { ...car, status: "booked" },
+        words: "Starts Sat 7 Nov, 9:00 am",
+        shortWords: "Starts Sat 7 Nov, 9:00 am",
+      }),
+    ).toEqual({ label: "Booked", note: "Hyundai i30 · starts Sat 7 Nov, 9:00 am" });
+  });
+
+  it("says when they last had a car back", () => {
+    expect(
+      rentingFact({
+        rental: null,
+        words: "Last back Tue 29 Sep",
+        shortWords: "Last back Tue 29 Sep",
+      }),
+    ).toEqual({ label: "Renting now", note: "Last back Tue 29 Sep" });
   });
 });

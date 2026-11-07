@@ -1,6 +1,6 @@
 import { formatDateTimeInTimeZone } from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 import { Button } from "@fleetapp/ui/button";
 import { ClipboardCheck, XCircle } from "lucide-react";
 import Link from "next/link";
@@ -36,7 +36,7 @@ export async function DetailsLinkCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Details form</CardTitle>
+        <SectionLabel>Details form</SectionLabel>
         <CardDescription>
           Email the Renter a link to check their details and photograph their licence on their
           phone. The first time they open it on a phone, they type a code we email them.

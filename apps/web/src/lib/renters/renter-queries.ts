@@ -6,10 +6,23 @@ import {
   loadListPage,
   type DatabaseListRules,
 } from "@fleetapp/db/list-query";
-import { renters } from "@fleetapp/db/schema";
+import { rentals, renters } from "@fleetapp/db/schema";
 import type { ExportFormat } from "@fleetapp/core/spreadsheet";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, asc, count, eq, isNotNull, isNull, ne, not, or, sql, type SQL } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  eq,
+  isNotNull,
+  isNull,
+  ne,
+  not,
+  notInArray,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 
 import type { ActingUser } from "../acting-user";
 import { recordListExport } from "../list-export-log";
@@ -219,6 +232,42 @@ export async function hasAnyRenter(database: AnyDatabase, operatorId: string): P
     tx.select({ id: renters.id }).from(renters).where(eq(renters.operatorId, operatorId)).limit(1),
   );
   return row !== undefined;
+}
+
+/** One of the Operator's Renters as the list shows them (waiting review, last back), or null. */
+export async function loadRenterSummary(
+  database: AnyDatabase,
+  operatorId: string,
+  renterId: string,
+): Promise<RenterSummary | null> {
+  const [summary] = await withTenant(database, operatorId, (tx) =>
+    tx
+      .select(summaryColumns)
+      .from(renters)
+      .where(and(eq(renters.operatorId, operatorId), eq(renters.id, renterId))),
+  );
+  return summary ?? null;
+}
+
+/** How many rentals the Renter has had or has booked: drafts and cancelled bookings left out. */
+export async function countRenterRentals(
+  database: AnyDatabase,
+  operatorId: string,
+  renterId: string,
+): Promise<number> {
+  const [row] = await withTenant(database, operatorId, (tx) =>
+    tx
+      .select({ total: count() })
+      .from(rentals)
+      .where(
+        and(
+          eq(rentals.operatorId, operatorId),
+          eq(rentals.renterId, renterId),
+          notInArray(rentals.status, ["draft", "cancelled"]),
+        ),
+      ),
+  );
+  return row?.total ?? 0;
 }
 
 export type RenterDetail = typeof renters.$inferSelect;

@@ -1,6 +1,6 @@
 import { formatDateTimeInTimeZone } from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
 import { Trash2 } from "lucide-react";
 
@@ -18,7 +18,7 @@ export async function NotesTab({ renter, user }: { renter: RenterDetail; user: S
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Notes</CardTitle>
+        <SectionLabel>Notes</SectionLabel>
         <CardDescription>
           Private to your business, but the Renter can ask to see them. Write facts only.
         </CardDescription>

@@ -9,6 +9,7 @@ import {
 
 import { owingFact, type RentalFact } from "../rentals/rental-page-facts";
 import { licenceIssuedInText } from "./licence-text";
+import type { RenterRenting } from "./renter-list-rows";
 
 /**
  * The key facts on one Renter's navy strip (docs/plans/look-and-feel.md,
@@ -64,5 +65,26 @@ export function withYouSinceFact(addedAt: Date, rentalCount: number, timeZone: s
         : rentalCount === 1
           ? "1 rental"
           : `${rentalCount} rentals`,
+  };
+}
+
+/** "Back Tue 10 Nov" read on after the car's name: "Hyundai i30 · back Tue 10 Nov". */
+function afterCarName(words: string): string {
+  return words.charAt(0).toLowerCase() + words.slice(1);
+}
+
+/**
+ * The car the Renter has (or has booked), and when it is back or starts; the
+ * strip makes its rego the value, a link to the car. With no car: when they
+ * last had one back.
+ */
+export function rentingFact(renting: RenterRenting): { label: string; note: string } {
+  const { rental } = renting;
+  if (!rental) {
+    return { label: "Renting now", note: renting.words };
+  }
+  return {
+    label: rental.status === "active" ? "Renting now" : "Booked",
+    note: `${rental.make} ${rental.model} · ${afterCarName(renting.shortWords)}`,
   };
 }
