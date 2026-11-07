@@ -2,7 +2,7 @@ import { overdueOf, type Overdue } from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { rentals, renters, vehicles } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 import { selectLinesByRental } from "../ledger/rental-balances";
 import { CAR_OF_RENTAL, RENTER_OF_RENTAL } from "../rentals/rental-queries";
@@ -30,7 +30,8 @@ function longestLateFirst(
 }
 
 /**
- * The Operator's rentals (any but cancelled) with money overdue on `today`
+ * The Operator's rentals with money overdue on `today` (a cancelled booking
+ * too, so an unpaid cancellation fee is not forgotten: Abhi, 7 Nov 2026)
  * (their own calendar day) after `graceDays`, longest late first: the first
  * `limit` of them, and how many there are. Every rental's lines are read in
  * one query and each is worked out by `overdueOf` from its own lines
@@ -46,11 +47,7 @@ export async function loadOverdueRentals(
   request: { today: string; graceDays: number; limit: number },
 ): Promise<FewOfMany<OverdueRental>> {
   return withTenant(database, operatorId, async (tx) => {
-    const linesByRental = await selectLinesByRental(
-      tx,
-      operatorId,
-      ne(rentals.status, "cancelled"),
-    );
+    const linesByRental = await selectLinesByRental(tx, operatorId, undefined);
     const overdueRentals = [...linesByRental]
       .flatMap(([rentalId, lines]) => {
         const overdue = overdueOf(lines, request.today, request.graceDays);

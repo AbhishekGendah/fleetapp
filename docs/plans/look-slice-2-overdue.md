@@ -22,7 +22,8 @@ setting (default 2) used here now and by Phase 4 slice 6's late fee later.
 
 ## How "overdue" is worked out (rule 11: from the ledger every time)
 
-- For each rental not cancelled: its ledger lines go through the existing
+- For each rental, a cancelled booking included (Abhi, 7 Nov: an unpaid
+  cancellation fee must not be forgotten): its ledger lines go through the existing
   `owingCharges` (packages/core/src/ledger.ts), which pays off the oldest
   charges first.
 - A rental is overdue when its **oldest owing charge** was due (its
@@ -110,7 +111,8 @@ New rows: the Overdue line, the setting.
   kind, even other reds, longest late first. A line reads "**Sam Patel**",
   then "$450.00 overdue · 9 days late · 1ABC234"; the row opens the rental's
   Money tab, the name the Renter and the rego the car. Rentals of every
-  status but cancelled count (money owed on a closed rental is still owed).
+  status count, a cancelled booking too (money owed on a closed or cancelled
+  rental is still owed; added 7 Nov at Abhi's request).
   One query reads every rental's lines inside the business's tenant
   context (shared with the Rentals list's Owing), then one more for the
   names of those shown.

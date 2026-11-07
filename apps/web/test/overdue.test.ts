@@ -10,14 +10,16 @@ import { attentionList } from "../src/lib/dashboard/attention-items";
 import { loadAttentionSources } from "../src/lib/dashboard/attention-sources";
 import { MOST_OF_A_KIND } from "../src/lib/dashboard/fleet-overview";
 import { loadOverdueRentals } from "../src/lib/dashboard/overdue-rentals";
-import { recordPayment } from "../src/lib/ledger/ledger-records";
+import { listChargeTypes } from "../src/lib/ledger/charge-types";
+import { addCharge, recordPayment } from "../src/lib/ledger/ledger-records";
+import { cancelRental } from "../src/lib/rentals/rental-records";
 import { chargeRentFor } from "../src/lib/ledger/rent-job";
 import { numberSettingInputSchema } from "../src/lib/settings/number-setting-input";
 import { loadOperatorSettings, saveOperatorSettings } from "../src/lib/settings/operator-settings";
 import { createMemoryFileStorage } from "../src/lib/storage/memory-file-storage";
 import { seedOperatorWithUser } from "./car-fixtures";
 import { checklistKit } from "./handover-fixtures";
-import { TEST_TIME_ZONE } from "./rental-fixtures";
+import { addTestRenter, bookTestRental, TEST_TIME_ZONE } from "./rental-fixtures";
 
 /**
  * Overdue in Needs attention (docs/plans/look-slice-2-overdue.md): worked
@@ -156,6 +158,34 @@ describe("overdue", () => {
         .where(eq(operatorSettings.operatorId, operatorB.operatorId)),
     );
     expect(otherRow?.settings ?? {}).not.toHaveProperty("paymentGraceDays");
+  });
+
+  it("counts a cancelled booking's unpaid fee, but not a cancelled booking that owes nothing", async () => {
+    const operatorC = await seedOperatorWithUser(admin, "Overdue C Rentals Pty Ltd");
+    const cancelBooking = async (): Promise<string> => {
+      const renterId = await addTestRenter(web, operatorC, "Cass Cancelled");
+      const { rentalId } = await bookTestRental(web, operatorC, renterId);
+      await cancelRental(web.db, operatorC, rentalId, { reason: "Plans changed" }, new Date());
+      return rentalId;
+    };
+    const withFee = await cancelBooking();
+    await cancelBooking();
+    const [feeType] = await listChargeTypes(web.db, operatorC.operatorId);
+    const added = await addCharge(web.db, operatorC, withFee, {
+      chargeTypeId: feeType!.id,
+      amountCents: 100_00,
+      description: "Cancellation fee",
+      effectiveOn: "2030-03-07",
+    });
+    expect(added.status).toBe("saved");
+
+    const found = await overdueFor(operatorC);
+
+    expect(found.total).toBe(1);
+    expect(found.items[0]).toMatchObject({
+      rentalId: withFee,
+      overdue: { overdueCents: 100_00, daysLate: 9 },
+    });
   });
 
   it("takes only a whole number of days from 0 to 30 in the box, checked again on the server", () => {
