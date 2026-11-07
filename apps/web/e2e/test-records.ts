@@ -200,15 +200,16 @@ export async function recordUnpaidCharge(
   const client = new Client({ connectionString: process.env.E2E_SUPERUSER_URL });
   await client.connect();
   try {
-    const effectiveOn = new Date(Date.now() - charge.daysAgo * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 10);
+    // Days are counted on the Operator's own calendar, as the app counts them: a UTC date
+    // is a day behind in Perth from 4 pm UTC, which made "N days late" read N + 1.
     await client.query(
       `INSERT INTO ledger_lines (operator_id, rental_id, kind, charge_type_id, amount_cents,
          gst_cents, description, effective_on)
-       SELECT operator_id, rental_id, 'charge', charge_type_id, $2, 0, 'Unpaid towing', $3
-       FROM ledger_lines WHERE rental_id = $1 AND kind = 'charge' LIMIT 1`,
-      [rentalId, charge.amountCents, effectiveOn],
+       SELECT line.operator_id, line.rental_id, 'charge', line.charge_type_id, $2, 0,
+         'Unpaid towing', (now() AT TIME ZONE operator.timezone)::date - $3::int
+       FROM ledger_lines line JOIN operators operator ON operator.id = line.operator_id
+       WHERE line.rental_id = $1 AND line.kind = 'charge' LIMIT 1`,
+      [rentalId, charge.amountCents, charge.daysAgo],
     );
   } finally {
     await client.end();
