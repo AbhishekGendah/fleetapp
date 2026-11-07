@@ -237,15 +237,12 @@ async function notOpenError(
     : new FinishedAlreadyError();
 }
 
-/**
- * The Renter locked for the handover and checked once more: marked Do not
- * rent or archived since the checks above, the car stays (review A6-1).
- */
-async function lockRenterForHandover(
+/** One Renter locked for the handover and checked once more: false if marked Do not rent or archived since. */
+async function isRenterStillActive(
   tx: AnyTransaction,
   operatorId: string,
   renterId: string,
-): Promise<void> {
+): Promise<boolean> {
   const [renter] = await tx
     .select({ status: renters.status })
     .from(renters)
@@ -253,9 +250,30 @@ async function lockRenterForHandover(
       and(eq(renters.id, renterId), eq(renters.operatorId, operatorId), isNull(renters.archivedAt)),
     )
     .for("update");
-  if (renter?.status !== "active") {
+  return renter?.status === "active";
+}
+
+/**
+ * The Renter, then the driver (the same person for a person's own rental),
+ * locked for the handover and checked once more: marked Do not rent or
+ * archived since the checks above, the car stays (review A6-1). Gives who
+ * the car goes to. A business's car never goes before its driver is named.
+ */
+async function lockPartiesForHandover(
+  tx: AnyTransaction,
+  operatorId: string,
+  view: Pick<HandoverView, "renterId" | "driverId">,
+): Promise<string> {
+  const { renterId, driverId } = view;
+  const isDriverOther = driverId !== null && driverId !== renterId;
+  if (
+    driverId === null ||
+    !(await isRenterStillActive(tx, operatorId, renterId)) ||
+    (isDriverOther && !(await isRenterStillActive(tx, operatorId, driverId)))
+  ) {
     throw new HandoverRefusedError({ status: "renter_changed" });
   }
+  return driverId;
 }
 
 /**
@@ -334,7 +352,7 @@ async function recordHandedOver(
     throw await notOpenError(tx, actor.operatorId, view.inspectionId);
   }
   await lockCarForHandover(tx, actor.operatorId, view.vehicleId);
-  await lockRenterForHandover(tx, actor.operatorId, view.renterId);
+  const driverId = await lockPartiesForHandover(tx, actor.operatorId, view);
   await holdCarFromNow(tx, actor, view, accepted.at);
   await tx
     .update(inspections)
@@ -363,6 +381,7 @@ async function recordHandedOver(
       rentalId: view.rentalId,
       vehicleId: view.vehicleId,
       renterId: view.renterId,
+      driverId,
       startedAt: accepted.at,
       handoverInspectionId: view.inspectionId,
     },

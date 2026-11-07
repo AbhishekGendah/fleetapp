@@ -384,13 +384,18 @@ async function completeChecklists(
   }
 }
 
-/** Possession moves from one car to the other at the same moment (rule 15). */
+/** Possession moves from one car to the other at the same moment, with the same driver (rule 15). */
 async function movePossession(
   tx: AnyTransaction,
   actor: ActingUser,
   views: SwapViews,
   at: Date,
 ): Promise<void> {
+  const { driverId } = views.new;
+  if (driverId === null) {
+    // The database holds a car that is out to its named driver.
+    throw new Error("A rental with its car out has no driver.");
+  }
   await endPossession(tx, actor, {
     rentalId: views.swap.rentalId,
     endedAt: at,
@@ -404,6 +409,7 @@ async function movePossession(
       rentalId: views.swap.rentalId,
       vehicleId: views.new.vehicleId,
       renterId: views.new.renterId,
+      driverId,
       startedAt: at,
       handoverInspectionId: views.new.inspectionId,
     },

@@ -45,7 +45,10 @@ export interface HandoverView {
   status: InspectionStatus;
   rentalId: string;
   vehicleId: string;
+  /** Who pays: the rental's Renter. */
   renterId: string;
+  /** Who has the car and signs for it (rule 15); none while a business's driver is still to be named. */
+  driverId: string | null;
   renterFullName: string;
   renterEmail: string | null;
   carRego: string;
@@ -198,6 +201,7 @@ async function loadChecklist(
       .select({
         inspection: inspections,
         renterId: rentals.renterId,
+        driverId: rentals.driverId,
         bondCents: rentals.bondCents,
         plannedStart: rentals.plannedStart,
         plannedEnd: rentals.plannedEnd,
@@ -247,6 +251,7 @@ async function loadChecklist(
       rentalId: inspection.rentalId,
       vehicleId: inspection.vehicleId,
       renterId: row.renterId,
+      driverId: row.driverId,
       renterFullName: row.renterFullName,
       renterEmail: row.renterEmail,
       carRego: row.carRego,

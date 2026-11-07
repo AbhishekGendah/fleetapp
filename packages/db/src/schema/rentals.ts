@@ -49,7 +49,15 @@ export const rentals = pgTable(
   {
     ...primaryKeyColumn,
     ...operatorIdColumn,
+    /** Who pays and is party to the contract: a person, or a business. */
     renterId: uuid("renter_id").notNull(),
+    /**
+     * Who drives (rule 15): the Renter themselves for a person, which the
+     * database fills in; for a business, one of its current drivers, or none
+     * yet while a draft or booking ("to be named"). Possessions keep who had
+     * the car at each moment; this is only who has it now or next.
+     */
+    driverId: uuid("driver_id"),
     vehicleId: uuid("vehicle_id").notNull(),
 
     type: rentalTypeEnum("type").notNull(),
@@ -92,9 +100,15 @@ export const rentals = pgTable(
       columns: [table.renterId, table.operatorId],
       foreignColumns: [renters.id, renters.operatorId],
     }),
+    foreignKey({
+      name: "rentals_driver_fk",
+      columns: [table.driverId, table.operatorId],
+      foreignColumns: [renters.id, renters.operatorId],
+    }),
     carLink("rentals", table),
     unique("rentals_id_operator_unique").on(table.id, table.operatorId),
     index("rentals_renter_idx").on(table.operatorId, table.renterId),
+    index("rentals_driver_idx").on(table.operatorId, table.driverId),
     index("rentals_vehicle_idx").on(table.operatorId, table.vehicleId),
     index("rentals_status_start_idx").on(table.operatorId, table.status, table.plannedStart),
     check(
@@ -123,6 +137,10 @@ export const rentals = pgTable(
     check(
       "rentals_handed_over",
       sql`(${table.status} in ('active', 'returned', 'closed')) = (${table.handedOverAt} is not null)`,
+    ),
+    check(
+      "rentals_driver_when_out",
+      sql`${table.status} not in ('active', 'returned', 'closed') or ${table.driverId} is not null`,
     ),
     check(
       "rentals_returned",

@@ -365,6 +365,13 @@
       "when": 1793883138568,
       "tag": "0051_car_model_fixes",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1794065578197,
+      "tag": "0052_business_renters",
+      "breakpoints": true
     }
   ]
 }

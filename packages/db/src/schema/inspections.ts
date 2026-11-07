@@ -184,10 +184,12 @@ export const inspectionDamageMarks = pgTable(
 );
 
 /**
- * Who had which car when (rule 15): from the Renter's signed acceptance at
- * the handover to the recorded return. Fines are matched to these. The
- * database refuses two possessions of one car that overlap (see the
- * migration's exclusion rule); a car swap ends one and starts another.
+ * Who had which car when (rule 15): from the signed acceptance at the
+ * handover (by the Renter or, for a business, its driver) to the recorded
+ * return. Fines are matched to these, never to the rental's current driver.
+ * The database refuses two possessions of one car that overlap (see the
+ * migration's exclusion rule); a car swap or a driver change ends one and
+ * starts another.
  */
 export const possessions = pgTable(
   "possessions",
@@ -196,7 +198,10 @@ export const possessions = pgTable(
     ...operatorIdColumn,
     rentalId: uuid("rental_id").notNull(),
     vehicleId: uuid("vehicle_id").notNull(),
+    /** The rental's Renter (who pays), as it was then. */
     renterId: uuid("renter_id").notNull(),
+    /** Who had the car: the rental's driver when this started (the database checks it). */
+    driverId: uuid("driver_id").notNull(),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
     /** None while the Renter still has the car. */
     endedAt: timestamp("ended_at", { withTimezone: true }),
@@ -216,6 +221,11 @@ export const possessions = pgTable(
       foreignColumns: [renters.id, renters.operatorId],
     }),
     foreignKey({
+      name: "possessions_driver_fk",
+      columns: [table.driverId, table.operatorId],
+      foreignColumns: [renters.id, renters.operatorId],
+    }),
+    foreignKey({
       name: "possessions_handover_fk",
       columns: [table.handoverInspectionId, table.operatorId],
       foreignColumns: [inspections.id, inspections.operatorId],
@@ -227,6 +237,7 @@ export const possessions = pgTable(
     }),
     index("possessions_vehicle_idx").on(table.operatorId, table.vehicleId, table.startedAt),
     index("possessions_rental_idx").on(table.operatorId, table.rentalId),
+    index("possessions_driver_idx").on(table.operatorId, table.driverId, table.startedAt),
     uniqueIndex("possessions_one_open_per_rental")
       .on(table.operatorId, table.rentalId)
       .where(sql`${table.endedAt} is null`),

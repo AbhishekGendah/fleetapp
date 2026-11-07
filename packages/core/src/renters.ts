@@ -12,6 +12,15 @@ export const RENTER_STATUS_LABELS: Readonly<Record<RenterStatus, string>> = {
   do_not_rent: "Do not rent",
 };
 
+/**
+ * A person, or a business (a company, partnership or trust) whose cars are
+ * driven by person Renters it names (docs/plans/business-renters.md). Called
+ * "organisation" in code because "business" already means the Operator.
+ * Fixed when the Renter is added.
+ */
+export const RENTER_KINDS = ["person", "organisation"] as const;
+export type RenterKind = (typeof RENTER_KINDS)[number];
+
 /** No Australian state licenses a driver younger than this. */
 export const MINIMUM_DRIVER_AGE_YEARS = 16;
 

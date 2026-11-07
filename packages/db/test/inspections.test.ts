@@ -121,6 +121,7 @@ describe("inspections and possessions", () => {
           operatorId: operatorAId,
           ...rental,
           renterId,
+          driverId: renterId,
           startedAt,
           endedAt,
           handoverInspectionId: inspectionId,

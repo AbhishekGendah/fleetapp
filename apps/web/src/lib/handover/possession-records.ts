@@ -11,8 +11,9 @@ import { and, eq, isNull } from "drizzle-orm";
 import { recordUserChange, type ActingUser } from "../acting-user";
 
 /**
- * The Renter's time with a car starts (rule 15): at a handover's acceptance,
- * or the new car at a swap. Its own history line, so who had which car when
+ * The driver's time with a car starts (rule 15): at a handover's acceptance,
+ * or the new car at a swap. `renterId` is the rental's Renter (who pays),
+ * `driverId` who has the car: the same person for a person's own rental. Its own history line, so who had which car when
  * can be read straight from the log (review A6-12, G9-8).
  */
 export async function startPossession(
@@ -22,6 +23,7 @@ export async function startPossession(
     rentalId: string;
     vehicleId: string;
     renterId: string;
+    driverId: string;
     startedAt: Date;
     handoverInspectionId: string;
   },
