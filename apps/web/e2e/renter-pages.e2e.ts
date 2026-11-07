@@ -132,8 +132,12 @@ test.describe.serial("the Renters list and a Renter's page", () => {
       ).toBeVisible();
       // A click on Since lands on the name's link, stretched over the row (forced: the cell is
       // covered by that link, which is the point).
-      await renterRow(page, RENTING.name).getByRole("cell").last().click({ force: true });
-      await expect(renterHeading(page, RENTING.name)).toBeVisible();
+      // Retried: in CI the list can still re-render from the search just after it settles,
+      // and a click on the row being replaced goes nowhere. The row link must still open it.
+      await expect(async () => {
+        await renterRow(page, RENTING.name).getByRole("cell").last().click({ force: true });
+        await expect(renterHeading(page, RENTING.name)).toBeVisible({ timeout: 3000 });
+      }).toPass({ timeout: 15_000 });
     });
 
     test("a Renter's page opens with the navy strip: owing, their car, licence and since", async ({

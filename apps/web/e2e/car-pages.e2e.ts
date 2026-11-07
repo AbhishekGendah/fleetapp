@@ -138,10 +138,13 @@ test.describe.serial("the Cars list and a car's page", () => {
       ).toBeVisible();
       // A click on the odometer lands on the rego's link, stretched over the row (forced: the
       // cell itself is covered by that link, which is the point).
-      await carRow(page, OUT.carRego).getByRole("cell").last().click({ force: true });
-      await expect(
-        page.getByRole("heading", { level: 1, name: new RegExp(`^${OUT.carRego}`) }),
-      ).toBeVisible();
+      // Retried for the same reason as on the Renters list (a click on a row being replaced).
+      await expect(async () => {
+        await carRow(page, OUT.carRego).getByRole("cell").last().click({ force: true });
+        await expect(
+          page.getByRole("heading", { level: 1, name: new RegExp(`^${OUT.carRego}`) }),
+        ).toBeVisible({ timeout: 3000 });
+      }).toPass({ timeout: 15_000 });
     });
 
     test("a car's page opens with the navy strip: who has it, and its key facts", async ({
