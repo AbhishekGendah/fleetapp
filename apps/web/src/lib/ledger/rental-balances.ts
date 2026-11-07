@@ -32,7 +32,13 @@ export async function selectLinesByRental(
     .where(and(eq(ledgerLines.operatorId, operatorId), rentalWhere));
   const linesByRental = new Map<string, DatedLedgerLine[]>();
   for (const { rentalId, ...line } of rows) {
-    linesByRental.set(rentalId, [...(linesByRental.get(rentalId) ?? []), line]);
+    // Added to in place: copying the list for every line grows with the square of a rental's lines.
+    const lines = linesByRental.get(rentalId);
+    if (lines) {
+      lines.push(line);
+    } else {
+      linesByRental.set(rentalId, [line]);
+    }
   }
   return linesByRental;
 }
