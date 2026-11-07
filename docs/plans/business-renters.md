@@ -171,7 +171,9 @@ deploy; progress.md "Open items").
    on Postgres 11+): **the backfill of existing Renters as person**.
 2. New nullable columns on `renters`: `trading_name`, `abn` (11 digits,
    stored without spaces), `contact_name` (the billing contact; `phone` and
-   `email` are the contact's, so `renters_has_contact` still holds),
+   `email` are the contact's, so `renters_has_contact` still holds; an
+   organisation must have an `email`: check `renters_organisation_email`,
+   and the same rule in Zod),
    `business_address`. `phone`, `email`, `postal_address`, `status`,
    `do_not_rent_reason`, `archived_at`, `retired_at`, `full_name` (the
    **legal name** for an organisation) are shared.
@@ -279,7 +281,7 @@ deploy; progress.md "Open items").
 
 | Flow | Person Renter | Business Renter |
 |---|---|---|
-| Add Renter | as today | "Person or business?" first; business form: legal name*, trading name, ABN (formatted 2-3-3-3 as typed, checksum), contact name*, contact phone or email*, business address (address lookup), postal address |
+| Add Renter | as today | "Person or business?" first; business form: legal name*, trading name, ABN (formatted 2-3-3-3 as typed, checksum), contact name*, contact email* (Abhi, 7 Nov: required, as the contract, invoices and statements go by email), contact phone, business address (address lookup), postal address |
 | Details link | as today | not offered for the business (decision 11); offered to each driver as today |
 | Drivers | none | Drivers tab: pick an existing person or add one (name and phone or email), then send them the details link; remove (refused while named on a booked or out rental) |
 | Booking | as today | pick the business, then its driver or "to be named" (decision 2). Checks split: Renter checks (Do not rent, business details complete: legal name, ABN, address, contact) and driver checks (today's licence, age, class, provisional, expiry, scans, Do not rent, archived). Warning (not refusal) if the driver already has another car out |
