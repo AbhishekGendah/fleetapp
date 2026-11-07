@@ -45,6 +45,11 @@ Add to this list whenever something is relaxed or put off "until launch".
 
 ## Settings and services for production
 
+- [ ] Production Vercel projects have `APP_STAGE=production` for every
+      environment (Production and Preview). Branch previews on the dev
+      projects accept sign-ins from their own *.vercel.app address (added
+      7 Nov 2026 so Abhi can try previews); with `production` nothing beyond
+      APP_URL/ADMIN_URL is ever trusted (tested in apps/web/test/preview-origins.test.ts).
 - [ ] Stripe in live mode: the AGS platform account verified, Connect's
       platform profile filled in, live keys in the production Vercel project
       only (PAYMENTS_TRANSPORT=stripe), and the live event destination's

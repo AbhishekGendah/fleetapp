@@ -1211,6 +1211,16 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
   - Test sheet: rows O-445 to O-469 and A-77 added; O-27, O-28, O-226,
     O-233, O-234, O-280 to O-283, O-303, O-317 to O-323 and O-348 updated.
 
+- **Preview sign-in (7 Nov, Abhi's go-ahead).** Signing in on a branch
+  preview was refused: the login only trusted APP_URL/ADMIN_URL, and the
+  check runs whenever the browser holds a cookie (Vercel's preview sign-in
+  leaves one). Now a preview with APP_STAGE=development also trusts its own
+  *.vercel.app addresses (Vercel's VERCEL_ENV, VERCEL_URL,
+  VERCEL_BRANCH_URL; `previewTrustedOrigins` in packages/auth), both apps.
+  Production trusts only itself. The address check is also on in tests now
+  (the library skipped it under NODE_ENV=test), with tests for refused and
+  trusted addresses in both apps.
+
 ## Next
 
 **6 Nov, look slice 2 built on a branch** (see Done). Waiting on Abhi:
