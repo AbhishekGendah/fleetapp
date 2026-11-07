@@ -1,5 +1,5 @@
 import { DEFAULT_HANDOVER_PHOTOS, isValidAbn } from "@fleetapp/core";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import type { AnyTransaction } from "../src/client";
@@ -667,6 +667,178 @@ describe("business Renters and their drivers", () => {
       expect(codes.every((code) => [CHECK_VIOLATION, FOREIGN_KEY_VIOLATION].includes(code!))).toBe(
         true,
       );
+    });
+  });
+
+  describe("retention, counting driving", () => {
+    const EIGHT_YEARS_AGO = sql`now() - interval '8 years'`;
+    const EIGHT_YEARS_AND_A_WEEK_AGO = sql`now() - interval '8 years 7 days'`;
+
+    async function keptUntil(renterId: string): Promise<Date> {
+      const result = await withTenant(web.db, operatorAId, (tx) =>
+        tx.execute<{ until: string }>(
+          sql`select app.renter_records_kept_until(${renterId}) as until`,
+        ),
+      );
+      return new Date(result.rows[0]!.until);
+    }
+
+    async function isInUse(renterId: string): Promise<boolean> {
+      const result = await withTenant(web.db, operatorAId, (tx) =>
+        tx.execute<{ in_use: boolean }>(sql`select app.is_renter_in_use(${renterId}) as in_use`),
+      );
+      return result.rows[0]!.in_use;
+    }
+
+    async function retire(renterId: string): Promise<boolean> {
+      const result = await withTenant(web.db, operatorAId, (tx) =>
+        tx.execute<{ retired: boolean }>(sql`select app.retire_renter(${renterId}) as retired`),
+      );
+      return result.rows[0]!.retired;
+    }
+
+    /**
+     * A business's rental, driven by `driverId` and returned eight years ago
+     * (dated back with the app's triggers off, as no app role can), with the
+     * driver's typed name on its handover. The driver's link ended then too.
+     */
+    async function oldBusinessRental(businessId: string, driverId: string) {
+      const linkId = await linkDriver(operatorAId, businessId, driverId);
+      const out = await rentalOut(businessId, driverId);
+      await withTenant(web.db, operatorAId, async (tx) => {
+        await tx
+          .update(schema.possessions)
+          .set({ endedAt: new Date() })
+          .where(eq(schema.possessions.id, out.possession.id));
+        await tx
+          .update(schema.rentals)
+          .set({ status: "returned", returnedAt: new Date() })
+          .where(eq(schema.rentals.id, out.rentalId));
+      });
+      await removeLink(linkId);
+      await superuser.db.transaction(async (tx) => {
+        await tx.execute(sql`set local session_replication_role = replica`);
+        await tx
+          .update(schema.rentals)
+          .set({
+            createdAt: EIGHT_YEARS_AGO,
+            handedOverAt: EIGHT_YEARS_AND_A_WEEK_AGO,
+            returnedAt: EIGHT_YEARS_AGO,
+          })
+          .where(eq(schema.rentals.id, out.rentalId));
+        await tx
+          .update(schema.possessions)
+          .set({ startedAt: EIGHT_YEARS_AND_A_WEEK_AGO, endedAt: EIGHT_YEARS_AGO })
+          .where(eq(schema.possessions.id, out.possession.id));
+        await tx
+          .update(schema.inspections)
+          .set({ signatureMethod: "typed", typedName: "Sam Driver" })
+          .where(eq(schema.inspections.id, out.inspectionId));
+        await tx
+          .update(schema.organisationDrivers)
+          .set({ addedAt: EIGHT_YEARS_AND_A_WEEK_AGO, removedAt: EIGHT_YEARS_AGO })
+          .where(eq(schema.organisationDrivers.id, linkId));
+      });
+      return out;
+    }
+
+    async function ageRenters(...renterIds: string[]): Promise<void> {
+      await superuser.db.transaction(async (tx) => {
+        await tx.execute(sql`set local session_replication_role = replica`);
+        for (const renterId of renterIds) {
+          await tx
+            .update(schema.renters)
+            .set({ createdAt: EIGHT_YEARS_AGO })
+            .where(eq(schema.renters.id, renterId));
+        }
+      });
+    }
+
+    const typedNameOf = async (inspectionId: string) => {
+      const [row] = await withTenant(web.db, operatorAId, (tx) =>
+        tx
+          .select({ typedName: schema.inspections.typedName })
+          .from(schema.inspections)
+          .where(eq(schema.inspections.id, inspectionId)),
+      );
+      return row!.typedName;
+    };
+
+    it("counts a driver's time with a business's car and their link, not only their own rentals", async () => {
+      const businessId = await addBusiness(operatorAId);
+      const driverId = await addTestRenter(web.db, operatorAId);
+      await ageRenters(driverId);
+      const linkId = await linkDriver(operatorAId, businessId, driverId);
+      const inUseWhileLinked = await isInUse(driverId);
+      await removeLink(linkId);
+      const untilAfterLink = await keptUntil(driverId);
+
+      const sevenYearsOn = Date.now() + 6.9 * 365 * 24 * HOUR_MS;
+      expect(inUseWhileLinked).toBe(true);
+      expect(await isInUse(driverId)).toBe(false);
+      expect(untilAfterLink.getTime()).toBeGreaterThan(sevenYearsOn);
+      expect(await retire(driverId)).toBe(false);
+    });
+
+    it("doesn't retire a driver with no rentals of their own while they have a business's car", async () => {
+      const businessId = await addBusiness(operatorAId);
+      const driverId = await addTestRenter(web.db, operatorAId);
+      await linkDriver(operatorAId, businessId, driverId);
+      await rentalOut(businessId, driverId);
+      await ageRenters(driverId);
+
+      expect(await isInUse(driverId)).toBe(true);
+      expect(await retire(driverId)).toBe(false);
+    });
+
+    it("keeps a business rental's personal records until the business and every driver are past seven years", async () => {
+      const businessId = await addBusiness(operatorAId);
+      const driverId = await addTestRenter(web.db, operatorAId);
+      const recentBusinessId = await addBusiness(operatorAId);
+      const old = await oldBusinessRental(businessId, driverId);
+      // The driver drove another business's car since: their seven years aren't up.
+      const recent = await oldBusinessRental(recentBusinessId, driverId);
+      await superuser.db.transaction(async (tx) => {
+        await tx.execute(sql`set local session_replication_role = replica`);
+        await tx
+          .update(schema.possessions)
+          .set({ endedAt: sql`now() - interval '1 year'` })
+          .where(eq(schema.possessions.id, recent.possession.id));
+      });
+      await ageRenters(businessId, driverId);
+
+      expect(await retire(driverId)).toBe(false);
+      expect(await retire(businessId)).toBe(true);
+      expect(await typedNameOf(old.inspectionId)).toBe("Sam Driver");
+
+      await superuser.db.transaction(async (tx) => {
+        await tx.execute(sql`set local session_replication_role = replica`);
+        await tx
+          .update(schema.possessions)
+          .set({ endedAt: EIGHT_YEARS_AGO })
+          .where(eq(schema.possessions.id, recent.possession.id));
+      });
+      expect(await retire(driverId)).toBe(true);
+      expect(await typedNameOf(old.inspectionId)).toBe("Removed");
+      // The other business isn't retired yet, so its rental's records stay.
+      expect(await typedNameOf(recent.inspectionId)).toBe("Sam Driver");
+
+      const [business] = await withTenant(web.db, operatorAId, (tx) =>
+        tx
+          .select()
+          .from(schema.renters)
+          .where(
+            and(eq(schema.renters.id, businessId), eq(schema.renters.operatorId, operatorAId)),
+          ),
+      );
+      expect(business).toMatchObject({
+        kind: "organisation",
+        tradingName: null,
+        abn: null,
+        contactName: null,
+        email: null,
+        retiredAt: expect.any(Date),
+      });
     });
   });
 });

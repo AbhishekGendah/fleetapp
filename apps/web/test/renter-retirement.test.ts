@@ -5,13 +5,15 @@ import {
   inspections,
   issuedDocuments,
   ledgerLines,
+  organisationDrivers,
+  possessions,
   rentals,
   renters,
 } from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import type { EmailMessage } from "@fleetapp/email";
-import { and, eq, inArray, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import type { ActingUser } from "../src/lib/acting-user";
@@ -79,6 +81,11 @@ describe("removing a Renter's details seven years after their last rental", () =
           returnedAt: EIGHT_YEARS_AGO,
         })
         .where(and(eq(rentals.renterId, renterId), eq(rentals.status, "active")));
+      // A return ends the time with the car too (rule 15), which now counts (plan Migration A step 8).
+      await tx
+        .update(possessions)
+        .set({ startedAt: EIGHT_YEARS_AND_A_WEEK_AGO, endedAt: EIGHT_YEARS_AGO })
+        .where(and(eq(possessions.renterId, renterId), isNull(possessions.endedAt)));
     });
   }
 
@@ -180,6 +187,38 @@ describe("removing a Renter's details seven years after their last rental", () =
     for (const renterId of [bondHeld.renterId, booked!.renterId, recent.renterId]) {
       expect((await renterOf(actor, renterId)).retiredAt).toBeNull();
     }
+  });
+
+  it("keeps a driver with no rentals of their own while they drive for a business", async () => {
+    // Adding a business and its drivers comes in a later slice; written straight in here.
+    const driverId = await withTenant(web.db, actor.operatorId, async (tx) => {
+      const [business] = await tx
+        .insert(renters)
+        .values({
+          operatorId: actor.operatorId,
+          kind: "organisation",
+          fullName: "Acme Rideshare Pty Ltd",
+          email: "accounts@acme.example.test",
+        })
+        .returning({ id: renters.id });
+      const [driver] = await tx
+        .insert(renters)
+        .values({ operatorId: actor.operatorId, fullName: "Sam Driver", phone: "0412345678" })
+        .returning({ id: renters.id });
+      await tx.insert(organisationDrivers).values({
+        operatorId: actor.operatorId,
+        organisationId: business!.id,
+        driverId: driver!.id,
+        addedByUserId: actor.userId,
+      });
+      return driver!.id;
+    });
+    await ageRenter(driverId);
+
+    await retireOldRenters(web.db);
+
+    expect((await renterOf(actor, driverId)).retiredAt).toBeNull();
+    expect(await retireDirectly(actor, driverId)).toBe(false);
   });
 
   it("never removes another business's Renter, nor anyone not yet seven years on, even if asked", async () => {

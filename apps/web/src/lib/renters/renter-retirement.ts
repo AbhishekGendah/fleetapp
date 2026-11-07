@@ -25,8 +25,6 @@ import { findDueOperators, forEachOperator } from "../jobs/due-operators";
 
 /** At most this many Renters retired per business per night; the next night carries on. */
 const RENTERS_PER_RUN = 50;
-/** A draft, a booking or a car out: the database's own check says the same. */
-const OPEN_RENTAL_STATUSES = ["draft", "booked", "active"] as const;
 
 export interface RenterRetirementSummary {
   operators: number;
@@ -43,7 +41,8 @@ async function askDatabase(tx: AnyTransaction, query: ReturnType<typeof sql>): P
 
 /**
  * Renters whose seven years are up by the database's own count, with no
- * draft, booking or car out: every one, in a fixed order, so Renters held
+ * draft, booking or car out naming them as Renter or driver, and no current
+ * link between a driver and a business: every one, in a fixed order, so Renters held
  * back by money or damage never crowd out the rest.
  */
 async function findCandidates(tx: AnyTransaction, operatorId: string): Promise<string[]> {
@@ -55,7 +54,7 @@ async function findCandidates(tx: AnyTransaction, operatorId: string): Promise<s
         eq(renters.operatorId, operatorId),
         isNull(renters.retiredAt),
         sql`app.renter_records_kept_until(${renters.id}) <= now()`,
-        sql`not exists (select 1 from ${rentals} where ${rentals.renterId} = ${renters.id} and ${inArray(rentals.status, [...OPEN_RENTAL_STATUSES])})`,
+        sql`not app.is_renter_in_use(${renters.id})`,
       ),
     )
     .orderBy(asc(renters.id));
@@ -64,7 +63,9 @@ async function findCandidates(tx: AnyTransaction, operatorId: string): Promise<s
 
 /**
  * What still ties the Renter to the business: money either way, a bond, a
- * damage matter. The dates and open rentals were checked by the database.
+ * damage matter. The dates, open rentals and drivers' links were checked by
+ * the database. Money and damage are the payer's: a business's, never its
+ * drivers', so only the Renter's own rentals count.
  */
 async function isAnythingOpen(
   tx: AnyTransaction,

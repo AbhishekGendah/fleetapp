@@ -1,5 +1,5 @@
 import { SAMPLE_JPEG } from "@fleetapp/core/testing";
-import { activityLog, files, rentals } from "@fleetapp/db/schema";
+import { activityLog, files, organisationDrivers, rentals, renters } from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, inArray } from "drizzle-orm";
@@ -28,7 +28,7 @@ import {
   createMemoryFileStorage,
   type MemoryFileStorage,
 } from "../src/lib/storage/memory-file-storage";
-import { seedOperatorWithUser } from "./car-fixtures";
+import { addTestCar, seedOperatorWithUser } from "./car-fixtures";
 import { bookTestRental } from "./rental-fixtures";
 import { LINK_PHOTO } from "./renter-link-fixtures";
 
@@ -195,6 +195,62 @@ describe("licence scans deleted on a timer", () => {
       ).toBe(0);
       expect(
         await countScansDueWith(web.db, owner.operatorId, 1, new Date(), RENTAL_RETENTION_HOLDS),
+      ).toBe(0);
+    });
+
+    it("keeps a driver's scans while they drive a business's car, and counts from its return", async () => {
+      const owner = await seedOperatorWithUser(admin, "Driver Retention Pty Ltd");
+      const driver = await renterWithScan(owner, 400);
+      const vehicleId = await addTestCar(web, owner);
+      // Adding a business and naming its driver come in later slices; written straight in here.
+      const rentalId = await withTenant(web.db, owner.operatorId, async (tx) => {
+        const [business] = await tx
+          .insert(renters)
+          .values({
+            operatorId: owner.operatorId,
+            kind: "organisation",
+            fullName: "Acme Rideshare Pty Ltd",
+            email: "accounts@acme.example.test",
+          })
+          .returning({ id: renters.id });
+        await tx.insert(organisationDrivers).values({
+          operatorId: owner.operatorId,
+          organisationId: business!.id,
+          driverId: driver.renterId,
+          addedByUserId: owner.userId,
+        });
+        const [rental] = await tx
+          .insert(rentals)
+          .values({
+            operatorId: owner.operatorId,
+            renterId: business!.id,
+            driverId: driver.renterId,
+            vehicleId,
+            type: "fixed_term",
+            status: "booked",
+            plannedStart: new Date(Date.now() - 90 * DAY_MS),
+            plannedEnd: new Date(Date.now() - 40 * DAY_MS),
+            chargeWeekday: 1,
+            bondCents: 0,
+            settingsSnapshot: {},
+            settingsVersion: 1,
+          })
+          .returning({ id: rentals.id });
+        return rental!.id;
+      });
+
+      await binExpiredLicenceScans(deps, RENTAL_RETENTION_HOLDS);
+      expect(await hasFront(owner, driver.renterId)).toBe(true);
+
+      const moveTo = (changes: Partial<typeof rentals.$inferInsert>) =>
+        withTenant(web.db, owner.operatorId, (tx) =>
+          tx.update(rentals).set(changes).where(eq(rentals.id, rentalId)),
+        );
+      await moveTo({ status: "active", handedOverAt: new Date(Date.now() - 90 * DAY_MS) });
+      await moveTo({ status: "returned", returnedAt: new Date(Date.now() - 40 * DAY_MS) });
+      expect(await countScansDueWith(web.db, owner.operatorId, 12, new Date(), NO_HOLDS)).toBe(1);
+      expect(
+        await countScansDueWith(web.db, owner.operatorId, 12, new Date(), RENTAL_RETENTION_HOLDS),
       ).toBe(0);
     });
 
