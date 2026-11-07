@@ -1308,6 +1308,13 @@ generator needs Abhi's say-so.
 
 ## Open items
 
+- From the overdue slice's deep review (7 Nov, both checkers confirmed no
+  bug): (1) only app code stops a reversal of a reversal; a database check
+  would make it impossible (schema change: plan first). (2) A booking's
+  "First rent" is dated at the planned start, so a late pickup shows a past
+  date (amount right). (3) Whether a cancelled booking with an unpaid
+  cancellation fee should show as Overdue: asked Abhi.
+
 - Handover offline: the offline helper only keeps pages first opened under
   `/rentals/`. A handover page reached by tapping through from the Rentals
   list or Home is only kept for poor signal after one reload (found in look
