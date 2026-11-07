@@ -4,7 +4,9 @@
 
 - Two signatures: (1) the contract, any time before pickup, anywhere;
   (2) handover acceptance at pickup ("I received this car at this time,
-  with this km and fuel"). Possession starts at (2).
+  with this km and fuel"). Possession starts at (2). For a business
+  Renter, its contact signs (1) for the business and the named driver
+  signs (2).
 - Possession ends at the return time recorded by the Operator; the
   Renter also signs if present.
 
@@ -43,7 +45,8 @@
   boot. Operator can edit the list.
 - Odometer, fuel level, existing damage marked on a car outline with
   photos, keys handed over, accessories.
-- Renter reviews and signs acceptance; possession starts.
+- Renter (for a business, its driver) reviews and signs acceptance;
+  possession starts.
 
 ## Return report
 

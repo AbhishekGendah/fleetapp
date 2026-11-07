@@ -11,7 +11,8 @@
 
 ## Matching
 
-- Uses possession records (rego + offence time).
+- Uses possession records (rego + offence time). The possession gives
+  the driver and the Renter then, never the rental's current driver.
 - Outcomes: single match; no renter (Operator's responsibility; show
   the workshop if the car was in service); close call (within the
   close-call window of a possession start or end) flagged for review.
@@ -47,8 +48,8 @@
 
 ## "Who had this car?" lookup
 
-- Vehicle + date/time returns the possession, renter, rental and signed
-  agreement, for any past date.
+- Vehicle + date/time returns the possession, driver, renter, rental and
+  signed agreement, for any past date.
 
 ## Reports
 

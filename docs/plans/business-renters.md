@@ -434,6 +434,79 @@ rental (each has its own debit), named "Acme · ABC123".
    ABN, rego and driver; Migration B; business-wide statement; Money tab
    across cars; Owing on the strip. Mockup 8 first. Deep review (money).
 
+#### As built (slice 1, 7 Nov 2026)
+
+Abhi's go: 7 Nov 2026. No screen changed; person Renters behave as before.
+
+- **Migrations.** `0052_business_renters` (steps 1 to 7) and
+  `0053_driver_retention` (step 8). Both ran on the demo-filled database CI
+  builds from main (40 Renters, 37 rentals, 18 possessions: all backfilled,
+  every Renter a person), and a test (`business-renters-update.test.ts`)
+  runs them on a database filled at 0051, then inserts a rental and a
+  possession the way the deployed code does (no driver) and sees the driver
+  filled in.
+- **Added beyond the plan** (each tested): a possession's `renter_id` must be
+  the rental's Renter; a finished (returned, closed, cancelled) rental's
+  driver never changes; a deferred check at commit that a car out is with
+  the rental's driver by an open possession; `organisation_drivers` times are
+  stamped by the database (they start the seven-year clock), a removed link
+  is kept as it is, and deletes are refused even for the owner; a current
+  link holds back the retirement of both the driver and the business, and a
+  link's end counts for both.
+- **Driver change order (for slice 4).** A possession must name the rental's
+  driver when it starts, so the change runs: end the old possession, change
+  `rentals.driver_id` (allowed only while no possession is open), start the
+  new driver's possession, all in one transaction. The commit check refuses
+  a car out with no possession for its driver. This is what the plan's
+  "a possession opened in the same transaction" means in practice.
+- **Booking checks.** `renterProblems` and `driverProblems` in
+  packages/core; `bookingProblems` composes them, saying Do not rent once.
+  For a business with no driver named, the app finds no booking parties and
+  the database refuses a car going out; the "Name a driver" problem, its
+  wording, and the archived-driver message come with slice 3.
+- **Retention.** A rental's typed names, notes, checklist photos and issued
+  PDFs are binned only once its Renter and every driver are retired. A
+  damage record is the payer's (the business's), so its description goes
+  with the business, as before for a person. The existing protections still
+  let the owner edit a rental's records once its Renter is retired; only
+  `app.retire_renter` runs as the owner, and it applies the all-parties rule.
+- **Locks.** A possession starting locks its rental (shared), so the driver
+  can't change under it; naming a business's driver locks the driver and
+  the link (shared); a link locks both Renters (shared); retirement locks the
+  Renter, then every rental they rent or drive. Seen while reviewing, not
+  changed: booking a draft locks the rental and then the Renter, while the
+  retirement locks the Renter and then their rentals; Postgres would end one
+  of the two if they ever met (the job tries again the next night).
+
+**Each use of `rentals.renter_id`, sorted.**
+
+Now the driver (`driver_id`): booking licence, age, details and scan checks
+(`booking-checks.ts`, the driver row locked after the Renter); the handover
+lock (`complete-handover.ts`, Renter then driver); the possession's driver at
+a handover and a swap (`possession-records.ts`, `complete-swap.ts`,
+`handover-queries.ts` carries it); licence-scan retention holds
+(`retention-holds.ts`, rentals and possessions by driver); the retirement's
+"nothing open" (`renter-retirement.ts` via `app.is_renter_in_use`, and the
+database functions); archive refused while a rental they drive is booked or
+out (`rentals-under-way.ts`); a new rental names its driver
+(`rental-records.ts`).
+
+Stays the payer (`renter_id`): ledger, invoices and receipts
+(`ledger-queries.ts`, `billing-documents.ts`), Owing and overdue
+(`renter-money.ts`, `overdue-rentals.ts`, `attention-items.ts`), payments,
+mandates and Stripe (`renter-payment-records.ts`, `renter-checkout.ts`,
+`payments-links.ts`, `stripe-*`), bonds (`bonds-to-refund.ts`), the
+contract, change of terms and their links (`signing-links.ts`,
+`change-signing.ts`, `rental-changes.ts`, `contract-data.ts`,
+`cancel-links.ts`, `renter-archived.ts`), document emails
+(`document-emails.ts`), damage records' holder (`damage-records.ts`,
+`recordDamageFromReturn`, `whoHadCar` from `possessions.renter_id`: the
+business is charged; the driver shown on the damage page is slice 3), the
+retirement's money and damage checks, and everything shown by Renter
+(Renter page and list, rentals list, calendar, timeline, car pages, search,
+export, everything we hold): the driver shown alongside comes with slices 2
+and 3.
+
 Later, each its own plan: ABN Lookup (decision 9); a business self-service
 details link; a combined weekly debit and invoice (decisions 6 and 7); fines
 (Phase 6).

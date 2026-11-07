@@ -2,6 +2,10 @@
 
 ## Ledger (one per Renter; every line linked to a rental)
 
+- Money follows the Renter who pays: a business Renter's rentals are its
+  own, never its drivers' (docs/plans/business-renters.md). A driver who
+  also rents on their own owes only on their own rentals.
+
 - Line kinds: charge | payment | credit | refund | reversal.
 - Charge categories: weekly_rent, part_week_rent, late_fee,
   fine_passthrough, fine_admin_fee, damage, excess, toll, cleaning, plus

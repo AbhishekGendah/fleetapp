@@ -918,3 +918,33 @@ of service) and the countries.
   arises from these links (the Operator's own messages are theirs to send).
 - Nothing else to disclose: the pages show the business's own records to
   the business only, scoped to it (rules 1 and 2).
+
+## Business Renters, slice 1: foundations (7 Nov 2026, built)
+
+Nothing new is shown or collected yet; these notes cover what the database
+now holds ready for the next slices (docs/plans/business-renters.md, Legal).
+
+- **Drivers are individuals.** A business Renter's drivers are ordinary
+  person Renters, with the same privacy handling (APPs 3, 5, 11, 12), no
+  admin access (rule 5) and nothing personal in the Log (rule 7). The
+  privacy notice wording for drivers (their name, signature and the car's
+  use are shared with the business they drive for) is needed before slice 2
+  sends a driver a details link.
+- **A business's contact details are personal information too** (and a
+  sole-trader-style business name can be a person's name): held and removed
+  like a person's.
+- **Record keeping (APP 11.2 and tax records).** The seven-year removal now
+  counts driving: a driver is kept while they have a car, a booking, or a
+  current link to a business, and for seven years after the last of their
+  rentals, time with a car, or link. A business rental's signed reports,
+  photos and typed names are binned only once the business and every driver
+  who had the car are past their seven years, so neither party's evidence
+  is lost on the other's clock. Licence scans of a driver are held while
+  they have a booking or car out, and counted from the last car they gave
+  back. Money lines, invoices and statements are never touched (5 years at
+  least).
+- **Fines (Phase 6).** Each possession now records the driver who signed for
+  the car as well as the Renter who pays, so a "who had this car at T"
+  answer for a business's car names the driver then, never a later one.
+- **ABN.** Checked with the ATO's checksum in the database too (it proves
+  the shape only, not whose ABN it is; ABN Lookup is a later step).

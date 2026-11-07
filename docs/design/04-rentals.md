@@ -2,7 +2,10 @@
 
 ## Rental
 
-- renter, vehicle (current vehicle via possession), type (fixed |
+- renter (who pays and signs the contract), driver (who has the car: the
+  renter for a person; for a business, one of its drivers, which may be
+  "to be named" until the handover), vehicle (current vehicle via
+  possession), type (fixed |
   ongoing), plannedStart, plannedEnd (null when ongoing),
   actualHandoverAt, actualReturnAt, bondAmount, chargeDay, status,
   settings snapshot.
@@ -42,8 +45,12 @@
 
 ## Possession records
 
-- vehicleId, rentalId, renterId, startAt (signed handover acceptance),
-  endAt (recorded return; null while current).
+- vehicleId, rentalId, renterId (the rental's Renter), driverId (who
+  signed for the car; the rental's driver at that moment), startAt
+  (signed handover acceptance), endAt (recorded return; null while
+  current).
+- A driver change on a business's rental closes one record and opens
+  another at the same instant, the new driver signing for the car.
 - Fine matching uses these. No overlapping possession per vehicle
   (enforced in the database).
 

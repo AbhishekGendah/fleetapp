@@ -2,11 +2,23 @@
 
 ## Renter
 
-- fullName, preferredName, dateOfBirth, phone, email,
+- kind: person | organisation (a business: company, partnership or
+  trust). Fixed when added. Shown as "Person" and "Business"
+  (docs/plans/business-renters.md).
+- A person: fullName, preferredName, dateOfBirth, phone, email,
   residentialAddress, postalAddress, emergency contact (name, phone,
-  relationship), dated internal notes.
+  relationship), dated internal notes, an optional ABN (a sole trader).
+- A business: legal name (fullName), trading name, ABN (checksum), contact
+  name, contact email (required) and phone, business address, postal
+  address. No licence, date of birth or emergency contact.
 - status: active | do_not_rent (with reason, private to the Operator) |
   archived. Never shared between Operators.
+
+## Drivers
+
+- A business's cars are driven by its drivers: person Renters linked to
+  it (organisation_drivers). A driver who also rents on their own is the
+  same record. A link is removed, never deleted; adding back is a new link.
 
 ## Licence
 
@@ -16,8 +28,10 @@
 
 ## Automatic checks
 
-- At booking: minimum age, licence class suits the vehicle,
-  provisional allowed per setting, not do_not_rent.
+- At booking: the Renter is not do_not_rent; the driver (the Renter
+  themselves for a person) has the minimum age, a licence class that
+  suits the vehicle, provisional allowed per setting, and is not
+  do_not_rent.
 - Licence expiring during the rental: warn at booking, then reminders.
 - Expired licence: handover is blocked.
 - Duplicate detection by licence number or email: show the existing
@@ -36,8 +50,12 @@
 
 - Identity documents: separate private storage, short-lived signed URLs,
   every view logged.
-- Licence scans are auto-deleted a set time after the Renter's last
-  rental closes, unless a fine or dispute is open.
+- Licence scans are auto-deleted a set time after the last rental the
+  Renter drove closes, unless a fine or dispute is open.
+- Seven years after a Renter's last rental, time with a car or link to a
+  business, their details are removed. A business rental's own records
+  (signed reports, photos, typed names) go only once the business and
+  every driver who had the car are past their seven years.
 - Name, licence number and financial records are kept (tax records must
   be kept 5 years).
 - One-click export of everything held about a Renter.

@@ -204,6 +204,12 @@ Add to this list whenever something is relaxed or put off "until launch".
 
 ## Legal
 
+- [ ] **Business Renters' privacy wording** (docs/plans/business-renters.md,
+      Legal): the Renter privacy notice says that a driver's name, signature
+      and the car's use are shared with the business they drive for; the
+      lawyer checks it, and the PPS lease question (long hires to a company),
+      before the first business Renter is added on a live site.
+
 - [ ] Everything in docs/legal-notes.md reviewed by a lawyer: privacy
       policy, Operator terms (including AGS correcting car make and model
       names, and record keeping), the Renter privacy notice, and the data

@@ -23,6 +23,7 @@ env vars (APP_URL, ADMIN_URL).
 - Renter: the Operator's customer. Renters never log in; they use
   tokenised links only.
 - Admin: AGS platform staff. Separate table, separate app.
+- Driver: a person Renter named to drive a business Renter's car.
 
 Never use "client", "customer" or "tenant" for these in code.
 
@@ -115,8 +116,10 @@ Never use "client", "customer" or "tenant" for these in code.
     changes affect new rentals only. Changing an active rental's terms
     is an explicit, logged change.
 15. Possession: fine matching uses possession records. Possession
-    starts at the Renter's signed handover acceptance and ends at the
-    recorded return. A car swap closes one record and opens another.
+    starts at the signed handover acceptance by the Renter or, for a
+    business Renter, by its named driver, and ends at the recorded
+    return. A car swap or a driver change closes one record and opens
+    another.
 16. Payment method is a generic type field (becs_debit now, payto
     later). No BECS-specific columns in core tables.
 17. Invoice numbers are sequential per Operator, with no gaps.
