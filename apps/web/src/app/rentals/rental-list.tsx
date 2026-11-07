@@ -1,9 +1,15 @@
 import { formatCents, renterDisplayName } from "@fleetapp/core";
-import { cn } from "@fleetapp/ui/cn";
 import type { DataListDefinition } from "@fleetapp/ui/data-list";
 import { InlineRecordLink, RowLink } from "@fleetapp/ui/row-link";
 import Link from "next/link";
 
+import {
+  balanceAmountText,
+  BalanceText,
+  balanceToneOf,
+  creditText,
+  type BalanceTone,
+} from "../../components/balance-amount";
 import { carPath, rentalPath, renterPath } from "../../lib/paths";
 import { rentalRateOf } from "../../lib/rentals/rental-labels";
 import {
@@ -40,46 +46,14 @@ function renterName(rental: RentalSummary): string {
   return renterDisplayName(rental.renterFullName, rental.renterPreferredName);
 }
 
-type BalanceTone = "owing" | "credit" | "settled";
-
-/** Which way a balance points: owed to the business, owed to the Renter, or neither. */
-function balanceToneOf(balanceCents: number): BalanceTone {
-  if (balanceCents > 0) return "owing";
-  return balanceCents < 0 ? "credit" : "settled";
-}
-
-/**
- * Owing is red and bold, credit teal and bold (rule 34: weight as well as
- * colour), so the two can never be mistaken for each other.
- */
-const BALANCE_TONE_CLASSES: Record<BalanceTone, string> = {
-  owing: "text-destructive font-extrabold",
-  credit: "text-teal font-bold",
-  settled: "",
-};
-
-function creditText(balanceCents: number): string {
-  return `${formatCents(-balanceCents)} in credit`;
-}
-
-function BalanceText({ balanceCents, text }: { balanceCents: number; text: string }) {
-  return (
-    <span className={cn("tabular-nums", BALANCE_TONE_CLASSES[balanceToneOf(balanceCents)])}>
-      {text}
-    </span>
-  );
-}
-
 /** The computer's Owing column: "$450.00", "$0.00" or "$20.00 in credit", never a minus sign. */
 function OwingAmount({ rental }: { rental: RentalListRow }) {
   if (rental.balanceCents === null) {
     return <span className="text-muted-foreground">{NOTHING_YET}</span>;
   }
-  const text =
-    balanceToneOf(rental.balanceCents) === "credit"
-      ? creditText(rental.balanceCents)
-      : formatCents(rental.balanceCents);
-  return <BalanceText balanceCents={rental.balanceCents} text={text} />;
+  return (
+    <BalanceText balanceCents={rental.balanceCents} text={balanceAmountText(rental.balanceCents)} />
+  );
 }
 
 const PHONE_BALANCE_TEXT: Record<BalanceTone, (balanceCents: number) => string> = {
