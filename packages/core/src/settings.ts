@@ -35,6 +35,7 @@ import {
   MAXIMUM_EXPIRY_WARNING_DAYS,
   MINIMUM_EXPIRY_WARNING_DAYS,
 } from "./expiry";
+import { DEFAULT_PAYMENT_GRACE_DAYS, MAXIMUM_PAYMENT_GRACE_DAYS } from "./overdue";
 
 /**
  * Every Operator setting that is not a business detail, as one validated
@@ -144,6 +145,17 @@ export const operatorSettingsSchema = z.object({
   isInvoiceEmailedAutomatically: z.boolean().default(true),
   /** Printed on every invoice: how to pay, e.g. the business's bank details for a transfer. */
   howToPay: z.string().trim().max(HOW_TO_PAY_MAX_LENGTH).default(""),
+  /**
+   * Grace days: money still owing this many days after it was due counts as
+   * overdue. Needs attention reads today's value (it only shows things); the
+   * late fee (Phase 4 slice 6) will copy it onto each rental (rule 14).
+   */
+  paymentGraceDays: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAXIMUM_PAYMENT_GRACE_DAYS)
+    .default(DEFAULT_PAYMENT_GRACE_DAYS),
 });
 
 export type OperatorSettings = z.infer<typeof operatorSettingsSchema>;

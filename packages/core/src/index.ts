@@ -9,6 +9,7 @@ export * from "./dashboard";
 export * from "./fleet-timeline";
 export * from "./billing";
 export * from "./ledger";
+export * from "./overdue";
 export * from "./describe-device";
 export * from "./countries";
 export * from "./driver-licence";
