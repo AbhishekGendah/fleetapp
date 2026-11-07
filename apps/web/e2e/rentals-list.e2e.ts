@@ -2,6 +2,7 @@ import { expectAccessible } from "@fleetapp/e2e/accessibility";
 import { expect, test, type Page } from "@playwright/test";
 
 import { PHONE_VIEWPORT } from "./e2e-settings";
+import { expectFilterCounts, openFilter } from "./list-steps";
 import { bookedRental, openRentalPage, rentalOutAndCharged } from "./money-steps";
 import { expectNoSidewaysScroll } from "./phone-checks";
 import { rentalIdOnPage, type RentalParties } from "./rental-steps";
@@ -59,21 +60,12 @@ test.describe.serial("the Rentals list", () => {
 
     test("filters by status in plain words, each with its count", async ({ page }) => {
       await page.goto("/rentals", { waitUntil: "networkidle" });
+      await expectFilterCounts(page, "Rentals by status", STATUS_WORDS);
       const filters = page.getByRole("navigation", { name: "Rentals by status" });
-      for (const words of STATUS_WORDS) {
-        await expect(
-          filters.getByRole("link", { name: new RegExp(`^${words} \\d+$`) }),
-        ).toBeVisible();
-      }
       await expect(filters.getByRole("link", { name: /^Active/ })).toHaveCount(0);
       await expect(page.getByRole("link", { name: "Timeline", exact: true })).toHaveCount(0);
 
-      await filters.getByRole("link", { name: /^Out / }).click();
-      await expect(page).toHaveURL(/status=out/);
-      await expect(filters.getByRole("link", { name: /^Out / })).toHaveAttribute(
-        "aria-current",
-        "page",
-      );
+      await openFilter(page, "Rentals by status", "Out", /status=out/);
       await expect(tableRow(page, OWING.name)).toBeVisible();
       await expect(tableRow(page, BOOKED.name)).toHaveCount(0);
       await expectAccessible(page);

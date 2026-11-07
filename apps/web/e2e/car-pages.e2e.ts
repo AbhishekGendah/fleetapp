@@ -1,7 +1,9 @@
 import { expectAccessible } from "@fleetapp/e2e/accessibility";
+import { scriptKilobytes } from "@fleetapp/e2e/download-size";
 import { expect, test, type Page } from "@playwright/test";
 
 import { PHONE_VIEWPORT } from "./e2e-settings";
+import { expectFilterCounts, openFilter } from "./list-steps";
 import { rentalOutAndCharged } from "./money-steps";
 import { expectNoSidewaysScroll } from "./phone-checks";
 import { addCarToBook, type RentalParties } from "./rental-steps";
@@ -29,6 +31,12 @@ const TAB_NAMES = [
   "Odometer",
   "Log",
 ];
+/**
+ * The page's JavaScript budget, compressed (rule 33), at phone width: 453 KB
+ * measured on 7 Nov 2026 plus about 10%. The weight is the shared form
+ * pieces: the strip's Record damage pop-up and the Overview's status form.
+ */
+const CAR_PAGE_BUDGET_KB = 500;
 const DESKTOP_VIEWPORT = { width: 1280, height: 900 };
 /** The theme's navy (--color-primary, #0d3747). */
 const NAVY = "rgb(13, 55, 71)";
@@ -78,25 +86,16 @@ test.describe.serial("the Cars list and a car's page", () => {
 
     test("filters by status in plain words, each with its count", async ({ page }) => {
       await page.goto("/cars", { waitUntil: "networkidle" });
+      await expectFilterCounts(page, "Cars by status", FILTER_WORDS);
       const filters = page.getByRole("navigation", { name: "Cars by status" });
-      for (const words of FILTER_WORDS) {
-        await expect(
-          filters.getByRole("link", { name: new RegExp(`^${words} \\d+$`) }),
-        ).toBeVisible();
-      }
       await expect(filters.getByRole("link", { name: /^Rented/ })).toHaveCount(0);
 
-      await filters.getByRole("link", { name: /^Out / }).click();
-      await expect(page).toHaveURL(/status=out/);
-      await expect(filters.getByRole("link", { name: /^Out / })).toHaveAttribute(
-        "aria-current",
-        "page",
-      );
+      await openFilter(page, "Cars by status", "Out", /status=out/);
       await expect(carRow(page, OUT.carRego)).toBeVisible();
       await expect(carRow(page, IDLE_REGO)).toHaveCount(0);
       await expectAccessible(page);
 
-      await filters.getByRole("link", { name: /^In the workshop / }).click();
+      await openFilter(page, "Cars by status", "In the workshop", /status=workshop/);
       await expect(carRow(page, WORKSHOP_REGO)).toContainText("New clutch, back");
       await expect(carRow(page, WORKSHOP_REGO).getByText("In service")).toBeVisible();
     });
@@ -210,6 +209,8 @@ test.describe.serial("the Cars list and a car's page", () => {
 
     test("a car's page fits the screen, its tabs as tiles", async ({ page }) => {
       await openCarOnPhone(page, IDLE_REGO);
+      await page.waitForLoadState("networkidle");
+      expect(await scriptKilobytes(page)).toBeLessThanOrEqual(CAR_PAGE_BUDGET_KB);
       await expectNoSidewaysScroll(page);
       await expectAccessible(page);
       await carTab(page, "Damage").click();

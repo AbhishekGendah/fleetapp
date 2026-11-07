@@ -105,8 +105,12 @@ test.describe.serial("a rental's money", () => {
         .first()
         .click();
       await page.getByRole("link", { name: "Money", exact: true }).click();
-      await expect(page.getByText(/^Owing \$/)).toBeVisible();
-      await expect(page.getByText(new RegExp(`· ${CAR_REGO}$`)).first()).toBeVisible();
+      // Charged, paid and owing, added up from every rental's lines (7 Nov 2026 look).
+      const lines = page.getByRole("region", { name: "Charges and payments" });
+      for (const total of ["Charged", "Paid", "Owing"]) {
+        await expect(lines.getByText(total, { exact: true })).toBeVisible();
+      }
+      await expect(lines.getByText(new RegExp(`· ${CAR_REGO}$`)).first()).toBeVisible();
       await expectNoSidewaysScroll(page);
       await expectAccessible(page);
     });

@@ -27,10 +27,14 @@ test("adds a Renter, sends the details form, and the Renter opens it", async ({
   await expect(page.getByRole("heading", { name: RENTER.name })).toBeVisible();
   await expectAccessible(page);
 
-  // Everything held comes as one zip (review A7-8).
+  // Everything held comes as one zip (review A7-8), from the Details tab.
+  const tabs = page.getByRole("navigation", { name: "Renter sections" });
+  await tabs.getByRole("link", { name: "Details", exact: true }).click();
   const download = page.waitForEvent("download");
   await page.getByRole("link", { name: "Download everything we hold" }).click();
   expect((await download).suggestedFilename()).toBe("renter-everything-held.zip");
+  // The details form is sent from the Overview.
+  await tabs.getByRole("link", { name: "Overview", exact: true }).click();
 
   await page.getByRole("button", { name: "Send details form" }).click();
   await expect(page.getByRole("button", { name: "Send again" })).toBeVisible();
