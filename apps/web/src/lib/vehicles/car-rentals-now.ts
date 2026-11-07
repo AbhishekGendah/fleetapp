@@ -1,4 +1,3 @@
-import { renterDisplayName } from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { possessions, rentals } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
@@ -7,18 +6,11 @@ import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { MOST_OF_A_KIND } from "../dashboard/fleet-overview";
 import { listRentalSummaries, type RentalSummary } from "../rentals/rental-queries";
 import type { RentalClock } from "../rentals/rental-records";
-import type { CarRentalsNow } from "./car-list-rows";
-import type { CarNowRental } from "./car-now";
 
-function nowRentalOf(rental: RentalSummary): CarNowRental {
-  return {
-    id: rental.id,
-    renterId: rental.renterId,
-    renterName: renterDisplayName(rental.renterFullName, rental.renterPreferredName),
-    plannedStart: rental.plannedStart,
-    plannedEnd: rental.plannedEnd,
-    handedOverAt: rental.handedOverAt,
-  };
+/** Who has a car now and its next booking. */
+export interface CarRentalsNow {
+  withRenter: RentalSummary | null;
+  nextBooking: RentalSummary | null;
 }
 
 /**
@@ -69,14 +61,14 @@ export async function loadCarRentalsNow(
     const rental = byId.get(possession.rentalId);
     const car = byCar.get(possession.vehicleId);
     if (rental && car) {
-      byCar.set(possession.vehicleId, { ...car, withRenter: nowRentalOf(rental) });
+      byCar.set(possession.vehicleId, { ...car, withRenter: rental });
     }
   }
   // Soonest start first, so the first booking met for a car is its next.
   for (const rental of summaries) {
     const car = byCar.get(rental.vehicleId);
     if (rental.status === "booked" && car && !car.nextBooking) {
-      byCar.set(rental.vehicleId, { ...car, nextBooking: nowRentalOf(rental) });
+      byCar.set(rental.vehicleId, { ...car, nextBooking: rental });
     }
   }
   return byCar;

@@ -1,267 +1,32 @@
 import type { Metadata } from "next";
-import {
-  formatCalendarDate,
-  formatCents,
-  formatDateTimeInTimeZone,
-  formatKilometres,
-} from "@fleetapp/core";
 import { ACTIVITY_ENTITY_TYPES } from "@fleetapp/db/schema";
-import { Badge } from "@fleetapp/ui/badge";
-import { Button } from "@fleetapp/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
-import { FormDialog } from "@fleetapp/ui/form-dialog";
-import { PageHeader } from "@fleetapp/ui/page-header";
-import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
 import { TabLinks } from "@fleetapp/ui/tab-links";
-import {
-  Archive,
-  ArchiveRestore,
-  CalendarRange,
-  Camera,
-  Car,
-  FileText,
-  Gauge,
-  History,
-  Pencil,
-  Plus,
-  ReceiptText,
-  ShieldCheck,
-  TriangleAlert,
-  Undo2,
-} from "lucide-react";
-import Link from "next/link";
 
-import { recordTabs, TAB_PARAM, type RecordTab } from "../../../lib/record-tabs";
-import { AppShell } from "../../app-shell";
-import { RentalsTab } from "../../rentals/rentals-tab";
 import { appDb } from "../../../lib/app-db";
-import { carPath, CARS_PATH, editCarPath } from "../../../lib/paths";
 import { listCarFileIds } from "../../../lib/files/car-files";
+import { TAB_PARAM } from "../../../lib/record-tabs";
+import type { RentalClock } from "../../../lib/rentals/rental-records";
+import { requireUser, type SignedInUser } from "../../../lib/require-user";
 import { loadCarCosts } from "../../../lib/vehicles/cost-queries";
 import { loadPaperworkIds } from "../../../lib/vehicles/paperwork-queries";
-import { requireUser, type SignedInUser } from "../../../lib/require-user";
-import { describeVehicleValue, VEHICLE_FIELD_LABELS } from "../../../lib/vehicles/vehicle-labels";
 import type { VehicleDetail } from "../../../lib/vehicles/vehicle-queries";
+import { AppShell } from "../../app-shell";
+import { RecordRentalsCard } from "../../rentals/record-rentals-card";
 import { CarHistoryCard } from "../car-history-card";
-import { VehicleStatusBadge } from "../vehicle-status-badge";
-import { ActionButton } from "@fleetapp/ui/action-button";
-import {
-  changeStatusAction,
-  recordReadingAction,
-  setArchivedAction,
-  withdrawReadingAction,
-} from "./actions";
+import { loadCarPageData, type CarPageData } from "./car-page-data";
+import { CarStrip } from "./car-strip";
+import { CAR_TAB_LINKS, CAR_TABS, type CarTabKey } from "./car-tabs";
 import { CostsTab } from "./costs-tab";
 import { DamageTab } from "./damage-tab";
 import { DocumentsTab } from "./documents-tab";
 import { loadCarOrNotFound } from "./load-car";
-import { OdometerForm } from "./odometer-form";
+import { OdometerTab } from "./odometer-tab";
+import { CarOverviewTab } from "./overview-tab";
 import { PaperworkTab } from "./paperwork-tab";
 import { PhotosTab } from "./photos-tab";
-import { StatusForm } from "./status-form";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const TABS = [
-  { key: "details", label: "Details", icon: Car },
-  { key: "rentals", label: "Rentals", icon: CalendarRange },
-  { key: "paperwork", label: "Rego & insurance", icon: ShieldCheck },
-  { key: "costs", label: "Costs", icon: ReceiptText },
-  { key: "damage", label: "Damage", icon: TriangleAlert },
-  { key: "photos", label: "Photos", icon: Camera },
-  { key: "documents", label: "Documents", icon: FileText },
-  { key: "odometer", label: "Odometer", icon: Gauge },
-  { key: "log", label: "Log", icon: History },
-] as const satisfies readonly [RecordTab, ...RecordTab[]];
-const TAB_LINKS = recordTabs(TABS, carPath);
-
-/** The fields shown on the Details tab, in order. */
-const DETAIL_FIELDS = [
-  "regoState",
-  "make",
-  "model",
-  "variant",
-  "year",
-  "colour",
-  "bodyType",
-  "transmission",
-  "fuelType",
-  "seats",
-  "vin",
-] as const;
-
-/** The car's prices, or a nudge to add the daily rate every new rental needs. */
-function PricesCard({ vehicle }: { vehicle: VehicleDetail }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Prices</CardTitle>
-        <CardDescription>Filled in on each new rental of this car.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {vehicle.dailyRateCents === null ? (
-          <p className="text-attention text-sm" role="status">
-            Add a daily rate: choose Edit. Until then, type the rate on each new rental.
-          </p>
-        ) : (
-          <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2 text-sm">
-            <dt className="text-muted-foreground">{VEHICLE_FIELD_LABELS.dailyRateCents}</dt>
-            <dd>{formatCents(vehicle.dailyRateCents)}</dd>
-            <dt className="text-muted-foreground">{VEHICLE_FIELD_LABELS.longTermWeeklyCents}</dt>
-            <dd>
-              {vehicle.longTermWeeklyCents === null
-                ? "7 days at the daily rate"
-                : formatCents(vehicle.longTermWeeklyCents)}
-            </dd>
-          </dl>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function DetailsTab({ vehicle }: { vehicle: VehicleDetail }) {
-  const isArchived = vehicle.archivedAt !== null;
-  return (
-    <>
-      <Card>
-        <CardHeader className="flex-row items-center justify-between gap-2">
-          <CardTitle>Details</CardTitle>
-          {isArchived ? null : (
-            <Button asChild variant="outline">
-              <Link href={editCarPath(vehicle.id)}>
-                <Pencil aria-hidden />
-                Edit
-              </Link>
-            </Button>
-          )}
-        </CardHeader>
-        <CardContent>
-          <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-2 text-sm">
-            {DETAIL_FIELDS.map((field) => (
-              <div key={field} className="contents">
-                <dt className="text-muted-foreground">{VEHICLE_FIELD_LABELS[field]}</dt>
-                <dd className="break-words">{describeVehicleValue(field, vehicle[field])}</dd>
-              </div>
-            ))}
-          </dl>
-        </CardContent>
-      </Card>
-
-      <PricesCard vehicle={vehicle} />
-
-      {isArchived ? null : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Status</CardTitle>
-            <CardDescription>
-              Rented is set by the app at handovers and returns, and Sold by recording a sale on the
-              Costs tab; choose the rest here.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {vehicle.status === "sold" ? (
-              <p className="text-sm">Sold. To change that, cancel the sale on the Costs tab.</p>
-            ) : (
-              <StatusForm
-                initialValues={{
-                  status: vehicle.status,
-                  statusReason: vehicle.statusReason ?? "",
-                  statusExpectedBack: vehicle.statusExpectedBack ?? "",
-                }}
-                action={changeStatusAction.bind(null, vehicle.id)}
-              />
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{isArchived ? "Archived" : "Archive"}</CardTitle>
-          <CardDescription>
-            {isArchived
-              ? "This car is hidden from your list and cannot be changed. Its log is kept."
-              : "Hides the car from your list, e.g. once it is sold. Nothing is deleted, and you can restore it."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ActionButton
-            action={setArchivedAction.bind(null, vehicle.id, !isArchived)}
-            label={isArchived ? "Restore this car" : "Archive this car"}
-            pendingLabel={isArchived ? "Restoring…" : "Archiving…"}
-            icon={isArchived ? <ArchiveRestore aria-hidden /> : <Archive aria-hidden />}
-          />
-        </CardContent>
-      </Card>
-    </>
-  );
-}
-
-function OdometerTab({ vehicle, timezone }: { vehicle: VehicleDetail; timezone: string }) {
-  return (
-    <>
-      <Card>
-        <CardHeader>
-          <CardTitle>Readings</CardTitle>
-          <CardDescription>
-            A reading lower than the last is refused unless the odometer was replaced. Withdraw one
-            entered by mistake; it stays on record, crossed out.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {vehicle.archivedAt ? null : (
-            <FormDialog
-              triggerLabel="Add a reading"
-              triggerIcon={<Plus aria-hidden />}
-              isMainAction
-              title="Add an odometer reading"
-            >
-              <OdometerForm action={recordReadingAction.bind(null, vehicle.id)} />
-            </FormDialog>
-          )}
-          {vehicle.readings.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No readings yet.</p>
-          ) : (
-            <RecordList label="Readings">
-              {vehicle.readings.map((reading) => (
-                <RecordItem
-                  key={reading.id}
-                  className={reading.withdrawnAt ? "text-muted-foreground" : undefined}
-                  title={
-                    <span className={reading.withdrawnAt ? "line-through" : undefined}>
-                      {formatKilometres(reading.kilometres)}
-                    </span>
-                  }
-                  aside={
-                    reading.withdrawnAt ? (
-                      <Badge>Withdrawn</Badge>
-                    ) : reading.isDrop ? (
-                      <Badge tone="attention">Lower than before</Badge>
-                    ) : null
-                  }
-                  details={<p>{formatDateTimeInTimeZone(reading.recordedAt, timezone)}</p>}
-                  actions={
-                    reading.withdrawnAt || vehicle.archivedAt ? undefined : (
-                      <ActionButton
-                        action={withdrawReadingAction.bind(null, vehicle.id, reading.id)}
-                        label="Withdraw"
-                        pendingLabel="Withdrawing…"
-                        variant="danger"
-                        icon={<Undo2 aria-hidden />}
-                      />
-                    )
-                  }
-                />
-              ))}
-            </RecordList>
-          )}
-        </CardContent>
-      </Card>
-    </>
-  );
-}
 
 async function HistoryTab({ vehicle, user }: { vehicle: VehicleDetail; user: SignedInUser }) {
   const [paperwork, costs, fileIds] = await Promise.all([
@@ -294,45 +59,43 @@ async function HistoryTab({ vehicle, user }: { vehicle: VehicleDetail; user: Sig
   );
 }
 
-function CarHeader({ vehicle }: { vehicle: VehicleDetail }) {
-  const carName = [vehicle.year, vehicle.make, vehicle.model, vehicle.variant]
-    .filter(Boolean)
-    .join(" ");
-  return (
-    <>
-      <PageHeader
-        backHref={CARS_PATH}
-        backLabel="Cars"
-        title={
-          <>
-            {vehicle.rego}{" "}
-            <span className="text-muted-foreground text-base font-semibold">
-              {vehicle.regoState}
-            </span>
-          </>
-        }
-        aside={
-          <VehicleStatusBadge status={vehicle.status} isArchived={vehicle.archivedAt !== null} />
-        }
-      />
-      <p className="text-muted-foreground -mt-2 text-sm">
-        {carName}
-        {vehicle.currentKilometres === null
-          ? ""
-          : ` · ${formatKilometres(vehicle.currentKilometres)}`}
-      </p>
-      {vehicle.isTransferPending ? (
-        <p className="text-attention text-sm font-medium">
-          Transfer not lodged yet: fines can still come to you.
-        </p>
-      ) : null}
-      {vehicle.statusExpectedBack && vehicle.statusReason ? (
-        <p className="text-attention text-sm">
-          {vehicle.statusReason}. Expected back {formatCalendarDate(vehicle.statusExpectedBack)}.
-        </p>
-      ) : null}
-    </>
-  );
+/** The tab chosen in the address: what each holds (docs/plans/look-and-feel.md). */
+function ChosenTab(props: {
+  tab: CarTabKey;
+  vehicle: VehicleDetail;
+  user: SignedInUser;
+  data: CarPageData;
+  clock: RentalClock;
+}) {
+  const { tab, vehicle, user } = props;
+  switch (tab) {
+    case "overview":
+      return <CarOverviewTab vehicle={vehicle} data={props.data} clock={props.clock} />;
+    case "rentals":
+      return (
+        <RecordRentalsCard
+          user={user}
+          scope={{ vehicleId: vehicle.id }}
+          heading={`Rentals of ${vehicle.rego}`}
+          newRentalLabel="New rental"
+          isArchived={vehicle.archivedAt !== null}
+        />
+      );
+    case "paperwork":
+      return <PaperworkTab vehicle={vehicle} user={user} />;
+    case "damage":
+      return <DamageTab vehicle={vehicle} user={user} />;
+    case "costs":
+      return <CostsTab vehicle={vehicle} user={user} />;
+    case "photos":
+      return <PhotosTab vehicle={vehicle} user={user} />;
+    case "documents":
+      return <DocumentsTab vehicle={vehicle} user={user} />;
+    case "odometer":
+      return <OdometerTab vehicle={vehicle} timezone={user.operatorTimezone} />;
+    case "log":
+      return <HistoryTab vehicle={vehicle} user={user} />;
+  }
 }
 
 /** The tab is named by the car's rego (review A10-2). */
@@ -344,7 +107,11 @@ export async function generateMetadata(props: {
   return { title: vehicle.rego };
 }
 
-/** One car: its details and status, paperwork, costs, odometer readings and history, each on its own tab. */
+/**
+ * One car (docs/plans/look-and-feel.md, "Cars and Renters pages"): the navy
+ * strip, then tabs for its Overview, Rentals, Rego & insurance, Damage,
+ * Costs, Photos, Documents, Odometer and Log.
+ */
 export default async function CarPage(props: {
   params: Promise<{ vehicleId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -352,39 +119,22 @@ export default async function CarPage(props: {
   const user = await requireUser();
   const [{ vehicleId }, searchParams] = await Promise.all([props.params, props.searchParams]);
   const vehicle = await loadCarOrNotFound(user, vehicleId);
-  const tab = TAB_LINKS.chosen(searchParams[TAB_PARAM]);
+  const tab = CAR_TAB_LINKS.chosen(searchParams[TAB_PARAM]);
+  const clock: RentalClock = { timeZone: user.operatorTimezone, now: new Date() };
+  const data = await loadCarPageData(vehicle, user, clock);
 
   return (
-    <AppShell user={user}>
-      <CarHeader vehicle={vehicle} />
+    <AppShell user={user} strip={<CarStrip vehicle={vehicle} data={data} clock={clock} />}>
       <TabLinks
         label="Car sections"
-        tabs={TABS.map((item) => ({
-          href: TAB_LINKS.href(vehicle.id, item.key),
+        tabs={CAR_TABS.map((item) => ({
+          href: CAR_TAB_LINKS.href(vehicle.id, item.key),
           label: item.label,
           isCurrent: item.key === tab,
           icon: <item.icon aria-hidden />,
         }))}
       />
-
-      {tab === "details" ? <DetailsTab vehicle={vehicle} /> : null}
-      {tab === "rentals" ? (
-        <RentalsTab
-          user={user}
-          scope={{ vehicleId: vehicle.id }}
-          titleOf={(rental) => rental.renterFullName}
-          isArchived={vehicle.archivedAt !== null}
-        />
-      ) : null}
-      {tab === "paperwork" ? <PaperworkTab vehicle={vehicle} user={user} /> : null}
-      {tab === "costs" ? <CostsTab vehicle={vehicle} user={user} /> : null}
-      {tab === "damage" ? <DamageTab vehicle={vehicle} user={user} /> : null}
-      {tab === "photos" ? <PhotosTab vehicle={vehicle} user={user} /> : null}
-      {tab === "documents" ? <DocumentsTab vehicle={vehicle} user={user} /> : null}
-      {tab === "odometer" ? (
-        <OdometerTab vehicle={vehicle} timezone={user.operatorTimezone} />
-      ) : null}
-      {tab === "log" ? <HistoryTab vehicle={vehicle} user={user} /> : null}
+      <ChosenTab tab={tab} vehicle={vehicle} user={user} data={data} clock={clock} />
     </AppShell>
   );
 }

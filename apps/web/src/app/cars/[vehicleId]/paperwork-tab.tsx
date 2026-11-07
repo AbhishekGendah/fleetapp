@@ -4,7 +4,7 @@ import {
   formatPremium,
   INSURANCE_COVER_TYPE_LABELS,
 } from "@fleetapp/core";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 import Link from "next/link";
 
 import { ActionButton } from "@fleetapp/ui/action-button";
@@ -98,7 +98,7 @@ function InsuranceCard(props: {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Insurance</CardTitle>
+        <SectionLabel>Insurance</SectionLabel>
         <CardDescription>
           {policies.length === 0 ? "Not on any policy." : "The policies this car is on now."}{" "}
           <Link
@@ -173,7 +173,7 @@ export async function PaperworkTab({
     policyIds: paperwork.policies.map((policy) => policy.id),
   });
   return (
-    <>
+    <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
       <RegoCard
         vehicle={vehicle}
         registrations={paperwork.registrations}
@@ -189,6 +189,6 @@ export async function PaperworkTab({
         isGstRegistered={user.isGstRegistered}
         attachments={attachments}
       />
-    </>
+    </div>
   );
 }

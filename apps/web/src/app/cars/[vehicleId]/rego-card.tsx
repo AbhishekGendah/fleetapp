@@ -6,7 +6,7 @@ import {
   regoTermLabel,
 } from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
 import { CircleStop, Plus, Trash2 } from "lucide-react";
@@ -121,7 +121,7 @@ export function RegoCard(props: {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Rego</CardTitle>
+        <SectionLabel>Rego</SectionLabel>
         <CardDescription>
           Current rego{isOnDirectDebit ? ": " : " expires: "}
           <RegoExpiry

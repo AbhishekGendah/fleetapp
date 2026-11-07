@@ -1,5 +1,6 @@
 import {
   daysBetween,
+  renterDisplayName,
   formatShortCalendarDate,
   formatTimeInTimeZone,
   idleDays,
@@ -10,6 +11,7 @@ import {
 
 import { dayOf } from "../rentals/rental-when";
 import type { RentalClock } from "../rentals/rental-records";
+import type { RentalSummary } from "../rentals/rental-queries";
 
 /**
  * What a car is doing now, in the words of the Cars list's Now column and
@@ -39,6 +41,39 @@ export interface CarNowInput {
   withRenter: CarNowRental | null;
   /** The car's next booking. */
   nextBooking: CarNowRental | null;
+}
+
+function nowRentalOf(rental: RentalSummary): CarNowRental {
+  return {
+    id: rental.id,
+    renterId: rental.renterId,
+    renterName: renterDisplayName(rental.renterFullName, rental.renterPreferredName),
+    plannedStart: rental.plannedStart,
+    plannedEnd: rental.plannedEnd,
+    handedOverAt: rental.handedOverAt,
+  };
+}
+
+/** What the words need from a car and the rentals loaded for it. */
+export function carNowInputOf(
+  car: {
+    status: VehicleStatus;
+    archivedAt: Date | null;
+    statusReason: string | null;
+    statusExpectedBack: string | null;
+    idleSince: Date;
+  },
+  rentals: { withRenter: RentalSummary | null; nextBooking: RentalSummary | null } | undefined,
+): CarNowInput {
+  return {
+    status: car.status,
+    isArchived: car.archivedAt !== null,
+    statusReason: car.statusReason,
+    statusExpectedBack: car.statusExpectedBack,
+    idleSince: car.idleSince,
+    withRenter: rentals?.withRenter ? nowRentalOf(rentals.withRenter) : null,
+    nextBooking: rentals?.nextBooking ? nowRentalOf(rentals.nextBooking) : null,
+  };
 }
 
 /** Each kind names its Renter separately, so a screen can make the name a link. */

@@ -1,6 +1,6 @@
 import { formatDateTimeInTimeZone } from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { ImageViewer } from "@fleetapp/ui/image-viewer";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
@@ -35,7 +35,7 @@ export async function DocumentsTab({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Documents</CardTitle>
+        <SectionLabel>Documents</SectionLabel>
         <CardDescription>
           PDFs or images: inspection reports, service books and the like. Rego papers, insurance
           papers and receipts attach to their own record instead. Anything showing someone’s

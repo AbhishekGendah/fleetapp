@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 
 import { appDb } from "../../../lib/app-db";
 import { listCarPhotos } from "../../../lib/files/car-files";
@@ -20,7 +20,7 @@ export async function PhotosTab({ vehicle, user }: { vehicle: VehicleDetail; use
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Photos</CardTitle>
+        <SectionLabel>Photos</SectionLabel>
         <CardDescription>
           Shrunk on your phone before sending, without where they were taken. A photo removed by
           mistake can be brought back below for 30 days.

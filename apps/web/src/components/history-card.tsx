@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { Card, CardContent, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 
 import { appDb } from "../lib/app-db";
 import { loadRecordHistory, type HistorySubject } from "../lib/record-history";
@@ -18,7 +18,7 @@ export async function HistoryCard(props: {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Log</CardTitle>
+        <SectionLabel>Log</SectionLabel>
       </CardHeader>
       <CardContent>
         <RecordHistory

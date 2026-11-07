@@ -84,18 +84,24 @@ function WhenLink({ rental, words }: { rental: RentalListRow; words: string }) {
 
 /**
  * A rental's card on a phone (6 Nov 2026 look): name and status on top,
- * the car, then when and the money. One tap anywhere opens the rental.
+ * the car, then when and the money. One tap anywhere opens the rental. On a
+ * Renter's own page (`isOfRenter`), the car is the title instead.
  */
-export function RentalCard({ rental }: { rental: RentalListRow }) {
+export function RentalCard({
+  rental,
+  isOfRenter = false,
+}: {
+  rental: RentalListRow;
+  isOfRenter?: boolean;
+}) {
+  const car = `${rental.rego} · ${rental.make} ${rental.model}`;
   return (
     <>
       <span className="flex items-start justify-between gap-2">
-        <span className="text-base font-bold">{renterName(rental)}</span>
+        <span className="text-base font-bold">{isOfRenter ? car : renterName(rental)}</span>
         <RentalBadges rental={rental} />
       </span>
-      <span className="text-muted-foreground text-sm">
-        {rental.rego} · {rental.make} {rental.model}
-      </span>
+      {isOfRenter ? null : <span className="text-muted-foreground text-sm">{car}</span>}
       <span className="flex items-center justify-between gap-2 text-sm">
         <WhenLink rental={rental} words={rental.when.shortText} />
         <PhoneMoney rental={rental} />

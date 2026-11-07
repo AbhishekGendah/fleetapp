@@ -1,13 +1,14 @@
 import { formatKilometres, VEHICLE_STATUS_LABELS } from "@fleetapp/core";
 import type { DataListDefinition } from "@fleetapp/ui/data-list";
-import { InlineRecordLink, RowLink } from "@fleetapp/ui/row-link";
+import { RowLink } from "@fleetapp/ui/row-link";
 import Link from "next/link";
 
 import { CAR_LIST_FILTER_LABELS, CAR_LIST_FILTERS } from "../../lib/vehicles/car-list-filters";
 import { isInFleet, type CarListRow } from "../../lib/vehicles/car-list-rows";
-import { carNowShortText, type CarNow } from "../../lib/vehicles/car-now";
+import { carNowShortText } from "../../lib/vehicles/car-now";
 import { STATUS_FILTER_KEY, type VehicleSummary } from "../../lib/vehicles/vehicle-queries";
-import { carPath, renterPath } from "../../lib/paths";
+import { carPath } from "../../lib/paths";
+import { CarNowWords } from "./car-now-words";
 import { ExpiryDate, RegoExpiry } from "./expiry-date";
 import { VehicleStatusBadge } from "./vehicle-status-badge";
 
@@ -44,45 +45,6 @@ function RegoLink({ vehicle }: { vehicle: VehicleSummary }) {
       </Link>
     </RowLink>
   );
-}
-
-function RenterLink({ renterId, name }: { renterId: string; name: string }) {
-  return (
-    <InlineRecordLink asChild>
-      <Link href={renterPath(renterId)}>{name}</Link>
-    </InlineRecordLink>
-  );
-}
-
-/** The Now column: who has the car (their name opens them) or what it is doing. */
-function NowWords({ now }: { now: CarNow | null }) {
-  if (!now) {
-    return null;
-  }
-  switch (now.kind) {
-    case "with_renter":
-      return (
-        <span>
-          <RenterLink renterId={now.rental.renterId} name={now.rental.renterName} />, {now.words}
-        </span>
-      );
-    case "booked":
-      return (
-        <span>
-          Booked by <RenterLink renterId={now.rental.renterId} name={now.rental.renterName} />,{" "}
-          {now.day}
-        </span>
-      );
-    case "idle_then_booked":
-      return (
-        <span>
-          {now.idle} · booked by{" "}
-          <RenterLink renterId={now.rental.renterId} name={now.rental.renterName} />, {now.day}
-        </span>
-      );
-    case "plain":
-      return <span>{now.words}</span>;
-  }
 }
 
 /**
@@ -163,7 +125,7 @@ export const CAR_LIST: DataListDefinition<CarListRow> = {
       label: "Now",
       isSortable: true,
       exportValue: (vehicle) => vehicle.nowText,
-      render: (vehicle) => <NowWords now={vehicle.now} />,
+      render: (vehicle) => <CarNowWords now={vehicle.now} />,
     },
     {
       key: "regoExpires",

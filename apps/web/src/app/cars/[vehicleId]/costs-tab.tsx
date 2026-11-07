@@ -11,7 +11,7 @@ import { ActionButton } from "@fleetapp/ui/action-button";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
 import { Archive, Pencil, Plus, Trash2, Undo2 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 
 import { appDb } from "../../../lib/app-db";
 import { listAttachments, type Attachment } from "../../../lib/files/attachments";
@@ -55,7 +55,7 @@ function TotalsCard({ costs }: { costs: CarCosts }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Totals</CardTitle>
+        <SectionLabel>Totals</SectionLabel>
         <CardDescription>
           Rego and insurance are on their own tab, and join these totals with the profit report.
         </CardDescription>
@@ -99,7 +99,7 @@ function PurchaseCard({ vehicle, costs, user, attachments }: CostsCardProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Purchase</CardTitle>
+        <SectionLabel>Purchase</SectionLabel>
         <CardDescription>
           {purchase
             ? `Bought ${formatCalendarDate(purchase.purchasedOn)} from ${PURCHASE_SOURCE_LABELS[purchase.source].toLowerCase()}, ${amountInWords({ amountCents: purchase.priceCents, gstCents: purchase.gstCents })}.`
@@ -151,7 +151,7 @@ function OtherCostsCard({ vehicle, costs, user, attachments }: CostsCardProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Other costs</CardTitle>
+        <SectionLabel>Other costs</SectionLabel>
         <CardDescription>Refurbs, repairs and anything else spent on the car.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
@@ -268,7 +268,7 @@ function SaleCard(props: CostsCardProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Sale</CardTitle>
+        <SectionLabel>Sale</SectionLabel>
         <CardDescription>
           {sale
             ? "Once the transfer is lodged and nothing more is due, archive the car."
@@ -306,12 +306,15 @@ export async function CostsTab({ vehicle, user }: { vehicle: VehicleDetail; user
     listAttachments(appDb, user.operatorId, { vehicleId: vehicle.id }),
   ]);
   const props = { vehicle, costs, user, attachments };
+  // On a computer: the totals, purchase and sale on the left, the running costs beside them.
   return (
-    <>
-      <TotalsCard costs={costs} />
-      <PurchaseCard {...props} />
+    <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+      <div className="flex flex-col gap-4">
+        <TotalsCard costs={costs} />
+        <PurchaseCard {...props} />
+        <SaleCard {...props} />
+      </div>
       <OtherCostsCard {...props} />
-      <SaleCard {...props} />
-    </>
+    </div>
   );
 }

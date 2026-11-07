@@ -13,7 +13,7 @@ import {
   loadListPage,
   type DatabaseListRules,
 } from "@fleetapp/db/list-query";
-import { odometerReadings, vehicleSales, vehicles } from "@fleetapp/db/schema";
+import { odometerReadings, vehicleSales, vehicles, type OdometerSource } from "@fleetapp/db/schema";
 import { qualified } from "@fleetapp/db/qualified";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, asc, count, eq, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
@@ -164,6 +164,21 @@ export async function listVehiclePage(
   );
 }
 
+/** One of the Operator's cars as the list shows it (its rego and insurance dates, idle since), or null. */
+export async function loadVehicleSummary(
+  database: AnyDatabase,
+  operatorId: string,
+  vehicleId: string,
+): Promise<VehicleSummary | null> {
+  const [summary] = await withTenant(database, operatorId, (tx) =>
+    tx
+      .select(summaryColumns)
+      .from(vehicles)
+      .where(and(eq(vehicles.operatorId, operatorId), eq(vehicles.id, vehicleId))),
+  );
+  return summary ?? null;
+}
+
 /** Every car the query matches, up to the export limit. */
 export async function listVehiclesForExport(
   database: AnyDatabase,
@@ -233,7 +248,7 @@ export interface OdometerReadingView {
   id: string;
   kilometres: number;
   recordedAt: Date;
-  source: string;
+  source: OdometerSource;
   isVerified: boolean;
   withdrawnAt: Date | null;
   /** Lower than the reading before it. */

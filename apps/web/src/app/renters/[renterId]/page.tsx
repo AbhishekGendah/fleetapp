@@ -7,6 +7,7 @@ import {
   formatDateTimeInTimeZone,
   type DetailNeededBeforeRenting,
   formatCalendarDate,
+  renterFirstName,
   todayInTimeZone,
 } from "@fleetapp/core";
 import { ACTIVITY_ENTITY_TYPES } from "@fleetapp/db/schema";
@@ -58,7 +59,7 @@ import { listNoteIds } from "../../../lib/renters/notes";
 import { loadExpiryContext } from "../../../lib/vehicles/expiry-context";
 import { recordTabs, TAB_PARAM, type RecordTab } from "../../../lib/record-tabs";
 import { AppShell } from "../../app-shell";
-import { RentalsTab } from "../../rentals/rentals-tab";
+import { RecordRentalsCard } from "../../rentals/record-rentals-card";
 import { ExpiryDate } from "../../cars/expiry-date";
 import { RenterStatusBadge } from "../renter-status-badge";
 import { changeRenterStatusAction, setRenterArchivedAction } from "./actions";
@@ -397,10 +398,11 @@ export default async function RenterPage(props: {
       />
       {tab === "details" ? <DetailsTab renter={renter} user={user} /> : null}
       {tab === "rentals" ? (
-        <RentalsTab
+        <RecordRentalsCard
           user={user}
           scope={{ renterId: renter.id }}
-          titleOf={(rental) => rental.rego}
+          heading={`${renterFirstName(renter.fullName, renter.preferredName)}'s rentals`}
+          newRentalLabel="New rental"
           isArchived={renter.archivedAt !== null}
         />
       ) : null}

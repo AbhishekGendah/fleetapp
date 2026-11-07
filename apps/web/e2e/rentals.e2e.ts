@@ -189,8 +189,10 @@ test.describe.serial("bookings", () => {
       .getByRole("navigation", { name: "Car sections" })
       .getByRole("link", { name: "Rentals" })
       .click();
-    // Two bookings and the cancelled one, latest first.
-    await expect(page.getByRole("list", { name: "Rentals" }).getByRole("listitem")).toHaveCount(3);
+    // Two bookings and the cancelled one, latest first, as rows of the Rentals list's table.
+    await expect(
+      page.getByRole("region", { name: `Rentals of ${CAR_REGO}` }).locator("tbody tr"),
+    ).toHaveCount(3);
     await expectAccessible(page);
   });
 

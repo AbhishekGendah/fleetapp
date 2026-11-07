@@ -90,11 +90,11 @@ describe("the Cars list", () => {
   it("names who has each car since when, and the next booking only", async () => {
     const byCar = await loadCarRentalsNow(web.db, actor.operatorId, [outCarId, bookedCarId], CLOCK);
     expect(byCar.get(outCarId)).toMatchObject({
-      withRenter: { renterName: "Jamie Park", handedOverAt: new Date("2026-10-30T01:00:00Z") },
+      withRenter: { renterFullName: "Jamie Park", handedOverAt: new Date("2026-10-30T01:00:00Z") },
       nextBooking: null,
     });
     expect(byCar.get(bookedCarId)?.withRenter).toBeNull();
-    expect(byCar.get(bookedCarId)?.nextBooking).toMatchObject({ renterName: "Riley Chen" });
+    expect(byCar.get(bookedCarId)?.nextBooking).toMatchObject({ renterFullName: "Riley Chen" });
     expect(await loadCarRentalsNow(web.db, actor.operatorId, [], CLOCK)).toEqual(new Map());
   });
 
@@ -102,7 +102,7 @@ describe("the Cars list", () => {
     const asA = await loadCarRentalsNow(web.db, actor.operatorId, [othersCarId], CLOCK);
     expect(asA.get(othersCarId)).toEqual({ withRenter: null, nextBooking: null });
     const asB = await loadCarRentalsNow(web.db, otherActor.operatorId, [othersCarId], CLOCK);
-    expect(asB.get(othersCarId)?.withRenter).toMatchObject({ renterName: "Otto Other" });
+    expect(asB.get(othersCarId)?.withRenter).toMatchObject({ renterFullName: "Otto Other" });
 
     expect((await countCarsByFilter(web.db, otherActor.operatorId)).all).toBe(1);
     const page = await listVehiclePage(web.db, actor.operatorId, parseListQuery(CAR_LIST, {}));

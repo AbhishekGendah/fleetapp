@@ -1,15 +1,10 @@
 import { formatShortCalendarDate, type ExpiryStatus } from "@fleetapp/core";
 
 import type { RentalClock } from "../rentals/rental-records";
-import { carNowOf, carNowText, type CarNow, type CarNowRental } from "./car-now";
+import type { CarRentalsNow } from "./car-rentals-now";
+import { carNowInputOf, carNowOf, carNowText, type CarNow } from "./car-now";
 import { withExpiryStatuses, type ExpiryContext, type WithExpiryStatuses } from "./expiry-columns";
 import type { VehicleSummary } from "./vehicle-queries";
-
-/** Who has each car now and its next booking, as loaded for a page of cars. */
-export interface CarRentalsNow {
-  withRenter: CarNowRental | null;
-  nextBooking: CarNowRental | null;
-}
 
 export type CarListRow = WithExpiryStatuses<VehicleSummary> & {
   /** What the car is doing now, for the Now column; null when nothing is worth saying. */
@@ -62,19 +57,7 @@ export function carListRows(
   clock: RentalClock,
 ): CarListRow[] {
   return withExpiryStatuses(cars, expiry).map((car) => {
-    const rentals = rentalsByCar.get(car.id);
-    const now = carNowOf(
-      {
-        status: car.status,
-        isArchived: car.archivedAt !== null,
-        statusReason: car.statusReason,
-        statusExpectedBack: car.statusExpectedBack,
-        idleSince: car.idleSince,
-        withRenter: rentals?.withRenter ?? null,
-        nextBooking: rentals?.nextBooking ?? null,
-      },
-      clock,
-    );
+    const now = carNowOf(carNowInputOf(car, rentalsByCar.get(car.id)), clock);
     return {
       ...car,
       now,

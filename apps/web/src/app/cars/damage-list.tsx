@@ -6,6 +6,7 @@ import {
 } from "@fleetapp/core";
 import { Badge, type BadgeTone } from "@fleetapp/ui/badge";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
+import { ROW_CLASSES, RowLink } from "@fleetapp/ui/row-link";
 import Link from "next/link";
 
 import type { DamageSummary } from "../../lib/damage/damage-queries";
@@ -17,7 +18,10 @@ const STATUS_TONES: Readonly<Record<DamageStatus, BadgeTone>> = {
   not_repairing: "neutral",
 };
 
-/** Damage records as cards, each opening its page. On the car's Damage tab and a rental's page. */
+/**
+ * Damage records as cards, each opening its page from anywhere on it. On the
+ * car's Overview and Damage tabs, and a rental's page.
+ */
 export function DamageList(props: { records: readonly DamageSummary[]; emptyText: string }) {
   if (props.records.length === 0) {
     return <p className="text-muted-foreground text-sm">{props.emptyText}</p>;
@@ -27,13 +31,11 @@ export function DamageList(props: { records: readonly DamageSummary[]; emptyText
       {props.records.map((record) => (
         <RecordItem
           key={record.id}
+          className={ROW_CLASSES}
           title={
-            <Link
-              href={carDamagePath(record.vehicleId, record.id)}
-              className="text-teal hover:text-primary font-semibold"
-            >
-              {record.description}
-            </Link>
+            <RowLink asChild className="text-teal hover:text-primary font-semibold">
+              <Link href={carDamagePath(record.vehicleId, record.id)}>{record.description}</Link>
+            </RowLink>
           }
           aside={
             <Badge tone={STATUS_TONES[record.status]}>{DAMAGE_STATUS_LABELS[record.status]}</Badge>
