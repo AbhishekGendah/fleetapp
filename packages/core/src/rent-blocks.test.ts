@@ -6,9 +6,11 @@ import {
   blocksBetween,
   blockStartsAt,
   duePeriods,
+  firstRentOf,
   isBlockRateChangeSignable,
   isLongTermBooking,
   isRepricedAtDailyRate,
+  nextRentOf,
   owedForPeriod,
   rentForBlocks,
   rentLinesToAdd,
@@ -318,5 +320,109 @@ describe("rate changes", () => {
     expect(isBlockRateChangeSignable(HANDOVER, 7, new Date(at(168).getTime() + MINUTE))).toBe(
       false,
     );
+  });
+});
+
+describe("the next rent", () => {
+  const ONGOING_TERMS: BlockRentTerms = { ...LONG_TERM, bookedBlocks: 0 };
+  const out = (currentBlock: number) => ({ currentBlock, blocksUsed: null });
+  /** What the run has charged by a block: every line it adds up to then. */
+  const chargedBy = (terms: BlockRentTerms, currentBlock: number) =>
+    runUntilSettled(terms, [out(currentBlock)]);
+
+  it("is a booking's first week, or a short hire's booked days at the daily rate", () => {
+    expect(firstRentOf(LONG_TERM)).toEqual({
+      period: { firstBlock: 0, endBlock: 7 },
+      amountCents: 350_00,
+    });
+    expect(firstRentOf(SHORT_HIRE)).toEqual({
+      period: { firstBlock: 0, endBlock: 3 },
+      amountCents: 210_00,
+    });
+  });
+
+  it("is the next week once this one is charged, the same day of the week as the handover", () => {
+    expect(nextRentOf(ONGOING_TERMS, out(0), chargedBy(ONGOING_TERMS, 0), null)).toEqual({
+      period: { firstBlock: 7, endBlock: 14 },
+      amountCents: 350_00,
+    });
+    // The last block of a week: still the week after it.
+    expect(nextRentOf(ONGOING_TERMS, out(13), chargedBy(ONGOING_TERMS, 13), null)?.period).toEqual({
+      firstBlock: 14,
+      endBlock: 21,
+    });
+  });
+
+  it("is a week already started that tonight's run has not charged yet", () => {
+    expect(nextRentOf(ONGOING_TERMS, out(7), chargedBy(ONGOING_TERMS, 6), null)?.period).toEqual({
+      firstBlock: 7,
+      endBlock: 14,
+    });
+  });
+
+  it("is exactly what the run then charges, at the rate in force that week", () => {
+    const terms: BlockRentTerms = {
+      ...ONGOING_TERMS,
+      rates: [
+        ...ONGOING_TERMS.rates,
+        { fromBlock: 14, dailyRateCents: 70_00, weeklyRateCents: 315_05 },
+      ],
+    };
+    const next = nextRentOf(terms, out(8), chargedBy(terms, 8), null);
+    const runAdds = rentLinesToAdd(terms, out(14), chargedBy(terms, 8));
+
+    expect(next).toEqual({ period: { firstBlock: 14, endBlock: 21 }, amountCents: 315_05 });
+    expect(runAdds.map((line) => ({ period: line.period, amountCents: line.amountCents }))).toEqual(
+      [next],
+    );
+  });
+
+  it("stops at a fixed rental's end: none once every week before it is charged", () => {
+    const fourWeeks: BlockRentTerms = { ...LONG_TERM, bookedBlocks: 28 };
+
+    expect(nextRentOf(fourWeeks, out(20), chargedBy(fourWeeks, 20), 28)?.period.firstBlock).toBe(
+      21,
+    );
+    expect(nextRentOf(fourWeeks, out(22), chargedBy(fourWeeks, 22), 28)).toBeNull();
+    // Booked for 30 days: the fifth week starts before the end, so it is still to come.
+    expect(nextRentOf(fourWeeks, out(22), chargedBy(fourWeeks, 22), 30)?.period.firstBlock).toBe(
+      28,
+    );
+  });
+
+  it("carries on after a fixed end while the car is late back, as the run does", () => {
+    const fourWeeks: BlockRentTerms = { ...LONG_TERM, bookedBlocks: 28 };
+
+    expect(nextRentOf(fourWeeks, out(29), chargedBy(fourWeeks, 29), 28)).toEqual({
+      period: { firstBlock: 35, endBlock: 42 },
+      amountCents: 350_00,
+    });
+  });
+
+  it("is none for a short hire paid up front, then a day at a time once it is late back", () => {
+    expect(nextRentOf(SHORT_HIRE, out(1), chargedBy(SHORT_HIRE, 1), 3)).toBeNull();
+    expect(nextRentOf(SHORT_HIRE, out(3), chargedBy(SHORT_HIRE, 2), 3)).toEqual({
+      period: { firstBlock: 3, endBlock: 4 },
+      amountCents: 70_00,
+    });
+  });
+
+  it("is none once the car is back: only corrections follow", () => {
+    expect(
+      nextRentOf(
+        ONGOING_TERMS,
+        { currentBlock: 9, blocksUsed: 9 },
+        chargedBy(ONGOING_TERMS, 8),
+        null,
+      ),
+    ).toBeNull();
+  });
+
+  it("skips a week the business changed by hand, as the run does", () => {
+    const charged = chargedBy(ONGOING_TERMS, 7).map((line) =>
+      line.periodFirstBlock === 7 ? { ...line, isReversed: true } : line,
+    );
+
+    expect(nextRentOf(ONGOING_TERMS, out(8), charged, null)?.period.firstBlock).toBe(14);
   });
 });

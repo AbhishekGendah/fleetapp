@@ -230,6 +230,29 @@ function correctionFor(
   };
 }
 
+/**
+ * Where one period stands with the rent run: not charged yet, charged (so
+ * only a correction can follow), or left as the business changed it by hand
+ * (a line of it reversed), which the run never touches.
+ */
+type PeriodStanding = "not_charged" | "charged" | "left_as_changed";
+
+function linesOfPeriod(
+  charged: readonly ChargedRentLine[],
+  period: BlockPeriod,
+): ChargedRentLine[] {
+  return charged.filter((line) => line.periodFirstBlock === period.firstBlock);
+}
+
+function periodStanding(lines: readonly ChargedRentLine[]): PeriodStanding {
+  if (lines.some((line) => line.isReversed)) {
+    return "left_as_changed";
+  }
+  return lines.some((line) => line.kind === "charge" && !line.isCorrection)
+    ? "charged"
+    : "not_charged";
+}
+
 /** The periods to look at: every period due, and every period anything was charged for. */
 function periodsToReconcile(
   terms: BlockRentTerms,
@@ -262,12 +285,12 @@ export function rentLinesToAdd(
 ): RentLineToAdd[] {
   const dueFirstBlocks = new Set(duePeriods(terms, progress).map((period) => period.firstBlock));
   return periodsToReconcile(terms, progress, charged).flatMap((period): RentLineToAdd[] => {
-    const lines = charged.filter((line) => line.periodFirstBlock === period.firstBlock);
-    if (lines.some((line) => line.isReversed)) {
+    const lines = linesOfPeriod(charged, period);
+    const standing = periodStanding(lines);
+    if (standing === "left_as_changed") {
       return [];
     }
-    const hasOriginal = lines.some((line) => line.kind === "charge" && !line.isCorrection);
-    if (!hasOriginal) {
+    if (standing === "not_charged") {
       return dueFirstBlocks.has(period.firstBlock)
         ? [originalCharge(terms, period, progress.blocksUsed)]
         : [];
@@ -294,6 +317,52 @@ function originalCharge(
     isCorrection: false,
     correctionGstCents: null,
   };
+}
+
+/** A rent charge still to come: its period, and what the rent run will charge for it. */
+export interface RentToCome {
+  period: BlockPeriod;
+  amountCents: number;
+}
+
+/**
+ * The first rent of a booking, charged at the handover: a long-term
+ * rental's first week, or a short hire's booked blocks. The same amount the
+ * rent run charges for it.
+ */
+export function firstRentOf(terms: BlockRentTerms): RentToCome {
+  const period = periodOfBlock(terms, 0);
+  return { period, amountCents: owedForPeriod(terms, period, null) };
+}
+
+/**
+ * The next rent the run will charge while the car is out: the first period
+ * from the handover it has not charged yet (one already due but waiting for
+ * tonight's run included), at the amount the run will charge. None once the
+ * car is back (only corrections follow), and none for a period starting at
+ * or after the booked end while the car is not yet late back: it is only
+ * charged if the car is still out then. `plannedEndBlock` is the block the
+ * booked end falls in, none when ongoing.
+ */
+export function nextRentOf(
+  terms: BlockRentTerms,
+  progress: RentProgress,
+  charged: readonly ChargedRentLine[],
+  plannedEndBlock: number | null,
+): RentToCome | null {
+  if (progress.blocksUsed !== null) {
+    return null;
+  }
+  let period = periodOfBlock(terms, 0);
+  // Ends: every period charged lies behind, and the charged lines are finite.
+  while (periodStanding(linesOfPeriod(charged, period)) !== "not_charged") {
+    period = periodOfBlock(terms, period.endBlock);
+  }
+  const isAfterBookedEnd = plannedEndBlock !== null && period.firstBlock >= plannedEndBlock;
+  if (isAfterBookedEnd && progress.currentBlock < plannedEndBlock) {
+    return null;
+  }
+  return { period, amountCents: owedForPeriod(terms, period, null) };
 }
 
 /** The week starts a long-term rate change can begin from: after the week now running. */
