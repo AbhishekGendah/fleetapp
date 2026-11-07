@@ -40,29 +40,61 @@ function renterName(rental: RentalSummary): string {
   return renterDisplayName(rental.renterFullName, rental.renterPreferredName);
 }
 
-/** Red and bold while the Renter owes on it (rule 34: weight as well as colour). */
-function OwingAmount({ rental }: { rental: RentalListRow }) {
-  if (rental.balanceCents === null) {
-    return <span className="text-muted-foreground">{NOTHING_YET}</span>;
-  }
+type BalanceTone = "owing" | "credit" | "settled";
+
+/** Which way a balance points: owed to the business, owed to the Renter, or neither. */
+function balanceToneOf(balanceCents: number): BalanceTone {
+  if (balanceCents > 0) return "owing";
+  return balanceCents < 0 ? "credit" : "settled";
+}
+
+/**
+ * Owing is red and bold, credit teal and bold (rule 34: weight as well as
+ * colour), so the two can never be mistaken for each other.
+ */
+const BALANCE_TONE_CLASSES: Record<BalanceTone, string> = {
+  owing: "text-destructive font-extrabold",
+  credit: "text-teal font-bold",
+  settled: "",
+};
+
+function creditText(balanceCents: number): string {
+  return `${formatCents(-balanceCents)} in credit`;
+}
+
+function BalanceText({ balanceCents, text }: { balanceCents: number; text: string }) {
   return (
-    <span
-      className={cn("tabular-nums", rental.balanceCents > 0 && "text-destructive font-extrabold")}
-    >
-      {formatCents(rental.balanceCents)}
+    <span className={cn("tabular-nums", BALANCE_TONE_CLASSES[balanceToneOf(balanceCents)])}>
+      {text}
     </span>
   );
 }
 
-/** "$450.00 owing", "Paid up", "$20.00 in credit", or the rent while nothing is charged yet. */
-function phoneMoneyText(rental: RentalListRow): string {
+/** The computer's Owing column: "$450.00", "$0.00" or "$20.00 in credit", never a minus sign. */
+function OwingAmount({ rental }: { rental: RentalListRow }) {
   if (rental.balanceCents === null) {
-    return rentShortText(rental);
+    return <span className="text-muted-foreground">{NOTHING_YET}</span>;
   }
-  if (rental.balanceCents > 0) {
-    return `${formatCents(rental.balanceCents)} owing`;
+  const text =
+    balanceToneOf(rental.balanceCents) === "credit"
+      ? creditText(rental.balanceCents)
+      : formatCents(rental.balanceCents);
+  return <BalanceText balanceCents={rental.balanceCents} text={text} />;
+}
+
+const PHONE_BALANCE_TEXT: Record<BalanceTone, (balanceCents: number) => string> = {
+  owing: (balanceCents) => `${formatCents(balanceCents)} owing`,
+  credit: creditText,
+  settled: () => "Paid up",
+};
+
+/** The phone card's money: "$450.00 owing", "Paid up", "$20.00 in credit", or the rent while nothing is charged yet. */
+function PhoneMoney({ rental }: { rental: RentalListRow }) {
+  if (rental.balanceCents === null) {
+    return <span className="tabular-nums">{rentShortText(rental)}</span>;
   }
-  return rental.balanceCents < 0 ? `${formatCents(-rental.balanceCents)} in credit` : "Paid up";
+  const text = PHONE_BALANCE_TEXT[balanceToneOf(rental.balanceCents)](rental.balanceCents);
+  return <BalanceText balanceCents={rental.balanceCents} text={text} />;
 }
 
 /** The row's own link: the When words, named with the Renter so it makes sense alone (WCAG 2.5.3). */
@@ -81,7 +113,6 @@ function WhenLink({ rental, words }: { rental: RentalListRow; words: string }) {
  * the car, then when and the money. One tap anywhere opens the rental.
  */
 export function RentalCard({ rental }: { rental: RentalListRow }) {
-  const isOwing = rental.balanceCents !== null && rental.balanceCents > 0;
   return (
     <>
       <span className="flex items-start justify-between gap-2">
@@ -93,9 +124,7 @@ export function RentalCard({ rental }: { rental: RentalListRow }) {
       </span>
       <span className="flex items-center justify-between gap-2 text-sm">
         <WhenLink rental={rental} words={rental.when.shortText} />
-        <span className={cn("tabular-nums", isOwing && "text-destructive font-extrabold")}>
-          {phoneMoneyText(rental)}
-        </span>
+        <PhoneMoney rental={rental} />
       </span>
     </>
   );

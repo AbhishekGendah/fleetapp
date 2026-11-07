@@ -2,7 +2,7 @@ import { expectAccessible } from "@fleetapp/e2e/accessibility";
 import { expect, test, type Page } from "@playwright/test";
 
 import { PHONE_VIEWPORT } from "./e2e-settings";
-import { bookedRental, rentalOutAndCharged } from "./money-steps";
+import { bookedRental, openRentalPage, rentalOutAndCharged } from "./money-steps";
 import { expectNoSidewaysScroll } from "./phone-checks";
 import { rentalIdOnPage, type RentalParties } from "./rental-steps";
 
@@ -16,6 +16,10 @@ const OWING = { name: "Owen Owing", email: "owen.owing@example.test", phone: "04
 const BOOKED = { name: "Bea Booked", email: "bea.booked@example.test", phone: "0412000952" };
 const OWING_PARTIES: RentalParties = { renterName: OWING.name, carRego: "E2E951" };
 const BOOKED_PARTIES: RentalParties = { renterName: BOOKED.name, carRego: "E2E952" };
+const CREDIT = { name: "Cara Credit", email: "cara.credit@example.test", phone: "0412000953" };
+const CREDIT_PARTIES: RentalParties = { renterName: CREDIT.name, carRego: "E2E953" };
+const PAID_AHEAD_DOLLARS = "100";
+const CREDIT_WORDS = "$100.00 in credit";
 const STATUS_WORDS = ["All", "Out", "Booked", "To close", "Finished"];
 const DESKTOP_VIEWPORT = { width: 1280, height: 900 };
 
@@ -35,6 +39,17 @@ test.describe.serial("the Rentals list", () => {
   test("sets up a rental out with rent owing and a booking", async ({ page }) => {
     await rentalOutAndCharged(page, OWING, OWING_PARTIES);
     await bookedRental(page, BOOKED, BOOKED_PARTIES);
+
+    // Paid before anything is charged: the Renter is in credit.
+    const creditRentalId = await bookedRental(page, CREDIT, CREDIT_PARTIES);
+    await openRentalPage(page, creditRentalId, CREDIT_PARTIES, "money");
+    await page.getByRole("button", { name: "Record payment" }).click();
+    const payment = page.getByRole("dialog");
+    await payment.getByRole("textbox", { name: /^Amount/ }).fill("");
+    await payment.getByRole("textbox", { name: /^Amount/ }).pressSequentially(PAID_AHEAD_DOLLARS);
+    await payment.getByLabel(/^How/).selectOption("cash");
+    await payment.getByRole("button", { name: "Record payment" }).click();
+    await expect(payment).toBeHidden();
   });
 
   test.describe("on a computer", () => {
@@ -84,6 +99,14 @@ test.describe.serial("the Rentals list", () => {
       await expect(row.getByText("Booked", { exact: true })).toBeVisible();
     });
 
+    test("shows credit in words and teal, never a minus sign", async ({ page }) => {
+      await searchList(page, CREDIT_PARTIES.carRego);
+      const owing = tableRow(page, CREDIT.name).getByRole("cell").nth(4);
+      await expect(owing).toHaveText(CREDIT_WORDS);
+      await expect(owing.locator("span")).toHaveClass(/text-teal/);
+      await expect(owing.locator("span")).not.toHaveClass(/text-destructive/);
+    });
+
     test("the name and rego open their own records; the rest of the row the rental", async ({
       page,
     }) => {
@@ -127,6 +150,12 @@ test.describe.serial("the Rentals list", () => {
       // that link covering the line is the point).
       await card.getByText(`${OWING_PARTIES.carRego} · Toyota Corolla`).click({ force: true });
       await rentalIdOnPage(page, OWING_PARTIES);
+    });
+
+    test("a card in credit says so in teal", async ({ page }) => {
+      await searchList(page, CREDIT_PARTIES.carRego);
+      const card = page.getByRole("listitem").filter({ hasText: CREDIT.name });
+      await expect(card.getByText(CREDIT_WORDS)).toHaveClass(/text-teal/);
     });
   });
 });
