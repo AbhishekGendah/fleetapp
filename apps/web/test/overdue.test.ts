@@ -188,6 +188,32 @@ describe("overdue", () => {
     });
   });
 
+  it("never shows a cancelled booking whose fee is paid, or that is in credit", async () => {
+    const operatorD = await seedOperatorWithUser(admin, "Overdue D Rentals Pty Ltd");
+    const [feeType] = await listChargeTypes(web.db, operatorD.operatorId);
+    const cancelledWith = async (paidCents: number): Promise<void> => {
+      const renterId = await addTestRenter(web, operatorD, "Pat Paid");
+      const { rentalId } = await bookTestRental(web, operatorD, renterId);
+      await cancelRental(web.db, operatorD, rentalId, { reason: "Plans changed" }, new Date());
+      await addCharge(web.db, operatorD, rentalId, {
+        chargeTypeId: feeType!.id,
+        amountCents: 100_00,
+        description: "Cancellation fee",
+        effectiveOn: "2030-03-07",
+      });
+      await recordPayment(web.db, operatorD, rentalId, {
+        amountCents: paidCents,
+        method: "cash",
+        reference: null,
+        occurredOn: "2030-03-08",
+      });
+    };
+    await cancelledWith(100_00);
+    await cancelledWith(150_00);
+
+    expect(await overdueFor(operatorD)).toEqual({ total: 0, items: [] });
+  });
+
   it("takes only a whole number of days from 0 to 30 in the box, checked again on the server", () => {
     const schema = numberSettingInputSchema("paymentGraceDays");
 
