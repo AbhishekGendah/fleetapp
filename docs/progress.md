@@ -1223,12 +1223,13 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
 
 ## Next
 
-**6 Nov, look slice 2 built on a branch** (see Done). Waiting on Abhi:
-1. Try the preview link and say what to change before it goes to main.
-2. His small cosmetic changes from trying the preview (later, his call).
-3. Approve or change docs/plans/look-slice-2-overdue.md (one grace-days
-   setting, default 2; plus Next rent and Charged/Paid totals).
-4. Then: business Renters plan (qol-suggestions O1); Cars and Renters
+**7 Nov: look slice 2 is live on the dev site** (Abhi tried the preview and
+was happy; main fast-forwarded to 29a98ad, CI and Migrate and deploy both
+passed at 02:02 UTC). Now building, approved 7 Nov:
+docs/plans/look-slice-2-overdue.md (Overdue in Needs attention, one shared
+grace-days setting, default 2, also for slice 6's late fee; Next rent on the
+strip; Charged/Paid/Owing totals). Deep review before a preview. Waiting on
+Abhi: his small cosmetic changes (later, his call). Then: business Renters plan (qol-suggestions O1); Cars and Renters
    pages in the new look (mockups first); B2 speed work; Phase 4 slices 5-8.
 
 **End of 6 Nov, pick up here:** live on the dev site: the new look
