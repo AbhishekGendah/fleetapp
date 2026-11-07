@@ -25,6 +25,12 @@ export interface DataListColumn<Row> extends ListColumn<Row> {
   isCardTitle?: boolean;
   /** Amounts line up at the right of the table. */
   isAlignedEnd?: boolean;
+  /**
+   * In the CSV and Excel files only, not on screen: a detail the screen
+   * folds into another column (a car's year under its name, say) that a
+   * spreadsheet still wants on its own.
+   */
+  isOnlyInExports?: boolean;
 }
 
 export type DataListDefinition<Row> = ListDefinition<Row, DataListColumn<Row>>;
@@ -51,6 +57,12 @@ export interface DataListProps<Row> {
    * stretches it over, so one tap anywhere opens the row.
    */
   renderCard?: (row: Row) => React.ReactNode;
+  /**
+   * A short list inside a record page's card (a car's rentals): no search,
+   * filters, count or exports, and on a phone each row is a bordered box
+   * rather than a card of its own.
+   */
+  isInCard?: boolean;
   /** What one row is, e.g. { one: "Operator", many: "Operators" }. */
   itemName: { one: string; many: string };
   searchLabel: string;
@@ -126,10 +138,15 @@ function RowLink(props: { href?: string; children: React.ReactNode; className?: 
   );
 }
 
+/** The columns drawn on screen: every one but those only in the exports. */
+function screenColumns<Row>(definition: DataListDefinition<Row>): DataListColumn<Row>[] {
+  return definition.columns.filter((column) => !column.isOnlyInExports);
+}
+
 /** The page's rows as a TanStack Table: each column's cell, the title one as the row's link. */
 function rowsTable<Row extends RowData>(props: DataListProps<Row>): ListTable<Row> {
   return buildListTable(
-    props.definition.columns.map((column) => ({
+    screenColumns(props.definition).map((column) => ({
       key: column.key,
       label: column.label,
       cell: (row: Row) =>
@@ -146,14 +163,15 @@ function rowsTable<Row extends RowData>(props: DataListProps<Row>): ListTable<Ro
 
 function Table<Row extends RowData>(props: DataListProps<Row> & { table: ListTable<Row> }) {
   const { definition, query } = props;
+  const columns = screenColumns(definition);
   const alignedEnd = new Set(
-    definition.columns.filter((column) => column.isAlignedEnd).map((column) => column.key),
+    columns.filter((column) => column.isAlignedEnd).map((column) => column.key),
   );
   return (
     <table className="hidden w-full text-left text-sm md:table">
       <thead className="text-muted-foreground border-b">
         <tr>
-          {definition.columns.map((column) => (
+          {columns.map((column) => (
             <th
               key={column.key}
               scope="col"
@@ -198,6 +216,23 @@ function Table<Row extends RowData>(props: DataListProps<Row> & { table: ListTab
 
 /** Each row's own card, as the list lays it out, the row's link stretched over it. */
 function OwnCards<Row>(props: DataListProps<Row> & { renderCard: (row: Row) => React.ReactNode }) {
+  if (props.isInCard) {
+    return (
+      <ul className="flex flex-col gap-2 md:hidden">
+        {props.page.rows.map((row) => (
+          <li
+            key={props.rowKey(row)}
+            className={cn(
+              ROW_CLASSES,
+              "active:bg-muted/60 flex flex-col gap-1 rounded-xl border p-3",
+            )}
+          >
+            {props.renderCard(row)}
+          </li>
+        ))}
+      </ul>
+    );
+  }
   return (
     <ul className="flex flex-col gap-3 md:hidden">
       {props.page.rows.map((row) => (
@@ -216,10 +251,9 @@ function Cards<Row extends RowData>(props: DataListProps<Row> & { table: ListTab
   if (renderCard) {
     return <OwnCards {...props} renderCard={renderCard} />;
   }
-  const titleKey = (
-    props.definition.columns.find((column) => column.isCardTitle) ?? props.definition.columns[0]
-  )?.key;
-  const labels = new Map(props.definition.columns.map((column) => [column.key, column.label]));
+  const columns = screenColumns(props.definition);
+  const titleKey = (columns.find((column) => column.isCardTitle) ?? columns[0])?.key;
+  const labels = new Map(columns.map((column) => [column.key, column.label]));
   return (
     <ul className="flex flex-col gap-3 md:hidden">
       {props.table.getRowModel().rows.map((row) => {
@@ -295,6 +329,16 @@ function Paging<Row>(props: DataListProps<Row>) {
 export function DataList<Row extends RowData>(props: DataListProps<Row>): React.JSX.Element {
   const { page, itemName } = props;
   const table = rowsTable(props);
+  if (props.isInCard) {
+    return page.total === 0 ? (
+      <p className="text-muted-foreground text-sm">{props.emptyMessage}</p>
+    ) : (
+      <div className="flex flex-col gap-4">
+        <Cards {...props} table={table} />
+        <Table {...props} table={table} />
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col gap-4">
       <Toolbar {...props} />
