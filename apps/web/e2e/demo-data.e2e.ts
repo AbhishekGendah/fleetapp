@@ -39,9 +39,14 @@ async function expectNameAndRowLinks(
   // The top right of the row is no name: it opens the row's own link.
   const box = (await row.boundingBox())!;
   await page.mouse.click(box.x + box.width - EDGE_PX, box.y + EDGE_PX);
-  await expect(page).toHaveURL(new RegExp(`${fixPath}$`));
+  await expect(page).toHaveURL(isAt(fixPath));
   await page.goto(pageUrl, { waitUntil: "networkidle" });
   return { namePath, fixPath };
+}
+
+/** The address a row's link opens, query included (an overdue row opens `?tab=money`). */
+function isAt(path: string): (url: URL) => boolean {
+  return (url) => `${url.pathname}${url.search}` === path;
 }
 
 function attentionRows(page: Page): Locator {
@@ -105,11 +110,11 @@ test.describe.serial("demo data", () => {
     // One tap per row on a phone: the name is plain words, so a tap on it opens the row's own link.
     const rowLink = rows.first().getByRole("link");
     await expect(rowLink).toHaveCount(1);
-    const fixPath = await rowLink.getAttribute("href");
+    const fixPath = (await rowLink.getAttribute("href"))!;
     const box = (await rows.first().boundingBox())!;
     expect(box.height).toBeGreaterThanOrEqual(MINIMUM_TOUCH_TARGET_PX);
     await page.mouse.click(box.x + EDGE_PX, box.y + EDGE_PX * 2);
-    await expect(page).toHaveURL(new RegExp(`${fixPath}$`));
+    await expect(page).toHaveURL(isAt(fixPath));
 
     // The Workshop count opens the cars in service or off road.
     await page.goto("/", { waitUntil: "networkidle" });

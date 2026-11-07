@@ -186,3 +186,31 @@ export async function recordCurrentPaperwork(rego: string): Promise<void> {
     await client.end();
   }
 }
+
+/**
+ * Adds a charge to a rental as if it had been due `daysAgo` days ago and is
+ * still unpaid, straight in the test database (ledger lines are only ever
+ * added, never changed). For tests of what is overdue, which would otherwise
+ * need a rental out for weeks. Uses the rental's own rent charge type.
+ */
+export async function recordUnpaidCharge(
+  rentalId: string,
+  charge: { daysAgo: number; amountCents: number },
+): Promise<void> {
+  const client = new Client({ connectionString: process.env.E2E_SUPERUSER_URL });
+  await client.connect();
+  try {
+    const effectiveOn = new Date(Date.now() - charge.daysAgo * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    await client.query(
+      `INSERT INTO ledger_lines (operator_id, rental_id, kind, charge_type_id, amount_cents,
+         gst_cents, description, effective_on)
+       SELECT operator_id, rental_id, 'charge', charge_type_id, $2, 0, 'Unpaid towing', $3
+       FROM ledger_lines WHERE rental_id = $1 AND kind = 'charge' LIMIT 1`,
+      [rentalId, charge.amountCents, effectiveOn],
+    );
+  } finally {
+    await client.end();
+  }
+}

@@ -81,10 +81,13 @@ test.describe.serial("one rental's page", () => {
     const top = strip(page, READY_PARTIES);
     await expect(top.getByText(/^Booked · handover /)).toBeVisible();
     await expect(top.getByText("Toyota Corolla · weekly, ends ")).toBeVisible();
-    for (const label of ["Handover", "Rent", "Bond"]) {
-      await expect(top.getByRole("term").filter({ hasText: label })).toBeVisible();
+    for (const label of ["Handover", "Rent", "First rent", "Bond"]) {
+      await expect(
+        top.getByRole("term").filter({ hasText: new RegExp(`^${label}$`) }),
+      ).toBeVisible();
     }
-    await expect(top.getByText("$350.00", { exact: true })).toBeVisible();
+    // The weekly rent, and the first week's rent charged at the handover (the rent run's own sum).
+    await expect(top.getByText("$350.00", { exact: true })).toHaveCount(2);
     await expect(top.getByText("Not paid yet", { exact: true })).toBeVisible();
 
     await top.getByRole("link", { name: READY_PARTIES.carRego, exact: true }).click();
