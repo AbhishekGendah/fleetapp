@@ -585,3 +585,11 @@ handover, invoices. No admin rows (admin can't see Renters).
   Operator's rows; no session-less job is added.
 - **Naming clash**: "business" already means the Operator in code; the code
   kind is `organisation`.
+
+### Decisions after slice 1 (Abhi, 7 Nov 2026)
+
+- A business with current drivers is kept even after seven years with no
+  rentals: a current driver link means it is still a current customer.
+- A business rental's damage records are blanked on the business's
+  seven-year clock (the business is charged for damage); who had the car
+  stays on the possession records, kept on each driver's own clock.
