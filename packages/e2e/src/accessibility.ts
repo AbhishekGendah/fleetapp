@@ -9,6 +9,9 @@ const WCAG_AA_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
  * now and fails on any problem, naming each rule and where it was found.
  */
 export async function expectAccessible(page: Page): Promise<void> {
+  // A page's tab name can arrive just after its content (streamed metadata); checking
+  // before it would fail "document-title" on a page that is fine.
+  await expect.poll(() => page.title()).not.toBe("");
   const results = await new AxeBuilder({ page }).withTags(WCAG_AA_TAGS).analyze();
   const problems = results.violations.map(
     (violation) =>
