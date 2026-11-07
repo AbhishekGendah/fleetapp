@@ -1,8 +1,7 @@
 # Look slice 2, part B: "Overdue" in Needs attention
 
-Status: draft for Abhi's approval (6 Nov 2026). Touches money (reads the
-ledger) and adds a setting, so nothing is built until approved. Part A (the
-screens) is being built meanwhile and does not depend on it.
+Status: approved by Abhi on 7 Nov 2026, including one shared "grace days"
+setting (default 2) used here now and by Phase 4 slice 6's late fee later.
 
 ## What Abhi decided (6 Nov)
 
