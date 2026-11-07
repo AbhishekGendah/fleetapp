@@ -4,7 +4,14 @@ import { formTextValues } from "@fleetapp/core";
 import { failedState, savedState } from "@fleetapp/ui/change-form-state";
 
 import { appDb } from "../../lib/app-db";
-import { CARS_PATH, RENTERS_PATH, SETTINGS_PATH } from "../../lib/paths";
+import {
+  ATTENTION_PATH,
+  CARS_PATH,
+  HOME_PATH,
+  PAYMENT_SETTINGS_PATH,
+  RENTERS_PATH,
+  SETTINGS_PATH,
+} from "../../lib/paths";
 import { runUserChange } from "../../lib/run-change";
 import { RENTAL_RETENTION_HOLDS } from "../../lib/rentals/retention-holds";
 import { countScansDueWith } from "../../lib/renters/scan-retention";
@@ -78,7 +85,14 @@ export async function saveNumberSettingAction(
   }
   return runUserChange({
     description: "Saving a number setting",
-    pagesToRefresh: [SETTINGS_PATH, CARS_PATH, RENTERS_PATH],
+    pagesToRefresh: [
+      SETTINGS_PATH,
+      PAYMENT_SETTINGS_PATH,
+      CARS_PATH,
+      RENTERS_PATH,
+      HOME_PATH,
+      ATTENTION_PATH,
+    ],
     change: async (actor) => {
       await saveOperatorSettings(appDb, actor, { [setting]: amount });
       return savedState("Saved.");

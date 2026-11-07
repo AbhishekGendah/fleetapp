@@ -8,6 +8,7 @@ import { ActionButton } from "@fleetapp/ui/action-button";
 import { Badge, type BadgeTone } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fleetapp/ui/card";
+import { RequiredFieldsNote } from "@fleetapp/ui/input";
 import { PageHeader } from "@fleetapp/ui/page-header";
 import { ExternalLink, Landmark } from "lucide-react";
 
@@ -20,7 +21,9 @@ import {
 } from "../../../lib/payments/payment-accounts";
 import { SETTINGS_PATH } from "../../../lib/paths";
 import { requireUser } from "../../../lib/require-user";
+import { loadOperatorSettings } from "../../../lib/settings/operator-settings";
 import { AppShell } from "../../app-shell";
+import { NumberSettingForm } from "../number-setting-form";
 import { connectStripeAction } from "./actions";
 
 /** Its own tab name: the layout adds the product's (review A10-2). */
@@ -85,7 +88,10 @@ function laterRequirementsText(count: number): string {
 /** The business's own Stripe account: connecting it, and what Stripe says it can do. */
 export default async function PaymentSettingsPage() {
   const user = await requireUser();
-  const account = await currentAccount(user.operatorId);
+  const [account, settings] = await Promise.all([
+    currentAccount(user.operatorId),
+    loadOperatorSettings(appDb, user.operatorId),
+  ]);
   const state = account?.state ?? "not_connected";
   const isConnected = state !== "not_connected";
   const laterCount = state === "ready" ? (account?.status.requirementsLater ?? 0) : 0;
@@ -139,6 +145,24 @@ export default async function PaymentSettingsPage() {
               each rental as now.
             </p>
           )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Overdue</CardTitle>
+          <CardDescription>
+            When money still owing shows as Overdue in Needs attention, so you know who to follow
+            up. Nothing is charged or sent to the Renter.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <RequiredFieldsNote />
+          <NumberSettingForm
+            setting="paymentGraceDays"
+            label="Count as overdue after this many days"
+            hint="Days after a charge was due. 0 counts it overdue the day after."
+            value={settings.paymentGraceDays}
+          />
         </CardContent>
       </Card>
     </AppShell>

@@ -12,6 +12,7 @@ import {
   REQUIRED_MESSAGE,
   MAXIMUM_GRACE_MINUTES,
   MAXIMUM_LONG_TERM_MINIMUM_DAYS,
+  MAXIMUM_PAYMENT_GRACE_DAYS,
 } from "@fleetapp/core";
 import { z } from "zod";
 
@@ -55,6 +56,8 @@ const NUMBER_SETTING_RANGES = {
   longTermMinimumDays: { min: 1, max: MAXIMUM_LONG_TERM_MINIMUM_DAYS, unit: "days" },
   /** The notice a Renter on an ongoing rental gives before returning the car. */
   ongoingNoticeDays: { min: 0, max: MAXIMUM_ONGOING_NOTICE_DAYS, unit: "days" },
+  /** Grace days: money still owing this many days after it was due counts as overdue. */
+  paymentGraceDays: { min: 0, max: MAXIMUM_PAYMENT_GRACE_DAYS, unit: "days" },
 } as const;
 
 export type NumberSetting = keyof typeof NUMBER_SETTING_RANGES;

@@ -120,7 +120,8 @@ export default async function SettingsPage() {
           <CardTitle>Charges</CardTitle>
           <CardDescription>
             What you charge Renters for (rent, cleaning, tolls, your own), whether each includes
-            GST, how invoices are numbered and sent, and your Stripe account.
+            GST, how invoices are numbered and sent, your Stripe account, and when money owing
+            counts as overdue.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-2 sm:flex-row">
