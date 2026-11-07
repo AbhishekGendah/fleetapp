@@ -369,4 +369,4 @@ phone and computer). Abhi's decisions so far:
 - One car's page keeps all **9 tabs** (Overview, Rentals, Rego & insurance,
   Damage, Costs, Photos, Documents, Odometer, Log).
 - Lists show the phone number only, never the email.
-- Still to go through: each tab of the car and Renter pages, one by one.
+- Abhi looked through every tab of both pages and approved the mockups as drawn (7 Nov 2026).
