@@ -29,6 +29,8 @@ test("records damage from the car's page and marks it repaired on its own page",
 
   await page.getByRole("link", { name: new RegExp(DESCRIPTION) }).click();
   await expect(page.getByText(DESCRIPTION).first()).toBeVisible();
+  // The record opens in the app without a reload: its tab name follows a moment after.
+  await expect(page).toHaveTitle(/^Damage/);
   await expectNoSidewaysScroll(page);
   await expectAccessible(page);
 

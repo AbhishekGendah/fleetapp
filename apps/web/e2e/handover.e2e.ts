@@ -366,7 +366,8 @@ test.describe.serial("handing a car over", () => {
       await page.getByRole("button", { name: "Remove this damage" }).click();
       await expect(page.getByRole("button", { name: "Record damage" })).toBeVisible();
       await expect(page.getByRole("link", { name: "Chip in windscreen" })).toHaveCount(0);
-      await expect(page.getByRole("link", { name: "Dent on bonnet" })).toBeVisible();
+      // Its claim is under way, so it is listed there as well as where its repair stands.
+      await expect(page.getByRole("link", { name: "Dent on bonnet" }).first()).toBeVisible();
     });
   });
 
