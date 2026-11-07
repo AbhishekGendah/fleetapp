@@ -1,7 +1,8 @@
 # Business Renters
 
-Status: **draft for Abhi's approval (7 Nov 2026). Nothing is built until he
-approves it.** It touches schema, money, signing and tenancy, so CLAUDE.md
+Status: **approved by Abhi, 7 Nov 2026 (all 11 decisions and both rule
+wordings).** Mockups next; each slice still gets his go before it is built.
+It touches schema, money, signing and tenancy, so CLAUDE.md
 asks for a plan first. Source: qol-suggestions O1 (Abhi's friend, 6 Nov).
 Design docs read: 03 (Renters), 04 (Rentals), 05 (signing and handover), 06
 (money), 07 (fines). Rules 9 to 20, 26, 28 and 31 apply throughout.

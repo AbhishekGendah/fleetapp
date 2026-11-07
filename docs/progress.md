@@ -1254,8 +1254,9 @@ as overdue, and the Cars and Renters pages (main fast-forwarded to 2bb3ec5).
 after the full checks, with no branch preview first. Decided 7 Nov: the "Review what they sent" page keeps the licence number
 the Renter typed, to check against their photo. Open questions for him: the
 rego on the overdue line; "First rent"
-repeating the weekly price on bookings. Then: business Renters plan
-(qol-suggestions O1); B2 speed work; Phase 4 slices 5-8; his cosmetic
+repeating the weekly price on bookings. Then: business Renters
+(docs/plans/business-renters.md, approved 7 Nov with all 11 decisions;
+mockups of its 8 screens now, then slice 1 with his go); B2 speed work; Phase 4 slices 5-8; his cosmetic
 changes last.
 
 **End of 6 Nov, pick up here:** live on the dev site: the new look
