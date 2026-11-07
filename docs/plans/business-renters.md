@@ -478,6 +478,35 @@ Abhi's go: 7 Nov 2026. No screen changed; person Renters behave as before.
   retirement locks the Renter and then their rentals; Postgres would end one
   of the two if they ever met (the job tries again the next night).
 
+**Deep review fixes (7 Nov 2026, both checkers).** Made in 0052 itself, which
+had not run on any shared database (no 0054):
+
+- **F1** A rental that is returned, closed or cancelled, or becomes so in
+  the same statement, never changes driver; the commit check also holds a
+  returned or closed rental to the driver of its last possession, so no
+  change slips in between the possession ending and the return.
+- **F2** A driver's link can't be removed while a draft, booking or car out
+  of that business names them, and a business's car goes out (a possession
+  starts) only to a current driver of its. The link row is where the two
+  meet: removing it locks it, naming a driver and starting a possession
+  take it shared, so neither the business nor the driver is locked by the
+  removal and the booking's order (business, driver, link) is never
+  reversed. The Drivers tab (slice 2) locks the business and the driver
+  before the link, in that order.
+- **F3** A person with a current driver link, or a business with one, can't
+  be archived, and an archived Renter can't be given a link. The database
+  refuses it; the friendly messages come with the Drivers tab (slice 2).
+- **F4** Tests run two transactions at once on a link and the retention job,
+  a possession and a driver change, and naming a driver and removing the
+  link, each in both orders.
+- **F5** The handover locks the Renter, the driver and then the rental, and
+  refuses as "changed" when the rental now names another driver than the
+  page showed, instead of a database error. A car swap needs no such check:
+  the driver can't change while a possession is open.
+- **For slice 3:** the handover (and swap and return) signature's typed name
+  is checked against `view.renterFullName`; for a business rental it must
+  be the driver's name.
+
 **Each use of `rentals.renter_id`, sorted.**
 
 Now the driver (`driver_id`): booking licence, age, details and scan checks

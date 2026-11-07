@@ -943,6 +943,13 @@ now holds ready for the next slices (docs/plans/business-renters.md, Legal).
   they have a booking or car out, and counted from the last car they gave
   back. Money lines, invoices and statements are never touched (5 years at
   least).
+- **No hold without end.** A current link between a driver and a business
+  holds back both Renters' seven-year removal (Abhi, 7 Nov 2026: a current
+  link means a current customer). It can't become an endless hold on a
+  Renter the business no longer works with: neither side can be archived
+  while the link is current, and an archived Renter can't be linked. Once
+  the business removes the link (and then may archive), the seven years run
+  from that day.
 - **Fines (Phase 6).** Each possession now records the driver who signed for
   the car as well as the Renter who pays, so a "who had this car at T"
   answer for a business's car names the driver then, never a later one.
