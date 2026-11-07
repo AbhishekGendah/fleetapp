@@ -385,6 +385,63 @@ describe("business Renters and their drivers", () => {
     });
   });
 
+  function cancel(rentalId: string) {
+    return withTenant(web.db, operatorAId, (tx) =>
+      tx
+        .update(schema.rentals)
+        .set({ status: "cancelled", cancelledAt: new Date(), cancellationReason: "Test" })
+        .where(eq(schema.rentals.id, rentalId)),
+    );
+  }
+
+  function archive(renterId: string) {
+    return withTenant(web.db, operatorAId, (tx) =>
+      tx
+        .update(schema.renters)
+        .set({ archivedAt: new Date() })
+        .where(eq(schema.renters.id, renterId)),
+    );
+  }
+
+  describe("archiving, while a driver link is current (review F3)", () => {
+    it("refuses archiving a driver or a business with a current link, and allows it once removed", async () => {
+      const businessId = await addBusiness(operatorAId);
+      const driverId = await addTestRenter(web.db, operatorAId);
+      const linkId = await linkDriver(operatorAId, businessId, driverId);
+
+      const codes = [
+        await postgresErrorCodeOf(archive(driverId)),
+        await postgresErrorCodeOf(archive(businessId)),
+      ];
+      await removeLink(linkId);
+      await archive(driverId);
+      await archive(businessId);
+
+      expect(codes).toEqual([
+        POSTGRES_ERROR_CODES.restrictViolation,
+        POSTGRES_ERROR_CODES.restrictViolation,
+      ]);
+    });
+
+    it("refuses a new link to an archived business or person", async () => {
+      const businessId = await addBusiness(operatorAId);
+      const archivedBusinessId = await addBusiness(operatorAId);
+      const driverId = await addTestRenter(web.db, operatorAId);
+      const archivedDriverId = await addTestRenter(web.db, operatorAId);
+      await archive(archivedBusinessId);
+      await archive(archivedDriverId);
+
+      const codes = [
+        await postgresErrorCodeOf(linkDriver(operatorAId, archivedBusinessId, driverId)),
+        await postgresErrorCodeOf(linkDriver(operatorAId, businessId, archivedDriverId)),
+      ];
+      expect(codes).toEqual([
+        POSTGRES_ERROR_CODES.restrictViolation,
+        POSTGRES_ERROR_CODES.restrictViolation,
+      ]);
+    });
+  });
+
   /** Marked retired as the retention job leaves a Renter, with the app's triggers off. */
   async function markRetired(renterId: string): Promise<void> {
     await superuser.db.transaction(async (tx) => {
@@ -490,11 +547,12 @@ describe("business Renters and their drivers", () => {
       expect(finished).toBe(CHECK_VIOLATION);
     });
 
-    it("keeps a rental's driver when the driver later stops driving for the business", async () => {
+    it("keeps a rental's driver once it has ended and the driver stopped driving for the business", async () => {
       const businessId = await addBusiness(operatorAId);
       const driverId = await addTestRenter(web.db, operatorAId);
       const linkId = await linkDriver(operatorAId, businessId, driverId);
       const { rentalId } = await addRental({ renterId: businessId, driverId });
+      await cancel(rentalId);
       await removeLink(linkId);
 
       // An edit that names the same driver again changes nothing.
@@ -504,6 +562,34 @@ describe("business Renters and their drivers", () => {
       );
 
       expect(await rentalDriverOf(rentalId)).toBe(driverId);
+    });
+
+    it("never removes a driver's link while a draft, booking or car out of the business names them (review F2)", async () => {
+      const businessId = await addBusiness(operatorAId);
+      const draftDriverId = await addTestRenter(web.db, operatorAId);
+      const bookedDriverId = await addTestRenter(web.db, operatorAId);
+      const outDriverId = await addTestRenter(web.db, operatorAId);
+      const draftLink = await linkDriver(operatorAId, businessId, draftDriverId);
+      const bookedLink = await linkDriver(operatorAId, businessId, bookedDriverId);
+      const outLink = await linkDriver(operatorAId, businessId, outDriverId);
+      await addRental({ renterId: businessId, driverId: draftDriverId }, { status: "draft" });
+      const booked = await addRental({ renterId: businessId, driverId: bookedDriverId });
+      await rentalOut(businessId, outDriverId);
+
+      const codes = [
+        await postgresErrorCodeOf(removeLink(draftLink)),
+        await postgresErrorCodeOf(removeLink(bookedLink)),
+        await postgresErrorCodeOf(removeLink(outLink)),
+      ];
+      // Once the booking names someone else, its driver's link can go.
+      await setDriver(booked.rentalId, null);
+      await removeLink(bookedLink);
+
+      expect(codes).toEqual([
+        POSTGRES_ERROR_CODES.restrictViolation,
+        POSTGRES_ERROR_CODES.restrictViolation,
+        POSTGRES_ERROR_CODES.restrictViolation,
+      ]);
     });
   });
 
@@ -600,6 +686,93 @@ describe("business Renters and their drivers", () => {
         { driverId: secondId, startedAt: changedAt, endedAt: null },
       ]);
     });
+  });
+
+  describe("a finished rental keeps its driver (review F1)", () => {
+    /** A business's car out with its first driver, and a second current driver. */
+    async function outWithTwoDrivers() {
+      const businessId = await addBusiness(operatorAId);
+      const firstId = await addTestRenter(web.db, operatorAId);
+      const secondId = await addTestRenter(web.db, operatorAId);
+      await linkDriver(operatorAId, businessId, firstId);
+      await linkDriver(operatorAId, businessId, secondId);
+      return { ...(await rentalOut(businessId, firstId)), firstId, secondId };
+    }
+
+    const endPossession = (tx: AnyTransaction, possessionId: string) =>
+      tx
+        .update(schema.possessions)
+        .set({ endedAt: new Date() })
+        .where(eq(schema.possessions.id, possessionId));
+
+    it("refuses a driver change made with the return itself", async () => {
+      const out = await outWithTwoDrivers();
+      const code = await postgresErrorCodeOf(
+        withTenant(web.db, operatorAId, async (tx) => {
+          await endPossession(tx, out.possession.id);
+          await tx
+            .update(schema.rentals)
+            .set({ status: "returned", returnedAt: new Date(), driverId: out.secondId })
+            .where(eq(schema.rentals.id, out.rentalId));
+        }),
+      );
+      expect(code).toBe(CHECK_VIOLATION);
+      expect(await rentalDriverOf(out.rentalId)).toBe(out.firstId);
+    });
+
+    it("refuses a driver change slipped in between the possession ending and the return", async () => {
+      const out = await outWithTwoDrivers();
+      const code = await postgresErrorCodeOf(
+        withTenant(web.db, operatorAId, async (tx) => {
+          await endPossession(tx, out.possession.id);
+          await tx
+            .update(schema.rentals)
+            .set({ driverId: out.secondId })
+            .where(eq(schema.rentals.id, out.rentalId));
+          await tx
+            .update(schema.rentals)
+            .set({ status: "returned", returnedAt: new Date() })
+            .where(eq(schema.rentals.id, out.rentalId));
+        }),
+      );
+      expect(code).toBe(CHECK_VIOLATION);
+      expect(await rentalDriverOf(out.rentalId)).toBe(out.firstId);
+    });
+
+    it("still takes an ordinary return", async () => {
+      const out = await outWithTwoDrivers();
+      await withTenant(web.db, operatorAId, async (tx) => {
+        await endPossession(tx, out.possession.id);
+        await tx
+          .update(schema.rentals)
+          .set({ status: "returned", returnedAt: new Date() })
+          .where(eq(schema.rentals.id, out.rentalId));
+      });
+      expect(await rentalDriverOf(out.rentalId)).toBe(out.firstId);
+    });
+  });
+
+  it("puts a business's car out only to a current driver of its (review F2)", async () => {
+    const businessId = await addBusiness(operatorAId);
+    const driverId = await addTestRenter(web.db, operatorAId);
+    const linkId = await linkDriver(operatorAId, businessId, driverId);
+    const rental = await addRental({ renterId: businessId, driverId });
+    // A link removed as no app role can while the booking names them (as before the fix).
+    await superuser.db.transaction(async (tx) => {
+      await tx.execute(sql`set local session_replication_role = replica`);
+      await tx
+        .update(schema.organisationDrivers)
+        .set({ removedAt: new Date() })
+        .where(eq(schema.organisationDrivers.id, linkId));
+    });
+    const inspectionId = await addHandoverInspection(rental);
+
+    const code = await postgresErrorCodeOf(
+      withTenant(web.db, operatorAId, (tx) =>
+        handOver(tx, { ...rental, renterId: businessId }, inspectionId, { startedAt: new Date() }),
+      ),
+    );
+    expect(code).toBe(CHECK_VIOLATION);
   });
 
   describe("tenant isolation", () => {

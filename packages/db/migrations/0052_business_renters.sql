@@ -78,10 +78,19 @@ ALTER TABLE "organisation_drivers" ADD CONSTRAINT "organisation_drivers_driver_f
 CREATE UNIQUE INDEX "organisation_drivers_one_current" ON "organisation_drivers" USING btree ("operator_id","organisation_id","driver_id") WHERE "organisation_drivers"."removed_at" is null;--> statement-breakpoint
 CREATE INDEX "organisation_drivers_driver_idx" ON "organisation_drivers" USING btree ("operator_id","driver_id");--> statement-breakpoint
 
--- The business must be one and the driver a person, neither retired. Both
--- are locked (shared) first, so the retention job, which locks a Renter
--- before checking they have no current links, can't retire either meanwhile.
--- The times are the database's: they start the seven-year clock (0047).
+-- The business must be one and the driver a person, neither archived nor
+-- retired. Both are locked (shared) first, so the retention job, which locks
+-- a Renter before checking they have no current links, can't retire either
+-- meanwhile, and neither can be archived meanwhile. The times are the
+-- database's: they start the seven-year clock (0047).
+--
+-- A link isn't removed while a draft, booking or car out of the business
+-- names that driver: the car would go, or stay, with someone who no longer
+-- drives for it. The link's own row is the meeting point: this update locks
+-- it, and naming a driver or starting a possession takes it shared (below),
+-- so the two run one after the other and the second sees the first. Nothing
+-- else is locked here, so the order business, driver, link that a booking
+-- takes is never reversed (the app locks the business and driver first).
 CREATE FUNCTION "app"."check_organisation_driver"() RETURNS trigger
   LANGUAGE plpgsql
   SET search_path = pg_catalog, public, pg_temp
@@ -95,8 +104,19 @@ CREATE FUNCTION "app"."check_organisation_driver"() RETURNS trigger
         RAISE EXCEPTION 'A driver''s past link to a business is kept as it is.'
           USING ERRCODE = 'restrict_violation';
       END IF;
-      IF NEW.removed_at IS NOT NULL AND NOT "app"."runs_as_owner"(TG_RELID) THEN
+      IF NEW.removed_at IS NULL THEN
+        RETURN NEW;
+      END IF;
+      IF NOT "app"."runs_as_owner"(TG_RELID) THEN
         NEW.removed_at := now();
+      END IF;
+      IF EXISTS (
+        SELECT 1 FROM "rentals"
+        WHERE "operator_id" = NEW.operator_id AND "renter_id" = NEW.organisation_id
+          AND "driver_id" = NEW.driver_id AND "status" IN ('draft', 'booked', 'active')
+      ) THEN
+        RAISE EXCEPTION 'A driver named on a business''s draft, booking or car out stays its driver until that rental names someone else or ends.'
+          USING ERRCODE = 'restrict_violation';
       END IF;
       RETURN NEW;
     END IF;
@@ -105,10 +125,10 @@ CREATE FUNCTION "app"."check_organisation_driver"() RETURNS trigger
       NEW.removed_at := NULL;
       NEW.removed_by_user_id := NULL;
     END IF;
-    SELECT "kind", "retired_at" INTO "organisation" FROM "renters"
+    SELECT "kind", "retired_at", "archived_at" INTO "organisation" FROM "renters"
       WHERE "id" = NEW.organisation_id AND "operator_id" = NEW.operator_id
       FOR SHARE;
-    SELECT "kind", "retired_at" INTO "driver" FROM "renters"
+    SELECT "kind", "retired_at", "archived_at" INTO "driver" FROM "renters"
       WHERE "id" = NEW.driver_id AND "operator_id" = NEW.operator_id
       FOR SHARE;
     IF "organisation"."kind" IS DISTINCT FROM 'organisation' OR "driver"."kind" IS DISTINCT FROM 'person' THEN
@@ -117,6 +137,10 @@ CREATE FUNCTION "app"."check_organisation_driver"() RETURNS trigger
     END IF;
     IF "organisation"."retired_at" IS NOT NULL OR "driver"."retired_at" IS NOT NULL THEN
       RAISE EXCEPTION 'A Renter whose details were removed can''t be given new records.'
+        USING ERRCODE = 'restrict_violation';
+    END IF;
+    IF "organisation"."archived_at" IS NOT NULL OR "driver"."archived_at" IS NOT NULL THEN
+      RAISE EXCEPTION 'An archived Renter is restored before a driver link is added.'
         USING ERRCODE = 'restrict_violation';
     END IF;
     RETURN NEW;
@@ -132,6 +156,32 @@ CREATE TRIGGER "organisation_drivers_not_deleted"
 CREATE TRIGGER "organisation_drivers_no_truncate"
   BEFORE TRUNCATE ON "organisation_drivers"
   FOR EACH STATEMENT EXECUTE FUNCTION "app"."reject_mutation"();--> statement-breakpoint
+
+-- A business with current drivers, or a person who drives for one, is a
+-- current Renter: not archived until the link is removed (plan, Archive). A
+-- current link holds back the seven-year retention (0053), so this keeps that
+-- hold to Renters the business still works with. The friendly message comes
+-- with the Drivers tab (plan slice 2). A link insert locks both Renters
+-- (shared, above), so it and an archive run one after the other.
+CREATE FUNCTION "app"."check_renter_archive"() RETURNS trigger
+  LANGUAGE plpgsql
+  SET search_path = pg_catalog, public, pg_temp
+  AS $$
+  BEGIN
+    IF OLD.archived_at IS NULL AND NEW.archived_at IS NOT NULL AND EXISTS (
+      SELECT 1 FROM "organisation_drivers"
+      WHERE "operator_id" = NEW.operator_id AND "removed_at" IS NULL
+        AND ("driver_id" = NEW.id OR "organisation_id" = NEW.id)
+    ) THEN
+      RAISE EXCEPTION 'A Renter with a current driver link is archived only once the link is removed.'
+        USING ERRCODE = 'restrict_violation';
+    END IF;
+    RETURN NEW;
+  END;
+  $$;--> statement-breakpoint
+CREATE TRIGGER "renters_archive_rules"
+  BEFORE UPDATE OF "archived_at" ON "renters"
+  FOR EACH ROW EXECUTE FUNCTION "app"."check_renter_archive"();--> statement-breakpoint
 
 -- Each business's own, and the Operator app's only: the admin logins get nothing (rule 5).
 ALTER TABLE "organisation_drivers" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
@@ -200,7 +250,9 @@ CREATE FUNCTION "app"."check_rental_driver"() RETURNS trigger
       END IF;
     END IF;
     IF TG_OP = 'UPDATE' AND NEW.driver_id IS DISTINCT FROM OLD.driver_id THEN
-      IF OLD.status IN ('returned', 'closed', 'cancelled') THEN
+      IF OLD.status IN ('returned', 'closed', 'cancelled')
+        OR NEW.status IN ('returned', 'closed', 'cancelled')
+      THEN
         RAISE EXCEPTION 'A finished rental keeps its driver.'
           USING ERRCODE = 'check_violation';
       END IF;
@@ -220,22 +272,33 @@ CREATE TRIGGER "rentals_driver_rules"
   FOR EACH ROW EXECUTE FUNCTION "app"."check_rental_driver"();--> statement-breakpoint
 
 -- At the commit of a driver change: a car that is out is with the rental's
--- driver, by a possession the new driver signed for in the same transaction.
+-- driver, by a possession the new driver signed for in the same transaction;
+-- a car that came back came back from the rental's driver, the one who had
+-- it last (so no change slips in between the possession ending and the return).
 CREATE FUNCTION "app"."check_rental_driver_has_possession"() RETURNS trigger
   LANGUAGE plpgsql
   SET search_path = pg_catalog, public, pg_temp
   AS $$
+  DECLARE
+    "rental" record;
   BEGIN
-    IF EXISTS (
-      SELECT 1 FROM "rentals" "ra"
-      WHERE "ra"."id" = NEW.id AND "ra"."operator_id" = NEW.operator_id AND "ra"."status" = 'active'
-        AND NOT EXISTS (
-          SELECT 1 FROM "possessions" "p"
-          WHERE "p"."rental_id" = "ra"."id" AND "p"."operator_id" = "ra"."operator_id"
-            AND "p"."ended_at" IS NULL AND "p"."driver_id" = "ra"."driver_id"
-        )
+    SELECT "status", "driver_id" INTO "rental" FROM "rentals"
+      WHERE "id" = NEW.id AND "operator_id" = NEW.operator_id;
+    IF "rental"."status" = 'active' AND NOT EXISTS (
+      SELECT 1 FROM "possessions" "p"
+      WHERE "p"."rental_id" = NEW.id AND "p"."operator_id" = NEW.operator_id
+        AND "p"."ended_at" IS NULL AND "p"."driver_id" = "rental"."driver_id"
     ) THEN
       RAISE EXCEPTION 'A car that is out is with the rental''s driver, who signed for it.'
+        USING ERRCODE = 'check_violation';
+    END IF;
+    IF "rental"."status" IN ('returned', 'closed') AND (
+      SELECT "p"."driver_id" FROM "possessions" "p"
+      WHERE "p"."rental_id" = NEW.id AND "p"."operator_id" = NEW.operator_id
+      ORDER BY "p"."started_at" DESC
+      LIMIT 1
+    ) IS DISTINCT FROM "rental"."driver_id" THEN
+      RAISE EXCEPTION 'A finished rental keeps the driver who had the car last.'
         USING ERRCODE = 'check_violation';
     END IF;
     RETURN NULL;
@@ -264,6 +327,8 @@ CREATE INDEX "possessions_driver_idx" ON "possessions" USING btree ("operator_id
 -- moment; filled in when not named, which keeps code that names no driver
 -- working. The rental is locked (shared) so its driver can't change until
 -- this transaction ends, and a car never goes out to a driver not named.
+-- A business's car goes only to one of its current drivers: their link is
+-- locked (shared) too, so it can't be removed until this transaction ends.
 CREATE FUNCTION "app"."check_possession_parties"() RETURNS trigger
   LANGUAGE plpgsql
   SET search_path = pg_catalog, public, pg_temp
@@ -286,6 +351,17 @@ CREATE FUNCTION "app"."check_possession_parties"() RETURNS trigger
     IF NEW.driver_id <> "rental"."driver_id" OR NEW.renter_id IS DISTINCT FROM "rental"."renter_id" THEN
       RAISE EXCEPTION 'A possession is the rental''s Renter''s, with the rental''s driver.'
         USING ERRCODE = 'check_violation';
+    END IF;
+    -- A person drives their own rentals; anyone else drives for the business.
+    IF NEW.driver_id <> NEW.renter_id THEN
+      PERFORM 1 FROM "organisation_drivers"
+        WHERE "operator_id" = NEW.operator_id AND "organisation_id" = NEW.renter_id
+          AND "driver_id" = NEW.driver_id AND "removed_at" IS NULL
+        FOR SHARE;
+      IF NOT FOUND THEN
+        RAISE EXCEPTION 'A business''s car goes out only to one of its current drivers.'
+          USING ERRCODE = 'check_violation';
+      END IF;
     END IF;
     RETURN NEW;
   END;
