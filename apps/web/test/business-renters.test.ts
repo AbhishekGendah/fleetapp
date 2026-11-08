@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { RENTER_LIST } from "../src/app/renters/renter-list";
 import type { ActingUser } from "../src/lib/acting-user";
 import type { FileDependencies } from "../src/lib/files/stored-files";
+import { recordPayment } from "../src/lib/ledger/ledger-records";
 import { listPickableRenters } from "../src/lib/rentals/pickable-records";
 import { sendDetailsLink } from "../src/lib/renter-links/details-links";
 import {
@@ -18,6 +19,7 @@ import {
   type BusinessRenterFormValues,
   type BusinessRenterInput,
 } from "../src/lib/renters/business-renter-input";
+import { listBusinessCarRentals } from "../src/lib/renters/business-car-rentals";
 import { parseAddDriverForm } from "../src/lib/renters/driver-input";
 import { buildEverythingHeld } from "../src/lib/renters/everything-held";
 import { saveLicence } from "../src/lib/renters/licence-records";
@@ -59,6 +61,7 @@ const CLOCK = { timeZone: TEST_TIME_ZONE, now: new Date("2026-11-08T02:00:00Z") 
 const EXPIRY = { today: TODAY, warningDays: 30 };
 /** A driver's licence number: never in what is held about the business they drive for. */
 const DRIVER_LICENCE_NUMBER = "WA7766554";
+const FOUR_WEEKS_MS = 28 * 24 * 60 * 60 * 1000;
 /** Far longer than an add that takes no lock it must wait for. */
 const LOCK_WAIT_MS = 3_000;
 const SCAN = { contentType: "image/jpeg", sizeBytes: 300_000 };
@@ -130,7 +133,12 @@ describe("business Renters and their drivers", () => {
   }
 
   /** A business's booking naming this driver, made as slice 3 will (the database checks it). */
-  async function bookingNaming(organisationId: string, driverId: string): Promise<string> {
+  async function bookingNaming(
+    organisationId: string,
+    driverId: string,
+    plannedStart = "2027-03-01T01:00:00Z",
+  ): Promise<string> {
+    const startsAt = new Date(plannedStart);
     const vehicleId = await addTestCar(web, actor);
     const [rental] = await withTenant(web.db, actor.operatorId, (tx) =>
       tx
@@ -142,8 +150,8 @@ describe("business Renters and their drivers", () => {
           vehicleId,
           type: "fixed_term",
           status: "booked",
-          plannedStart: new Date("2027-03-01T01:00:00Z"),
-          plannedEnd: new Date("2027-03-29T01:00:00Z"),
+          plannedStart: startsAt,
+          plannedEnd: new Date(startsAt.getTime() + FOUR_WEEKS_MS),
           chargeWeekday: 1,
           bondCents: 0,
           settingsSnapshot: {},
@@ -193,6 +201,16 @@ describe("business Renters and their drivers", () => {
     const renterId = await addTestRenter(web, actor, fullName, "0491570006");
     expect(await saveLicence(web.db, actor, renterId, driverLicence())).toBe("saved");
     return renterId;
+  }
+
+  async function payOn(rentalId: string): Promise<void> {
+    const paid = await recordPayment(web.db, actor, rentalId, {
+      amountCents: 100_00,
+      method: "cash",
+      reference: null,
+      occurredOn: TODAY,
+    });
+    expect(paid.status).toBe("saved");
   }
 
   beforeAll(async () => {
@@ -569,6 +587,41 @@ describe("business Renters and their drivers", () => {
         tx.select().from(organisationDrivers),
       );
       expect(links.every((link) => link.operatorId === otherActor.operatorId)).toBe(true);
+    });
+  });
+
+  describe("its money car by car", () => {
+    it("lists every car booked or out and the newest with money, never one with neither", async () => {
+      const businessId = await addBusiness();
+      const driverId = await addTestRenter(web, actor, "Max Money");
+      await addExistingDriver(web.db, actor, businessId, driverId);
+      const finishedWithMoney = async (plannedStart: string) => {
+        const rentalId = await bookingNaming(businessId, driverId, plannedStart);
+        await payOn(rentalId);
+        await cancel(rentalId);
+        return rentalId;
+      };
+      // Booked, though it starts before all the others: it is never the one left out.
+      const current = await bookingNaming(businessId, driverId, "2027-01-04T01:00:00Z");
+      const oldest = await finishedWithMoney("2027-02-01T01:00:00Z");
+      const newest = await finishedWithMoney("2027-04-05T01:00:00Z");
+      await cancel(await bookingNaming(businessId, driverId, "2027-06-07T01:00:00Z"));
+
+      const ids = async (limit: number) => {
+        const listed = await listBusinessCarRentals(
+          web.db,
+          actor.operatorId,
+          businessId,
+          CLOCK,
+          limit,
+        );
+        return { ids: listed.rentals.map((rental) => rental.id), isCut: listed.isCut };
+      };
+      expect(await ids(3)).toEqual({ ids: [current, newest, oldest], isCut: false });
+      expect(await ids(2)).toEqual({ ids: [current, newest], isCut: true });
+      expect(
+        (await listBusinessCarRentals(web.db, otherActor.operatorId, businessId, CLOCK)).rentals,
+      ).toEqual([]);
     });
   });
 

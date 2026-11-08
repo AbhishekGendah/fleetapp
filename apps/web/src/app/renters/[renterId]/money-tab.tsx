@@ -19,12 +19,15 @@ export async function MoneyTab(props: {
   renterId: string;
   user: SignedInUser;
   moneyByCar?: readonly CarMoney[];
+  isMoneyByCarCut?: boolean;
 }) {
   const ledger = await loadRenterLedger(appDb, props.user.operatorId, props.renterId);
   const isBusiness = props.moneyByCar !== undefined;
   return (
     <div className="flex flex-col gap-4">
-      {props.moneyByCar ? <CarsMoneyCard cars={props.moneyByCar} /> : null}
+      {props.moneyByCar ? (
+        <CarsMoneyCard cars={props.moneyByCar} isCut={props.isMoneyByCarCut ?? false} />
+      ) : null}
       <SectionCard
         heading={isBusiness ? "Charges and payments across cars" : "Charges and payments"}
       >
@@ -42,10 +45,15 @@ export async function MoneyTab(props: {
 }
 
 /** A business's money car by car: each rental's charged, paid and owing, from its own lines. */
-function CarsMoneyCard({ cars }: { cars: readonly CarMoney[] }) {
+function CarsMoneyCard({ cars, isCut }: { cars: readonly CarMoney[]; isCut: boolean }) {
   return (
     <SectionCard heading="Car by car">
-      <div className="border-t py-3">
+      <div className="flex flex-col gap-3 border-t py-3">
+        {isCut ? (
+          <p className="text-muted-foreground text-sm">
+            {`Only the ${cars.length.toLocaleString("en-AU")} newest rentals are listed here, with every car booked or out. The totals below count them all.`}
+          </p>
+        ) : null}
         {cars.length === 0 ? (
           <p className="text-muted-foreground text-sm">Nothing charged or paid yet.</p>
         ) : (

@@ -149,7 +149,14 @@ async function ChosenBusinessTab(props: {
         />
       );
     case "money":
-      return <MoneyTab renterId={renter.id} user={user} moneyByCar={business.moneyByCar} />;
+      return (
+        <MoneyTab
+          renterId={renter.id}
+          user={user}
+          moneyByCar={business.moneyByCar}
+          isMoneyByCarCut={business.isMoneyByCarCut}
+        />
+      );
     case "details":
       return <BusinessDetailsTab renter={renter} user={user} />;
     case "notes":

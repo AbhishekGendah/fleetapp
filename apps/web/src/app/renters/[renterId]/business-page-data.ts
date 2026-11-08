@@ -1,12 +1,9 @@
 import { renterDisplayName } from "@fleetapp/core";
-import { rentals } from "@fleetapp/db/schema";
-import { eq } from "drizzle-orm";
 
 import { appDb } from "../../../lib/app-db";
-import { MOST_OF_A_KIND } from "../../../lib/dashboard/fleet-overview";
-import { listRentalSummaries, type RentalSummary } from "../../../lib/rentals/rental-queries";
 import type { RentalClock } from "../../../lib/rentals/rental-records";
 import type { SignedInUser } from "../../../lib/require-user";
+import { listBusinessCarRentals } from "../../../lib/renters/business-car-rentals";
 import { moneyByCar, type CarMoney } from "../../../lib/renters/business-money";
 import {
   listBusinessDrivers,
@@ -21,10 +18,10 @@ export interface BusinessPageData {
   pastDrivers: BusinessDriver[];
   /** The business's cars out now, with who has each. */
   carsOut: DriverCarOut[];
-  /** Every rental of the business, soonest start first. */
-  rentals: RentalSummary[];
-  /** Each of its rentals' money, from its own ledger lines (rule 11). */
+  /** Each of its rentals' money, from its own ledger lines (rule 11): booked or out first, then newest. */
   moneyByCar: CarMoney[];
+  /** Its oldest finished cars are left out of moneyByCar (still in the totals): the page says so. */
+  isMoneyByCarCut: boolean;
   /** A driver's name by their id, for naming who drives each car. */
   driverNames: ReadonlyMap<string, string>;
 }
@@ -35,13 +32,9 @@ export async function loadBusinessPageData(
   clock: RentalClock,
   page: RenterPageData,
 ): Promise<BusinessPageData> {
-  const [{ drivers, carsOut }, businessRentals] = await Promise.all([
+  const [{ drivers, carsOut }, carRentals] = await Promise.all([
     listBusinessDrivers(appDb, user.operatorId, organisationId),
-    listRentalSummaries(appDb, user.operatorId, {
-      where: eq(rentals.renterId, organisationId),
-      clock,
-      limit: MOST_OF_A_KIND,
-    }),
+    listBusinessCarRentals(appDb, user.operatorId, organisationId, clock),
   ]);
   const driverNames = new Map(
     drivers.map((driver) => [
@@ -49,16 +42,13 @@ export async function loadBusinessPageData(
       renterDisplayName(driver.fullName, driver.preferredName),
     ]),
   );
-  // Latest first, as the Rentals tab lists them.
-  const latestFirst = [...businessRentals].reverse();
   return {
     currentDrivers: drivers.filter((driver) => driver.removedAt === null),
     pastDrivers: drivers.filter((driver) => driver.removedAt !== null),
     carsOut,
-    rentals: latestFirst,
     moneyByCar: moneyByCar(
       page.ledger.lines,
-      latestFirst.map((rental) => ({
+      carRentals.rentals.map((rental) => ({
         id: rental.id,
         rego: rental.rego,
         vehicleId: rental.vehicleId,
@@ -66,6 +56,7 @@ export async function loadBusinessPageData(
         driverName: rental.driverId ? (driverNames.get(rental.driverId) ?? null) : null,
       })),
     ),
+    isMoneyByCarCut: carRentals.isCut,
     driverNames,
   };
 }

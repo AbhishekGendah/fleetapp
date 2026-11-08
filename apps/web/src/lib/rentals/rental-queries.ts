@@ -212,16 +212,19 @@ function selectRentalSummaries(tx: AnyTransaction, clock: RentalClock) {
     .innerJoin(vehicles, CAR_OF_RENTAL);
 }
 
-/** The Operator's rentals that match, soonest start first, up to `limit`: for the dashboard. */
+/**
+ * The Operator's rentals that match, up to `limit`: for the dashboard. Soonest
+ * start first, unless `orderBy` says otherwise (the id always breaks ties).
+ */
 export async function listRentalSummaries(
   database: AnyDatabase,
   operatorId: string,
-  options: { where: SQL | undefined; clock: RentalClock; limit: number },
+  options: { where: SQL | undefined; clock: RentalClock; limit: number; orderBy?: readonly SQL[] },
 ): Promise<RentalSummary[]> {
   return withTenant(database, operatorId, (tx) =>
     selectRentalSummaries(tx, options.clock)
       .where(and(eq(rentals.operatorId, operatorId), options.where))
-      .orderBy(asc(rentals.plannedStart), asc(rentals.id))
+      .orderBy(...(options.orderBy ?? [asc(rentals.plannedStart)]), asc(rentals.id))
       .limit(options.limit),
   );
 }
