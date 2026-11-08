@@ -148,11 +148,57 @@ type SignContractValues = Record<
 
 type SignFieldIssue = { path: [string]; message: string };
 
-/** Whether the signer gave the business's own name (legal or trading) as theirs. */
+/**
+ * The words that only say a name is a company's, as name keys: "Pty Ltd",
+ * "Pty. Limited", "Proprietary Limited", "Ltd" and the like; "P/L" is the
+ * pair "p l" (never a lone letter: "Sam L" is a person's name).
+ */
+const COMPANY_SUFFIX_WORDS: ReadonlySet<string> = new Set(["pty", "proprietary", "ltd", "limited"]);
+const PTY_LTD_INITIALS = ["p", "l"] as const;
+
+/** How many of the words at the end only say it is a company. */
+function companyWordsAtEnd(words: readonly string[], end: number): number {
+  const [first, second] = PTY_LTD_INITIALS;
+  if (end > 2 && words[end - 2] === first && words[end - 1] === second) {
+    return PTY_LTD_INITIALS.length;
+  }
+  return end > 1 && COMPANY_SUFFIX_WORDS.has(words[end - 1]!) ? 1 : 0;
+}
+
+/** A name key without the company words at its end; null when it has none. */
+function withoutCompanySuffix(key: string): string | null {
+  const words = key.split(" ");
+  let end = words.length;
+  for (
+    let count = companyWordsAtEnd(words, end);
+    count > 0;
+    count = companyWordsAtEnd(words, end)
+  ) {
+    end -= count;
+  }
+  return end < words.length ? words.slice(0, end).join(" ") : null;
+}
+
+/**
+ * Whether the signer gave the business's own name (legal or trading) as
+ * theirs, however it is written: "Acme Rideshare Pty Limited" or "ACME
+ * RIDESHARE P/L" for Acme Rideshare Pty Ltd. A name with no company words
+ * is the business's only when it is the same name: Dana Wells may sign for
+ * Dana Wells Pty Ltd.
+ */
 function isBusinessName(signerName: string, authority: SigningAuthority): boolean {
-  return [authority.legalName, authority.tradingName ?? ""].some((businessName) =>
-    isTypedNameMatching(signerName, businessName),
-  );
+  const signerCompany = withoutCompanySuffix(nameKey(signerName));
+  return [authority.legalName, authority.tradingName ?? ""].some((businessName) => {
+    if (isTypedNameMatching(signerName, businessName)) {
+      return true;
+    }
+    const businessKey = nameKey(businessName);
+    return (
+      signerCompany !== null &&
+      businessKey !== "" &&
+      signerCompany === (withoutCompanySuffix(businessKey) ?? businessKey)
+    );
+  });
 }
 
 /** Why the signer's name won't do: none given, or the business's own; null when it will. */

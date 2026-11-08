@@ -195,6 +195,44 @@ describe("signing for a business (decision 3)", () => {
     }
   });
 
+  it("refuses the business's name with its company words written another way (second review)", () => {
+    const variants = [
+      "Acme Rideshare Pty. Limited",
+      "Acme Rideshare Proprietary Limited",
+      "ACME RIDESHARE P/L",
+      "Acme Rideshare Ltd",
+      "Acme Rideshare Limited",
+      "Acme Rides Pty Ltd",
+    ];
+
+    for (const signerName of variants) {
+      const result = businessSigning({ signerName, typedName: signerName });
+      expect(result.success, signerName).toBe(false);
+      expect(z.flattenError(result.error!).fieldErrors).toMatchObject({
+        signerName: ["Enter your own full name, not the business's: you sign for it as yourself."],
+      });
+    }
+  });
+
+  it("lets a person sign for the company named after them, or with an initial", () => {
+    const initialed = businessSigning({ signerName: "Dana L", typedName: "Dana L" });
+    expect(initialed.success).toBe(true);
+    const ownCompany = { legalName: "Dana Wells Pty Ltd", tradingName: null };
+    const result = signContractInputSchema("Dana Wells Pty Ltd", ownCompany).safeParse({
+      areDetailsConfirmed: "on",
+      hasConsented: "on",
+      method: "typed",
+      typedName: "Dana Wells",
+      drawnSignature: "",
+      contractFingerprint: FINGERPRINT,
+      signerName: "Dana Wells",
+      signerPosition: "Director",
+      isAuthorised: "on",
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it("asks a person for none of it", () => {
     expect(signing({ signerName: "", signerPosition: "", isAuthorised: "" }).success).toBe(true);
     expect(signing().success).toBe(true);
