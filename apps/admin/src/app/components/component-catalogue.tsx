@@ -345,6 +345,44 @@ function ChoiceCardsExample() {
   );
 }
 
+/** A longer list, one under another: each with a label, a warning, or why it can't be chosen. */
+const EXAMPLE_DRIVER_OPTIONS = [
+  {
+    value: "to_be_named",
+    label: "Driver to be named",
+    description: "Name one before the handover.",
+  },
+  {
+    value: "sam",
+    label: "Sam Example",
+    description: "Full · WA · to 3 Jun 2029",
+    badge: <Badge tone="good">Current</Badge>,
+    warning: "Already has 1ABC234 out. You can still pick Sam.",
+  },
+  {
+    value: "jo",
+    label: "Jo Example",
+    description: "Review the details Jo sent before naming them.",
+    badge: <Badge tone="booked">To review</Badge>,
+    isDisabled: true,
+  },
+] as const;
+
+function StackedChoiceCardsExample() {
+  const [driver, setDriver] = useState<string>("to_be_named");
+  return (
+    <ChoiceCards
+      id="example-driver"
+      name="exampleDriver"
+      label="Driver"
+      options={EXAMPLE_DRIVER_OPTIONS}
+      value={driver}
+      onValueChange={setDriver}
+      layout="stack"
+    />
+  );
+}
+
 function ToggleGroupExample() {
   const [shown, setShown] = useState<(typeof EXAMPLE_SHOW_OPTIONS)[number]["value"]>("all");
   return (
@@ -1177,9 +1215,10 @@ export function ComponentCatalogue() {
 
       <CatalogueSection
         title="Choice cards"
-        note="One of two or three choices that each need a line of explanation. Tab reaches the group; the arrow keys move the choice."
+        note="One of a few choices that each need a line of explanation. Tab reaches the group; the arrow keys move the choice. A longer list goes one under another; a choice can carry a label, a warning in words, or be shown but not choosable."
       >
         <ChoiceCardsExample />
+        <StackedChoiceCardsExample />
       </CatalogueSection>
 
       <CatalogueSection
