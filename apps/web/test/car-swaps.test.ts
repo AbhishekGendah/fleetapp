@@ -14,7 +14,7 @@ import {
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import type { EmailMessage } from "@fleetapp/email";
-import { and, asc, eq, gte, isNull } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import type { ActingUser } from "../src/lib/acting-user";
@@ -27,6 +27,7 @@ import {
 } from "../src/lib/handover/complete-swap";
 import { loadReturn } from "../src/lib/handover/handover-queries";
 import { addDamageMark, startReturn } from "../src/lib/handover/handover-records";
+import { heldRange, isCarAlreadyHeld } from "../src/lib/rentals/car-holds";
 import { cancelSwap, startSwap } from "../src/lib/rentals/car-swaps";
 import {
   createMemoryFileStorage,
@@ -35,7 +36,7 @@ import {
 import { changeVehicleStatus } from "../src/lib/vehicles/vehicle-records";
 import { addTestCar, seedOperatorWithUser } from "./car-fixtures";
 import { checklistKit, HANDOVER_KM, TEST_SIGNATURE } from "./handover-fixtures";
-import { TEST_TIME_ZONE } from "./rental-fixtures";
+import { addCarOut, LATE_HANDED_OVER, recordTestHandover, TEST_TIME_ZONE } from "./rental-fixtures";
 
 const HOUR_MS = 60 * 60 * 1000;
 /** The new car starts at 12,000 km (addTestCar); the old car went out at the handover's. */
@@ -59,6 +60,7 @@ const NOTHING_SHOWN = {
 describe("swapping the Renter's car", () => {
   let admin: TestConnection;
   let web: TestConnection;
+  let superuser: TestConnection;
   let storage: MemoryFileStorage;
   let sentEmails: EmailMessage[];
   let actor: ActingUser;
@@ -96,6 +98,7 @@ describe("swapping the Renter's car", () => {
   beforeAll(async () => {
     admin = connectAs(inject("adminAppRoleUrl"));
     web = connectAs(inject("webAppRoleUrl"));
+    superuser = connectAs(inject("superuserUrl"));
     storage = createMemoryFileStorage();
     sentEmails = [];
     actor = await seedOperatorWithUser(admin, "Swapping Rentals Pty Ltd");
@@ -105,7 +108,7 @@ describe("swapping the Renter's car", () => {
   });
 
   afterAll(async () => {
-    await Promise.all([admin.close(), web.close()]);
+    await Promise.all([admin.close(), web.close(), superuser.close()]);
   });
 
   it("starts only into an available car of this business, and refuses without a swap form", async () => {
@@ -130,6 +133,97 @@ describe("swapping the Renter's car", () => {
         clock(),
       ),
     ).toEqual({ status: "not_out" });
+  });
+
+  /**
+   * The status a car still out would never have: only this lets a swap reach
+   * its late-car checks, as a car out is Rented (find-a-car.md, decision 5).
+   */
+  function markAvailable(vehicleId: string): Promise<unknown> {
+    return superuser.db.execute(
+      sql`update vehicles set status = 'available' where id = ${vehicleId}`,
+    );
+  }
+
+  it("refuses to start into a car still out past its return date with someone else", async () => {
+    const out = await kit.rentalOut(new Date(Date.now() - 24 * HOUR_MS));
+    const late = await addCarOut(web, superuser, actor);
+    await markAvailable(late.vehicleId);
+
+    const result = await startSwap(
+      web.db,
+      actor,
+      out.rentalId,
+      { toVehicleId: late.vehicleId, reason: "Flat tyre" },
+      clock(),
+    );
+
+    expect(result).toMatchObject({
+      status: "clash",
+      clash: { kind: "still_out", rentalId: late.lateRentalId },
+    });
+  });
+
+  /**
+   * A swap into a car booked by another rental in the past, started while that
+   * car was still free; the other rental then goes out and is already late.
+   */
+  async function swapIntoCarThatGoesOutLate() {
+    const out = await kit.rentalOut(new Date(Date.now() - 48 * HOUR_MS));
+    const other = await addCarOut(web, superuser, actor, { isHandedOver: false });
+    const started = await startSwap(
+      web.db,
+      actor,
+      out.rentalId,
+      { toVehicleId: other.vehicleId, reason: "Engine light on" },
+      clock(),
+    );
+    expect(started.status).toBe("started");
+    await recordTestHandover(superuser, other.lateRentalId, LATE_HANDED_OVER);
+    await markAvailable(other.vehicleId);
+    return { ...out, newCarId: other.vehicleId, swapId: "swapId" in started ? started.swapId : "" };
+  }
+
+  it("keeps nothing if the new car is out late with someone else by the time the swap is signed", async () => {
+    const { rentalId, vehicleId, newCarId, swapId } = await swapIntoCarThatGoesOutLate();
+    const [swap] = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx.select().from(carSwaps).where(eq(carSwaps.id, swapId)),
+    );
+    await kit.fillChecklist(swap!.returnInspectionId, OLD_CAR_KM);
+    await kit.fillChecklist(swap!.handoverInspectionId, NEW_CAR_KM);
+
+    // Possession moves before the hold, so the possessions rule refuses first (rule 15).
+    await expect(
+      completeSwap(kit.handoverDeps(), actor, rentalId, await swapInput(rentalId), clock()),
+    ).rejects.toThrow();
+
+    const [rental] = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx.select({ vehicleId: rentals.vehicleId }).from(rentals).where(eq(rentals.id, rentalId)),
+    );
+    const newCarHolds = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx
+        .select({ id: carHolds.id })
+        .from(carHolds)
+        .where(and(eq(carHolds.rentalId, rentalId), eq(carHolds.vehicleId, newCarId))),
+    );
+    expect(rental?.vehicleId).toBe(vehicleId);
+    expect(newCarHolds).toEqual([]);
+  });
+
+  it("refuses the new car's hold in the database if it is out late with someone else", async () => {
+    const { rentalId, newCarId } = await swapIntoCarThatGoesOutLate();
+
+    // The hold the swap's last step writes (moveHold), written on its own.
+    const held = withTenant(web.db, actor.operatorId, (tx) =>
+      tx.insert(carHolds).values({
+        operatorId: actor.operatorId,
+        vehicleId: newCarId,
+        rentalId,
+        heldDuring: heldRange(new Date(), null),
+      }),
+    );
+
+    await expect(held).rejects.toSatisfy(isCarAlreadyHeld);
   });
 
   it("refuses to finish until both checklists are done, and a cancelled swap leaves the car out", async () => {
