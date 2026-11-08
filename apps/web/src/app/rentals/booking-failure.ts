@@ -1,6 +1,10 @@
 import { rentalPath } from "../../lib/paths";
 import { isStillOutClash } from "../../lib/rentals/car-holds";
-import { bookingClashMessage, bookingProblemMessage } from "../../lib/rentals/rental-messages";
+import {
+  bookingClashMessage,
+  bookingProblemMessage,
+  MISSING_DRIVER_MESSAGES,
+} from "../../lib/rentals/rental-messages";
 import type { BookingResult } from "../../lib/rentals/rental-records";
 import type { RentalFormState } from "./rental-form-state";
 
@@ -15,7 +19,7 @@ export function bookingFailure(result: BookingResult, timeZone: string): RentalF
         formError: "This booking cannot be made:",
         reasons: result.problems
           .filter((problem) => problem.level === "booking")
-          .map(bookingProblemMessage),
+          .map((problem) => bookingProblemMessage(problem)),
       };
     case "car_taken":
       return {
@@ -35,6 +39,10 @@ export function bookingFailure(result: BookingResult, timeZone: string): RentalF
       return { status: "failed", formError: "That Renter could not be found.", reasons: [] };
     case "car_not_found":
       return { status: "failed", formError: "That car could not be found.", reasons: [] };
+    case "driver_not_found":
+    case "driver_archived":
+    case "driver_not_current":
+      return { status: "failed", formError: MISSING_DRIVER_MESSAGES[result.status], reasons: [] };
     case "not_found":
     case "not_allowed":
       return { status: "failed", formError: "This rental can no longer be booked.", reasons: [] };

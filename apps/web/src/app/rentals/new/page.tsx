@@ -10,8 +10,10 @@ import {
   listPickableCars,
   listPickableRenters,
 } from "../../../lib/rentals/pickable-records";
+import { listBusinessChoices } from "../../../lib/rentals/driver-choices";
 import { carPriceFields, emptyRentalForm, type CarPrices } from "../../../lib/rentals/rental-input";
 import { requireUser } from "../../../lib/require-user";
+import { loadExpiryContext } from "../../../lib/vehicles/expiry-context";
 import { loadOperatorSettings } from "../../../lib/settings/operator-settings";
 import { AppShell } from "../../app-shell";
 import { createRentalAction } from "../actions";
@@ -59,13 +61,15 @@ export default async function NewRentalPage(props: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const user = await requireUser();
-  const [renters, cars, carPrices, settings, searchParams] = await Promise.all([
+  const [renters, cars, carPrices, settings, searchParams, licenceExpiry] = await Promise.all([
     listPickableRenters(appDb, user.operatorId),
     listPickableCars(appDb, user.operatorId),
     listCarPrices(appDb, user.operatorId),
     loadOperatorSettings(appDb, user.operatorId),
     props.searchParams,
+    loadExpiryContext(user, "licenceExpiryWarningDays"),
   ]);
+  const businesses = await listBusinessChoices(appDb, user.operatorId, licenceExpiry);
 
   return (
     <AppShell user={user}>
@@ -75,6 +79,7 @@ export default async function NewRentalPage(props: {
           <RentalForm
             initialValues={emptyRentalForm(withCarPrices(presetsFrom(searchParams), carPrices))}
             renters={renters}
+            businesses={businesses}
             cars={cars}
             timeZone={user.operatorTimezone}
             carPrices={carPrices}

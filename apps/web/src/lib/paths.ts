@@ -90,6 +90,11 @@ export function renterMoneyPath(renterId: string): string {
   return `${renterPath(renterId)}?tab=money`;
 }
 
+/** A business Renter's Drivers tab, where a driver is added or removed. */
+export function renterDriversPath(renterId: string): string {
+  return `${renterPath(renterId)}?tab=drivers`;
+}
+
 export function editRenterPath(renterId: string): string {
   return `${renterPath(renterId)}/edit`;
 }

@@ -1,33 +1,64 @@
-import { renterDisplayName, VEHICLE_STATUS_LABELS } from "@fleetapp/core";
+import {
+  formatAbn,
+  renterShownName,
+  RENTER_KIND_LABELS,
+  VEHICLE_STATUS_LABELS,
+} from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { renters, vehicles } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import type { PickableRecord } from "@fleetapp/ui/record-picker";
-import { and, asc, eq, isNull, notInArray, type SQL } from "drizzle-orm";
+import { and, asc, eq, isNull, notInArray, sql, type SQL } from "drizzle-orm";
 
 import type { CarPrices } from "./rental-input";
 
 /** Cars that have left the fleet can never be booked, so they are not offered. */
 const CARS_GONE = ["sold", "written_off"] as const;
 
+/** What a Renter picker line says under the name: a person's phone and email; a business's kind and legal name. */
+function pickableDescription(row: {
+  kind: "person" | "organisation";
+  fullName: string;
+  abn: string | null;
+  phone: string | null;
+  email: string | null;
+}): string | undefined {
+  if (row.kind === "organisation") {
+    return [
+      RENTER_KIND_LABELS.organisation,
+      row.fullName,
+      row.abn ? `ABN ${formatAbn(row.abn)}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+  return [row.phone, row.email].filter(Boolean).join(" · ") || undefined;
+}
+
 /**
- * The Operator's current Renters, by name; Do not rent ones are left out. So
- * are business Renters until renting to a business is built (plan slice 3:
- * the driver picker and the business contract): the booking itself refuses
- * one too, as no driver can be found for it yet.
+ * The Operator's current Renters, by name; Do not rent ones are left out.
+ * Business Renters are offered for a booking (their driver is picked
+ * next), never as someone's driver.
  */
 export async function listPickableRenters(
   database: AnyDatabase,
   operatorId: string,
-  /** Narrows the list further, e.g. to people not yet a business's drivers. */
-  alsoMatching?: SQL,
+  options: {
+    /** People only, e.g. for adding a business's driver. */
+    isPeopleOnly?: boolean;
+    /** Narrows the list further, e.g. to people not yet a business's drivers. */
+    alsoMatching?: SQL;
+  } = {},
 ): Promise<PickableRecord[]> {
   const rows = await withTenant(database, operatorId, (tx) =>
     tx
       .select({
         id: renters.id,
+        kind: renters.kind,
         fullName: renters.fullName,
         preferredName: renters.preferredName,
+        tradingName: renters.tradingName,
+        abn: renters.abn,
         phone: renters.phone,
         email: renters.email,
       })
@@ -37,16 +68,16 @@ export async function listPickableRenters(
           eq(renters.operatorId, operatorId),
           isNull(renters.archivedAt),
           eq(renters.status, "active"),
-          eq(renters.kind, "person"),
-          alsoMatching,
+          options.isPeopleOnly ? eq(renters.kind, "person") : undefined,
+          options.alsoMatching,
         ),
       )
-      .orderBy(asc(renters.fullName)),
+      .orderBy(asc(sql`lower(coalesce(${renters.tradingName}, ${renters.fullName}))`)),
   );
   return rows.map((row) => ({
     value: row.id,
-    label: renterDisplayName(row.fullName, row.preferredName),
-    description: [row.phone, row.email].filter(Boolean).join(" · ") || undefined,
+    label: renterShownName(row),
+    description: pickableDescription(row),
   }));
 }
 

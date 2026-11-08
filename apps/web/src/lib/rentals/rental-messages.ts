@@ -1,4 +1,5 @@
 import {
+  BUSINESS_DETAIL_NEEDED_LABELS,
   DETAIL_NEEDED_LABELS,
   DIRECT_DEBIT_STATE_LABELS,
   formatCalendarDate,
@@ -9,13 +10,46 @@ import {
   type BookingProblem,
 } from "@fleetapp/core";
 
+import type { MissingParty } from "./booking-checks";
 import { isStillOutClash, type NewHoldClash } from "./car-holds";
 
-/** One booking problem in plain words, for the form and the rental page. */
-export function bookingProblemMessage(problem: BookingProblem): string {
+/** Why a business's driver can't be named, in words, for the form and the rental page. */
+export const MISSING_DRIVER_MESSAGES: Readonly<
+  Record<Exclude<MissingParty, "renter_not_found" | "car_not_found">, string>
+> = {
+  driver_not_found: "That driver could not be found. Choose another driver.",
+  driver_archived: "That driver has been archived. Restore them first, or choose another driver.",
+  driver_not_current:
+    "That person no longer drives for this business. Choose another driver, or add them again on its Drivers tab.",
+};
+
+/** Why a rental's page can't check its Renter, driver or car: one is archived or gone. */
+export const RENTAL_PARTY_MISSING_MESSAGES: Readonly<Record<MissingParty, string>> = {
+  car_not_found: "The car has been archived. Restore it, or cancel this rental.",
+  renter_not_found: "The Renter has been archived. Restore them, or cancel this rental.",
+  ...MISSING_DRIVER_MESSAGES,
+};
+
+/**
+ * One booking problem in plain words, for the form and the rental page. On a
+ * business's rental the licence and age are the driver's, and said so.
+ */
+export function bookingProblemMessage(problem: BookingProblem, isBusinessRental = false): string {
+  const whose = isBusinessRental ? "The driver's" : "The Renter's";
+  const who = isBusinessRental ? "The driver" : "The Renter";
   switch (problem.code) {
     case "do_not_rent":
-      return "This Renter is marked Do not rent.";
+      return isBusinessRental
+        ? "This business or its driver is marked Do not rent."
+        : "This Renter is marked Do not rent.";
+    case "business_details_missing":
+      return `Still needed on the business's details before the car is handed over: ${problem.missing
+        .map((detail) => BUSINESS_DETAIL_NEEDED_LABELS[detail])
+        .join(", ")}.`;
+    case "driver_not_named":
+      return "No driver named yet. Name one before the handover: the driver signs for the car.";
+    case "driver_has_other_car":
+      return `The driver already has ${problem.regos.join(", ")} out.`;
     case "car_not_rentable":
       return `This car is ${VEHICLE_STATUS_LABELS[problem.carStatus].toLowerCase()}, so it cannot be booked.`;
     case "car_not_ready":
@@ -31,11 +65,11 @@ export function bookingProblemMessage(problem: BookingProblem): string {
         .map((detail) => DETAIL_NEEDED_LABELS[detail].toLowerCase())
         .join(", ")}.`;
     case "licence_expired_by_start":
-      return `The Renter's licence expires on ${formatCalendarDate(problem.expiresOn)}, before the rental starts.`;
+      return `${whose} licence expires on ${formatCalendarDate(problem.expiresOn)}, before the rental starts.`;
     case "under_minimum_age":
-      return `The Renter is under ${problem.minimumAge}, your minimum age.`;
+      return `${who} is under ${problem.minimumAge}, your minimum age.`;
     case "provisional_licence":
-      return "The Renter has a provisional licence, which your settings do not allow.";
+      return `${who} has a provisional licence, which your settings do not allow.`;
     case "bond_short":
       return [
         `Bond still to receive before handover: ${formatCents(problem.owingCents)}.`,
@@ -48,7 +82,7 @@ export function bookingProblemMessage(problem: BookingProblem): string {
         ? "The Renter's direct debit is still being checked by Stripe. Hand over once it is set up, or give a reason."
         : `The Renter's direct debit is ${DIRECT_DEBIT_STATE_LABELS[problem.state].toLowerCase()}. Send them the link to set it up before handover.`;
     case "licence_expires_during":
-      return `The Renter's licence expires on ${formatCalendarDate(problem.expiresOn)}, during the rental.`;
+      return `${whose} licence expires on ${formatCalendarDate(problem.expiresOn)}, during the rental.`;
   }
 }
 

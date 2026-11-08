@@ -1,5 +1,6 @@
 import {
   bookingProblems,
+  businessDetailsStillNeeded,
   type BookingCheckInput,
   areRenterPaymentsOffered,
   isBondShortForHandover,
@@ -15,12 +16,13 @@ import {
 } from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { files, renters, stripeAccounts, vehicles } from "@fleetapp/db/schema";
-import { and, countDistinct, eq, isNull } from "drizzle-orm";
+import { files, rentals, renters, stripeAccounts, vehicles } from "@fleetapp/db/schema";
+import { and, asc, countDistinct, eq, isNull, ne } from "drizzle-orm";
 
 import { bondAccountOf, selectBondMovements } from "../bonds/bond-account";
 import { licenceScanInUse } from "../files/stored-files";
 import { rentalPaymentsIn } from "../payments/renter-payment-records";
+import { currentLinkOf } from "../renters/organisation-driver-records";
 import { isInsuredOn, isRegisteredOn } from "../vehicles/expiry-columns";
 import { findCarOutWithAnother } from "./car-holds";
 
@@ -60,8 +62,8 @@ type RenterRow = typeof renters.$inferSelect;
 export interface BookingParties {
   /** Who pays and signs the contract. */
   renter: RenterRow;
-  /** Who drives: the Renter themselves for a person (the same row). */
-  driver: RenterRow;
+  /** Who drives: the Renter themselves for a person (the same row); none while a business's is to be named. */
+  driver: RenterRow | null;
   vehicleId: string;
   carStatus: VehicleStatus;
 }
@@ -78,7 +80,18 @@ export interface CarCheck {
   isHandingOverNow: boolean;
 }
 
-type PartiesOrMissing = BookingParties | "renter_not_found" | "car_not_found";
+/**
+ * Why the parties can't be found: the Renter or car gone, or a business's
+ * named driver archived (restored first), no longer its driver, or gone.
+ */
+export type MissingParty =
+  | "renter_not_found"
+  | "car_not_found"
+  | "driver_not_found"
+  | "driver_archived"
+  | "driver_not_current";
+
+type PartiesOrMissing = BookingParties | MissingParty;
 
 /** Which Renter, driver and car: no driver named means the Renter drives (a person's own rental). */
 interface PartyIds {
@@ -110,21 +123,76 @@ async function findRenter(
 
 /**
  * Who drives: a person drives their own rentals. A business's driver is
- * whoever the rental names, which the database holds to one of its current
- * drivers. Naming one (and telling an archived one apart) comes with renting
- * to a business (plan slice 3); until then a business has no driver here.
+ * whoever the rental names (none while to be named, decision 2): a person,
+ * current, and one of its current drivers, read after the business (its
+ * lock is what a driver's removal waits on: slice 1 review F2).
  */
 async function findDriver(
   tx: AnyTransaction,
   operatorId: string,
   renter: RenterRow,
-  ids: PartyIds,
+  ids: Omit<PartyIds, "vehicleId">,
   shouldLock: boolean,
-): Promise<RenterRow | undefined> {
-  if (renter.kind === "person" || !ids.driverId) {
-    return renter.kind === "person" ? renter : undefined;
+): Promise<RenterRow | null | MissingParty> {
+  if (renter.kind === "person") {
+    return renter;
   }
-  return findRenter(tx, operatorId, ids.driverId, { shouldLock, isArchivedAllowed: true });
+  if (!ids.driverId) {
+    return null;
+  }
+  const driver = await findRenter(tx, operatorId, ids.driverId, {
+    shouldLock,
+    isArchivedAllowed: true,
+  });
+  if (!driver || driver.kind !== "person" || driver.retiredAt) {
+    return "driver_not_found";
+  }
+  if (driver.archivedAt) {
+    return "driver_archived";
+  }
+  // Read, not locked: the rental naming them takes the link shared (the database's rule).
+  return (await currentLinkOf(tx, operatorId, renter.id, driver.id, false))
+    ? driver
+    : "driver_not_current";
+}
+
+/** The Operator's current Renter and their driver, locked when asked (Renter, then driver). */
+async function findRenterAndDriver(
+  tx: AnyTransaction,
+  operatorId: string,
+  ids: Omit<PartyIds, "vehicleId">,
+  shouldLock: boolean,
+): Promise<Pick<BookingParties, "renter" | "driver"> | MissingParty> {
+  const renter = await findRenter(tx, operatorId, ids.renterId, {
+    shouldLock,
+    isArchivedAllowed: false,
+  });
+  if (!renter) {
+    return "renter_not_found";
+  }
+  const driver = await findDriver(tx, operatorId, renter, ids, shouldLock);
+  return typeof driver === "string" ? driver : { renter, driver };
+}
+
+/** The car's status, locked when asked; none once it is archived. */
+async function findCarStatus(
+  tx: AnyTransaction,
+  operatorId: string,
+  vehicleId: string,
+  shouldLock: boolean,
+): Promise<VehicleStatus | undefined> {
+  const carQuery = tx
+    .select({ status: vehicles.status })
+    .from(vehicles)
+    .where(
+      and(
+        eq(vehicles.id, vehicleId),
+        eq(vehicles.operatorId, operatorId),
+        isNull(vehicles.archivedAt),
+      ),
+    );
+  const [car] = shouldLock ? await carQuery.for("update") : await carQuery;
+  return car?.status;
 }
 
 /** The Operator's current Renter, their driver and the car, or which one is missing. */
@@ -134,35 +202,39 @@ async function findBookingParties(
   ids: PartyIds,
   shouldLock: boolean,
 ): Promise<PartiesOrMissing> {
-  const carQuery = tx
-    .select({ status: vehicles.status })
-    .from(vehicles)
-    .where(
-      and(
-        eq(vehicles.id, ids.vehicleId),
-        eq(vehicles.operatorId, operatorId),
-        isNull(vehicles.archivedAt),
-      ),
-    );
-  const [car] = shouldLock ? await carQuery.for("update") : await carQuery;
-  if (!car) {
+  const carStatus = await findCarStatus(tx, operatorId, ids.vehicleId, shouldLock);
+  if (!carStatus) {
     return "car_not_found";
   }
-  const renter = await findRenter(tx, operatorId, ids.renterId, {
-    shouldLock,
-    isArchivedAllowed: false,
-  });
-  const driver = renter ? await findDriver(tx, operatorId, renter, ids, shouldLock) : undefined;
-  return renter && driver
-    ? { renter, driver, vehicleId: ids.vehicleId, carStatus: car.status }
-    : "renter_not_found";
+  const people = await findRenterAndDriver(tx, operatorId, ids, shouldLock);
+  return typeof people === "string" ? people : { ...people, vehicleId: ids.vehicleId, carStatus };
+}
+
+/**
+ * For naming a business's driver on a draft or booking: the business, then
+ * the driver, locked (the order a handover takes them, before the rental),
+ * and the car as it is, unlocked (nothing about the car changes).
+ */
+export async function lockDriverNamingParties(
+  tx: AnyTransaction,
+  operatorId: string,
+  ids: PartyIds,
+): Promise<PartiesOrMissing> {
+  const people = await findRenterAndDriver(tx, operatorId, ids, true);
+  if (typeof people === "string") {
+    return people;
+  }
+  const carStatus = await findCarStatus(tx, operatorId, ids.vehicleId, false);
+  return carStatus ? { ...people, vehicleId: ids.vehicleId, carStatus } : "car_not_found";
 }
 
 /**
  * The Operator's current Renter, their driver and the car, all locked for
  * this transaction (car, then Renter, then driver): the car so two bookings
  * of it are made one after the other, the Renter and driver so their details
- * cannot change under the checks. Otherwise, which one is missing.
+ * cannot change under the checks; a business's driver link is then taken
+ * shared by the database as the rental names them. Otherwise, which one is
+ * missing.
  */
 export function lockBookingParties(
   tx: AnyTransaction,
@@ -216,6 +288,34 @@ async function findCarFacts(
   };
 }
 
+/**
+ * The regos of other cars a business's driver has out now, theirs or another
+ * business's: worth a warning, never a refusal (plan, "Booking").
+ */
+async function otherCarsOutWith(
+  tx: AnyTransaction,
+  driver: RenterRow,
+  rentalId: string | null,
+): Promise<string[]> {
+  const rows = await tx
+    .select({ rego: vehicles.rego })
+    .from(rentals)
+    .innerJoin(
+      vehicles,
+      and(eq(vehicles.id, rentals.vehicleId), eq(vehicles.operatorId, rentals.operatorId)),
+    )
+    .where(
+      and(
+        eq(rentals.operatorId, driver.operatorId),
+        eq(rentals.driverId, driver.id),
+        eq(rentals.status, "active"),
+        rentalId ? ne(rentals.id, rentalId) : undefined,
+      ),
+    )
+    .orderBy(asc(vehicles.rego));
+  return rows.map((row) => row.rego);
+}
+
 /** What stands between this Renter, their driver and this car for these dates, on the Operator's clock. */
 export async function findBookingProblems(
   tx: AnyTransaction,
@@ -236,16 +336,26 @@ export async function findBookingProblems(
     coverOn,
   });
   return bookingProblems({
-    renter: { status: renter.status },
-    // The licence and its scans are the driver's.
-    driver: {
-      status: driver.status,
-      dateOfBirth: driver.dateOfBirth,
-      residentialAddress: driver.residentialAddress,
-      licenceType: driver.licenceType,
-      licenceExpiresOn: driver.licenceExpiresOn,
-      hasBothLicenceScans: await hasBothLicenceScans(tx, driver.operatorId, driver.id),
+    renter: {
+      status: renter.status,
+      businessDetailsMissing:
+        renter.kind === "organisation" ? businessDetailsStillNeeded(renter) : [],
     },
+    // The licence and its scans are the driver's.
+    driver: driver
+      ? {
+          status: driver.status,
+          dateOfBirth: driver.dateOfBirth,
+          residentialAddress: driver.residentialAddress,
+          licenceType: driver.licenceType,
+          licenceExpiresOn: driver.licenceExpiresOn,
+          hasBothLicenceScans: await hasBothLicenceScans(tx, driver.operatorId, driver.id),
+        }
+      : null,
+    driverOtherCarsOut:
+      driver && renter.kind === "organisation"
+        ? await otherCarsOutWith(tx, driver, check.rentalId)
+        : [],
     carStatus: parties.carStatus,
     car,
     coverOn,
@@ -279,7 +389,7 @@ export async function loadRentalProblems(
   reach: PaymentsReach = NO_RENTER_PAYMENTS,
   /** Only the handover itself checks as the car changes hands. */
   isHandingOverNow = false,
-): Promise<BookingProblem[] | "renter_not_found" | "car_not_found"> {
+): Promise<BookingProblem[] | MissingParty> {
   return withTenant(database, operatorId, async (tx) => {
     const parties = await findBookingParties(tx, operatorId, rental, false);
     if (typeof parties === "string") {

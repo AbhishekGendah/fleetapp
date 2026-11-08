@@ -65,6 +65,62 @@ export interface DriverCarOut {
 }
 
 /**
+ * The drivers of these businesses, current first (by name), then past ones
+ * (none when `isCurrentOnly`), the latest removed first, each with the
+ * business they drive for.
+ */
+export async function selectBusinessDrivers(
+  tx: AnyTransaction,
+  operatorId: string,
+  organisationIds: readonly string[],
+  options: { isCurrentOnly: boolean },
+): Promise<(BusinessDriver & { organisationId: string })[]> {
+  if (organisationIds.length === 0) {
+    return [];
+  }
+  const drivers = await tx
+    .select({
+      linkId: organisationDrivers.id,
+      organisationId: organisationDrivers.organisationId,
+      driverId: organisationDrivers.driverId,
+      fullName: driver.fullName,
+      preferredName: driver.preferredName,
+      phone: driver.phone,
+      status: driver.status,
+      archivedAt: driver.archivedAt,
+      licenceType: driver.licenceType,
+      licenceIssuedIn: driver.licenceIssuedIn,
+      licenceCountry: driver.licenceCountry,
+      licenceExpiresOn: driver.licenceExpiresOn,
+      isWaitingReview: driverWaitsReview,
+      isNamedOnRental,
+      addedAt: organisationDrivers.addedAt,
+      removedAt: organisationDrivers.removedAt,
+    })
+    .from(organisationDrivers)
+    .innerJoin(
+      driver,
+      and(
+        eq(driver.id, organisationDrivers.driverId),
+        eq(driver.operatorId, organisationDrivers.operatorId),
+      ),
+    )
+    .where(
+      and(
+        eq(organisationDrivers.operatorId, operatorId),
+        inArray(organisationDrivers.organisationId, [...organisationIds]),
+        options.isCurrentOnly ? isNull(organisationDrivers.removedAt) : undefined,
+      ),
+    )
+    .orderBy(
+      sql`${organisationDrivers.removedAt} is not null`,
+      desc(organisationDrivers.removedAt),
+      asc(sql`lower(${driver.fullName})`),
+    );
+  return drivers.map(({ archivedAt, ...row }) => ({ ...row, isArchived: archivedAt !== null }));
+}
+
+/**
  * The business's drivers, current first (by name), then past ones, the
  * latest removed first; with the cars of the business each has out now.
  */
@@ -74,43 +130,9 @@ export async function listBusinessDrivers(
   organisationId: string,
 ): Promise<{ drivers: BusinessDriver[]; carsOut: DriverCarOut[] }> {
   return withTenant(database, operatorId, async (tx) => {
-    const drivers = await tx
-      .select({
-        linkId: organisationDrivers.id,
-        driverId: organisationDrivers.driverId,
-        fullName: driver.fullName,
-        preferredName: driver.preferredName,
-        phone: driver.phone,
-        status: driver.status,
-        archivedAt: driver.archivedAt,
-        licenceType: driver.licenceType,
-        licenceIssuedIn: driver.licenceIssuedIn,
-        licenceCountry: driver.licenceCountry,
-        licenceExpiresOn: driver.licenceExpiresOn,
-        isWaitingReview: driverWaitsReview,
-        isNamedOnRental,
-        addedAt: organisationDrivers.addedAt,
-        removedAt: organisationDrivers.removedAt,
-      })
-      .from(organisationDrivers)
-      .innerJoin(
-        driver,
-        and(
-          eq(driver.id, organisationDrivers.driverId),
-          eq(driver.operatorId, organisationDrivers.operatorId),
-        ),
-      )
-      .where(
-        and(
-          eq(organisationDrivers.operatorId, operatorId),
-          eq(organisationDrivers.organisationId, organisationId),
-        ),
-      )
-      .orderBy(
-        sql`${organisationDrivers.removedAt} is not null`,
-        desc(organisationDrivers.removedAt),
-        asc(sql`lower(${driver.fullName})`),
-      );
+    const drivers = await selectBusinessDrivers(tx, operatorId, [organisationId], {
+      isCurrentOnly: false,
+    });
     const carsOut = await tx
       .select({
         driverId: sql<string>`${rentals.driverId}`,
@@ -132,10 +154,7 @@ export async function listBusinessDrivers(
         ),
       );
     return {
-      drivers: drivers.map(({ archivedAt, ...row }) => ({
-        ...row,
-        isArchived: archivedAt !== null,
-      })),
+      drivers: drivers.map(({ organisationId: _business, ...row }) => row),
       carsOut,
     };
   });
@@ -370,15 +389,14 @@ export function listDriverCandidates(
   operatorId: string,
   organisationId: string,
 ): Promise<PickableRecord[]> {
-  return listPickableRenters(
-    database,
-    operatorId,
-    sql`not exists (
+  return listPickableRenters(database, operatorId, {
+    isPeopleOnly: true,
+    alsoMatching: sql`not exists (
       select 1 from "organisation_drivers" "current"
       where "current"."operator_id" = "renters"."operator_id"
         and "current"."driver_id" = "renters"."id"
         and "current"."organisation_id" = ${organisationId}
         and "current"."removed_at" is null
     )`,
-  );
+  });
 }

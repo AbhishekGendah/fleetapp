@@ -16,6 +16,7 @@ import {
 /** What each rental field is called on the rental's page and in its Log. */
 const RENTAL_FIELD_LABELS: Readonly<Record<string, string>> = {
   renterId: "Renter",
+  driverId: "Driver",
   vehicleId: "Car",
   type: "Kind",
   status: "Status",
@@ -46,6 +47,9 @@ const BOOKING_PROBLEM_LABELS: Readonly<Record<BookingProblem["code"], string>> =
   no_insurance: "no insurance on file",
   no_rego: "no rego on file",
   details_missing: "Renter's details incomplete",
+  business_details_missing: "business's details incomplete",
+  driver_not_named: "driver to be named",
+  driver_has_other_car: "driver has another car out",
   licence_expired_by_start: "licence expires before the start",
   under_minimum_age: "Renter under the minimum age",
   provisional_licence: "provisional licence",
@@ -57,7 +61,12 @@ const BOOKING_PROBLEM_LABELS: Readonly<Record<BookingProblem["code"], string>> =
 const MOMENT_FIELDS = new Set(["plannedStart", "plannedEnd", "startedAt", "endedAt", "releasedAt"]);
 const CENTS_FIELDS = new Set(["weeklyRateCents", "bondCents", "amountCents"]);
 /** Other records, shown on the rental's page; the Log only says they were set. */
-const RECORD_FIELDS = new Set(["renterId", "vehicleId"]);
+const RECORD_FIELDS = new Set(["renterId", "vehicleId", "driverId"]);
+/** What an empty value means for a field, where "blank" would say less. */
+const EMPTY_VALUE_WORDS: Readonly<Record<string, string>> = {
+  plannedEnd: "none (ongoing)",
+  driverId: "to be named",
+};
 
 export function rentalFieldLabel(field: string): string {
   return RENTAL_FIELD_LABELS[field] ?? field;
@@ -96,7 +105,7 @@ export function describeRentalValue(field: string, value: unknown, timeZone: str
     return describeWarnings(value);
   }
   if (value === null || value === undefined || value === "") {
-    return field === "plannedEnd" ? "none (ongoing)" : "blank";
+    return EMPTY_VALUE_WORDS[field] ?? "blank";
   }
   if (value === WITHHELD_VALUE) {
     return "not shown";

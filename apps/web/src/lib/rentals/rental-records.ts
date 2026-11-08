@@ -25,7 +25,12 @@ import { recordUserChange, type ActingUser, type UserChange } from "../acting-us
 import { cancelLiveLinks } from "../renter-links/cancel-links";
 import { snapshotOperatorSettings } from "../settings/operator-settings";
 import { cancelOpenChecklists } from "../handover/handover-records";
-import { findBookingProblems, lockBookingParties } from "./booking-checks";
+import {
+  findBookingProblems,
+  lockBookingParties,
+  lockDriverNamingParties,
+  type MissingParty,
+} from "./booking-checks";
 import {
   findNewHoldClash,
   holdCar,
@@ -33,7 +38,7 @@ import {
   releaseCarHolds,
   type NewHoldClash,
 } from "./car-holds";
-import type { CancelRentalInput, RentalInput } from "./rental-input";
+import type { CancelRentalInput, NameDriverInput, RentalInput } from "./rental-input";
 
 /** Kept as drafts or bookings; the rest (handover, return) come with later slices. */
 export type NewRentalStatus = Extract<RentalStatus, "draft" | "booked">;
@@ -48,7 +53,7 @@ export type BookingResult =
   | { status: "saved"; rentalId: string; problems: BookingProblem[] }
   | { status: "refused"; problems: BookingProblem[] }
   | { status: "car_taken"; clash: NewHoldClash | null }
-  | { status: "renter_not_found" | "car_not_found" | "not_found" | "not_allowed" };
+  | { status: MissingParty | "not_found" | "not_allowed" };
 
 /** The Operator's own notes on a rental: kept with it, never written into the log. */
 const PRIVATE_RENTAL_FIELDS = ["notes", "cancellationReason"] as const;
@@ -193,8 +198,8 @@ export async function createRental(
       .values({
         ...values,
         operatorId: actor.operatorId,
-        // A person drives their own rentals (rule 15); the database holds it so.
-        driverId: parties.driver.id,
+        // A person drives their own rentals (rule 15); a business's driver may be named later.
+        driverId: parties.driver?.id ?? null,
         settingsSnapshot: { ...snapshot.settings },
         settingsVersion: snapshot.version,
       })
@@ -282,6 +287,89 @@ export async function bookRental(
       valuesAfter: { status: "booked", warnings: problemCodes(problems) },
     });
     return { status: "saved", rentalId: rental.id, problems };
+  });
+}
+
+export type NameDriverResult =
+  | { status: "saved"; problems: BookingProblem[] }
+  | { status: "refused"; problems: BookingProblem[] }
+  | { status: "unchanged" }
+  | { status: MissingParty | "not_found" | "not_allowed" };
+
+/** Only a draft or a booking names its driver here; once out, a driver change is its own flow (slice 4). */
+const DRIVER_NAMEABLE: ReadonlySet<RentalStatus> = new Set(["draft", "booked"]);
+
+/** The rental's Renter and car as they are now, read before any lock: whose lock comes first. */
+async function rentalPartiesOf(
+  tx: AnyTransaction,
+  operatorId: string,
+  rentalId: string,
+): Promise<{ renterId: string; vehicleId: string } | undefined> {
+  const [rental] = await tx
+    .select({ renterId: rentals.renterId, vehicleId: rentals.vehicleId })
+    .from(rentals)
+    .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, operatorId)));
+  return rental;
+}
+
+/**
+ * Names a business's driver on its draft or booking, or puts it back to "to
+ * be named" (decision 2). Locked as a handover locks them: the business, then
+ * the driver, then the rental, which is read again under its lock (its
+ * Renter and status may have changed meanwhile). The driver's checks run
+ * under the rental's own rules (rule 14): a Do not rent driver is refused,
+ * anything else is a warning the handover deals with. The database then
+ * takes the driver's link shared, so their removal waits for this.
+ */
+export async function nameRentalDriver(
+  database: AnyDatabase,
+  actor: ActingUser,
+  rentalId: string,
+  input: NameDriverInput,
+  clock: RentalClock,
+): Promise<NameDriverResult> {
+  return withTenant(database, actor.operatorId, async (tx) => {
+    const before = await rentalPartiesOf(tx, actor.operatorId, rentalId);
+    if (!before) {
+      return { status: "not_found" };
+    }
+    const parties = await lockDriverNamingParties(tx, actor.operatorId, {
+      ...before,
+      driverId: input.driverId,
+    });
+    if (typeof parties === "string") {
+      return { status: parties };
+    }
+    const rental = await lockRental(tx, actor.operatorId, rentalId);
+    if (
+      !rental ||
+      rental.renterId !== before.renterId ||
+      parties.renter.kind !== "organisation" ||
+      !DRIVER_NAMEABLE.has(rental.status)
+    ) {
+      return { status: rental ? "not_allowed" : "not_found" };
+    }
+    const driverId = parties.driver?.id ?? null;
+    if (rental.driverId === driverId) {
+      return { status: "unchanged" };
+    }
+    const settings = readSettings(operatorSettingsSchema, rental.settingsSnapshot);
+    const problems = await findBookingProblems(
+      tx,
+      { ...parties, vehicleId: rental.vehicleId },
+      { start: rental.plannedStart, end: rental.plannedEnd, ...clock },
+      settings,
+      { rentalId: rental.id, isHandingOverNow: false },
+    );
+    if (isBookingRefused(problems)) {
+      return { status: "refused", problems };
+    }
+    await tx.update(rentals).set({ driverId }).where(eq(rentals.id, rental.id));
+    await logRentalActivity(tx, actor, rental.id, ACTIVITY_ACTIONS.updated, {
+      valuesBefore: { driverId: rental.driverId },
+      valuesAfter: { driverId, warnings: problemCodes(problems) },
+    });
+    return { status: "saved", problems };
   });
 }
 

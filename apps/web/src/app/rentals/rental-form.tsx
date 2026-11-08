@@ -22,14 +22,17 @@ import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import Link from "next/link";
 import { useActionState } from "react";
 
+import type { BusinessChoice } from "../../lib/rentals/driver-choices";
 import {
   carPriceFields,
+  DRIVER_TO_BE_NAMED,
   isRequiredRentalField,
   parseRentalForm,
   RENTAL_FORM_FIELDS,
   type CarPrices,
   type RentalFormValues,
 } from "../../lib/rentals/rental-input";
+import { LazyDriverPicker } from "./lazy-driver-picker";
 import { BOOK_INTENT, DRAFT_INTENT, INTENT_FIELD, type RentalFormState } from "./rental-form-state";
 
 const INITIAL_STATE: RentalFormState = { status: "editing" };
@@ -37,6 +40,8 @@ const INITIAL_STATE: RentalFormState = { status: "editing" };
 interface RentalFormProps {
   initialValues: RentalFormValues;
   renters: readonly PickableRecord[];
+  /** The business Renters among them, by id, with who signs and their drivers (mockup 5). */
+  businesses: Readonly<Record<string, BusinessChoice>>;
   cars: readonly PickableRecord[];
   /** Each car's prices: choosing a car fills the price boxes, which stay editable. */
   carPrices: Readonly<Record<string, CarPrices>>;
@@ -91,6 +96,7 @@ export function RentalForm(props: RentalFormProps) {
   });
   const shownState = form.isResultShown && !isPending ? state : INITIAL_STATE;
   const isFixedTerm = form.values.type === "fixed_term";
+  const business = props.businesses[form.values.renterId];
   const field = (name: (typeof RENTAL_FORM_FIELDS)[number]) => ({
     htmlFor: form.idFor(name),
     isRequired: isRequiredRentalField(name, form.values.type),
@@ -108,16 +114,35 @@ export function RentalForm(props: RentalFormProps) {
       <FormField
         label="Renter"
         {...field("renterId")}
-        hint="Renters marked Do not rent are not listed."
+        hint={
+          business
+            ? `The contract goes to ${business.contactName ?? "the business's contact"} to sign for ${business.legalName}.`
+            : "Renters marked Do not rent are not listed."
+        }
       >
         <RecordPicker
           {...form.boxProps("renterId")}
           records={props.renters}
-          onValueChange={(value) => form.setValue("renterId", value)}
-          placeholder="Type a name, phone or email"
+          onValueChange={(value) => {
+            form.setValue("renterId", value);
+            // Another business's drivers are not this one's: start again from "to be named".
+            form.setValue("driverId", DRIVER_TO_BE_NAMED);
+          }}
+          placeholder="Type a name, business, phone or email"
           emptyMessage="No Renter matches that. Add them on the Renters page first."
         />
       </FormField>
+      {business ? (
+        <LazyDriverPicker
+          id={form.idFor("driverId")}
+          name="driverId"
+          businessId={form.values.renterId}
+          business={business}
+          value={form.values.driverId}
+          onValueChange={(value) => form.setValue("driverId", value)}
+          error={form.errorFor("driverId")}
+        />
+      ) : null}
       <FormField
         label="Car"
         {...field("vehicleId")}

@@ -23,6 +23,19 @@ const WEEKLY_PRICE_ABOVE_ZERO_MESSAGE = "Enter a weekly price above $0, or leave
 
 const recordIdOf = (message: string) => z.string().trim().refine(isRecordId, message);
 
+/** The driver picker's choice for a business's booking with its driver still to be named (decision 2). */
+export const DRIVER_TO_BE_NAMED = "to_be_named";
+
+/**
+ * A business's driver as picked: one of its drivers, or none yet. Anything
+ * else (a person's own rental sends nothing) reads as none: who may drive is
+ * checked against the business's own drivers when it is saved.
+ */
+export const pickedDriverId = z
+  .string()
+  .trim()
+  .transform((value) => (isRecordId(value) ? value : null));
+
 /**
  * A new rental, as on the New rental form. Times are typed on the
  * Operator's clock (`timeZone`) and kept in UTC. An ongoing rental has no
@@ -32,6 +45,7 @@ function rentalInputSchemaIn(timeZone: string) {
   return z
     .object({
       renterId: recordIdOf(PICK_RENTER_MESSAGE),
+      driverId: pickedDriverId,
       vehicleId: recordIdOf(PICK_CAR_MESSAGE),
       type: z.enum(RENTAL_TYPES, REQUIRED_MESSAGE),
       plannedStart: requiredLocalMoment(timeZone),
@@ -68,6 +82,7 @@ export type RentalInput = z.infer<ReturnType<typeof rentalInputSchemaIn>>;
 
 export const RENTAL_FORM_FIELDS = [
   "renterId",
+  "driverId",
   "vehicleId",
   "type",
   "plannedStart",
@@ -85,7 +100,7 @@ export function isRequiredRentalField(field: RentalFormField, type: string): boo
   if (field === "plannedEnd") {
     return type === "fixed_term";
   }
-  return field !== "notes" && field !== "longTermWeeklyCents";
+  return field !== "notes" && field !== "longTermWeeklyCents" && field !== "driverId";
 }
 
 export function parseRentalForm(
@@ -105,8 +120,12 @@ export function emptyRentalForm(
   > = {},
 ): RentalFormValues {
   const type: RentalType = "fixed_term";
-  return { ...emptyForm(RENTAL_FORM_FIELDS), type, ...preset };
+  return { ...emptyForm(RENTAL_FORM_FIELDS), type, driverId: DRIVER_TO_BE_NAMED, ...preset };
 }
+
+/** Naming a business's driver on a draft or booking, or putting it back to "to be named". */
+export const nameDriverInputSchema = z.object({ driverId: pickedDriverId });
+export type NameDriverInput = z.infer<typeof nameDriverInputSchema>;
 
 /** Why a booking was cancelled: kept with the rental, never shown in the log. */
 export const cancelRentalInputSchema = z.object({ reason: requiredLine });

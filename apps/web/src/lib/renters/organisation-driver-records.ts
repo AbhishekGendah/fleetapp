@@ -86,13 +86,14 @@ async function lockPerson(tx: AnyTransaction, operatorId: string, renterId: stri
   return other;
 }
 
-async function currentLinkOf(
+/** The business's current link to this driver, if any; locked when asked. */
+export async function currentLinkOf(
   tx: AnyTransaction,
   operatorId: string,
   organisationId: string,
   driverId: string,
   shouldLock: boolean,
-) {
+): Promise<{ id: string } | undefined> {
   const query = tx
     .select({ id: organisationDrivers.id })
     .from(organisationDrivers)
