@@ -49,9 +49,10 @@ export function ChoiceCards<Value extends string>(
         {props.label}
         {props.isRequired ? <RequiredMark /> : null}
       </span>
+      {/* The value goes with the form from here: one plain field, whatever the group renders. */}
+      <input type="hidden" name={props.name} value={props.value} />
       <RadioGroup
         id={props.id}
-        name={props.name}
         value={props.value}
         onValueChange={(value) => props.onValueChange(value as Value)}
         aria-labelledby={fieldLabelId(props.id)}
