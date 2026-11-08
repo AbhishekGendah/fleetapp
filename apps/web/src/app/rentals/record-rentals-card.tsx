@@ -38,7 +38,8 @@ export async function RecordRentalsCard(props: {
   scope: Exclude<RentalScope, Record<string, never>>;
   heading: string;
   newRentalLabel: string;
-  isArchived: boolean;
+  /** No New rental: the car or Renter is archived, or (a business, until plan slice 3) can't be booked here yet. */
+  isNewRentalHidden: boolean;
 }) {
   const clock = { timeZone: props.user.operatorTimezone, now: new Date() };
   const page = await listRentalPage(appDb, props.user.operatorId, LATEST_FIRST, {
@@ -55,7 +56,7 @@ export async function RecordRentalsCard(props: {
     <SectionCard
       heading={props.heading}
       aside={
-        props.isArchived ? null : (
+        props.isNewRentalHidden ? null : (
           <Link
             href={newRentalPath(props.scope)}
             className="text-teal hover:text-primary inline-flex min-h-11 items-center gap-1 text-sm font-bold"

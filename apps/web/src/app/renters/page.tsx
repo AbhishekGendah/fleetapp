@@ -111,7 +111,7 @@ export default async function RentersPage(props: {
             hasRowLinksInCells
             renderCard={(renter) => <RenterCard renter={renter} />}
             itemName={{ one: "Renter", many: "Renters" }}
-            searchLabel="Search by name, phone or email"
+            searchLabel="Search by name, ABN, phone or email"
             exportHrefs={{
               csv: `${RENTERS_EXPORT_PATH}/csv${queryString}`,
               xlsx: `${RENTERS_EXPORT_PATH}/xlsx${queryString}`,

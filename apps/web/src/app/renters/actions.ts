@@ -17,7 +17,18 @@ import {
   RENTER_FORM_FIELDS,
   type RenterInput,
 } from "../../lib/renters/renter-input";
-import { createRenter, updateRenter } from "../../lib/renters/renter-records";
+import {
+  BUSINESS_RENTER_FORM_FIELDS,
+  parseBusinessRenterForm,
+  type BusinessRenterInput,
+} from "../../lib/renters/business-renter-input";
+import {
+  createBusinessRenter,
+  createRenter,
+  updateBusinessRenter,
+  updateRenter,
+  type ChangeRenterResult,
+} from "../../lib/renters/renter-records";
 import { RENTER_NOT_FOUND_MESSAGE, type RenterFormState } from "./renter-form-state";
 
 const UNEXPECTED_ERROR_MESSAGE = "Something went wrong and nothing was saved. Try again.";
@@ -26,18 +37,28 @@ const UNEXPECTED_ERROR_MESSAGE = "Something went wrong and nothing was saved. Tr
 const INVALID_MESSAGE =
   "Some details are not right, so nothing was saved. Check them and try again.";
 
-/** Checks, saves, and on success goes to the Renter's page. Shared by adding and editing. */
-async function saveRenterForm(
+/** How one kind of Renter form is read: the same schema the browser checked it with. */
+type FormReader<Input> = (
   formData: FormData,
-  save: (actor: ActingUser, input: RenterInput) => Promise<string | null>,
+  today: string,
+) => { success: true; data: Input } | { success: false };
+
+const readPersonForm: FormReader<RenterInput> = (formData, today) =>
+  parseRenterForm(formTextValues(formData, RENTER_FORM_FIELDS), today);
+
+const readBusinessForm: FormReader<BusinessRenterInput> = (formData) =>
+  parseBusinessRenterForm(formTextValues(formData, BUSINESS_RENTER_FORM_FIELDS));
+
+/** Checks, saves, and on success goes to the Renter's page. Shared by adding and editing either kind. */
+async function saveRenterForm<Input>(
+  formData: FormData,
+  read: FormReader<Input>,
+  save: (actor: ActingUser, input: Input) => Promise<string | null>,
   afterSave: (actor: ActingUser, renterId: string) => Promise<string> = async (_, renterId) =>
     renterPath(renterId),
 ): Promise<RenterFormState> {
   const user = await requireUser();
-  const parsed = parseRenterForm(
-    formTextValues(formData, RENTER_FORM_FIELDS),
-    todayInTimeZone(new Date(), user.operatorTimezone),
-  );
+  const parsed = read(formData, todayInTimeZone(new Date(), user.operatorTimezone));
   if (!parsed.success) {
     return { status: "failed", formError: INVALID_MESSAGE };
   }
@@ -79,7 +100,21 @@ export async function addRenterAction(
 ): Promise<RenterFormState> {
   return saveRenterForm(
     formData,
+    readPersonForm,
     (actor, input) => createRenter(appDb, actor, input),
+    afterAddingRenter,
+  );
+}
+
+/** A business's contact gets the privacy notice too: their details are personal information. */
+export async function addBusinessRenterAction(
+  _previous: RenterFormState,
+  formData: FormData,
+): Promise<RenterFormState> {
+  return saveRenterForm(
+    formData,
+    readBusinessForm,
+    (actor, input) => createBusinessRenter(appDb, actor, input),
     afterAddingRenter,
   );
 }
@@ -93,12 +128,34 @@ export async function editRenterAction(
   if (!isRecordId(renterId)) {
     return { status: "failed", formError: RENTER_NOT_FOUND_MESSAGE };
   }
-  return saveRenterForm(formData, async (actor, input) => {
-    const result = await updateRenter(appDb, actor, renterId, input);
-    if (result === "not_found") {
-      return null;
-    }
-    await tellStripeAboutRenter(appPaymentDependencies(), actor.operatorId, renterId);
-    return renterId;
-  });
+  return saveRenterForm(formData, readPersonForm, async (actor, input) =>
+    afterEditing(actor, renterId, await updateRenter(appDb, actor, renterId, input)),
+  );
+}
+
+/** Bound to one business's id by the edit page; checked against the User's Operator on save. */
+export async function editBusinessRenterAction(
+  renterId: string,
+  _previous: RenterFormState,
+  formData: FormData,
+): Promise<RenterFormState> {
+  if (!isRecordId(renterId)) {
+    return { status: "failed", formError: RENTER_NOT_FOUND_MESSAGE };
+  }
+  return saveRenterForm(formData, readBusinessForm, async (actor, input) =>
+    afterEditing(actor, renterId, await updateBusinessRenter(appDb, actor, renterId, input)),
+  );
+}
+
+/** Stripe keeps its own copy of the name and email: told after a save (review A5-6). */
+async function afterEditing(
+  actor: ActingUser,
+  renterId: string,
+  result: ChangeRenterResult,
+): Promise<string | null> {
+  if (result === "not_found") {
+    return null;
+  }
+  await tellStripeAboutRenter(appPaymentDependencies(), actor.operatorId, renterId);
+  return renterId;
 }

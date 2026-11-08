@@ -1,6 +1,6 @@
 "use server";
 
-import { formTextValues, isRecordId } from "@fleetapp/core";
+import { formTextValues, isRecordId, type ArchiveProblem } from "@fleetapp/core";
 import { failedState, savedState, type ChangeFormState } from "@fleetapp/ui/change-form-state";
 
 import type { ActingUser } from "../../../lib/acting-user";
@@ -50,8 +50,18 @@ export async function changeRenterStatusAction(
   });
 }
 
-const IN_USE_MESSAGE =
-  "This Renter has a rental booked or out. Finish or cancel it first, then archive them.";
+/** Why a Renter can't be archived yet, in the Operator's words (the database refuses the same). */
+const ARCHIVE_PROBLEM_MESSAGES: Readonly<Record<ArchiveProblem, string>> = {
+  in_use: "This Renter has a rental booked or out. Finish or cancel it first, then archive them.",
+  has_drivers:
+    "This business still has drivers. Remove them on its Drivers tab first, then archive it.",
+  drives_for:
+    "They still drive for a business. Remove them from its Drivers tab first, then archive them.",
+};
+
+function isArchiveProblem(result: string): result is ArchiveProblem {
+  return Object.hasOwn(ARCHIVE_PROBLEM_MESSAGES, result);
+}
 
 /** Archive and restore come from a single button, with nothing typed. */
 export async function setRenterArchivedAction(
@@ -66,8 +76,8 @@ export async function setRenterArchivedAction(
       const result = shouldArchive
         ? await archiveRenter(appDb, actor, renterId)
         : await restoreRenter(appDb, actor, renterId);
-      if (result === "in_use") {
-        return failedState(IN_USE_MESSAGE);
+      if (isArchiveProblem(result)) {
+        return failedState(ARCHIVE_PROBLEM_MESSAGES[result]);
       }
       return result === "not_found"
         ? failedState(RENTER_NOT_FOUND_MESSAGE)

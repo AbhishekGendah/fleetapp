@@ -14,10 +14,10 @@ import {
   withYouSinceFact,
 } from "../../../lib/renters/renter-page-facts";
 import type { RenterDetail } from "../../../lib/renters/renter-queries";
-import { RenterBadges } from "../renter-list";
+import { RenterBadges, RenterKindLabels } from "../renter-list";
 import type { RenterPageData } from "./renter-page-data";
 
-const STRIP_LINK_CLASSES =
+export const STRIP_LINK_CLASSES =
   "text-primary-foreground hover:text-on-primary-label focus-visible:ring-primary-foreground inline-flex min-h-11 items-center rounded-sm font-bold outline-none focus-visible:ring-2";
 
 /** Their phone and email, each opening the phone's own app; and the name they go by. */
@@ -37,6 +37,11 @@ function ContactLine({ renter }: { renter: RenterDetail }) {
       </a>
     ) : null,
   ].filter((part) => part !== null);
+  return <DottedLine parts={parts} />;
+}
+
+/** Bits of the strip's second line, a dot between each. */
+export function DottedLine({ parts }: { parts: readonly React.ReactNode[] }) {
   return (
     <span className="flex flex-wrap items-center gap-x-2">
       {parts.flatMap((part, index) =>
@@ -74,9 +79,16 @@ export function RenterStrip(props: {
       backLabel="Renters"
       title={renter.fullName}
       subtitle={<ContactLine renter={renter} />}
-      badges={<RenterBadges badges={data.badges} />}
+      badges={
+        <>
+          <RenterKindLabels labels={data.kindLabels} />
+          <RenterBadges badges={data.badges} />
+        </>
+      }
       facts={[
-        renterOwingFact(data.ledger, data.overdue, data.today),
+        data.paidByText
+          ? { ...renterOwingFact(data.ledger, data.overdue, data.today), note: data.paidByText }
+          : renterOwingFact(data.ledger, data.overdue, data.today),
         {
           label: renting.label,
           value: car ? (

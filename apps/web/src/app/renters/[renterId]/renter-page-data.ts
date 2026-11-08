@@ -17,6 +17,7 @@ import {
   loadRenterSummary,
   type RenterDetail,
 } from "../../../lib/renters/renter-queries";
+import { loadCurrentBusinessesOf } from "../../../lib/renters/organisation-driver-queries";
 import { loadRenterRentalsUnderWay } from "../../../lib/renters/renter-rentals-now";
 import type { RentalSummary } from "../../../lib/rentals/rental-queries";
 import { loadOperatorSettings } from "../../../lib/settings/operator-settings";
@@ -33,6 +34,10 @@ export interface RenterPageData {
   renting: RenterRenting;
   rentalCount: number;
   badges: RenterBadge[];
+  /** "Business", "Driver for Acme Rides": as beside their name on the list. */
+  kindLabels: string[];
+  /** A driver with nothing of their own to pay, in a business's car: "Acme Rides pays". */
+  paidByText: string | null;
   licenceExpiry: ExpiryContext;
   licenceStatus: ExpiryStatus;
   today: string;
@@ -44,7 +49,7 @@ export async function loadRenterPageData(
   clock: RentalClock,
 ): Promise<RenterPageData> {
   const today = todayInTimeZone(clock.now, clock.timeZone);
-  const [summary, ledger, underWay, rentalCount, licenceExpiry, settings, bonds] =
+  const [summary, ledger, underWay, rentalCount, licenceExpiry, settings, bonds, businessesOf] =
     await Promise.all([
       loadRenterSummary(appDb, user.operatorId, renter.id),
       loadRenterLedger(appDb, user.operatorId, renter.id),
@@ -53,6 +58,7 @@ export async function loadRenterPageData(
       loadExpiryContext(user, "licenceExpiryWarningDays"),
       loadOperatorSettings(appDb, user.operatorId),
       loadBondsToRefund(appDb, user.operatorId, MOST_OF_A_KIND),
+      loadCurrentBusinessesOf(appDb, user.operatorId, [renter.id]),
     ]);
   if (!summary) {
     throw new Error("The Renter went missing while their page loaded.");
@@ -64,8 +70,13 @@ export async function loadRenterPageData(
     [summary],
     {
       rentalsUnderWay: underWay,
-      money: new Map([[renter.id, { balanceCents: ledger.balanceCents, overdue }]]),
+      // No lines of their own reads as no money of their own, as on the list.
+      money:
+        ledger.lines.length > 0
+          ? new Map([[renter.id, { balanceCents: ledger.balanceCents, overdue }]])
+          : new Map(),
       bondToRefundRenterIds: new Set(bonds.items.map((bond) => bond.renterId)),
+      businessesOf,
     },
     licenceExpiry,
     clock,
@@ -77,6 +88,8 @@ export async function loadRenterPageData(
     renting: row?.renting ?? rentingOf(summary, rentalsUnderWay, clock),
     rentalCount,
     badges: row?.badges ?? [],
+    kindLabels: row?.kindLabels ?? [],
+    paidByText: row?.paidByText ?? null,
     licenceExpiry,
     licenceStatus: expiryStatus(
       renter.licenceExpiresOn,

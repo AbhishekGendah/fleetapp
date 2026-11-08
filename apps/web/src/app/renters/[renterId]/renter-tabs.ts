@@ -5,6 +5,7 @@ import {
   LayoutList,
   NotebookPen,
   UserRound,
+  UsersRound,
   Wallet,
 } from "lucide-react";
 
@@ -29,3 +30,22 @@ export const RENTER_TABS = [
 export const RENTER_TAB_LINKS = recordTabs(RENTER_TABS, renterPath);
 
 export type RenterTabKey = (typeof RENTER_TABS)[number]["key"];
+
+/**
+ * A business Renter's tabs (7 Nov 2026 mockups): its drivers in place of a
+ * licence, which a business doesn't have. Each address is the same as the
+ * person's tab of that name.
+ */
+export const BUSINESS_TABS = [
+  { key: "overview", label: "Overview", icon: LayoutList },
+  { key: "drivers", label: "Drivers", icon: UsersRound },
+  { key: "rentals", label: "Rentals", icon: CalendarRange },
+  { key: "money", label: "Money", icon: Wallet },
+  { key: "details", label: "Details", icon: UserRound },
+  { key: "notes", label: "Notes", icon: NotebookPen },
+  { key: "log", label: "Log", icon: History },
+] as const satisfies readonly [RecordTab, ...RecordTab[]];
+
+export const BUSINESS_TAB_LINKS = recordTabs(BUSINESS_TABS, renterPath);
+
+export type BusinessTabKey = (typeof BUSINESS_TABS)[number]["key"];

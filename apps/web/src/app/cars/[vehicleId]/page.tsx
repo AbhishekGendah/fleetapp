@@ -78,7 +78,7 @@ function ChosenTab(props: {
           scope={{ vehicleId: vehicle.id }}
           heading={`Rentals of ${vehicle.rego}`}
           newRentalLabel="New rental"
-          isArchived={vehicle.archivedAt !== null}
+          isNewRentalHidden={vehicle.archivedAt !== null}
         />
       );
     case "paperwork":

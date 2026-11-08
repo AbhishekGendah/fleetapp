@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { renterFirstName } from "@fleetapp/core";
+import { renterFirstName, renterShownName } from "@fleetapp/core";
 import { ACTIVITY_ENTITY_TYPES } from "@fleetapp/db/schema";
 import { TabLinks } from "@fleetapp/ui/tab-links";
 
@@ -11,12 +11,22 @@ import type { RentalClock } from "../../../lib/rentals/rental-records";
 import { listRenterLinkIds } from "../../../lib/renter-links/details-links";
 import { requireUser, type SignedInUser } from "../../../lib/require-user";
 import { listRenterFileIds } from "../../../lib/renters/licence-scans";
-import { describeRenterValue, renterFieldLabel } from "../../../lib/renters/renter-labels";
+import {
+  businessRenterFieldLabel,
+  describeRenterValue,
+  renterFieldLabel,
+} from "../../../lib/renters/renter-labels";
+import { listDriverLinkIds } from "../../../lib/renters/organisation-driver-queries";
 import { listNoteIds } from "../../../lib/renters/notes";
 import type { RenterDetail } from "../../../lib/renters/renter-queries";
 import { AppShell } from "../../app-shell";
 import { RecordRentalsCard } from "../../rentals/record-rentals-card";
+import { BusinessDetailsTab } from "./business-details-tab";
+import { BusinessOverviewTab } from "./business-overview-tab";
+import { loadBusinessPageData, type BusinessPageData } from "./business-page-data";
+import { BusinessStrip } from "./business-strip";
 import { DetailsTab } from "./details-tab";
+import { DriversTab } from "./drivers-tab";
 import { LicenceTab } from "./licence-tab";
 import { loadRenterOrNotFound } from "./load-renter";
 import { MoneyTab } from "./money-tab";
@@ -25,7 +35,14 @@ import { NoticeNotSent } from "./notice-not-sent";
 import { RenterOverviewTab } from "./overview-tab";
 import { loadRenterPageData, type RenterPageData } from "./renter-page-data";
 import { RenterStrip } from "./renter-strip";
-import { RENTER_TAB_LINKS, RENTER_TABS, type RenterTabKey } from "./renter-tabs";
+import {
+  BUSINESS_TAB_LINKS,
+  BUSINESS_TABS,
+  RENTER_TAB_LINKS,
+  RENTER_TABS,
+  type BusinessTabKey,
+  type RenterTabKey,
+} from "./renter-tabs";
 
 /** Its own tab name: the layout adds the product's (review A10-2). */
 export const metadata: Metadata = { title: "Renter" };
@@ -39,9 +56,10 @@ export const dynamic = "force-dynamic";
  */
 async function RenterLogTab({ renter, user }: { renter: RenterDetail; user: SignedInUser }) {
   const linkIds = await listRenterLinkIds(appDb, user.operatorId, renter.id);
-  const [fileIds, noteIds] = await Promise.all([
+  const [fileIds, noteIds, driverLinkIds] = await Promise.all([
     listRenterFileIds(appDb, user.operatorId, renter.id, linkIds),
     listNoteIds(appDb, user.operatorId, renter.id),
+    listDriverLinkIds(appDb, user.operatorId, renter.id),
   ]);
   return (
     <HistoryCard
@@ -51,8 +69,9 @@ async function RenterLogTab({ renter, user }: { renter: RenterDetail; user: Sign
         { entityType: ACTIVITY_ENTITY_TYPES.file, entityIds: fileIds },
         { entityType: ACTIVITY_ENTITY_TYPES.renterNote, entityIds: noteIds },
         { entityType: ACTIVITY_ENTITY_TYPES.renterLink, entityIds: linkIds },
+        { entityType: ACTIVITY_ENTITY_TYPES.organisationDriver, entityIds: driverLinkIds },
       ]}
-      fieldLabel={renterFieldLabel}
+      fieldLabel={renter.kind === "organisation" ? businessRenterFieldLabel : renterFieldLabel}
       describeValue={describeRenterValue}
     />
   );
@@ -77,7 +96,7 @@ function ChosenTab(props: {
           scope={{ renterId: renter.id }}
           heading={`${renterFirstName(renter.fullName, renter.preferredName)}'s rentals`}
           newRentalLabel="New rental"
-          isArchived={renter.archivedAt !== null}
+          isNewRentalHidden={renter.archivedAt !== null}
         />
       );
     case "money":
@@ -93,6 +112,101 @@ function ChosenTab(props: {
   }
 }
 
+/** A business's tab chosen in the address (7 Nov 2026 mockups). */
+async function ChosenBusinessTab(props: {
+  tab: BusinessTabKey;
+  renter: RenterDetail;
+  user: SignedInUser;
+  data: RenterPageData;
+  business: BusinessPageData;
+  clock: RentalClock;
+}) {
+  const { tab, renter, user, data, business } = props;
+  switch (tab) {
+    case "overview":
+      return (
+        <BusinessOverviewTab
+          renter={renter}
+          data={data}
+          business={business}
+          user={user}
+          clock={props.clock}
+        />
+      );
+    case "drivers":
+      return (
+        <DriversTab renter={renter} business={business} expiry={data.licenceExpiry} user={user} />
+      );
+    case "rentals":
+      return (
+        <RecordRentalsCard
+          user={user}
+          scope={{ renterId: renter.id }}
+          heading={`${renterShownName(renter)}'s rentals`}
+          newRentalLabel="New rental"
+          // Renting to a business comes with its driver picker and contract (plan slice 3).
+          isNewRentalHidden
+        />
+      );
+    case "money":
+      return <MoneyTab renterId={renter.id} user={user} moneyByCar={business.moneyByCar} />;
+    case "details":
+      return <BusinessDetailsTab renter={renter} user={user} />;
+    case "notes":
+      return <NotesTab renter={renter} user={user} />;
+    case "log":
+      return <RenterLogTab renter={renter} user={user} />;
+  }
+}
+
+/** A business Renter's page: its own strip and tabs, its drivers in place of a licence. */
+async function BusinessRenterPage(props: {
+  renter: RenterDetail;
+  user: SignedInUser;
+  searchParams: Record<string, string | string[] | undefined>;
+  data: RenterPageData;
+  clock: RentalClock;
+}) {
+  const { renter, user, data, clock } = props;
+  const tab = BUSINESS_TAB_LINKS.chosen(props.searchParams[TAB_PARAM]);
+  const business = await loadBusinessPageData(renter.id, user, clock, data);
+  return (
+    <AppShell
+      user={user}
+      strip={
+        <BusinessStrip
+          renter={renter}
+          data={data}
+          driverCount={business.currentDrivers.length}
+          clock={clock}
+        />
+      }
+    >
+      <NoticeNotSent
+        renterName={renter.contactName ?? renter.fullName}
+        outcome={props.searchParams[NOTICE_PARAM]}
+      />
+      <TabLinks
+        label="Business sections"
+        tabs={BUSINESS_TABS.map((item) => ({
+          href: BUSINESS_TAB_LINKS.href(renter.id, item.key),
+          label: item.label,
+          isCurrent: item.key === tab,
+          icon: <item.icon aria-hidden />,
+        }))}
+      />
+      <ChosenBusinessTab
+        tab={tab}
+        renter={renter}
+        user={user}
+        data={data}
+        business={business}
+        clock={clock}
+      />
+    </AppShell>
+  );
+}
+
 /**
  * One Renter (docs/plans/look-and-feel.md, "Cars and Renters pages"): the
  * navy strip, then tabs for their Overview, Rentals, Money, Details, Licence,
@@ -106,9 +220,20 @@ export default async function RenterPage(props: {
   const user = await requireUser();
   const [{ renterId }, searchParams] = await Promise.all([props.params, props.searchParams]);
   const renter = await loadRenterOrNotFound(user, renterId);
-  const tab = RENTER_TAB_LINKS.chosen(searchParams[TAB_PARAM]);
   const clock: RentalClock = { timeZone: user.operatorTimezone, now: new Date() };
   const data = await loadRenterPageData(renter, user, clock);
+  if (renter.kind === "organisation") {
+    return (
+      <BusinessRenterPage
+        renter={renter}
+        user={user}
+        searchParams={searchParams}
+        data={data}
+        clock={clock}
+      />
+    );
+  }
+  const tab = RENTER_TAB_LINKS.chosen(searchParams[TAB_PARAM]);
 
   return (
     <AppShell

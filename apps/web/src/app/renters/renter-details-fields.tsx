@@ -8,8 +8,8 @@ import { FormSection } from "@fleetapp/ui/form-section";
 import { Input } from "@fleetapp/ui/input";
 import type { FormFields } from "@fleetapp/ui/use-form-fields";
 
-import { AddressSearch, type AddressLookup } from "../../components/address-search";
-import { singleLineAddress } from "../../lib/address-lookup/address-from-components";
+import type { AddressLookup } from "../../components/address-search";
+import { FormAddressBox } from "../../components/form-address-box";
 import { TICKED_VALUE, type RenterFormField } from "../../lib/renters/renter-input";
 import { RENTER_FIELD_LABELS } from "../../lib/renters/renter-labels";
 
@@ -63,17 +63,7 @@ export function RenterDetailsFields(props: RenterDetailsFieldsProps) {
   }
 
   function addressBox(field: "residentialAddress" | "postalAddress") {
-    return (
-      <AddressSearch
-        {...form.boxProps(field)}
-        placeholder="Start typing to search"
-        autoComplete="off"
-        onValueChange={(value) => form.setValue(field, value)}
-        onAddressChosen={(address) => form.fillIn({ [field]: singleLineAddress(address) })}
-        nearState={null}
-        lookup={props.addressLookup}
-      />
-    );
+    return <FormAddressBox form={form} field={field} lookup={props.addressLookup} />;
   }
 
   return (

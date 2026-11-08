@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { todayInTimeZone } from "@fleetapp/core";
+import { renterShownName, todayInTimeZone } from "@fleetapp/core";
 import { Card, CardContent } from "@fleetapp/ui/card";
 import { PageHeader } from "@fleetapp/ui/page-header";
 import { redirect } from "next/navigation";
@@ -8,7 +8,9 @@ import { renterPath } from "../../../../lib/paths";
 import { requireUser } from "../../../../lib/require-user";
 import { renterFormValues } from "../../../../lib/renters/renter-input";
 import { AppShell } from "../../../app-shell";
-import { editRenterAction } from "../../actions";
+import { businessRenterFormValues } from "../../../../lib/renters/business-renter-input";
+import { editBusinessRenterAction, editRenterAction } from "../../actions";
+import { BusinessRenterForm } from "../../business-renter-form";
 import { RenterForm } from "../../renter-form";
 import { loadRenterOrNotFound } from "../load-renter";
 
@@ -30,18 +32,27 @@ export default async function EditRenterPage(props: { params: Promise<{ renterId
     <AppShell user={user}>
       <PageHeader
         backHref={renterPath(renter.id)}
-        backLabel={renter.fullName}
-        title={`Edit ${renter.fullName}`}
+        backLabel={renterShownName(renter)}
+        title={`Edit ${renterShownName(renter)}`}
       />
       <Card>
         <CardContent className="pt-4 sm:pt-6">
-          <RenterForm
-            initialValues={renterFormValues(renter)}
-            today={todayInTimeZone(new Date(), user.operatorTimezone)}
-            action={editRenterAction.bind(null, renter.id)}
-            submitLabel="Save changes"
-            cancelHref={renterPath(renter.id)}
-          />
+          {renter.kind === "organisation" ? (
+            <BusinessRenterForm
+              initialValues={businessRenterFormValues(renter)}
+              action={editBusinessRenterAction.bind(null, renter.id)}
+              submitLabel="Save changes"
+              cancelHref={renterPath(renter.id)}
+            />
+          ) : (
+            <RenterForm
+              initialValues={renterFormValues(renter)}
+              today={todayInTimeZone(new Date(), user.operatorTimezone)}
+              action={editRenterAction.bind(null, renter.id)}
+              submitLabel="Save changes"
+              cancelHref={renterPath(renter.id)}
+            />
+          )}
         </CardContent>
       </Card>
     </AppShell>

@@ -1,4 +1,4 @@
-import { renterDisplayName } from "@fleetapp/core";
+import { RENTER_KIND_LABELS } from "@fleetapp/core";
 import { Badge } from "@fleetapp/ui/badge";
 import type { DataListDefinition } from "@fleetapp/ui/data-list";
 import { InlineRecordLink, RowLink } from "@fleetapp/ui/row-link";
@@ -19,7 +19,34 @@ const NOTHING_YET = "–";
 const NOT_ON_FILE = "Not on file";
 
 function nameOf(renter: RenterListRow): string {
-  return renterDisplayName(renter.fullName, renter.preferredName);
+  return renter.shownName;
+}
+
+/** "Business", "Driver for Acme Rides": grey outlined, lighter than any status (7 Nov 2026 mockups). */
+export function RenterKindLabels({ labels }: { labels: readonly string[] }) {
+  if (labels.length === 0) {
+    return null;
+  }
+  return (
+    <span className="flex flex-wrap gap-1">
+      {labels.map((label) => (
+        <Badge key={label} tone="kind">
+          {label}
+        </Badge>
+      ))}
+    </span>
+  );
+}
+
+/** Under the name: a business's legal name (when it trades by another), then the phone. */
+function NameNote({ renter }: { renter: RenterListRow }) {
+  const parts = [
+    renter.kind === "organisation" && renter.shownName !== renter.fullName ? renter.fullName : null,
+    renter.phone,
+  ].filter(Boolean);
+  return parts.length > 0 ? (
+    <span className="text-muted-foreground text-xs tabular-nums">{parts.join(" · ")}</span>
+  ) : null;
 }
 
 export function RenterBadges({ badges }: { badges: readonly RenterBadge[] }) {
@@ -59,8 +86,14 @@ function RentingWords({ renter }: { renter: RenterListRow }) {
   );
 }
 
-/** "$450.00" red, "$20.00 in credit" teal, "$0.00" grey, or "–" while nothing is charged yet. */
+/**
+ * "$450.00" red, "$20.00 in credit" teal, "$0.00" grey, or "–" while nothing
+ * is charged yet; for a driver in a business's car, "Acme Rides pays".
+ */
 function OwingAmount({ renter }: { renter: RenterListRow }) {
+  if (renter.paidByText) {
+    return <span className="text-muted-foreground">{renter.paidByText}</span>;
+  }
   if (renter.balanceCents === null) {
     return <span className="text-muted-foreground">{NOTHING_YET}</span>;
   }
@@ -83,12 +116,15 @@ export function RenterCard({ renter }: { renter: RenterListRow }) {
         <NameLink renter={renter} />
         <RenterBadges badges={renter.badges} />
       </span>
+      <RenterKindLabels labels={renter.kindLabels} />
       <span className="text-muted-foreground text-sm">
         {renting.rental ? `${renting.rental.rego} · ${renting.shortWords}` : renting.words}
       </span>
       <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
         <span>Since {renter.sinceText}</span>
-        {renter.balanceCents === null ? null : (
+        {renter.paidByText ? (
+          <span className="text-muted-foreground">{renter.paidByText}</span>
+        ) : renter.balanceCents === null ? null : (
           <BalanceText
             balanceCents={renter.balanceCents}
             text={balanceWordsText(renter.balanceCents)}
@@ -103,7 +139,8 @@ export function RenterCard({ renter }: { renter: RenterListRow }) {
  * The Renters list (docs/plans/look-and-feel.md, "Cars and Renters pages"),
  * for the screen and both exports. It shows the phone only, never the email,
  * and the licence's expiry only, never its number (Abhi, 7 Nov 2026); the
- * exports hold only what is shown here (never a date of birth or address).
+ * exports hold only what is shown here (never a date of birth or address),
+ * with a business's kind and legal name (business-renters slice 2).
  */
 export const RENTER_LIST: DataListDefinition<RenterListRow> = {
   columns: [
@@ -114,13 +151,30 @@ export const RENTER_LIST: DataListDefinition<RenterListRow> = {
       isSortable: true,
       exportValue: nameOf,
       render: (renter) => (
-        <span className="flex flex-col">
-          <NameLink renter={renter} />
-          {renter.phone ? (
-            <span className="text-muted-foreground text-xs tabular-nums">{renter.phone}</span>
-          ) : null}
+        <span className="flex flex-col items-start gap-1">
+          <span className="flex flex-wrap items-center gap-2">
+            <NameLink renter={renter} />
+            <RenterKindLabels labels={renter.kindLabels} />
+          </span>
+          <NameNote renter={renter} />
         </span>
       ),
+    },
+    {
+      key: "kind",
+      label: "Kind",
+      isOnlyInExports: true,
+      exportValue: (renter) =>
+        [
+          RENTER_KIND_LABELS[renter.kind],
+          ...renter.kindLabels.filter((label) => label !== RENTER_KIND_LABELS.organisation),
+        ].join(", "),
+    },
+    {
+      key: "legalName",
+      label: "Legal name",
+      isOnlyInExports: true,
+      exportValue: (renter) => (renter.kind === "organisation" ? renter.fullName : null),
     },
     {
       key: "phone",
@@ -147,7 +201,7 @@ export const RENTER_LIST: DataListDefinition<RenterListRow> = {
       key: "owing",
       label: "Owing",
       isAlignedEnd: true,
-      exportValue: (renter) => renter.balanceCents,
+      exportValue: (renter) => renter.paidByText ?? renter.balanceCents,
       render: (renter) => <OwingAmount renter={renter} />,
     },
     {
