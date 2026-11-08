@@ -1,3 +1,4 @@
+import { createTemplate, loadDefaultTemplate } from "../contracts/templates";
 import { emptyBusinessRenterForm, parseBusinessRenterForm } from "../renters/business-renter-input";
 import { addNote } from "../renters/notes";
 import { addExistingDriver, removeDriver } from "../renters/organisation-driver-records";
@@ -9,7 +10,8 @@ import { findRenterId } from "./demo-renters";
  * One demo business Renter with its drivers (plan slice 2), so the dev site
  * shows a business's page, its Drivers tab, a past driver and the "Driver
  * for" labels. Its drivers are demo person Renters added in the steps
- * before; nothing is booked for it yet (renting to a business is slice 3).
+ * before. A starter Business rental contract is added with it (slice 3), so
+ * a booking for it can be sent to sign straight away.
  * The ABN is the ATO's own example; the phone is one the regulator keeps
  * for fiction.
  */
@@ -46,7 +48,22 @@ async function addDriver(context: DemoContext, businessId: string, fullName: str
   expectSaved(result.status, ["added"], `driver ${fullName}`);
 }
 
+const DEMO_BUSINESS_TEMPLATE_NAME = "Demo business rental contract";
+
+/** The starter Business rental contract, unless the Operator has one already. */
+async function addDemoBusinessContract(context: DemoContext): Promise<void> {
+  const { database } = context.deps;
+  if (await loadDefaultTemplate(database, context.actor.operatorId, "business_contract")) {
+    return;
+  }
+  await createTemplate(database, context.actor, {
+    kind: "business_contract",
+    name: DEMO_BUSINESS_TEMPLATE_NAME,
+  });
+}
+
 export async function addDemoBusiness(context: DemoContext): Promise<number> {
+  await addDemoBusinessContract(context);
   if (await findRenterId(context, DEMO_BUSINESS.fullName)) {
     return 0;
   }
