@@ -629,8 +629,19 @@ this takes the "car still out" part out of slice 3).
   holds (new end, swap), and a hold that already reached past the planned
   end before the change (a booking made before the car was late), so it can
   still be moved, shortened or cancelled. It reads no rows when added, so it
-  is safe on the filled database with the old code running; it refuses with
-  the exclusion-rule error the old code already shows as "the car was taken".
+  is safe on the filled database. It refuses with the no-overlap rule's own
+  error (constraint `car_holds_no_overlap`), as it is that rule with the late
+  rental's hold read as open-ended: the migration runs before Vercel deploys,
+  and in that window the old code shows its "Someone booked this car for some
+  of that time just now" message instead of an error page (tested against
+  the old matcher). The new code finds the late car before writing, so it
+  shows the still-out wording; it meets the database's refusal only in a
+  race, and says the same "just now" message there.
+- **Two clocks**: the app checks with its own clock, the database with its
+  own (`now()`, the transaction's start). In the few milliseconds where they
+  disagree about a car falling due, the database may refuse a booking the app
+  let through; the Operator then sees the "just now" wording, not the
+  still-out one. Nothing is double-booked either way, so this is left as is.
 - **Bookings already made** for a car that is now late are kept (not
   cancelled). The next pickup already shows in Needs attention as "Not
   ready" when it is within the week; its badge now says "Car still out"
