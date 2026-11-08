@@ -99,6 +99,8 @@ describe("the Renters list", () => {
       renting: 1,
       booked: 1,
       "to-review": 0,
+      businesses: 0,
+      drivers: 0,
       "do-not-rent": 1,
       archived: 1,
     });

@@ -76,6 +76,9 @@ export function attachmentPath(fileId: string): string {
 /** The Operator's customers. */
 export const RENTERS_PATH = "/renters";
 export const NEW_RENTER_PATH = `${RENTERS_PATH}/new`;
+/** The New Renter page opens on the Business form with `?kind=business`. */
+export const NEW_RENTER_KIND_PARAM = "kind";
+export const NEW_BUSINESS_RENTER_KIND = "business";
 export const RENTERS_EXPORT_PATH = `${RENTERS_PATH}/export`;
 
 export function renterPath(renterId: string): string {

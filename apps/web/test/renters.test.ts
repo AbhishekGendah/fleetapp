@@ -198,7 +198,7 @@ describe("an Operator's Renters", () => {
         doNotRentReason: "Not theirs",
       }),
     ).toBe("not_found");
-    expect(await archiveRenter(web.db, otherActor, renterId)).toBe("unchanged");
+    expect(await archiveRenter(web.db, otherActor, renterId)).toBe("not_found");
     const page = await listRenterPage(
       web.db,
       otherActor.operatorId,

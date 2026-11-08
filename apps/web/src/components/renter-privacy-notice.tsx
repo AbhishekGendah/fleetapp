@@ -14,8 +14,10 @@ const POLICY_LINK_TEXT = "Read the privacy policy";
 export function RenterPrivacyNotice(props: {
   business: PrivacyNoticeBusiness;
   place: PrivacyNoticePlace;
+  /** For a driver: the businesses they drive for, so it says what those see. */
+  drivesFor?: readonly string[];
 }) {
-  const notice = privacyNoticeFor(props.business, BRAND.productName, props.place);
+  const notice = privacyNoticeFor(props.business, BRAND.productName, props.place, props.drivesFor);
   return (
     <section
       aria-label="Privacy"

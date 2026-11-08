@@ -54,7 +54,9 @@ export async function sendDetailsLink(
   const expiresAt = new Date(now.getTime() + validDays * MILLISECONDS_PER_DAY);
   const prepared = await withTenant(deps.database, actor.operatorId, async (tx) => {
     const renter = await lockCurrentRenter(tx, actor.operatorId, renterId);
-    if (!renter) {
+    // A business's details are typed by the Operator: it has no details link
+    // (plan decision 11); its drivers each get their own.
+    if (!renter || renter.kind !== "person") {
       return { status: "not_found" as const };
     }
     if (!renter.email) {

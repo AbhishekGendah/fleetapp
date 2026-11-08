@@ -26,8 +26,8 @@ export function headerSearchGroups(findings: HeaderSearchFindings): QuickSearchG
       items: findings.renters.map((renter) => ({
         key: renter.id,
         href: renterPath(renter.id),
-        title: renter.fullName,
-        detail: renter.phone ?? "",
+        title: renter.shownName,
+        detail: renter.detail,
       })),
     },
     {
@@ -35,7 +35,7 @@ export function headerSearchGroups(findings: HeaderSearchFindings): QuickSearchG
       items: findings.rentals.map((rental) => ({
         key: rental.id,
         href: rentalPath(rental.id),
-        title: `${rental.renterFullName} · ${rental.rego}`,
+        title: `${rental.renterShownName} · ${rental.rego}`,
         detail: RENTAL_STATUS_BADGES[rental.status].text,
       })),
     },

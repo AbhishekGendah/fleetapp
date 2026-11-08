@@ -1,11 +1,14 @@
 import {
   countryName,
+  formatAbn,
   formatCalendarDate,
   formatDateTimeInTimeZone,
   LICENCE_CLASS_LABELS,
   LICENCE_SIDE_LABELS,
   LICENCE_TYPE_LABELS,
+  RENTER_KIND_LABELS,
   RENTER_STATUS_LABELS,
+  renterDisplayName,
   type ExportCell,
   type StorageArea,
 } from "@fleetapp/core";
@@ -29,7 +32,18 @@ import {
 } from "./everything-held-records";
 import { listAllLicenceScans, listRenterFileIds, type LicenceScanRecord } from "./licence-scans";
 import { listNoteIds, listNotes } from "./notes";
-import { RENTER_FIELD_LABELS, renterFieldLabel } from "./renter-labels";
+import { loadDrivingRecords, drivingSheets } from "./everything-held-driving";
+import {
+  listBusinessDrivers,
+  listDriverLinkIds,
+  listDrivesFor,
+  type BusinessDriver,
+} from "./organisation-driver-queries";
+import {
+  BUSINESS_RENTER_FIELD_LABELS,
+  RENTER_FIELD_LABELS,
+  renterFieldLabel,
+} from "./renter-labels";
 import { loadRenter, type RenterDetail } from "./renter-queries";
 
 const NOT_GIVEN = "Not given";
@@ -41,6 +55,20 @@ function text(value: string | null | undefined): ExportCell {
 
 function fieldRows(lines: readonly [string, string | null][]): ExportCell[][] {
   return [["Detail", "On file"], ...lines.map(([label, value]) => [label, text(value)])];
+}
+
+/** Either kind's standing: Do not rent and why, and when added and archived. */
+function standingLines(
+  renter: RenterDetail,
+  labels: Readonly<Record<"status" | "doNotRentReason", string>>,
+  timeZone: string,
+): [string, string | null][] {
+  return [
+    [labels.status, RENTER_STATUS_LABELS[renter.status]],
+    [labels.doNotRentReason, renter.doNotRentReason],
+    ["Added", formatDateTimeInTimeZone(renter.createdAt, timeZone)],
+    ["Archived", renter.archivedAt && formatDateTimeInTimeZone(renter.archivedAt, timeZone)],
+  ];
 }
 
 function detailsSheet(renter: RenterDetail, timeZone: string): WorkbookSheet {
@@ -58,11 +86,43 @@ function detailsSheet(renter: RenterDetail, timeZone: string): WorkbookSheet {
       [labels.emergencyContactName, renter.emergencyContactName],
       [labels.emergencyContactPhone, renter.emergencyContactPhone],
       [labels.emergencyContactRelationship, renter.emergencyContactRelationship],
-      [labels.status, RENTER_STATUS_LABELS[renter.status]],
-      [labels.doNotRentReason, renter.doNotRentReason],
-      ["Added", formatDateTimeInTimeZone(renter.createdAt, timeZone)],
-      ["Archived", renter.archivedAt && formatDateTimeInTimeZone(renter.archivedAt, timeZone)],
+      ...standingLines(renter, labels, timeZone),
     ]),
+  };
+}
+
+/** A business's own details: its contact's are personal information too. */
+function businessDetailsSheet(renter: RenterDetail, timeZone: string): WorkbookSheet {
+  const labels = BUSINESS_RENTER_FIELD_LABELS;
+  return {
+    name: "Details",
+    table: fieldRows([
+      ["Kind", RENTER_KIND_LABELS.organisation],
+      [labels.fullName, renter.fullName],
+      [labels.tradingName, renter.tradingName],
+      [labels.abn, renter.abn && formatAbn(renter.abn)],
+      [labels.contactName, renter.contactName],
+      [labels.phone, renter.phone],
+      [labels.email, renter.email],
+      [labels.businessAddress, renter.businessAddress],
+      [labels.postalAddress, renter.postalAddress ?? "Same as the business address"],
+      ...standingLines(renter, labels, timeZone),
+    ]),
+  };
+}
+
+/** A business's drivers, by name and when: never their licence, birthday or address. */
+function driversSheet(drivers: readonly BusinessDriver[], timeZone: string): WorkbookSheet {
+  return {
+    name: "Drivers",
+    table: [
+      ["Driver", "Added", "Removed"],
+      ...drivers.map((driver) => [
+        text(renterDisplayName(driver.fullName, driver.preferredName)),
+        formatDateTimeInTimeZone(driver.addedAt, timeZone),
+        driver.removedAt ? formatDateTimeInTimeZone(driver.removedAt, timeZone) : null,
+      ]),
+    ],
   };
 }
 
@@ -191,14 +251,24 @@ export async function buildEverythingHeld(
     return null;
   }
   const { operatorId } = actor;
+  const isBusiness = renter.kind === "organisation";
   const linkIds = await listRenterLinkIds(database, operatorId, renterId);
-  const [notes, scans, fileIds, noteIds, submissions, records] = await Promise.all([
+  const [notes, scans, fileIds, noteIds, submissions, records, driverLinkIds] = await Promise.all([
     listNotes(database, operatorId, renterId, { isRemovedIncluded: true }),
     listAllLicenceScans(database, operatorId, renterId, linkIds),
     listRenterFileIds(database, operatorId, renterId, linkIds),
     listNoteIds(database, operatorId, renterId),
     listSubmissionsHeld(database, operatorId, renterId),
     withTenant(database, operatorId, (tx) => loadHeldRecords(tx, operatorId, renterId)),
+    listDriverLinkIds(database, operatorId, renterId),
+  ]);
+  // A business: its drivers by name. A person: the cars they drove for a business.
+  const [drivers, driving, drivesFor] = await Promise.all([
+    isBusiness ? listBusinessDrivers(database, operatorId, renterId) : null,
+    isBusiness
+      ? null
+      : withTenant(database, operatorId, (tx) => loadDrivingRecords(tx, operatorId, renterId)),
+    isBusiness ? [] : listDrivesFor(database, operatorId, renterId),
   ]);
   const log = await loadRecordHistory(
     database,
@@ -220,6 +290,7 @@ export async function buildEverythingHeld(
         entityIds: records.damage.map(({ record }) => record.id),
       },
       { entityType: ACTIVITY_ENTITY_TYPES.issuedDocument, entityIds: idsOf(records.documents) },
+      { entityType: ACTIVITY_ENTITY_TYPES.organisationDriver, entityIds: driverLinkIds },
     ],
     { isEverything: true },
   );
@@ -232,11 +303,14 @@ export async function buildEverythingHeld(
   );
   const when = (moment: Date | null): ExportCell =>
     moment ? formatDateTimeInTimeZone(moment, timeZone) : null;
+  const personSheets = isBusiness
+    ? [driversSheet(drivers?.drivers ?? [], timeZone)]
+    : [licenceSheet(renter)];
   return {
     fileName: "renter-everything-held",
     sheets: [
-      detailsSheet(renter, timeZone),
-      licenceSheet(renter),
+      isBusiness ? businessDetailsSheet(renter, timeZone) : detailsSheet(renter, timeZone),
+      ...personSheets,
       {
         name: "Notes",
         table: [
@@ -263,10 +337,14 @@ export async function buildEverythingHeld(
       },
       submissionsSheet(submissions, when),
       ...heldRecordSheets(records, timeZone),
+      // Only for someone who drives, or drove, for a business.
+      ...(driving && (driving.driven.length > 0 || drivesFor.length > 0)
+        ? drivingSheets(driving, drivesFor, timeZone)
+        : []),
       logSheet(log, timeZone),
     ],
     files: [
-      ...records.documents.map((document) => ({
+      ...[...records.documents, ...(driving?.documents ?? [])].map((document) => ({
         path: heldDocumentFileName(document),
         area: document.storageArea,
         key: document.objectKey,

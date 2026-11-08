@@ -24,8 +24,8 @@ function namesIn(findings: HeaderSearchFindings): {
 } {
   return {
     cars: findings.cars.map((car) => car.rego),
-    renters: findings.renters.map((renter) => renter.fullName),
-    rentals: findings.rentals.map((rental) => `${rental.renterFullName} · ${rental.rego}`),
+    renters: findings.renters.map((renter) => renter.shownName),
+    rentals: findings.rentals.map((rental) => `${rental.renterShownName} · ${rental.rego}`),
   };
 }
 

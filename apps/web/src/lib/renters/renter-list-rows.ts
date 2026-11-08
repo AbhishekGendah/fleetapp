@@ -2,6 +2,8 @@ import {
   expiryStatus,
   formatMonthYearInTimeZone,
   formatShortDayInTimeZone,
+  renterShownName,
+  RENTER_KIND_LABELS,
   todayInTimeZone,
   type ExpiryStatus,
 } from "@fleetapp/core";
@@ -12,6 +14,7 @@ import { rentalWhenWords } from "../rentals/rental-when";
 import type { ExpiryContext } from "../vehicles/expiry-columns";
 import type { RenterMoney } from "./renter-money";
 import { renterBadges, type RenterBadge } from "./renter-list-status";
+import { midSentence } from "./renter-page-facts";
 import type { RenterSummary } from "./renter-queries";
 
 /** The rental a Renter has now (or their next booking), and its When in words. */
@@ -24,11 +27,17 @@ export interface RenterRenting {
 }
 
 export type RenterListRow = RenterSummary & {
+  /** A business by its trading name; a person by their name (and the one they go by). */
+  shownName: string;
+  /** What the Renter is, beside their name: "Business", "Driver for Acme Rides". None for a person on their own. */
+  kindLabels: string[];
   licenceStatus: ExpiryStatus;
   badges: RenterBadge[];
   renting: RenterRenting;
   /** From the ledger (rule 11); none when nothing has been charged or paid yet. */
   balanceCents: number | null;
+  /** A driver with nothing of their own to pay, in a business's car: "Acme Rides pays". */
+  paidByText: string | null;
   /** "Mar 2026": when they were added. */
   sinceText: string;
 };
@@ -39,6 +48,8 @@ export interface RenterListExtras {
   rentalsUnderWay: ReadonlyMap<string, readonly RentalSummary[]>;
   money: ReadonlyMap<string, RenterMoney>;
   bondToRefundRenterIds: ReadonlySet<string>;
+  /** The businesses each driver drives for now. */
+  businessesOf: ReadonlyMap<string, readonly { id: string; name: string }[]>;
 }
 
 const NO_RENTALS = "No rentals yet";
@@ -62,6 +73,64 @@ export function rentingOf(
   return { rental: null, words, shortWords: words };
 }
 
+/** "3 cars out", with "1 booked, starts Mon 9 Nov" after it when there is a booking too. */
+function carsOutWords(
+  carsOut: number,
+  booked: readonly RentalSummary[],
+  clock: RentalClock,
+): string {
+  const [next] = booked;
+  if (!next) {
+    return `${carsOut} cars out`;
+  }
+  return `${carsOut} cars out · ${booked.length} booked, ${midSentence(rentalWhenWords(next, clock).shortText)}`;
+}
+
+/**
+ * What a business is renting: with two or more cars out, how many (each car
+ * is on its own row of its Rentals tab); otherwise as for a person.
+ */
+export function businessRentingOf(
+  renter: Pick<RenterSummary, "lastBackAt">,
+  underWay: readonly RentalSummary[],
+  clock: RentalClock,
+): RenterRenting {
+  const carsOut = underWay.filter((rental) => rental.status === "active").length;
+  if (carsOut < 2) {
+    return rentingOf(renter, underWay, clock);
+  }
+  const words = carsOutWords(
+    carsOut,
+    underWay.filter((rental) => rental.status === "booked"),
+    clock,
+  );
+  return { rental: null, words, shortWords: words };
+}
+
+/** The business that pays for the car a driver has, when it is not their own rental. */
+function paidByText(renterId: string, renting: RenterRenting, hasOwnMoney: boolean): string | null {
+  const { rental } = renting;
+  if (hasOwnMoney || !rental || rental.renterId === renterId) {
+    return null;
+  }
+  const payer = renterShownName({
+    kind: rental.renterKind,
+    fullName: rental.renterFullName,
+    preferredName: rental.renterPreferredName,
+    tradingName: rental.renterTradingName,
+  });
+  return `${payer} pays`;
+}
+
+function kindLabelsOf(renter: RenterSummary, extras: RenterListExtras): string[] {
+  if (renter.kind === "organisation") {
+    return [RENTER_KIND_LABELS.organisation];
+  }
+  return (extras.businessesOf.get(renter.id) ?? []).map(
+    (business) => `Driver for ${business.name}`,
+  );
+}
+
 /** The Renters list's rows as the screen and the exports show them, on the Operator's clock. */
 export function renterListRows(
   renters: readonly RenterSummary[],
@@ -77,8 +146,14 @@ export function renterListRows(
       licenceExpiry.today,
       licenceExpiry.warningDays,
     );
+    const renting =
+      renter.kind === "organisation"
+        ? businessRentingOf(renter, underWay, clock)
+        : rentingOf(renter, underWay, clock);
     return {
       ...renter,
+      shownName: renterShownName(renter),
+      kindLabels: kindLabelsOf(renter, extras),
       licenceStatus,
       badges: renterBadges({
         status: renter.status,
@@ -90,8 +165,9 @@ export function renterListRows(
         isOverdue: Boolean(money?.overdue),
         isBondToRefund: extras.bondToRefundRenterIds.has(renter.id),
       }),
-      renting: rentingOf(renter, underWay, clock),
+      renting,
       balanceCents: money?.balanceCents ?? null,
+      paidByText: paidByText(renter.id, renting, money !== undefined),
       sinceText: formatMonthYearInTimeZone(renter.createdAt, clock.timeZone),
     };
   });

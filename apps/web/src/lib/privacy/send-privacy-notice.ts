@@ -8,6 +8,7 @@ import { BRAND } from "@fleetapp/ui/brand";
 import { and, eq } from "drizzle-orm";
 
 import type { ActingUser } from "../acting-user";
+import { loadDrivesForNames } from "../renters/organisation-driver-queries";
 import { loadNoticeBusiness } from "./notice-business";
 
 /** What happened to the notice: sent, or why the business must hand it over itself. */
@@ -21,7 +22,8 @@ const NOTICE_EMAIL_NAME = "privacy_notice";
 
 /**
  * Emails the privacy notice to a Renter the business added itself, e.g. at
- * the counter, who has not seen it on a link (APP 5; review A5-10). Saving
+ * the counter, who has not seen it on a link (APP 5; review A5-10), or to a
+ * person just added as a business's driver, so they know what it sees. Saving
  * the Renter never waits on it: a failed send is logged by type only and
  * reported, so the business hands the Renter a copy instead.
  */
@@ -57,6 +59,7 @@ async function emailNotice(
         email: renters.email,
         fullName: renters.fullName,
         preferredName: renters.preferredName,
+        contactName: renters.contactName,
       })
       .from(renters)
       .where(and(eq(renters.operatorId, actor.operatorId), eq(renters.id, renterId))),
@@ -64,13 +67,17 @@ async function emailNotice(
   if (!renter?.email) {
     return "no_email";
   }
-  const business = await loadNoticeBusiness(deps.database, actor.operatorId);
+  const [business, drivesFor] = await Promise.all([
+    loadNoticeBusiness(deps.database, actor.operatorId),
+    loadDrivesForNames(deps.database, actor.operatorId, renterId),
+  ]);
   const message = await renderRenterPrivacyNoticeEmail({
     to: renter.email,
     replyTo: business.email ?? undefined,
-    renterName: renter.preferredName ?? renter.fullName,
+    // A business's email is its contact's, so the notice greets them.
+    renterName: renter.contactName ?? renter.preferredName ?? renter.fullName,
     operatorName: business.name,
-    notice: privacyNoticeFor(business, BRAND.productName, "counter"),
+    notice: privacyNoticeFor(business, BRAND.productName, "counter", drivesFor),
   });
   await deps.emailSender.send(message);
   return "sent";

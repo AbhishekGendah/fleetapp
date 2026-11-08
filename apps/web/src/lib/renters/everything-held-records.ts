@@ -36,10 +36,25 @@ import {
   rentalChanges,
   rentals,
   renterLinks,
+  renters,
   signingEvidence,
   vehicles,
 } from "@fleetapp/db/schema";
-import { and, asc, eq, inArray, sql, type Column } from "drizzle-orm";
+import { aliasedTable, and, asc, eq, inArray, sql, type Column } from "drizzle-orm";
+
+const driver = aliasedTable(renters, "driver");
+
+/** A document as the download holds it: what it is, and where its PDF is kept. */
+export const HELD_DOCUMENT_COLUMNS = {
+  id: issuedDocuments.id,
+  rentalId: issuedDocuments.rentalId,
+  kind: issuedDocuments.kind,
+  version: issuedDocuments.version,
+  issuedAt: issuedDocuments.issuedAt,
+  storageArea: files.storageArea,
+  objectKey: files.objectKey,
+  contentType: files.contentType,
+};
 
 /** How other people are shown: the Renter asked what is held about them, not who did it. */
 export const THE_BUSINESS = "The business";
@@ -64,6 +79,8 @@ async function selectHeldRecords(tx: AnyTransaction, operatorId: string, renterI
     .select({
       id: rentals.id,
       rego: vehicles.rego,
+      // Who drove it: the Renter themselves, or a business's driver (by name only, never their licence).
+      driverName: driver.fullName,
       type: rentals.type,
       status: rentals.status,
       plannedStart: rentals.plannedStart,
@@ -76,6 +93,10 @@ async function selectHeldRecords(tx: AnyTransaction, operatorId: string, renterI
     })
     .from(rentals)
     .innerJoin(vehicles, eq(vehicles.id, rentals.vehicleId))
+    .leftJoin(
+      driver,
+      and(eq(driver.id, rentals.driverId), eq(driver.operatorId, rentals.operatorId)),
+    )
     .where(and(eq(rentals.operatorId, operatorId), eq(rentals.renterId, renterId)))
     .orderBy(asc(rentals.plannedStart));
   const rentalIds = ownRentals.map((rental) => rental.id);
@@ -140,16 +161,7 @@ async function selectHeldRecords(tx: AnyTransaction, operatorId: string, renterI
         .where(and(eq(damageRecords.operatorId, operatorId), eq(damageRecords.renterId, renterId)))
         .orderBy(asc(damageRecords.foundOn)),
       tx
-        .select({
-          id: issuedDocuments.id,
-          rentalId: issuedDocuments.rentalId,
-          kind: issuedDocuments.kind,
-          version: issuedDocuments.version,
-          issuedAt: issuedDocuments.issuedAt,
-          storageArea: files.storageArea,
-          objectKey: files.objectKey,
-          contentType: files.contentType,
-        })
+        .select(HELD_DOCUMENT_COLUMNS)
         .from(issuedDocuments)
         .innerJoin(files, eq(files.id, issuedDocuments.fileId))
         .where(and(eq(issuedDocuments.operatorId, operatorId), ofRentals(issuedDocuments.rentalId)))
@@ -239,6 +251,7 @@ function rentalsSheet(records: HeldRecords, words: Wording): WorkbookSheet {
     table: [
       [
         "Car",
+        "Driver",
         "Type",
         "Status",
         "Starts",
@@ -251,6 +264,7 @@ function rentalsSheet(records: HeldRecords, words: Wording): WorkbookSheet {
       ],
       ...records.rentals.map((rental) => [
         rental.rego,
+        rental.driverName ?? "To be named",
         RENTAL_TYPE_LABELS[rental.type],
         RENTAL_STATUS_LABELS[rental.status],
         words.when(rental.plannedStart),

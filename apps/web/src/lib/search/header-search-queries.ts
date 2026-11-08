@@ -1,4 +1,4 @@
-import { normaliseRego, type ListQuery, type RentalStatus } from "@fleetapp/core";
+import { normaliseRego, renterShownName, type ListQuery, type RentalStatus } from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { listConditions, listOrderBy, type DatabaseListRules } from "@fleetapp/db/list-query";
 import { rentals, renters, vehicles } from "@fleetapp/db/schema";
@@ -24,14 +24,17 @@ export interface FoundCar {
 
 export interface FoundRenter {
   id: string;
-  fullName: string;
-  phone: string | null;
+  /** A business by its trading name; a person by their name. */
+  shownName: string;
+  /** A person's phone; a business's legal name when it trades by another. */
+  detail: string;
 }
 
 export interface FoundRental {
   id: string;
   status: RentalStatus;
-  renterFullName: string;
+  /** A business by its trading name. */
+  renterShownName: string;
   rego: string;
 }
 
@@ -64,8 +67,9 @@ function matchesListOrRego(
 /**
  * A few of the Operator's cars, Renters and rentals matching what was typed
  * in the top bar, each kind matched by its own list's search (cars by rego,
- * make, model; Renters by name and phone, spaces or not; rentals by the
- * Renter's name or the rego) and in that list's order. Archived cars and
+ * make, model; Renters by name and phone, spaces or not, a business by its
+ * trading name and ABN too; rentals by the Renter's or driver's name or the
+ * rego) and in that list's order. Archived cars and
  * Renters are left out, as their lists leave them out until asked for.
  * The text reaches Postgres only as parameters; it is never logged.
  */
@@ -93,7 +97,14 @@ export async function searchOperatorRecords(
       .limit(HEADER_SEARCH_GROUP_SIZE);
 
     const foundRenters = await tx
-      .select({ id: renters.id, fullName: renters.fullName, phone: renters.phone })
+      .select({
+        id: renters.id,
+        kind: renters.kind,
+        fullName: renters.fullName,
+        preferredName: renters.preferredName,
+        tradingName: renters.tradingName,
+        phone: renters.phone,
+      })
       .from(renters)
       .where(
         and(
@@ -109,7 +120,9 @@ export async function searchOperatorRecords(
       .select({
         id: rentals.id,
         status: rentals.status,
+        renterKind: renters.kind,
         renterFullName: renters.fullName,
+        renterTradingName: renters.tradingName,
         rego: vehicles.rego,
       })
       .from(rentals)
@@ -124,6 +137,25 @@ export async function searchOperatorRecords(
       .orderBy(...listOrderBy(RENTAL_LIST_RULES, rentalQuery))
       .limit(HEADER_SEARCH_GROUP_SIZE);
 
-    return { cars, renters: foundRenters, rentals: foundRentals };
+    return {
+      cars,
+      renters: foundRenters.map((renter) => ({
+        id: renter.id,
+        shownName: renterShownName(renter),
+        detail:
+          renter.kind === "organisation" && renter.tradingName
+            ? renter.fullName
+            : (renter.phone ?? ""),
+      })),
+      rentals: foundRentals.map(({ renterKind, renterFullName, renterTradingName, ...rental }) => ({
+        ...rental,
+        renterShownName: renterShownName({
+          kind: renterKind,
+          fullName: renterFullName,
+          tradingName: renterTradingName,
+          preferredName: null,
+        }),
+      })),
+    };
   });
 }

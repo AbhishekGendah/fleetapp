@@ -1,5 +1,6 @@
 import { formatCalendarDate, RENTER_STATUS_LABELS, WITHHELD_VALUE } from "@fleetapp/core";
 
+import type { BusinessRenterFormField } from "./business-renter-input";
 import type { LicenceFormField } from "./licence-input";
 import type { RenterFormField } from "./renter-input";
 
@@ -28,12 +29,33 @@ export const RENTER_FIELD_LABELS: Readonly<Record<RenterLabelledField, string>> 
   licenceExpiresOn: "Expires",
 };
 
-function isLabelledField(field: string): field is RenterLabelledField {
-  return Object.hasOwn(RENTER_FIELD_LABELS, field);
+type BusinessLabelledField = BusinessRenterFormField | "status" | "doNotRentReason";
+
+/** What each business Renter field is called (its full name is its legal name; its phone and email are its contact's). */
+export const BUSINESS_RENTER_FIELD_LABELS: Readonly<Record<BusinessLabelledField, string>> = {
+  fullName: "Legal name",
+  tradingName: "Trading name",
+  abn: "ABN",
+  contactName: "Contact's name",
+  email: "Contact's email",
+  phone: "Contact's phone",
+  businessAddress: "Business address",
+  isPostalSameAsBusiness: "Postal address is the same as the business address",
+  postalAddress: "Postal address",
+  status: RENTER_FIELD_LABELS.status,
+  doNotRentReason: "Why not rent to it",
+};
+
+function labelIn(labels: Readonly<Record<string, string>>, field: string): string {
+  return Object.hasOwn(labels, field) ? labels[field]! : field;
 }
 
 export function renterFieldLabel(field: string): string {
-  return isLabelledField(field) ? RENTER_FIELD_LABELS[field] : field;
+  return labelIn(RENTER_FIELD_LABELS, field);
+}
+
+export function businessRenterFieldLabel(field: string): string {
+  return labelIn(BUSINESS_RENTER_FIELD_LABELS, field);
 }
 
 /** A stored Renter value in words. Personal details are withheld from the Log, so show as "not shown". */

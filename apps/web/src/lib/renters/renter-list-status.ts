@@ -18,6 +18,8 @@ export const RENTER_LIST_FILTERS = [
   "renting",
   "booked",
   "to-review",
+  "businesses",
+  "drivers",
   "do-not-rent",
   "archived",
 ] as const;
@@ -27,6 +29,8 @@ export const RENTER_LIST_FILTER_LABELS: Readonly<Record<RenterListFilter, string
   renting: "Renting now",
   booked: "Booked",
   "to-review": "To review",
+  businesses: "Businesses",
+  drivers: "Drivers",
   "do-not-rent": "Do not rent",
   archived: "Archived",
 };

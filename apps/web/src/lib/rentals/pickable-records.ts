@@ -3,17 +3,24 @@ import type { AnyDatabase } from "@fleetapp/db/client";
 import { renters, vehicles } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import type { PickableRecord } from "@fleetapp/ui/record-picker";
-import { and, asc, eq, isNull, notInArray } from "drizzle-orm";
+import { and, asc, eq, isNull, notInArray, type SQL } from "drizzle-orm";
 
 import type { CarPrices } from "./rental-input";
 
 /** Cars that have left the fleet can never be booked, so they are not offered. */
 const CARS_GONE = ["sold", "written_off"] as const;
 
-/** The Operator's current Renters, by name; Do not rent ones are left out. */
+/**
+ * The Operator's current Renters, by name; Do not rent ones are left out. So
+ * are business Renters until renting to a business is built (plan slice 3:
+ * the driver picker and the business contract): the booking itself refuses
+ * one too, as no driver can be found for it yet.
+ */
 export async function listPickableRenters(
   database: AnyDatabase,
   operatorId: string,
+  /** Narrows the list further, e.g. to people not yet a business's drivers. */
+  alsoMatching?: SQL,
 ): Promise<PickableRecord[]> {
   const rows = await withTenant(database, operatorId, (tx) =>
     tx
@@ -30,6 +37,8 @@ export async function listPickableRenters(
           eq(renters.operatorId, operatorId),
           isNull(renters.archivedAt),
           eq(renters.status, "active"),
+          eq(renters.kind, "person"),
+          alsoMatching,
         ),
       )
       .orderBy(asc(renters.fullName)),

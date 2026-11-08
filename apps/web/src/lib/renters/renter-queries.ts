@@ -1,4 +1,10 @@
-import { MAX_EXPORT_ROWS, type ListPage, type ListQuery, type RenterStatus } from "@fleetapp/core";
+import {
+  MAX_EXPORT_ROWS,
+  type ListPage,
+  type ListQuery,
+  type RenterKind,
+  type RenterStatus,
+} from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import {
   listConditions,
@@ -49,15 +55,27 @@ const isWaitingReview = sql<boolean>`exists (
 )`;
 export const STATUS_FILTER_KEY = "status";
 
-/** A rental of this Renter's in one of these statuses. Table names written out for the sub-query. */
+/**
+ * A rental this Renter rents or drives, in one of these statuses: a driver
+ * with a business's car out is renting too. Table names written out for the
+ * sub-query.
+ */
 function hasRentalThat(status: "active" | "booked"): SQL<boolean> {
   return sql<boolean>`exists (
     select 1 from "rentals" "theirs"
-    where "theirs"."renter_id" = "renters"."id"
+    where ("theirs"."renter_id" = "renters"."id" or "theirs"."driver_id" = "renters"."id")
       and "theirs"."operator_id" = "renters"."operator_id"
       and "theirs"."status" = ${status}
   )`;
 }
+
+/** A person who drives for a business now. */
+const isCurrentDriver = sql<boolean>`exists (
+  select 1 from "organisation_drivers" "link"
+  where "link"."driver_id" = "renters"."id"
+    and "link"."operator_id" = "renters"."operator_id"
+    and "link"."removed_at" is null
+)`;
 
 /** Has a car out now. */
 const isRentingNow = hasRentalThat("active");
@@ -67,7 +85,7 @@ const isBookedOnly = sql<boolean>`(${hasRentalThat("booked")} and not ${isRentin
 /** When they last brought a car back, for "Last back Tue 29 Sep". */
 const lastBackAt = sql<Date | null>`(
   select max("theirs"."returned_at") from "rentals" "theirs"
-  where "theirs"."renter_id" = "renters"."id"
+  where ("theirs"."renter_id" = "renters"."id" or "theirs"."driver_id" = "renters"."id")
     and "theirs"."operator_id" = "renters"."operator_id"
 )`.mapWith(renters.createdAt);
 
@@ -76,12 +94,16 @@ const FILTER_CONDITIONS: Readonly<Record<Exclude<RenterListFilter, "archived">, 
   renting: isRentingNow,
   booked: isBookedOnly,
   "to-review": isWaitingReview,
+  businesses: sql`${renters.kind} = 'organisation'`,
+  drivers: isCurrentDriver,
   "do-not-rent": sql`${renters.status} = 'do_not_rent'`,
 };
 
 const summaryColumns = {
   id: renters.id,
+  kind: renters.kind,
   fullName: renters.fullName,
+  tradingName: renters.tradingName,
   preferredName: renters.preferredName,
   phone: renters.phone,
   email: renters.email,
@@ -95,7 +117,11 @@ const summaryColumns = {
 
 export interface RenterSummary {
   id: string;
+  kind: RenterKind;
+  /** A person's full name, or a business's legal name. */
   fullName: string;
+  /** A business's trading name: what it is called in lists when it has one. */
+  tradingName: string | null;
   preferredName: string | null;
   phone: string | null;
   email: string | null;
@@ -121,9 +147,15 @@ export const RENTER_LIST_RULES: DatabaseListRules = {
     sql`'+61' || substr(${phoneDigits}, 2)`,
     renters.email,
     renters.licenceNumber,
+    // A business by its trading name, its ABN (kept as digits, so typed with
+    // or without spaces: each group is a word) and its contact's name.
+    renters.tradingName,
+    renters.abn,
+    renters.contactName,
   ],
   sortBy: {
-    name: sql`lower(${renters.fullName})`,
+    // As the list shows them: a business by its trading name.
+    name: sql`lower(coalesce(${renters.tradingName}, ${renters.fullName}))`,
     licenceExpires: renters.licenceExpiresOn,
     status: renters.status,
     since: renters.createdAt,
@@ -215,6 +247,8 @@ export async function countRentersByFilter(
         renting: countWhere(and(isCurrent, FILTER_CONDITIONS.renting)!),
         booked: countWhere(and(isCurrent, FILTER_CONDITIONS.booked)!),
         "to-review": countWhere(and(isCurrent, FILTER_CONDITIONS["to-review"])!),
+        businesses: countWhere(and(isCurrent, FILTER_CONDITIONS.businesses)!),
+        drivers: countWhere(and(isCurrent, FILTER_CONDITIONS.drivers)!),
         "do-not-rent": countWhere(and(isCurrent, FILTER_CONDITIONS["do-not-rent"])!),
         archived: countWhere(not(isCurrent)),
       })

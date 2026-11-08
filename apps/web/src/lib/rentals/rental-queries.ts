@@ -7,6 +7,7 @@ import {
   type ListPage,
   type ListQuery,
   type RentalStatus,
+  type RenterKind,
   type RentModel,
   type RentalType,
 } from "@fleetapp/core";
@@ -36,6 +37,14 @@ export const CAR_OF_RENTAL = and(
   eq(vehicles.id, rentals.vehicleId),
   eq(vehicles.operatorId, rentals.operatorId),
 );
+/** A business rental's driver's name; none for a person's own (the Renter's name is already searched). */
+const DRIVER_NAME = sql`(
+  select "driver"."full_name" from "renters" "driver"
+  where "driver"."id" = "rentals"."driver_id"
+    and "driver"."operator_id" = "rentals"."operator_id"
+    and "driver"."id" <> "rentals"."renter_id"
+)`;
+
 /** A booking starting within this many days is badged "Starting soon". */
 export const STARTING_SOON_DAYS = 3;
 
@@ -92,8 +101,11 @@ function summaryColumnsAt({ now, timeZone }: RentalClock) {
     plannedStart: rentals.plannedStart,
     plannedEnd: rentals.plannedEnd,
     renterId: rentals.renterId,
+    renterKind: renters.kind,
     renterFullName: renters.fullName,
     renterPreferredName: renters.preferredName,
+    renterTradingName: renters.tradingName,
+    driverId: rentals.driverId,
     vehicleId: rentals.vehicleId,
     rego: vehicles.rego,
     make: vehicles.make,
@@ -116,8 +128,12 @@ export interface RentalSummary {
   plannedStart: Date;
   plannedEnd: Date | null;
   renterId: string;
+  renterKind: RenterKind;
   renterFullName: string;
   renterPreferredName: string | null;
+  renterTradingName: string | null;
+  /** Who drives: the Renter themselves for a person; a business's driver, or none named yet. */
+  driverId: string | null;
   vehicleId: string;
   rego: string;
   make: string;
@@ -153,7 +169,14 @@ const MOST_RELEVANT_FIRST = sql`(
 )`;
 
 export const RENTAL_LIST_RULES: DatabaseListRules = {
-  searchIn: [renters.fullName, renters.preferredName, vehicles.rego],
+  // A business by its trading name too, and a rental by who drives it.
+  searchIn: [
+    renters.fullName,
+    renters.preferredName,
+    renters.tradingName,
+    vehicles.rego,
+    DRIVER_NAME,
+  ],
   sortBy: {
     [RELEVANCE_ORDER]: MOST_RELEVANT_FIRST,
     start: rentals.plannedStart,

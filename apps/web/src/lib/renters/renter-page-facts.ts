@@ -68,8 +68,8 @@ export function withYouSinceFact(addedAt: Date, rentalCount: number, timeZone: s
   };
 }
 
-/** "Back Tue 10 Nov" read on after the car's name: "Hyundai i30 · back Tue 10 Nov". */
-function afterCarName(words: string): string {
+/** Words read on mid-sentence: "Hyundai i30 · back Tue 10 Nov", "1 booked, starts Mon 9 Nov". */
+export function midSentence(words: string): string {
   return words.charAt(0).toLowerCase() + words.slice(1);
 }
 
@@ -85,6 +85,6 @@ export function rentingFact(renting: RenterRenting): { label: string; note: stri
   }
   return {
     label: rental.status === "active" ? "Renting now" : "Booked",
-    note: `${rental.make} ${rental.model} · ${afterCarName(renting.shortWords)}`,
+    note: `${rental.make} ${rental.model} · ${midSentence(renting.shortWords)}`,
   };
 }

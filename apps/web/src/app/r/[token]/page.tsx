@@ -13,6 +13,7 @@ import { STRIPE_RETURN_STEPS } from "../../../lib/payments/renter-checkout";
 import { loadFormStart } from "../../../lib/renter-links/submissions";
 import { checkCodeAction, sendCodeAction } from "./actions";
 import { RenterPrivacyNotice } from "../../../components/renter-privacy-notice";
+import { loadDrivesForNames } from "../../../lib/renters/organisation-driver-queries";
 import { loadNoticeBusiness } from "../../../lib/privacy/notice-business";
 import { CodeStep } from "./code-step";
 import { DetailsForm } from "./details-form";
@@ -144,12 +145,15 @@ export default async function RenterLinkPage(props: {
       </LinkPage>
     );
   }
-  const start = await loadFormStart(appDb, visit);
+  const [start, drivesFor] = await Promise.all([
+    loadFormStart(appDb, visit),
+    loadDrivesForNames(appDb, visit.operatorId, visit.renterId),
+  ]);
   return (
     <LinkPage
       operatorName={visit.operatorName}
       title={PAGE_TITLES.details_form}
-      notice={<RenterPrivacyNotice business={business} place="details" />}
+      notice={<RenterPrivacyNotice business={business} place="details" drivesFor={drivesFor} />}
     >
       {start.status === "waiting" ? (
         <>

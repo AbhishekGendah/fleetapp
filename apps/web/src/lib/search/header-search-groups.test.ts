@@ -4,11 +4,11 @@ import { headerSearchGroups } from "./header-search-groups";
 import { headerSearchTextSchema } from "./header-search-input";
 
 const CAR = { id: "car-1", rego: "1ABC234", make: "Toyota", model: "Corolla" };
-const RENTER = { id: "renter-1", fullName: "Jamie Park", phone: "0412 345 678" };
+const RENTER = { id: "renter-1", shownName: "Jamie Park", detail: "0412 345 678" };
 const RENTAL = {
   id: "rental-1",
   status: "active" as const,
-  renterFullName: "Jamie Park",
+  renterShownName: "Jamie Park",
   rego: "1ABC234",
 };
 
@@ -53,10 +53,10 @@ describe("the top bar's search results", () => {
     expect(headerSearchGroups({ cars: [], renters: [], rentals: [] })).toEqual([]);
   });
 
-  it("gives a Renter with no phone an empty second line", () => {
+  it("shows a Renter's second line as found: a phone, a legal name or nothing", () => {
     const [group] = headerSearchGroups({
       cars: [],
-      renters: [{ ...RENTER, phone: null }],
+      renters: [{ ...RENTER, detail: "" }],
       rentals: [],
     });
     expect(group?.items[0]?.detail).toBe("");
