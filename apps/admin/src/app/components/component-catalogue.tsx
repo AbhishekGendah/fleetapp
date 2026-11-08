@@ -27,6 +27,7 @@ import {
   SectionLabel,
 } from "@fleetapp/ui/card";
 import { Checkbox } from "@fleetapp/ui/checkbox";
+import { ChoiceCards } from "@fleetapp/ui/choice-cards";
 import { BookingsCalendar, type CalendarEntry } from "@fleetapp/ui/bookings-calendar";
 import { Drawer } from "@fleetapp/ui/drawer";
 import { FleetTimeline, type TimelineBar } from "@fleetapp/ui/fleet-timeline";
@@ -70,6 +71,7 @@ import { QuickSearch, type QuickSearchGroup } from "@fleetapp/ui/quick-search";
 import { RecordStrip } from "@fleetapp/ui/record-strip";
 import { InlineRecordLink, ROW_CLASSES, RowLink } from "@fleetapp/ui/row-link";
 import {
+  Building,
   Camera,
   Gauge,
   History,
@@ -78,6 +80,7 @@ import {
   Plus,
   Settings,
   Trash2,
+  UserRound,
   XCircle,
 } from "lucide-react";
 import { useState } from "react";
@@ -308,6 +311,37 @@ function MultiRecordPickerExample() {
         emptyMessage="No car matches that."
       />
     </FormField>
+  );
+}
+
+const EXAMPLE_KIND_OPTIONS = [
+  {
+    value: "person",
+    label: "Person",
+    description: "Rents a car for themselves",
+    icon: <UserRound />,
+  },
+  {
+    value: "organisation",
+    label: "Business",
+    description: "Renting cars for its drivers",
+    icon: <Building />,
+  },
+] as const;
+
+function ChoiceCardsExample() {
+  const [kind, setKind] = useState<(typeof EXAMPLE_KIND_OPTIONS)[number]["value"] | "">("");
+  return (
+    <ChoiceCards
+      id="example-kind"
+      name="exampleKind"
+      label="Person or business?"
+      options={EXAMPLE_KIND_OPTIONS}
+      value={kind}
+      onValueChange={setKind}
+      isRequired
+      hint="This can't be changed later."
+    />
   );
 }
 
@@ -841,7 +875,7 @@ export function ComponentCatalogue() {
 
       <CatalogueSection
         title="Badges"
-        note="A short label on a record, such as its status. Each differs in lightness as well as colour: Available is outlined, Do not rent solid."
+        note="A short label on a record, such as its status. Each differs in lightness as well as colour: Available is outlined, Do not rent solid. What a record is (Business, Driver for …) is outlined in grey, lighter than any status."
       >
         <div className="flex flex-wrap gap-2">
           <Badge tone="good">Current</Badge>
@@ -852,6 +886,7 @@ export function ComponentCatalogue() {
           <Badge>Archived</Badge>
           <Badge tone="out">Out</Badge>
           <Badge tone="booked">Booked</Badge>
+          <Badge tone="kind">Business</Badge>
         </div>
       </CatalogueSection>
 
@@ -1138,6 +1173,13 @@ export function ComponentCatalogue() {
         note="Picks several, e.g. the cars to show. Each chosen one is a chip with a remove button."
       >
         <MultiRecordPickerExample />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Choice cards"
+        note="One of two or three choices that each need a line of explanation. Tab reaches the group; the arrow keys move the choice."
+      >
+        <ChoiceCardsExample />
       </CatalogueSection>
 
       <CatalogueSection

@@ -7,10 +7,12 @@ import { cn } from "../lib/utils";
  * for a rental, out on rent or booked; a car free to rent; a Renter the
  * business will not rent to. Each differs from the others in lightness as
  * well as colour (rule 34): `available` is outlined on white, the lightest,
- * and `refused` solid dark red, the darkest.
+ * and `refused` solid dark red, the darkest. `kind` is not a status at all
+ * but what a record is ("Business", "Driver for Acme Rides"): outlined in
+ * grey, lighter than any status (7 Nov 2026 mockups).
  */
 export type BadgeTone =
-  "neutral" | "good" | "attention" | "danger" | "out" | "booked" | "available" | "refused";
+  "neutral" | "good" | "attention" | "danger" | "out" | "booked" | "available" | "refused" | "kind";
 
 const TONE_CLASSES: Readonly<Record<BadgeTone, string>> = {
   neutral: "bg-muted text-muted-foreground",
@@ -22,6 +24,7 @@ const TONE_CLASSES: Readonly<Record<BadgeTone, string>> = {
   // An inset ring, so the outlined label is the same size as the filled ones.
   available: "bg-card text-teal-dark shadow-[inset_0_0_0_1.5px_var(--color-teal)]",
   refused: "bg-destructive-strong text-white",
+  kind: "bg-card text-foreground shadow-[inset_0_0_0_1.5px_var(--color-muted-foreground)]",
 };
 
 /** A short label on a record, such as its status. */

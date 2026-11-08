@@ -15,6 +15,7 @@
     "./card": "./src/components/card.tsx",
     "./change-form-state": "./src/components/change-form-state.ts",
     "./checkbox": "./src/components/checkbox.tsx",
+    "./choice-cards": "./src/components/choice-cards.tsx",
     "./choose-and-apply": "./src/components/choose-and-apply.tsx",
     "./choose-and-apply-field": "./src/lib/choose-and-apply-field.ts",
     "./client-form": "./src/components/client-form.tsx",
