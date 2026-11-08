@@ -194,3 +194,54 @@ export async function recordTestHandover(
       where rentals.id = ${rentalId} and vehicles.id = rentals.vehicle_id`,
   );
 }
+
+/**
+ * A rental late back for good, for tests of a car still out past its return
+ * date (docs/plans/find-a-car.md, decision 5). The database checks lateness
+ * on its own, real clock, so these dates are in the past: out from Tue 6 Oct
+ * 2026, due back 10am Perth on Tue 3 Nov 2026, never returned.
+ */
+export const LATE_PERIOD = { plannedStart: "2026-10-06T10:00", plannedEnd: "2026-11-03T10:00" };
+export const LATE_DUE_BACK = new Date("2026-11-03T02:00:00Z");
+export const LATE_HANDED_OVER = new Date("2026-10-06T02:00:00Z");
+const LATE_BOOKED_ON = new Date("2026-10-01T00:00:00Z");
+
+/**
+ * A new car with rego and insurance and a new Renter, the car handed over
+ * for `period` (LATE_PERIOD unless asked) and never returned. Bookings in
+ * `bookedBefore` are made before the handover, so before the car is late.
+ * With `isHandedOver` false, only booked: `recordTestHandover` later.
+ */
+export async function addCarOut(
+  web: TestConnection,
+  superuser: TestConnection,
+  owner: ActingUser,
+  options: {
+    period?: { plannedStart: string; plannedEnd: string | null };
+    bookedBefore?: readonly { plannedStart: string; plannedEnd: string }[];
+    isHandedOver?: boolean;
+  } = {},
+): Promise<{
+  vehicleId: string;
+  renterId: string;
+  lateRentalId: string;
+  laterRentalIds: string[];
+}> {
+  const vehicleId = await addTestCar(web, owner);
+  await addCurrentPaperwork(web, owner, vehicleId);
+  const parties = { vehicleId, renterId: await addTestRenter(web, owner) };
+  const out = await bookTestRentalOn(web, owner, {
+    ...parties,
+    period: options.period ?? LATE_PERIOD,
+    now: LATE_BOOKED_ON,
+  });
+  const laterRentalIds: string[] = [];
+  for (const period of options.bookedBefore ?? []) {
+    const later = await bookTestRentalOn(web, owner, { ...parties, period, now: LATE_BOOKED_ON });
+    laterRentalIds.push(later.rentalId);
+  }
+  if (options.isHandedOver !== false) {
+    await recordTestHandover(superuser, out.rentalId, LATE_HANDED_OVER);
+  }
+  return { ...parties, lateRentalId: out.rentalId, laterRentalIds };
+}

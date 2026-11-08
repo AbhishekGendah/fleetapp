@@ -1,3 +1,4 @@
+import { isExclusionViolation } from "@fleetapp/core";
 import { carHolds, possessions, rentals } from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { withTenant } from "@fleetapp/db/tenant-context";
@@ -11,10 +12,13 @@ import { changeRentalEnd } from "../src/lib/rentals/rental-changes";
 import { bookRental, cancelRental } from "../src/lib/rentals/rental-records";
 import { addCurrentPaperwork, addTestCar, seedOperatorWithUser } from "./car-fixtures";
 import {
+  addCarOut,
   addTestRenter,
   attemptTestBooking,
   bookTestRentalOn,
-  recordTestHandover,
+  LATE_DUE_BACK,
+  LATE_HANDED_OVER,
+  LATE_PERIOD,
   TEST_TIME_ZONE,
 } from "./rental-fixtures";
 
@@ -22,22 +26,36 @@ import {
  * A car still out past its return date is not free until it is back
  * (docs/plans/find-a-car.md, decision 5): refused by the booking code and,
  * underneath it, by the database (migration 0054), whose clock is the real
- * one. So the late rental's dates are in the past for good: out from Tue 6
- * Oct 2026, due back 10am Perth on Tue 3 Nov 2026, never returned.
+ * one: the late rental is `addCarOut`'s, due back 10am Perth on Tue 3 Nov 2026.
  */
-const LATE_PERIOD = { plannedStart: "2026-10-06T10:00", plannedEnd: "2026-11-03T10:00" };
-const DUE_BACK = new Date("2026-11-03T02:00:00Z");
-const HANDED_OVER = new Date("2026-10-06T02:00:00Z");
-const BOOKED_ON = new Date("2026-10-01T00:00:00Z");
+const DUE_BACK = LATE_DUE_BACK;
+const HANDED_OVER = LATE_HANDED_OVER;
 /** The week from the old return time: free by the hold alone, as the form used to find. */
 const FROM_DUE_BACK = { plannedStart: "2026-11-03T10:00", plannedEnd: "2026-11-10T10:00" };
-const FAR_AHEAD = { plannedStart: "2034-06-01T09:00", plannedEnd: "2034-06-29T09:00" };
+/** Years from the run's own year, so no date here ever falls into the past. */
+const YEAR = new Date().getUTCFullYear();
+const FAR_YEAR = YEAR + 8;
+const LATER_YEAR = YEAR + 9;
+const FAR_AHEAD = {
+  plannedStart: `${FAR_YEAR}-06-01T09:00`,
+  plannedEnd: `${FAR_YEAR}-06-29T09:00`,
+};
+/** 9am Perth on 1 June of the far year, the start of FAR_AHEAD. */
+const FAR_AHEAD_START = new Date(`${FAR_YEAR}-06-01T01:00:00Z`);
+/** 10am Perth on 3 Jan of the far year: a new end for a rental out now. */
+const FAR_NEW_END = new Date(`${FAR_YEAR}-01-03T02:00:00Z`);
 /** A rental out now and due back long after any run of this test. */
-const NOT_YET_DUE = { plannedStart: "2026-10-06T10:00", plannedEnd: "2035-01-02T10:00" };
-const AFTER_NOT_YET_DUE = { plannedStart: "2035-01-02T10:00", plannedEnd: "2035-01-09T10:00" };
+const NOT_YET_DUE = { plannedStart: "2026-10-06T10:00", plannedEnd: `${LATER_YEAR}-01-02T10:00` };
+const AFTER_NOT_YET_DUE = {
+  plannedStart: `${LATER_YEAR}-01-02T10:00`,
+  plannedEnd: `${LATER_YEAR}-01-09T10:00`,
+};
 const STILL_OUT_MESSAGE =
   "This car is still out: it was due back 3 Nov 2026, 10:00 am AWST and hasn't been returned yet. Choose another car, or record its return first.";
 const EXCLUSION_VIOLATION = "23P01";
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+/** The name code deployed before migration 0054 reads as "the car was taken". */
+const OLD_CLASH_CONSTRAINT = "car_holds_no_overlap";
 const FOREIGN_KEY_VIOLATION = "23503";
 
 function postgresCodeOf(error: unknown): string | undefined {
@@ -59,26 +77,8 @@ describe("a car still out past its return date", () => {
     return { vehicleId, renterId: await addTestRenter(web, owner) };
   }
 
-  /** A car handed over for `period` and never returned; later bookings, if any, made before. */
-  async function carOut(
-    owner: ActingUser,
-    options: {
-      period?: { plannedStart: string; plannedEnd: string | null };
-      bookedBefore?: (typeof FROM_DUE_BACK)[];
-    } = {},
-  ) {
-    const parties = await carAndRenter(owner);
-    const out = await bookTestRentalOn(web, owner, {
-      ...parties,
-      period: options.period ?? LATE_PERIOD,
-      now: BOOKED_ON,
-    });
-    const later = [];
-    for (const period of options.bookedBefore ?? []) {
-      later.push(await bookTestRentalOn(web, owner, { ...parties, period, now: BOOKED_ON }));
-    }
-    await recordTestHandover(superuser, out.rentalId, HANDED_OVER);
-    return { ...parties, lateRentalId: out.rentalId, laterRentalIds: later.map((r) => r.rentalId) };
+  function carOut(owner: ActingUser, options: Parameters<typeof addCarOut>[3] = {}) {
+    return addCarOut(web, superuser, owner, options);
   }
 
   /** A draft on the car: a rental with no hold, to hold the car for straight in the database. */
@@ -217,7 +217,7 @@ describe("a car still out past its return date", () => {
         web.db,
         actor,
         car.lateRentalId,
-        { newEnd: new Date("2034-01-03T02:00:00Z"), reason: "Renter is keeping it longer" },
+        { newEnd: FAR_NEW_END, reason: "Renter is keeping it longer" },
         { timeZone: TEST_TIME_ZONE, now: new Date() },
       );
 
@@ -232,13 +232,13 @@ describe("a car still out past its return date", () => {
         web.db,
         actor,
         nextId,
-        { newEnd: new Date("2034-01-10T02:00:00Z"), reason: "Renter wants it longer" },
+        { newEnd: new Date(FAR_NEW_END.getTime() + WEEK_MS), reason: "Renter wants it longer" },
         { timeZone: TEST_TIME_ZONE, now: new Date() },
       );
       const pushedBack = withTenant(web.db, actor.operatorId, (tx) =>
         tx
           .update(carHolds)
-          .set({ heldDuring: heldRange(new Date("2034-01-03T02:00:00Z"), null) })
+          .set({ heldDuring: heldRange(FAR_NEW_END, null) })
           .where(and(eq(carHolds.rentalId, nextId), isNull(carHolds.releasedAt))),
       );
 
@@ -258,12 +258,14 @@ describe("a car still out past its return date", () => {
       const caught = await holdStraightIn(actor, {
         vehicleId: car.vehicleId,
         rentalId: draftId,
-        start: new Date("2034-06-01T01:00:00Z"),
-        end: new Date("2034-06-08T01:00:00Z"),
+        start: FAR_AHEAD_START,
+        end: new Date(FAR_AHEAD_START.getTime() + WEEK_MS),
       }).catch((error: unknown) => error);
 
       expect(postgresCodeOf(caught)).toBe(EXCLUSION_VIOLATION);
       expect(isCarAlreadyHeld(caught)).toBe(true);
+      // Code deployed before this migration (which runs first) says "booked just now", not an error page.
+      expect(isExclusionViolation(caught, OLD_CLASH_CONSTRAINT)).toBe(true);
     });
 
     it("refuses a hold from the planned end and an open-ended one", async () => {
@@ -279,7 +281,7 @@ describe("a car still out past its return date", () => {
       const openEnded = holdStraightIn(actor, {
         vehicleId: car.vehicleId,
         rentalId: draftId,
-        start: new Date("2034-06-01T01:00:00Z"),
+        start: FAR_AHEAD_START,
         end: null,
       });
 
@@ -301,7 +303,7 @@ describe("a car still out past its return date", () => {
       const moved = withTenant(web.db, actor.operatorId, (tx) =>
         tx
           .update(carHolds)
-          .set({ heldDuring: heldRange(new Date("2034-06-01T01:00:00Z"), null) })
+          .set({ heldDuring: heldRange(FAR_AHEAD_START, null) })
           .where(eq(carHolds.rentalId, draftId)),
       );
 

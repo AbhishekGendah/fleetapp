@@ -11,10 +11,11 @@ import { and, eq, isNull, ne, sql } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
 
-/** The database rule that keeps two holds on one car apart (migration 0028). */
+/**
+ * The database rule that keeps two holds on one car apart (migration 0028),
+ * reading a car still out past its end as held with no end (migration 0054).
+ */
 const CAR_HOLDS_NO_OVERLAP = "car_holds_no_overlap";
-/** The database rule that keeps a car still out past its end from being booked (migration 0054). */
-const CAR_HOLDS_NOT_WHILE_OUT = "car_holds_not_while_out";
 
 /**
  * A span as Postgres writes a time range: from (included) up to (not
@@ -211,8 +212,5 @@ export async function releaseCarHolds(
  * first, or the car is still out late with another rental.
  */
 export function isCarAlreadyHeld(error: unknown): boolean {
-  return (
-    isExclusionViolation(error, CAR_HOLDS_NO_OVERLAP) ||
-    isExclusionViolation(error, CAR_HOLDS_NOT_WHILE_OUT)
-  );
+  return isExclusionViolation(error, CAR_HOLDS_NO_OVERLAP);
 }

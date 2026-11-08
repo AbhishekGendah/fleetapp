@@ -12,8 +12,12 @@
 -- this change (a booking made before the car was late), so the Operator can
 -- still move, shorten or cancel it. Nothing here reads or changes existing
 -- rows, so a filled database updates at once, and existing bookings stay.
--- The refusal uses the exclusion-rule error the deployed code already reads
--- as "the car was taken", under its own name.
+-- The refusal is raised as the no-overlap rule's own error (exclusion
+-- violation, constraint car_holds_no_overlap): it is that rule, with the
+-- late rental's hold read as open-ended. So code deployed before this
+-- migration (which runs first) says "someone booked this car just now"
+-- rather than failing; the new code looks for a late car before writing and
+-- says so in its own words, so it meets this error only in a race.
 CREATE FUNCTION "app"."check_car_hold_not_while_out"() RETURNS trigger
   LANGUAGE plpgsql
   SET search_path = pg_catalog, public, pg_temp
@@ -46,7 +50,7 @@ CREATE FUNCTION "app"."check_car_hold_not_while_out"() RETURNS trigger
       RETURN NEW;
     END IF;
     RAISE EXCEPTION 'This car is still out past its return date: it can''t be booked until it is back.'
-      USING ERRCODE = 'exclusion_violation', CONSTRAINT = 'car_holds_not_while_out';
+      USING ERRCODE = 'exclusion_violation', CONSTRAINT = 'car_holds_no_overlap';
   END;
   $$;--> statement-breakpoint
 CREATE TRIGGER "car_holds_not_while_out"
