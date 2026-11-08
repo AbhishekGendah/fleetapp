@@ -651,7 +651,9 @@ were enough.
   also finds a trading name, an ABN typed with or without spaces (each
   group is a word of the stored 11 digits) and a contact's name; the Rentals
   list and top bar search also find a trading name and a business rental's
-  driver. The export adds Kind and Legal name columns.
+  driver. The export adds Kind and Legal name columns, and Paid by (the
+  business, for a driver whose business pays); its Owing column is always
+  the amount, blank for such a driver (review fix, 8 Nov 2026).
 - **A business's page.** Its own strip: trading name; legal name and ABN;
   "Contact Dana Wells" with Call, Text, Email; labels; Owing across cars (the
   same fact as a person's, from the ledger of all its rentals), Cars out
@@ -663,10 +665,15 @@ were enough.
   Cars out now, Latest note, Drivers (5, with standing), Contact. Money: car
   by car (charged, paid, owing per rental, from each rental's own lines by
   `ledgerTotals`; a reversal is always on its own rental, so the cars add up
-  to the business: tested) above the whole ledger. Details: its details, Do
+  to the business: tested) above the whole ledger. Car by car loads only
+  the rentals it shows (booked or out, or with money on them), those booked
+  or out first, then the newest, up to 1,000; past that it says "Only the
+  1,000 newest rentals are listed here", the totals still counting all. Details: its details, Do
   not rent ("stops new bookings; its cars out and its drivers carry on"),
   "A business has no details link", What we hold, Archive. Log: its record,
-  notes and driver links.
+  notes and driver links; its added line reads "Business Renter added". A
+  licence or a licence scan for a business is refused in app code ("A
+  business has no licence of its own").
 - **Drivers tab.** Current drivers as rows (cards on a phone): name (opens
   the driver), phone, the licence's kind, state and expiry (never its
   number), one standing label (Do not rent, To review, Licence not on file,
@@ -678,9 +685,13 @@ were enough.
   or email, the person form's own rule). Someone new is added as a person
   Renter and linked in one transaction, then sent the details link when
   they have an email. Both get the privacy notice by email, now with the
-  driver paragraph. Past drivers, latest first.
+  driver paragraph; when it can't be emailed (no email, or the send
+  failed), the form shows the same "Give <name> the privacy notice" card as
+  adding a person. Past drivers, latest first.
 - **Locks.** Adding locks the business, then the person, then inserts the
-  link (the trigger takes both shared). Removing locks the business, then
+  link (the trigger takes both shared). A business named as the driver is
+  read without a lock and refused, so two crossed adds can't deadlock
+  (tested). Removing locks the business, then
   the driver, then the link, checks no draft, booking or car out of the
   business names them, then ends it: the booking's order. A test runs a
   booking holding the business and driver, the removal waiting on it, and
@@ -700,7 +711,7 @@ were enough.
 - **Everything we hold.** A business: Details (its own fields), Drivers (name,
   added, removed), all its rentals with a Driver column (names only), money,
   signing, damage, documents and the Log with its driver links; no Licence
-  sheet or scans. A person who drives or drove for a business: Drives for,
+  sheet or scans (none are sent even if one was stored against it). A person who drives or drove for a business: Drives for,
   Cars driven, Damage while driving (found at the returns of their
   possessions) and Reports signed driving (handover and return reports and
   swap forms of their possessions, with the PDFs); never the business's
