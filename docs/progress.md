@@ -1267,6 +1267,13 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
 
 ## Next
 
+**8 Nov: two plans approved (all 20 decisions):** docs/plans/find-a-car.md
+(dates first, free cars as photo cards, filters, showroom photos; also
+fixes a car late back being bookable) and docs/plans/condition-photos.md
+(free photo gallery at pickup/return, Optional/Required, albums). Mockups on
+the design canvas (8 Nov). Order proposed: the late-car booking fix first,
+then business Renters slice 2, Find a car, condition photos.
+
 **7 Nov: everything is on the dev site** (Abhi: "send all to the dev
 site"): the overdue batch, no-underline links, cancelled bookings counting
 as overdue, and the Cars and Renters pages (main fast-forwarded to 2bb3ec5).
