@@ -1,4 +1,4 @@
-import type { FilePurpose } from "@fleetapp/core";
+import type { FilePurpose, RenterKind } from "@fleetapp/core";
 
 import type { AnyDatabase } from "./client";
 import {
@@ -143,6 +143,10 @@ const FILE_PURPOSE_LABELS = {
   issued_document: "Issued document",
 } satisfies Record<FilePurpose, string>;
 
+/** A business Renter's kind as stored, and what its Log lines call it. */
+const BUSINESS_RENTER_KIND = "organisation" satisfies RenterKind;
+const BUSINESS_RENTER_LABEL = "Business Renter";
+
 /** Why the nightly clean-up removed a file, as its log line says. */
 const SYSTEM_BIN_REASON_LABELS: Readonly<Record<string, string>> = {
   kept_the_set_time: "after the set number of months",
@@ -168,6 +172,13 @@ export function describeActivity(
   action: string,
   valuesAfter?: unknown,
 ): string {
+  // A business's "added" line keeps its kind (never its details): it says which it is.
+  if (
+    entityType === ACTIVITY_ENTITY_TYPES.renter &&
+    textValueOf(valuesAfter, "kind") === BUSINESS_RENTER_KIND
+  ) {
+    return `${BUSINESS_RENTER_LABEL} ${labelFor(ACTIVITY_ACTION_LABELS, action)}`;
+  }
   const isFile = entityType === ACTIVITY_ENTITY_TYPES.file;
   const purpose = isFile ? textValueOf(valuesAfter, "purpose") : null;
   const reason = isFile ? textValueOf(valuesAfter, "reason") : null;

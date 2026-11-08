@@ -10,6 +10,13 @@ describe("a Log line in words", () => {
     expect(describeActivity("organisation_driver", "removed")).toBe("Driver removed");
   });
 
+  it("says a business Renter was added as a business, never with its details", () => {
+    expect(describeActivity("renter", "created", { kind: "organisation", abn: "[withheld]" })).toBe(
+      "Business Renter added",
+    );
+    expect(describeActivity("renter", "created", { fullName: "[withheld]" })).toBe("Renter added");
+  });
+
   it("names a file by what it is for, when its line says", () => {
     expect(describeActivity("file", "viewed", { purpose: "renter_licence_scan" })).toBe(
       "Licence scan opened",

@@ -564,6 +564,20 @@ describe("business Renters and their drivers", () => {
       expect(scans?.table).toHaveLength(1);
     });
 
+    it("names a business's changed details in its log as the business form does", async () => {
+      const businessId = await addBusiness();
+      await updateBusinessRenter(
+        web.db,
+        actor,
+        businessId,
+        businessInput({ fullName: "Acme Renamed Pty Ltd" }),
+      );
+      const held = await buildEverythingHeld(web.db, actor, businessId, TEST_TIME_ZONE);
+      const log = held?.sheets.find((sheet) => sheet.name === "Log");
+      expect(log?.table.map((row) => row[3])).toContain("Legal name");
+      expect(log?.table.map((row) => row[2])).toContain("Business Renter added");
+    });
+
     it("holds the businesses a driver drives for", async () => {
       const businessId = await addBusiness();
       const driverId = await addTestRenter(web, actor, "Sam Driving");

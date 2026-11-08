@@ -41,6 +41,7 @@ import {
 } from "./organisation-driver-queries";
 import {
   BUSINESS_RENTER_FIELD_LABELS,
+  businessRenterFieldLabel,
   RENTER_FIELD_LABELS,
   renterFieldLabel,
 } from "./renter-labels";
@@ -145,9 +146,9 @@ function licenceSheet(renter: RenterDetail): WorkbookSheet {
 }
 
 /** "Phone, Email": the details a change altered, never their values (they are not kept). */
-function changedFields(entry: HistoryEntry): string {
+function changedFields(entry: HistoryEntry, fieldLabel: (field: string) => string): string {
   const fields = Object.keys(entry.valuesBefore ?? {});
-  return fields.map(renterFieldLabel).join(", ");
+  return fields.map(fieldLabel).join(", ");
 }
 
 /** Who did it, as the Renter sees it: staff are "the business", never named (review A7-8). */
@@ -158,7 +159,11 @@ const ACTOR_LABELS: Readonly<Record<HistoryEntry["actorType"], string>> = {
   renter_link: "You, through a link",
 };
 
-function logSheet(entries: readonly HistoryEntry[], timeZone: string): WorkbookSheet {
+function logSheet(
+  entries: readonly HistoryEntry[],
+  timeZone: string,
+  fieldLabel: (field: string) => string,
+): WorkbookSheet {
   return {
     name: "Log",
     table: [
@@ -167,7 +172,7 @@ function logSheet(entries: readonly HistoryEntry[], timeZone: string): WorkbookS
         formatDateTimeInTimeZone(entry.occurredAt, timeZone),
         ACTOR_LABELS[entry.actorType],
         describeActivity(entry.entityType, entry.action, entry.valuesAfter),
-        text(changedFields(entry) || null),
+        text(changedFields(entry, fieldLabel) || null),
       ]),
     ],
   };
@@ -342,7 +347,8 @@ export async function buildEverythingHeld(
       ...(driving && (driving.driven.length > 0 || drivesFor.length > 0)
         ? drivingSheets(driving, drivesFor, timeZone)
         : []),
-      logSheet(log, timeZone),
+      // A business's details have their own names: its full name is its legal name.
+      logSheet(log, timeZone, isBusiness ? businessRenterFieldLabel : renterFieldLabel),
     ],
     files: [
       ...[...records.documents, ...(driving?.documents ?? [])].map((document) => ({

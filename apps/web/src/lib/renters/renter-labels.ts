@@ -1,4 +1,9 @@
-import { formatCalendarDate, RENTER_STATUS_LABELS, WITHHELD_VALUE } from "@fleetapp/core";
+import {
+  formatCalendarDate,
+  RENTER_KIND_LABELS,
+  RENTER_STATUS_LABELS,
+  WITHHELD_VALUE,
+} from "@fleetapp/core";
 
 import type { BusinessRenterFormField } from "./business-renter-input";
 import type { LicenceFormField } from "./licence-input";
@@ -46,8 +51,24 @@ export const BUSINESS_RENTER_FIELD_LABELS: Readonly<Record<BusinessLabelledField
   doNotRentReason: "Why not rent to it",
 };
 
+/**
+ * What only the Log holds: a Renter's kind, written when a business is
+ * added, and the two sides of a driver's link to a business.
+ */
+const LOG_FIELD_LABELS: Readonly<Record<string, string>> = {
+  kind: "Kind",
+  organisationId: "Business",
+  driverId: "Driver",
+};
+
+/** The Log keeps which business and driver a link joins as ids: shown as neither the id nor a name (rule 7). */
+const LINKED_RECORD_FIELDS: ReadonlySet<string> = new Set(["organisationId", "driverId"]);
+
 function labelIn(labels: Readonly<Record<string, string>>, field: string): string {
-  return Object.hasOwn(labels, field) ? labels[field]! : field;
+  if (Object.hasOwn(labels, field)) {
+    return labels[field]!;
+  }
+  return Object.hasOwn(LOG_FIELD_LABELS, field) ? LOG_FIELD_LABELS[field]! : field;
 }
 
 export function renterFieldLabel(field: string): string {
@@ -63,10 +84,13 @@ export function describeRenterValue(field: string, value: unknown): string {
   if (value === null || value === undefined || value === "") {
     return "blank";
   }
-  if (value === WITHHELD_VALUE) {
+  if (value === WITHHELD_VALUE || LINKED_RECORD_FIELDS.has(field)) {
     return "not shown";
   }
   const text = String(value);
+  if (field === "kind" && Object.hasOwn(RENTER_KIND_LABELS, text)) {
+    return RENTER_KIND_LABELS[text as keyof typeof RENTER_KIND_LABELS];
+  }
   if (field === "status" && Object.hasOwn(RENTER_STATUS_LABELS, text)) {
     return RENTER_STATUS_LABELS[text as keyof typeof RENTER_STATUS_LABELS];
   }
