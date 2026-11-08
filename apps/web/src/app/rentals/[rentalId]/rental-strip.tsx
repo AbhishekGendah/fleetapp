@@ -1,6 +1,6 @@
 import {
   formatShortDayInTimeZone,
-  renterDisplayName,
+  renterShownName,
   todayInTimeZone,
   type FuelLevel,
 } from "@fleetapp/core";
@@ -24,7 +24,7 @@ import {
   rentFact,
   type RentalFact,
 } from "../../../lib/rentals/rental-page-facts";
-import type { RentalDetail } from "../../../lib/rentals/rental-queries";
+import { rentalRenterNames, type RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { RentalClock } from "../../../lib/rentals/rental-records";
 import { RentalAlertBadges } from "../rental-status-badge";
 import { ChecklistMainButton, type ReturnProgress } from "./handover-card";
@@ -85,6 +85,22 @@ function factsOf(rental: RentalDetail, data: RentalStripData, clock: RentalClock
   ].filter((fact) => fact !== null);
 }
 
+/** "· driver Sam Lee", the driver a link (mockup 6); "· driver to be named" until then. */
+function StripDriver({ rental }: { rental: RentalDetail }) {
+  return (
+    <>
+      <span className="font-semibold text-white/80"> · driver </span>
+      {rental.driverId && rental.driverFullName ? (
+        <InlineRecordLink asChild tone="onPrimary" isLinkOnPhones>
+          <Link href={renterPath(rental.driverId)}>{rental.driverFullName}</Link>
+        </InlineRecordLink>
+      ) : (
+        <span className="font-semibold text-white/80">to be named</span>
+      )}
+    </>
+  );
+}
+
 /**
  * The navy strip at the top of one rental's page (the navy strip rule):
  * rego · Renter, each a link; the car and how it runs; its status in plain
@@ -110,9 +126,10 @@ export function RentalStrip(props: {
           {" · "}
           <InlineRecordLink asChild tone="onPrimary" isLinkOnPhones>
             <Link href={renterPath(rental.renterId)}>
-              {renterDisplayName(rental.renterFullName, rental.renterPreferredName)}
+              {renterShownName(rentalRenterNames(rental))}
             </Link>
           </InlineRecordLink>
+          {rental.renterKind === "organisation" ? <StripDriver rental={rental} /> : null}
         </>
       }
       subtitle={subtitleOf(rental, clock)}

@@ -9,7 +9,13 @@ import { loadRentalBalances } from "../../lib/ledger/rental-balances";
 import { newRentalPath, RENTALS_PATH } from "../../lib/paths";
 import { listRentalPage, type RentalScope } from "../../lib/rentals/rental-queries";
 import type { SignedInUser } from "../../lib/require-user";
-import { RENTAL_LIST, RentalCard, rentalListRows, type RentalListRow } from "./rental-list";
+import {
+  DRIVER_COLUMN,
+  RENTAL_LIST,
+  RentalCard,
+  rentalListRows,
+  type RentalListRow,
+} from "./rental-list";
 
 /** The latest first: what a car's or a Renter's page most needs to show. */
 const LATEST_FIRST = {
@@ -26,6 +32,13 @@ function columnsWithout(key: "renter" | "rego"): DataListDefinition<RentalListRo
 
 const OF_CAR = columnsWithout("rego");
 const OF_RENTER = columnsWithout("renter");
+/** A business's own: who drives each car, after the car (mockup 3, deferred from slice 2). */
+const OF_BUSINESS: DataListDefinition<RentalListRow> = {
+  ...OF_RENTER,
+  columns: OF_RENTER.columns.flatMap((column) =>
+    column.key === "rego" ? [column, DRIVER_COLUMN] : [column],
+  ),
+};
 
 /**
  * A car's or a Renter's rentals, latest first, as the Rentals list shows
@@ -38,8 +51,10 @@ export async function RecordRentalsCard(props: {
   scope: Exclude<RentalScope, Record<string, never>>;
   heading: string;
   newRentalLabel: string;
-  /** No New rental: the car or Renter is archived, or (a business, until plan slice 3) can't be booked here yet. */
+  /** No New rental: the car or Renter is archived, or marked Do not rent. */
   isNewRentalHidden: boolean;
+  /** A business's rentals: a Driver column after the car. */
+  isDriverShown?: boolean;
 }) {
   const clock = { timeZone: props.user.operatorTimezone, now: new Date() };
   const page = await listRentalPage(appDb, props.user.operatorId, LATEST_FIRST, {
@@ -69,7 +84,7 @@ export async function RecordRentalsCard(props: {
     >
       <div className="flex flex-col gap-3 border-t pt-3 pb-3">
         <DataList
-          definition={isOfRenter ? OF_RENTER : OF_CAR}
+          definition={props.isDriverShown ? OF_BUSINESS : isOfRenter ? OF_RENTER : OF_CAR}
           page={{ ...page, rows: rentalListRows(page.rows, balances, clock) }}
           query={LATEST_FIRST}
           basePath={RENTALS_PATH}

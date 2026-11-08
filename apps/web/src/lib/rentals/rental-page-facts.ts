@@ -191,6 +191,7 @@ export function atHandoverFact(handover: {
 const RENTER_PROBLEM_CODES: ReadonlySet<BookingProblem["code"]> = new Set([
   "do_not_rent",
   "details_missing",
+  "business_details_missing",
   "licence_expired_by_start",
   "under_minimum_age",
   "provisional_licence",
@@ -203,13 +204,21 @@ export function hasRenterProblem(problems: readonly BookingProblem[]): boolean {
 
 /** The Next step card's main button. */
 export type NextStepAction =
-  "book" | "continue_handover" | "start_handover" | "send_contract" | "take_bond" | "check_details";
+  | "book"
+  | "continue_handover"
+  | "start_handover"
+  | "send_contract"
+  | "take_bond"
+  | "name_driver"
+  | "check_details";
 
 export interface NextStepInput {
   status: "draft" | "booked";
   isContractSigned: boolean;
   isBondPaid: boolean;
   isDetailsApproved: boolean;
+  /** A business's driver is named (decision 2); always so for a person's own rental. */
+  isDriverNamed: boolean;
   /** No problem stands in the way (isHandoverAllowed). */
   isHandoverAllowed: boolean;
   isHandoverUnderWay: boolean;
@@ -224,7 +233,7 @@ export interface NextStep {
 /**
  * What to do next before the car goes: book a draft; carry on with a
  * handover under way; start it when everything is in; otherwise the first
- * missing thing (contract, bond, the Renter's details). A handover is only
+ * missing thing (contract, bond, a business's driver, the details). A handover is only
  * finished once the contract is signed, so an unsigned contract always
  * comes first.
  */
@@ -242,9 +251,15 @@ export function nextStepOf(input: NextStepInput): NextStep {
     ? "send_contract"
     : !input.isBondPaid
       ? "take_bond"
-      : !input.isDetailsApproved
-        ? "check_details"
-        : null;
+      : !input.isDriverNamed
+        ? "name_driver"
+        : !input.isDetailsApproved
+          ? "check_details"
+          : null;
+  if (missing === "name_driver") {
+    // Nothing can give the car to nobody: the handover waits for a driver.
+    return { main: missing, canStartHandoverToo: false };
+  }
   // Everything ticked but something else in the way (a car not insured, say):
   // the handover is where that is given a reason or found to block.
   return missing

@@ -27,6 +27,7 @@ import { ChangesCard } from "./changes-card";
 import { ContractCard } from "./contract-card";
 import { loadReturnProgress, ReturnCard } from "./handover-card";
 import { hasMoneyToShow, MoneyCard } from "./money-card";
+import { NameDriverDialog } from "./name-driver-dialog";
 import { NextStepCard } from "./next-step-card";
 import {
   CancelCard,
@@ -81,7 +82,7 @@ async function loadRentalPageData(
     rental.status === "draft" ? null : loadRentalLedger(appDb, user.operatorId, rental.id),
     loadNextRent(appDb, user.operatorId, rental.id, clock.now),
     loadBondAccount(appDb, user.operatorId, rental),
-    loadRentalPapers(rental.id, user),
+    loadRentalPapers(rental.id, user, rental.renterKind === "organisation"),
     rental.handedOverAt
       ? loadCompletedHandover(appDb, user.operatorId, {
           rentalId: rental.id,
@@ -106,7 +107,11 @@ function OverviewTab(props: {
     <>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start">
         <div className="flex flex-col gap-4">
-          <RentalDetailsCard rental={rental} timeZone={user.operatorTimezone} />
+          <RentalDetailsCard
+            rental={rental}
+            timeZone={user.operatorTimezone}
+            driverAction={<NameDriverDialog rental={rental} user={user} />}
+          />
           <ChangesCard rental={rental} user={user} clock={clock} />
           {data.returnProgress ? (
             <ReturnCard rentalId={rental.id} progress={data.returnProgress} />

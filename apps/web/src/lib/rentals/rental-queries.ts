@@ -8,6 +8,7 @@ import {
   type ListQuery,
   type RentalStatus,
   type RenterKind,
+  type RenterNames,
   type RentModel,
   type RentalType,
 } from "@fleetapp/core";
@@ -38,7 +39,7 @@ export const CAR_OF_RENTAL = and(
   eq(vehicles.operatorId, rentals.operatorId),
 );
 /** A business rental's driver's name; none for a person's own (the Renter's name is already searched). */
-const DRIVER_NAME = sql`(
+const DRIVER_NAME = sql<string | null>`(
   select "driver"."full_name" from "renters" "driver"
   where "driver"."id" = "rentals"."driver_id"
     and "driver"."operator_id" = "rentals"."operator_id"
@@ -105,7 +106,9 @@ function summaryColumnsAt({ now, timeZone }: RentalClock) {
     renterFullName: renters.fullName,
     renterPreferredName: renters.preferredName,
     renterTradingName: renters.tradingName,
+    renterAbn: renters.abn,
     driverId: rentals.driverId,
+    driverFullName: DRIVER_NAME,
     vehicleId: rentals.vehicleId,
     rego: vehicles.rego,
     make: vehicles.make,
@@ -132,8 +135,12 @@ export interface RentalSummary {
   renterFullName: string;
   renterPreferredName: string | null;
   renterTradingName: string | null;
+  /** A business's ABN (11 digits); none for most people. */
+  renterAbn: string | null;
   /** Who drives: the Renter themselves for a person; a business's driver, or none named yet. */
   driverId: string | null;
+  /** A business's driver's full name; none for a person's own rental, or while to be named. */
+  driverFullName: string | null;
   vehicleId: string;
   rego: string;
   make: string;
@@ -149,6 +156,21 @@ export interface RentalSummary {
   isOverdue: boolean;
   isStartingSoon: boolean;
   isAtRisk: boolean;
+}
+
+/** A rental's Renter's names, for `renterShownName`: a business by its trading name. */
+export function rentalRenterNames(
+  rental: Pick<
+    RentalSummary,
+    "renterKind" | "renterFullName" | "renterPreferredName" | "renterTradingName"
+  >,
+): RenterNames {
+  return {
+    kind: rental.renterKind,
+    fullName: rental.renterFullName,
+    preferredName: rental.renterPreferredName,
+    tradingName: rental.renterTradingName,
+  };
 }
 
 /** Not a column: the Rentals list's own order, most relevant first. */

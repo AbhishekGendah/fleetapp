@@ -2,7 +2,9 @@ import {
   formatCents,
   formatShortDayInTimeZone,
   isHandoverAllowed,
+  firstNameOf,
   renterFirstName,
+  renterShownName,
   todayInTimeZone,
   type BookingProblem,
 } from "@fleetapp/core";
@@ -24,12 +26,16 @@ import {
   nextStepOf,
   type NextStep,
 } from "../../../lib/rentals/rental-page-facts";
-import { bookingProblemMessage } from "../../../lib/rentals/rental-messages";
-import type { RentalDetail } from "../../../lib/rentals/rental-queries";
+import {
+  bookingProblemMessage,
+  RENTAL_PARTY_MISSING_MESSAGES,
+} from "../../../lib/rentals/rental-messages";
+import { rentalRenterNames, type RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { RentalClock } from "../../../lib/rentals/rental-records";
 import type { SignedInUser } from "../../../lib/require-user";
 import { bookDraftAction } from "./actions";
 import { CancelChecklistButton, ChecklistMainButton } from "./handover-card";
+import { NameDriverDialog } from "./name-driver-dialog";
 import type { RentalPaper } from "./papers-card";
 import { RENTAL_TAB_LINKS } from "./rental-tabs";
 
@@ -92,7 +98,11 @@ function StepButtons(props: {
   step: NextStep;
   rental: RentalDetail;
   firstName: string;
+  /** Where Check details goes: the Renter, a business's driver, or the business itself. */
+  detailsHref: string;
   inProgressId: string | null;
+  /** A business's "Name a driver" pop-up, for that step. */
+  nameDriver: React.ReactNode;
 }) {
   const { step, rental } = props;
   const main = (() => {
@@ -132,10 +142,12 @@ function StepButtons(props: {
             label="Take the bond"
           />
         );
+      case "name_driver":
+        return props.nameDriver;
       case "check_details":
         return (
           <GoButton
-            href={renterPath(rental.renterId)}
+            href={props.detailsHref}
             icon={<UserCheck aria-hidden />}
             label={`Check ${props.firstName}'s details`}
           />
@@ -165,7 +177,13 @@ function StepButtons(props: {
 }
 
 /** What is in the way, under the rules the rental was made with: blocking, or only worth knowing. */
-function ProblemList({ problems }: { problems: readonly BookingProblem[] }) {
+function ProblemList({
+  problems,
+  isBusinessRental,
+}: {
+  problems: readonly BookingProblem[];
+  isBusinessRental: boolean;
+}) {
   if (problems.length === 0) {
     return null;
   }
@@ -180,11 +198,36 @@ function ProblemList({ problems }: { problems: readonly BookingProblem[] }) {
       </p>
       <ul className="mt-2 list-disc pl-5 text-sm">
         {problems.map((problem) => (
-          <li key={problem.code}>{bookingProblemMessage(problem)}</li>
+          <li key={problem.code}>{bookingProblemMessage(problem, isBusinessRental)}</li>
         ))}
       </ul>
     </div>
   );
+}
+
+/**
+ * Whose details the Next step is about, and where they are checked: a
+ * person's own; a business's own while they are missing, else its driver's
+ * (the licence is theirs), the business until one is named.
+ */
+function detailsSubjectOf(
+  rental: RentalDetail,
+  problems: readonly BookingProblem[],
+): { name: string; href: string } {
+  if (rental.renterKind !== "organisation") {
+    return {
+      name: renterFirstName(rental.renterFullName, rental.renterPreferredName),
+      href: renterPath(rental.renterId),
+    };
+  }
+  const business = {
+    name: renterShownName(rentalRenterNames(rental)),
+    href: renterPath(rental.renterId),
+  };
+  const isBusinessMissing = problems.some((problem) => problem.code === "business_details_missing");
+  return rental.driverId && rental.driverFullName && !isBusinessMissing
+    ? { name: firstNameOf(rental.driverFullName), href: renterPath(rental.driverId) }
+    : business;
 }
 
 /**
@@ -211,26 +254,36 @@ export async function NextStepCard(props: {
   if (typeof problems === "string") {
     return (
       <SectionCard heading={HEADING}>
-        <p className="border-t py-3 text-sm">
-          {problems === "car_not_found"
-            ? "The car has been archived. Restore it, or cancel this rental."
-            : "The Renter has been archived. Restore them, or cancel this rental."}
-        </p>
+        <p className="border-t py-3 text-sm">{RENTAL_PARTY_MISSING_MESSAGES[problems]}</p>
       </SectionCard>
     );
   }
-  const firstName = renterFirstName(rental.renterFullName, rental.renterPreferredName);
+  const isBusinessRental = rental.renterKind === "organisation";
+  const whose = detailsSubjectOf(rental, problems);
   const contract = props.papers.find((paper) => paper.kind === "contract");
   const isDetailsApproved = !hasRenterProblem(problems);
+  const isDriverNamed = !isBusinessRental || rental.driverId !== null;
   const today = todayInTimeZone(clock.now, clock.timeZone);
   const step = nextStepOf({
     status: rental.status === "draft" ? "draft" : "booked",
     isContractSigned: contract !== undefined,
     isBondPaid: bond.owingCents === 0,
     isDetailsApproved,
+    isDriverNamed,
     isHandoverAllowed: isHandoverAllowed(problems),
     isHandoverUnderWay: handover.inProgressId !== null,
   });
+  const driverTicks: Tick[] = isBusinessRental
+    ? [
+        {
+          key: "driver",
+          isDone: isDriverNamed,
+          text: rental.driverFullName
+            ? `Driver named: ${rental.driverFullName}`
+            : "No driver named yet",
+        },
+      ]
+    : [];
   const ticks: Tick[] = [
     {
       key: "contract",
@@ -240,12 +293,13 @@ export async function NextStepCard(props: {
         : "Contract not signed yet",
     },
     { key: "bond", isDone: bond.owingCents === 0, text: bondTickText(rental, bond) },
+    ...driverTicks,
     {
       key: "details",
       isDone: isDetailsApproved,
       text: isDetailsApproved
-        ? `${firstName}'s details approved`
-        : `${firstName}'s details need checking`,
+        ? `${whose.name}'s details approved`
+        : `${whose.name}'s details need checking`,
     },
   ];
   return (
@@ -254,10 +308,17 @@ export async function NextStepCard(props: {
       <StepButtons
         step={step}
         rental={rental}
-        firstName={firstName}
+        firstName={whose.name}
+        detailsHref={whose.href}
         inProgressId={handover.inProgressId}
+        nameDriver={<NameDriverDialog rental={rental} user={user} isMainAction />}
       />
-      <ProblemList problems={problems} />
+      {!isDriverNamed ? (
+        <p className="text-muted-foreground border-t py-3 text-sm">
+          The handover can&apos;t start until a driver is named and their licence passes the checks.
+        </p>
+      ) : null}
+      <ProblemList problems={problems} isBusinessRental={isBusinessRental} />
     </SectionCard>
   );
 }

@@ -144,8 +144,8 @@ async function ChosenBusinessTab(props: {
           scope={{ renterId: renter.id }}
           heading={`${renterShownName(renter)}'s rentals`}
           newRentalLabel="New rental"
-          // Renting to a business comes with its driver picker and contract (plan slice 3).
-          isNewRentalHidden
+          isNewRentalHidden={renter.archivedAt !== null}
+          isDriverShown
         />
       );
     case "money":

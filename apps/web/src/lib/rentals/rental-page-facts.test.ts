@@ -185,6 +185,7 @@ describe("the next step before handover", () => {
     isContractSigned: true,
     isBondPaid: true,
     isDetailsApproved: true,
+    isDriverNamed: true,
     isHandoverAllowed: true,
     isHandoverUnderWay: false,
   };
@@ -213,6 +214,13 @@ describe("the next step before handover", () => {
     expect(nextStepOf({ ...missingAll, isContractSigned: true, isBondPaid: true }).main).toBe(
       "check_details",
     );
+  });
+
+  it("names a business's driver after the contract and bond, never offering a handover to nobody", () => {
+    const noDriver = { ...ready, isDriverNamed: false, isHandoverAllowed: false };
+    expect(nextStepOf(noDriver)).toEqual({ main: "name_driver", canStartHandoverToo: false });
+    expect(nextStepOf({ ...noDriver, isContractSigned: false }).main).toBe("send_contract");
+    expect(nextStepOf({ ...noDriver, isDetailsApproved: false }).main).toBe("name_driver");
   });
 
   it("asks for the contract even when nothing else stands in the way", () => {

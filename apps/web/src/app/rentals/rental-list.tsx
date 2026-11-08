@@ -1,4 +1,4 @@
-import { formatCents, renterDisplayName } from "@fleetapp/core";
+import { formatCents, renterShownName } from "@fleetapp/core";
 import type { DataListDefinition } from "@fleetapp/ui/data-list";
 import { InlineRecordLink, RowLink } from "@fleetapp/ui/row-link";
 import Link from "next/link";
@@ -13,6 +13,7 @@ import {
 } from "../../lib/rentals/rental-list-status";
 import {
   RELEVANCE_ORDER,
+  rentalRenterNames,
   STATUS_FILTER_KEY,
   type RentalSummary,
 } from "../../lib/rentals/rental-queries";
@@ -37,7 +38,39 @@ function rentShortText(rental: RentalSummary): string {
 }
 
 function renterName(rental: RentalSummary): string {
-  return renterDisplayName(rental.renterFullName, rental.renterPreferredName);
+  return renterShownName(rentalRenterNames(rental));
+}
+
+const DRIVER_TO_BE_NAMED_TEXT = "To be named";
+
+/** A business's rental's driver: their name, or "To be named"; none for a person's own rental. */
+function driverText(rental: RentalSummary): string | null {
+  if (rental.renterKind !== "organisation") {
+    return null;
+  }
+  return rental.driverFullName ?? DRIVER_TO_BE_NAMED_TEXT;
+}
+
+/** "driver Sam Lee" or "driver to be named", under a business's name; none for a person. */
+function driverWords(rental: RentalSummary): string | null {
+  if (rental.renterKind !== "organisation") {
+    return null;
+  }
+  return `driver ${rental.driverFullName ?? DRIVER_TO_BE_NAMED_TEXT.toLowerCase()}`;
+}
+
+/** The Driver column (a business's Rentals tab): the driver a link of their own, or "To be named". */
+function DriverCell({ rental }: { rental: RentalSummary }) {
+  if (rental.renterKind !== "organisation") {
+    return <span className="text-muted-foreground">{NOTHING_YET}</span>;
+  }
+  return rental.driverId && rental.driverFullName ? (
+    <InlineRecordLink asChild>
+      <Link href={renterPath(rental.driverId)}>{rental.driverFullName}</Link>
+    </InlineRecordLink>
+  ) : (
+    <span className="text-muted-foreground">{DRIVER_TO_BE_NAMED_TEXT}</span>
+  );
 }
 
 /** The computer's Owing column: "$450.00", "$0.00" or "$20.00 in credit", never a minus sign. */
@@ -83,7 +116,9 @@ export function RentalCard({
   rental: RentalListRow;
   isOfRenter?: boolean;
 }) {
-  const car = `${rental.rego} · ${rental.make} ${rental.model}`;
+  const car = [`${rental.rego} · ${rental.make} ${rental.model}`, driverWords(rental)]
+    .filter(Boolean)
+    .join(" · ");
   return (
     <>
       <span className="flex items-start justify-between gap-2">
@@ -99,6 +134,14 @@ export function RentalCard({
   );
 }
 
+/** Who drives each of a business's cars: on its Rentals tab, after the car. */
+export const DRIVER_COLUMN: DataListDefinition<RentalListRow>["columns"][number] = {
+  key: "driver",
+  label: "Driver",
+  exportValue: (rental) => driverText(rental) ?? "",
+  render: (rental) => <DriverCell rental={rental} />,
+};
+
 /** The Rentals list (docs/plans/look-and-feel.md, "Rentals list"). */
 export const RENTAL_LIST: DataListDefinition<RentalListRow> = {
   columns: [
@@ -108,11 +151,17 @@ export const RENTAL_LIST: DataListDefinition<RentalListRow> = {
       isCardTitle: true,
       isSortable: true,
       exportValue: renterName,
-      render: (rental) => (
-        <InlineRecordLink asChild>
-          <Link href={renterPath(rental.renterId)}>{renterName(rental)}</Link>
-        </InlineRecordLink>
-      ),
+      render: (rental) => {
+        const driver = driverWords(rental);
+        return (
+          <span className="flex flex-col">
+            <InlineRecordLink asChild>
+              <Link href={renterPath(rental.renterId)}>{renterName(rental)}</Link>
+            </InlineRecordLink>
+            {driver ? <span className="text-muted-foreground text-sm">{driver}</span> : null}
+          </span>
+        );
+      },
     },
     {
       key: "rego",

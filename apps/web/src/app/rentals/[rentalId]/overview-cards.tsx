@@ -1,9 +1,10 @@
 import {
+  formatAbn,
   formatCalendarDate,
   formatCents,
   formatDateTimeInTimeZone,
   RENTAL_TYPE_LABELS,
-  renterDisplayName,
+  renterShownName,
 } from "@fleetapp/core";
 import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
@@ -19,7 +20,7 @@ import { listRentalDamage } from "../../../lib/damage/damage-queries";
 import type { LedgerView } from "../../../lib/ledger/ledger-queries";
 import { carPath, renterPath } from "../../../lib/paths";
 import { rentalRateText, rentTimingText } from "../../../lib/rentals/rental-labels";
-import type { RentalDetail } from "../../../lib/rentals/rental-queries";
+import { rentalRenterNames, type RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { SignedInUser } from "../../../lib/require-user";
 import { DamageList } from "../../cars/damage-list";
 import { lineTitle, signedAmount } from "../ledger-line-list";
@@ -30,24 +31,68 @@ import { RENTAL_TAB_LINKS } from "./rental-tabs";
 /** A draft or a booking can still be cancelled; after handover it is returned instead. */
 const CANCELLABLE = new Set(["draft", "booked"]);
 
-/** The rental's details, label beside value, with the Renter and the car as links. */
+/** A business's rental: its legal name and ABN under its name (mockup 6). */
+function BusinessRenterValue({ rental }: { rental: RentalDetail }) {
+  return (
+    <span className="flex flex-col">
+      <InlineRecordLink asChild isLinkOnPhones>
+        <Link href={renterPath(rental.renterId)}>{renterShownName(rentalRenterNames(rental))}</Link>
+      </InlineRecordLink>
+      <span className="text-muted-foreground text-sm">
+        {[rental.renterFullName, rental.renterAbn ? `ABN ${formatAbn(rental.renterAbn)}` : null]
+          .filter(Boolean)
+          .join(" · ")}
+      </span>
+    </span>
+  );
+}
+
+/** Who drives a business's car: the driver as a link, or "To be named" (decision 2). */
+function DriverValue({ rental }: { rental: RentalDetail }) {
+  if (!rental.driverId || !rental.driverFullName) {
+    return <span>To be named</span>;
+  }
+  return (
+    <InlineRecordLink asChild isLinkOnPhones>
+      <Link href={renterPath(rental.driverId)}>{rental.driverFullName}</Link>
+    </InlineRecordLink>
+  );
+}
+
+/** Who rents, and for a business who drives: each a link. */
+function partyLines(rental: RentalDetail): DetailLine[] {
+  if (rental.renterKind !== "organisation") {
+    return [
+      [
+        "Renter",
+        <InlineRecordLink key="renter" asChild isLinkOnPhones>
+          <Link href={renterPath(rental.renterId)}>
+            {renterShownName(rentalRenterNames(rental))}
+          </Link>
+        </InlineRecordLink>,
+      ],
+    ];
+  }
+  return [
+    ["Renter", <BusinessRenterValue key="renter" rental={rental} />],
+    ["Driver", <DriverValue key="driver" rental={rental} />],
+  ];
+}
+
+/** The rental's details, label beside value, with the Renter (and driver) and the car as links. */
 export function RentalDetailsCard({
   rental,
   timeZone,
+  driverAction,
 }: {
   rental: RentalDetail;
   timeZone: string;
+  /** A business's booking: change its named driver. */
+  driverAction?: React.ReactNode;
 }) {
   const onClock = (moment: Date) => formatDateTimeInTimeZone(moment, timeZone);
   const lines: DetailLine[] = [
-    [
-      "Renter",
-      <InlineRecordLink key="renter" asChild isLinkOnPhones>
-        <Link href={renterPath(rental.renterId)}>
-          {renterDisplayName(rental.renterFullName, rental.renterPreferredName)}
-        </Link>
-      </InlineRecordLink>,
-    ],
+    ...partyLines(rental),
     [
       "Car",
       <InlineRecordLink key="car" asChild isLinkOnPhones>
@@ -78,8 +123,9 @@ export function RentalDetailsCard({
           changes to Settings do not apply to it.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-3">
         <DetailLines lines={lines} />
+        {driverAction}
       </CardContent>
     </Card>
   );

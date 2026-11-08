@@ -37,6 +37,11 @@ const PAPER_WORDING: Readonly<Record<SignedPaperKind, { title: string; open: str
   change_of_terms: { title: "Change of terms", open: "Open signed form" },
   swap_form: { title: "Car swap form", open: "Open swap form" },
 };
+/** A business's contract is its own kind of paper (decision 10). */
+const BUSINESS_CONTRACT_WORDING = {
+  title: "Business rental contract",
+  open: "Open signed contract",
+} as const;
 /** A car swap's own pair of reports, told apart from the rental's first handover and last return. */
 const SWAP_REPORT_WORDING: Readonly<
   Record<"handover_report" | "return_report", { title: string; open: string }>
@@ -61,6 +66,7 @@ function isSignedPaperKind(kind: IssuedDocumentKind): kind is SignedPaperKind {
 export async function loadRentalPapers(
   rentalId: string,
   user: SignedInUser,
+  isBusinessRental = false,
 ): Promise<RentalPaper[]> {
   const [documents, reports] = await Promise.all([
     listIssuedDocuments(appDb, user.operatorId, rentalId),
@@ -75,9 +81,12 @@ export async function loadRentalPapers(
       if (!isSignedPaperKind(kind)) {
         return [];
       }
-      const wording =
-        (kind === "handover_report" || kind === "return_report") && swapReportIds.has(document.id)
-          ? SWAP_REPORT_WORDING[kind]
+      const isSwapReport =
+        (kind === "handover_report" || kind === "return_report") && swapReportIds.has(document.id);
+      const wording = isSwapReport
+        ? SWAP_REPORT_WORDING[kind]
+        : kind === "contract" && isBusinessRental
+          ? BUSINESS_CONTRACT_WORDING
           : PAPER_WORDING[kind];
       return [
         {

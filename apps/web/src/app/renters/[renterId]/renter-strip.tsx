@@ -58,6 +58,32 @@ export function DottedLine({ parts }: { parts: readonly React.ReactNode[] }) {
   );
 }
 
+/** A Renter's strip's Edit and New rental (a person's or a business's); none once archived. */
+export function RenterStripActions(props: {
+  renter: Pick<RenterDetail, "id" | "archivedAt">;
+  newRentalLabel: string;
+}) {
+  if (props.renter.archivedAt) {
+    return null;
+  }
+  return (
+    <>
+      <Button asChild variant="inverse-outline">
+        <Link href={editRenterPath(props.renter.id)}>
+          <Pencil aria-hidden />
+          Edit
+        </Link>
+      </Button>
+      <Button asChild variant="inverse">
+        <Link href={newRentalPath({ renterId: props.renter.id })}>
+          <Plus aria-hidden />
+          {props.newRentalLabel}
+        </Link>
+      </Button>
+    </>
+  );
+}
+
 /**
  * The navy strip at the top of one Renter's page (the navy strip rule): their
  * name, phone and email, their labels, and what they owe, the car they have
@@ -104,22 +130,7 @@ export function RenterStrip(props: {
         withYouSinceFact(renter.createdAt, data.rentalCount, props.timeZone),
       ]}
       actions={
-        renter.archivedAt ? undefined : (
-          <>
-            <Button asChild variant="inverse-outline">
-              <Link href={editRenterPath(renter.id)}>
-                <Pencil aria-hidden />
-                Edit
-              </Link>
-            </Button>
-            <Button asChild variant="inverse">
-              <Link href={newRentalPath({ renterId: renter.id })}>
-                <Plus aria-hidden />
-                New rental for {firstName}
-              </Link>
-            </Button>
-          </>
-        )
+        <RenterStripActions renter={renter} newRentalLabel={`New rental for ${firstName}`} />
       }
     />
   );
