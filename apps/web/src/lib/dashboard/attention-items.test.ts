@@ -278,6 +278,22 @@ describe("the Needs attention list", () => {
     expect(list.items[0]?.fix.text).toBe("Handover was due today, 10:00 am");
   });
 
+  it("says a pickup waits on a car still out late, rather than just to check the rental", () => {
+    const list = attentionList(
+      input({
+        rentals: [rental("next", "starting_this_week", { start: "2026-11-08T05:00:00Z" })],
+        notReady: [
+          {
+            rentalId: "next",
+            blockers: [{ code: "car_still_out" as const, level: "handover" as const }],
+          },
+        ],
+      }),
+      TIME_ZONE,
+    );
+    expect(list.items[0]?.fix.text).toBe("Car still out");
+  });
+
   it("labels rego and insurance missing, expired or due soon", () => {
     const labels = attentionList(
       input({

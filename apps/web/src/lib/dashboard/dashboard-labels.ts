@@ -11,6 +11,9 @@ export function handoverBlockerLabel(blocker: HandoverBlocker): string {
       return `Bond owing ${formatCents(blocker.owingCents)}`;
     case "details_missing":
       return "Renter details missing";
+    case "car_still_out":
+      // The car before it is late back (find-a-car.md, decision 5): this pickup is at risk.
+      return "Car still out";
     case "car_not_ready":
       return `Car ${VEHICLE_STATUS_LABELS[blocker.carStatus].toLowerCase()}`;
     case "licence_expired_by_start":
