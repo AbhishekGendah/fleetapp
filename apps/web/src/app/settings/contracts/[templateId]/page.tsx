@@ -3,6 +3,7 @@ import {
   CONTRACT_TEMPLATE_KIND_LABELS,
   formatDateTimeInTimeZone,
   isRecordId,
+  isRentalContractKind,
   mergeFieldLabel,
   missingRentTermFields,
   type ContractTemplateKind,
@@ -45,7 +46,7 @@ const TEMPLATE_FIELD_LABELS: Readonly<Record<string, string>> = {
  * minimum are only enforceable if the contract states them.
  */
 function RentTermsWarning(props: { kind: ContractTemplateKind; content: TemplateDocument }) {
-  const missing = props.kind === "contract" ? missingRentTermFields(props.content) : [];
+  const missing = isRentalContractKind(props.kind) ? missingRentTermFields(props.content) : [];
   if (missing.length === 0) {
     return null;
   }

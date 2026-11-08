@@ -1,67 +1,19 @@
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { z } from "zod";
 
-import { MIGRATIONS_FOLDER, runMigrations } from "../src/migrate";
+import { runMigrations } from "../src/migrate";
 import { ADMIN_APP_ROLE, WEB_APP_ROLE } from "../src/tenancy";
+import { asRole, OWNER_ROLE, updatesUpTo, urlFor as urlIn } from "./filled-database";
 
 /** The last update before business Renters (0052): the database as main had it. */
 const LAST_UPDATE_BEFORE = "0051_car_model_fixes";
 const DATABASE_NAME = `business_renters_update_${process.pid}`;
-const OWNER_ROLE = "fleetapp_test_owner";
 
-const journalSchema = z.looseObject({ entries: z.array(z.looseObject({ tag: z.string() })) });
-
-/** A copy of the repo's updates up to and including `lastTag`, as an older checkout has them. */
-function updatesUpTo(lastTag: string, folder: string): void {
-  const journalPath = path.join(MIGRATIONS_FOLDER, "meta", "_journal.json");
-  const journal = journalSchema.parse(JSON.parse(readFileSync(journalPath, "utf8")));
-  const last = journal.entries.findIndex((entry) => entry.tag === lastTag);
-  const entries = journal.entries.slice(0, last + 1);
-  mkdirSync(path.join(folder, "meta"), { recursive: true });
-  for (const entry of entries) {
-    copyFileSync(
-      path.join(MIGRATIONS_FOLDER, `${entry.tag}.sql`),
-      path.join(folder, `${entry.tag}.sql`),
-    );
-  }
-  writeFileSync(
-    path.join(folder, "meta", "_journal.json"),
-    JSON.stringify({ ...journal, entries }),
-  );
-}
-
-function urlFor(role: string, base: string): string {
-  const url = new URL(base);
-  url.username = role;
-  url.pathname = `/${DATABASE_NAME}`;
-  return url.toString();
-}
-
-/** One statement as a role, in the given Operator's tenant context. */
-async function asRole<Row extends Record<string, unknown>>(
-  client: Client,
-  operatorId: string | null,
-  query: string,
-  values: unknown[] = [],
-): Promise<Row[]> {
-  await client.query("begin");
-  try {
-    if (operatorId) {
-      await client.query("select set_config('app.operator_id', $1, true)", [operatorId]);
-    }
-    const result = await client.query<Row>(query, values);
-    await client.query("commit");
-    return result.rows;
-  } catch (error) {
-    await client.query("rollback");
-    throw error;
-  }
-}
+const urlFor = (role: string, base: string): string => urlIn(role, base, DATABASE_NAME);
 
 /**
  * Migration A of business Renters (0052, 0053) on a database filled as the

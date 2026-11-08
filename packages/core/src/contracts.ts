@@ -6,14 +6,34 @@ import { z } from "zod";
  * never legal wording.
  */
 
-export const CONTRACT_TEMPLATE_KINDS = ["contract", "swap_form", "change_of_terms"] as const;
+export const CONTRACT_TEMPLATE_KINDS = [
+  "contract",
+  "swap_form",
+  "change_of_terms",
+  "business_contract",
+] as const;
 export type ContractTemplateKind = (typeof CONTRACT_TEMPLATE_KINDS)[number];
 
 export const CONTRACT_TEMPLATE_KIND_LABELS: Readonly<Record<ContractTemplateKind, string>> = {
   contract: "Rental contract",
   swap_form: "Car swap form",
   change_of_terms: "Change of terms",
+  business_contract: "Business rental contract",
 };
+
+/**
+ * The two rental contracts: a person's, and a business Renter's own kind
+ * (docs/plans/business-renters.md decision 10), so a person's contract
+ * never prints a business's gaps and a business's never a person's.
+ */
+export function isRentalContractKind(kind: ContractTemplateKind): boolean {
+  return kind === "contract" || kind === "business_contract";
+}
+
+/** The kind of contract template a Renter's rentals are signed under. */
+export function contractKindFor(renterKind: "person" | "organisation"): ContractTemplateKind {
+  return renterKind === "organisation" ? "business_contract" : "contract";
+}
 
 /** Fixed documents issued for a rental (rule 12): kept as a PDF with its fingerprint, never changed. */
 export const ISSUED_DOCUMENT_KINDS = [
@@ -45,6 +65,7 @@ export const ISSUED_DOCUMENT_NAMES: Readonly<Record<IssuedDocumentKind, string>>
 export const MERGE_FIELD_GROUPS = [
   "business",
   "renter",
+  "organisation",
   "car",
   "rental",
   "change",
@@ -55,6 +76,7 @@ export type MergeFieldGroup = (typeof MERGE_FIELD_GROUPS)[number];
 export const MERGE_FIELD_GROUP_LABELS: Readonly<Record<MergeFieldGroup, string>> = {
   business: "Your business",
   renter: "Renter",
+  organisation: "Business Renter (filled in only for a business)",
   car: "Car",
   rental: "Rental",
   change: "Change of terms (filled in only on that form)",
@@ -80,6 +102,11 @@ export const MERGE_FIELDS = [
   { key: "renterLicenceNumber", label: "Licence number", group: "renter" },
   { key: "renterLicenceIssuedIn", label: "Licence issued in", group: "renter" },
   { key: "renterLicenceExpires", label: "Licence expiry", group: "renter" },
+  { key: "renterLegalName", label: "Business Renter's legal name", group: "organisation" },
+  { key: "renterTradingName", label: "Business Renter's trading name", group: "organisation" },
+  { key: "renterAbn", label: "Business Renter's ABN", group: "organisation" },
+  { key: "renterBusinessAddress", label: "Business Renter's address", group: "organisation" },
+  { key: "renterContactName", label: "Business Renter's contact", group: "organisation" },
   { key: "carRego", label: "Rego", group: "car" },
   { key: "carMakeModel", label: "Make and model", group: "car" },
   { key: "carYear", label: "Year", group: "car" },
@@ -424,6 +451,79 @@ export const STARTER_CONTRACT: TemplateDocument = {
 };
 
 /**
+ * The starter business rental contract (decision 10): the same layout as a
+ * person's, but the hirer is the business, named by its legal name, ABN and
+ * contact, with no date of birth or licence (drivers change during a rental,
+ * and each signs for the car at pickup). No legal wording.
+ */
+export const STARTER_BUSINESS_CONTRACT: TemplateDocument = {
+  ...STARTER_CONTRACT,
+  content: STARTER_CONTRACT.content.flatMap((block): TemplateBlock[] => {
+    if (block === STARTER_CONTRACT.content[0]) {
+      return [heading(1, "Business vehicle rental agreement")];
+    }
+    if (isRenterParagraph(block)) {
+      return [
+        paragraph(
+          text("Renter: ", true),
+          field("renterLegalName"),
+          text(" (ABN "),
+          field("renterAbn"),
+          text(")"),
+          lineBreak,
+          field("renterBusinessAddress"),
+          lineBreak,
+          text("Contact: "),
+          field("renterContactName"),
+          text(", "),
+          field("renterPhone"),
+          text(" · "),
+          field("renterEmail"),
+        ),
+      ];
+    }
+    if (isSigningLine(block)) {
+      return [
+        paragraph(
+          text(
+            "Signed for the Renter electronically by a person who said they are authorised to sign for it. The signing record, with their name and position, is attached to this document.",
+          ),
+        ),
+      ];
+    }
+    if (isUsingTheCarHeading(block)) {
+      return [
+        block,
+        yourTermsNote(
+          "drivers: each driver the Renter names signs for the car at pickup; who is responsible for anyone else who drives, and for naming the driver on a fine",
+        ),
+      ];
+    }
+    return [block];
+  }),
+};
+
+function firstText(block: TemplateBlock): string | null {
+  if (block.type !== "paragraph" && block.type !== "heading") {
+    return null;
+  }
+  const first = block.content?.[0];
+  return first?.type === "text" ? first.text : null;
+}
+
+function isRenterParagraph(block: TemplateBlock): boolean {
+  return block.type === "paragraph" && firstText(block) === "Renter: ";
+}
+
+function isSigningLine(block: TemplateBlock): boolean {
+  return firstText(block)?.startsWith("Signed by the Renter electronically") ?? false;
+}
+
+function isUsingTheCarHeading(block: TemplateBlock): boolean {
+  return block.type === "heading" && firstText(block) === "Using the car";
+}
+
+/**
  * The starter change-of-terms form: who, which rental, what changes and
  * why, as merge fields, with a note for the business's own wording. As with
  * the contract, no legal wording.
@@ -506,6 +606,7 @@ export const STARTER_TEMPLATES: Readonly<Record<ContractTemplateKind, TemplateDo
   contract: STARTER_CONTRACT,
   swap_form: STARTER_SWAP_FORM,
   change_of_terms: STARTER_CHANGE_OF_TERMS,
+  business_contract: STARTER_BUSINESS_CONTRACT,
 };
 
 /**

@@ -5,6 +5,10 @@ import {
   MERGE_FIELDS,
   mergeFieldsUsed,
   missingMergeFields,
+  contractKindFor,
+  isRentalContractKind,
+  missingRentTermFields,
+  STARTER_BUSINESS_CONTRACT,
   STARTER_CHANGE_OF_TERMS,
   STARTER_CONTRACT,
   STARTER_SWAP_FORM,
@@ -128,5 +132,44 @@ describe("a template's lists inside lists", () => {
     expect(templateDocumentSchema.safeParse(nested(500)).error?.issues[0]?.message).toBe(
       TEMPLATE_TOO_NESTED_MESSAGE,
     );
+  });
+});
+
+describe("the business rental contract (decision 10)", () => {
+  it("is a valid template with the rent terms, naming the business and never a person's details", () => {
+    const used = mergeFieldsUsed(STARTER_BUSINESS_CONTRACT);
+
+    expect(templateDocumentSchema.safeParse(STARTER_BUSINESS_CONTRACT).success).toBe(true);
+    expect(missingRentTermFields(STARTER_BUSINESS_CONTRACT)).toEqual([]);
+    expect(used).toEqual(
+      expect.arrayContaining([
+        "renterLegalName",
+        "renterAbn",
+        "renterBusinessAddress",
+        "renterContactName",
+      ]),
+    );
+    for (const personal of [
+      "renterFullName",
+      "renterDateOfBirth",
+      "renterAddress",
+      "renterLicenceNumber",
+      "renterLicenceIssuedIn",
+      "renterLicenceExpires",
+    ] as const) {
+      expect(used).not.toContain(personal);
+    }
+  });
+
+  it("leaves a person's starter contract as it was", () => {
+    expect(mergeFieldsUsed(STARTER_CONTRACT)).toContain("renterDateOfBirth");
+    expect(mergeFieldsUsed(STARTER_CONTRACT)).not.toContain("renterAbn");
+  });
+
+  it("is the kind a business's rentals are signed under; a person's stays the rental contract", () => {
+    expect(contractKindFor("organisation")).toBe("business_contract");
+    expect(contractKindFor("person")).toBe("contract");
+    expect(isRentalContractKind("business_contract")).toBe(true);
+    expect(isRentalContractKind("change_of_terms")).toBe(false);
   });
 });

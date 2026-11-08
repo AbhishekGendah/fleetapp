@@ -97,6 +97,41 @@ function renterFields(renter: RenterDetail): FieldsOf<"renter"> {
     renterLicenceExpires: renter.licenceExpiresOn
       ? formatCalendarDate(renter.licenceExpiresOn)
       : null,
+    ...organisationFields(renter),
+  };
+}
+
+/**
+ * A business Renter's own fields for its contract (decision 10): none for a
+ * person, so a person's contract that used one shows the gap before sending.
+ * No driver's details: drivers change during a rental, and each signs for
+ * the car at pickup.
+ */
+function organisationFields(
+  renter: RenterDetail,
+): Pick<
+  ContractData,
+  | "renterLegalName"
+  | "renterTradingName"
+  | "renterAbn"
+  | "renterBusinessAddress"
+  | "renterContactName"
+> {
+  if (renter.kind !== "organisation") {
+    return {
+      renterLegalName: null,
+      renterTradingName: null,
+      renterAbn: null,
+      renterBusinessAddress: null,
+      renterContactName: null,
+    };
+  }
+  return {
+    renterLegalName: renter.fullName,
+    renterTradingName: renter.tradingName,
+    renterAbn: renter.abn ? formatAbn(renter.abn) : null,
+    renterBusinessAddress: renter.businessAddress,
+    renterContactName: renter.contactName,
   };
 }
 
