@@ -28,11 +28,12 @@ import {
   loadClaimDefaults,
   loadDamageDetail,
   type DamageDetail,
+  type DriverOfDamage,
 } from "../../../../../lib/damage/damage-queries";
 import { listChargeTypes } from "../../../../../lib/ledger/charge-types";
 import { chargeStart } from "../../../../../lib/ledger/ledger-input";
 import { loadDamageCharges } from "../../../../../lib/ledger/ledger-queries";
-import { carPath, rentalPath } from "../../../../../lib/paths";
+import { carPath, rentalPath, renterPath } from "../../../../../lib/paths";
 import { TAB_PARAM } from "../../../../../lib/record-tabs";
 import { requireUser, type SignedInUser } from "../../../../../lib/require-user";
 import { appFileStorage } from "../../../../../lib/storage/app-file-storage";
@@ -92,6 +93,24 @@ function WhatCard({ detail }: { detail: DamageDetail }) {
 }
 
 /**
+ * A business's driver who had the car (rule 15), a link to them: the
+ * business is charged, the driver is who had it.
+ */
+function DriverWords({ driver }: { driver: DriverOfDamage | null }) {
+  if (!driver) {
+    return null;
+  }
+  return (
+    <>
+      {", driver "}
+      <Link href={renterPath(driver.id)} className="text-teal hover:text-primary font-semibold">
+        {driver.fullName}
+      </Link>
+    </>
+  );
+}
+
+/**
  * Who had the car: from the return it was found at, or confirmed by the
  * Operator from who had it that day (rule 15). Only ever a record, never a charge.
  */
@@ -117,9 +136,13 @@ function WhoHadItCard({ detail, ids }: { detail: DamageDetail; ids: Ids }) {
             >
               {detail.renterFullName}
             </Link>
+            <DriverWords driver={detail.driver} />
           </p>
         ) : suggestedHolder ? (
-          <p>{suggestedHolder.renterFullName} had the car that day.</p>
+          <p>
+            {suggestedHolder.renterFullName}
+            <DriverWords driver={suggestedHolder.driver} /> had the car that day.
+          </p>
         ) : (
           <p className="text-muted-foreground">Nobody had the car that day.</p>
         )}

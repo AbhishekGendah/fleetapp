@@ -12,6 +12,7 @@ import {
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import {
+  aliasedTable,
   and,
   asc,
   count,
@@ -115,6 +116,12 @@ export interface DamageDetail {
   photos: CarPhoto[];
   /** Who had the car that day, when nobody is recorded yet (rule 15). */
   suggestedHolder: CarHolder | null;
+  /**
+   * A business's driver who had the car (rule 15), from the possession of its
+   * return, or of the confirmed rental on the day; none for a person's own
+   * rental (they are the Renter), or when nobody is recorded.
+   */
+  driver: DriverOfDamage | null;
   /** Its photos back an open claim or a charge, so they can't be removed (batch 7 decision 3). */
   isEvidenceHeld: boolean;
 }
@@ -211,6 +218,9 @@ export async function loadDamageDetail(
         day: record.foundOn,
         timeZone: request.timeZone,
       });
+  const driver = record.rentalId
+    ? await driverOfDamage(deps.database, operatorId, { ...record, timeZone: request.timeZone })
+    : null;
   return {
     record: withoutOperator(record),
     car: row.car,
@@ -219,6 +229,7 @@ export async function loadDamageDetail(
     claimPolicy: row.claimRow?.policy ?? null,
     photos,
     suggestedHolder,
+    driver,
     isEvidenceHeld: row.isEvidenceHeld,
   };
 }
@@ -274,6 +285,78 @@ export interface CarHolder {
   rentalId: string;
   renterId: string;
   renterFullName: string;
+  /** A business's driver who had it; none for a person's own rental. */
+  driver: DriverOfDamage | null;
+}
+
+/** A business's driver, as the damage page names them (never their licence). */
+export interface DriverOfDamage {
+  id: string;
+  fullName: string;
+}
+
+/** The possession's driver, read from the possession (never the rental's driver now: plan "Fines"). */
+const possessionDriver = aliasedTable(renters, "possession_driver");
+
+/** The driver of a possession row as the damage page names them: none when they are the Renter. */
+function driverOf(row: {
+  renterId: string;
+  driverId: string;
+  driverFullName: string;
+}): DriverOfDamage | null {
+  return row.driverId === row.renterId ? null : { id: row.driverId, fullName: row.driverFullName };
+}
+
+/**
+ * Who of a business had the car for this damage (rule 15): the possession
+ * its return ended, else the rental's possession of this car on the day it
+ * was found, the latest if two (a swap back the same day).
+ */
+async function driverOfDamage(
+  database: AnyDatabase,
+  operatorId: string,
+  record: Pick<DamageRecord, "rentalId" | "vehicleId" | "returnInspectionId" | "foundOn"> & {
+    timeZone: string;
+  },
+): Promise<DriverOfDamage | null> {
+  const { rentalId } = record;
+  if (!rentalId) {
+    return null;
+  }
+  const dayStarts = startOfDayIn(record.foundOn, record.timeZone);
+  const dayEnds = startOfDayIn(addDays(record.foundOn, 1), record.timeZone);
+  const [row] = await withTenant(database, operatorId, (tx) =>
+    tx
+      .select({
+        renterId: possessions.renterId,
+        driverId: possessions.driverId,
+        driverFullName: possessionDriver.fullName,
+      })
+      .from(possessions)
+      .innerJoin(
+        possessionDriver,
+        and(
+          eq(possessionDriver.id, possessions.driverId),
+          eq(possessionDriver.operatorId, possessions.operatorId),
+        ),
+      )
+      .where(
+        and(
+          eq(possessions.operatorId, operatorId),
+          eq(possessions.rentalId, rentalId),
+          eq(possessions.vehicleId, record.vehicleId),
+          record.returnInspectionId
+            ? eq(possessions.returnInspectionId, record.returnInspectionId)
+            : and(
+                lt(possessions.startedAt, dayEnds),
+                or(isNull(possessions.endedAt), gt(possessions.endedAt, dayStarts)),
+              ),
+        ),
+      )
+      .orderBy(desc(possessions.startedAt))
+      .limit(1),
+  );
+  return row ? driverOf(row) : null;
 }
 
 /**
@@ -294,11 +377,20 @@ export async function whoHadCar(
         rentalId: possessions.rentalId,
         renterId: possessions.renterId,
         renterFullName: renters.fullName,
+        driverId: possessions.driverId,
+        driverFullName: possessionDriver.fullName,
       })
       .from(possessions)
       .innerJoin(
         renters,
         and(eq(renters.id, possessions.renterId), eq(renters.operatorId, possessions.operatorId)),
+      )
+      .innerJoin(
+        possessionDriver,
+        and(
+          eq(possessionDriver.id, possessions.driverId),
+          eq(possessionDriver.operatorId, possessions.operatorId),
+        ),
       )
       .where(
         and(
@@ -311,7 +403,11 @@ export async function whoHadCar(
       .orderBy(desc(possessions.startedAt))
       .limit(1),
   );
-  return holder ?? null;
+  if (!holder) {
+    return null;
+  }
+  const { driverId, driverFullName, ...who } = holder;
+  return { ...who, driver: driverOf({ renterId: who.renterId, driverId, driverFullName }) };
 }
 
 /** A damage record as a dashboard line: the car, what, and the claim's status if there is one. */
