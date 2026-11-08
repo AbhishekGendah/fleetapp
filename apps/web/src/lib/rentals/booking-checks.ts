@@ -223,14 +223,21 @@ async function findBookingParties(
 /**
  * The parties as found, unless a business's driver being named has sent
  * details that wait for review: the picker greys them out, and a form
- * posted directly is refused the same (slice 3 review).
+ * posted directly is refused the same (slice 3 review). The driver the
+ * rental already names, named again, is not being named now.
  */
 async function unlessDriverWaitsReview(
   tx: AnyTransaction,
   operatorId: string,
   parties: PartiesOrMissing,
+  alreadyNamedId: string | null = null,
 ): Promise<PartiesOrMissing> {
-  if (typeof parties === "string" || parties.renter.kind !== "organisation" || !parties.driver) {
+  if (
+    typeof parties === "string" ||
+    parties.renter.kind !== "organisation" ||
+    !parties.driver ||
+    parties.driver.id === alreadyNamedId
+  ) {
     return parties;
   }
   const [waiting] = await tx
@@ -251,12 +258,15 @@ async function unlessDriverWaitsReview(
  * For naming a business's driver on a draft or booking, under the rental's
  * lock: the business, then the driver, locked (the order a handover takes
  * them, after the rental and the car), and the car as it is, unlocked
- * (nothing about the car changes).
+ * (nothing about the car changes). Naming again the driver the rental
+ * already names (`alreadyNamedId`) changes nothing, so it is never refused
+ * for details they sent since.
  */
 export async function lockDriverNamingParties(
   tx: AnyTransaction,
   operatorId: string,
   ids: PartyIds,
+  alreadyNamedId: string | null,
 ): Promise<PartiesOrMissing> {
   const people = await findRenterAndDriver(tx, operatorId, ids, true);
   if (typeof people === "string") {
@@ -267,19 +277,7 @@ export async function lockDriverNamingParties(
     tx,
     operatorId,
     carStatus ? { ...people, vehicleId: ids.vehicleId, carStatus } : "car_not_found",
-  );
-}
-
-/** As `lockBookingParties`, for a new rental: the driver it names is being named now. */
-export async function lockNewBookingParties(
-  tx: AnyTransaction,
-  operatorId: string,
-  ids: PartyIds,
-): Promise<PartiesOrMissing> {
-  return unlessDriverWaitsReview(
-    tx,
-    operatorId,
-    await findBookingParties(tx, operatorId, ids, true),
+    alreadyNamedId,
   );
 }
 
@@ -289,14 +287,20 @@ export async function lockNewBookingParties(
  * of it are made one after the other, the Renter and driver so their details
  * cannot change under the checks; a business's driver link is then taken
  * shared by the database as the rental names them. Otherwise, which one is
- * missing.
+ * missing. A new rental and a draft being booked both name their driver
+ * now, so either is refused while that driver's details wait for review
+ * (slice 3 review 2).
  */
-export function lockBookingParties(
+export async function lockBookingParties(
   tx: AnyTransaction,
   operatorId: string,
   ids: PartyIds,
 ): Promise<PartiesOrMissing> {
-  return findBookingParties(tx, operatorId, ids, true);
+  return unlessDriverWaitsReview(
+    tx,
+    operatorId,
+    await findBookingParties(tx, operatorId, ids, true),
+  );
 }
 
 async function hasBothLicenceScans(

@@ -30,7 +30,7 @@ import { bookingProblemMessage } from "../src/lib/rentals/rental-messages";
 import { listBusinessChoices } from "../src/lib/rentals/driver-choices";
 import { listPickableRenters } from "../src/lib/rentals/pickable-records";
 import { loadRental } from "../src/lib/rentals/rental-queries";
-import { nameRentalDriver } from "../src/lib/rentals/rental-records";
+import { bookRental, nameRentalDriver } from "../src/lib/rentals/rental-records";
 import {
   emptyBusinessRenterForm,
   parseBusinessRenterForm,
@@ -284,6 +284,33 @@ describe("renting to a business", () => {
       expect(result.status).toBe("driver_waiting_review");
     });
 
+    it("won't book a draft whose driver's details now wait for review, as naming one won't", async () => {
+      const { businessId, driverId } = await businessWithDriver();
+      const draft = await attemptTestBooking(web, actor, {
+        renterId: businessId,
+        vehicleId: await carWithPaperwork(),
+        driverId,
+        status: "draft",
+      });
+      if (draft.status !== "saved") {
+        throw new Error(`The draft was not saved: ${draft.status}`);
+      }
+      // Stands for the draft's driver sending details through their link after it was saved.
+      const waitingId = await driverWaitingReview(businessId);
+      await superuser.query("update rentals set driver_id = $2 where id = $1", [
+        draft.rentalId,
+        waitingId,
+      ]);
+
+      const booked = await bookRental(web.db, actor, draft.rentalId, CLOCK);
+
+      expect(booked.status).toBe("driver_waiting_review");
+      const [row] = await withTenant(web.db, actor.operatorId, (tx) =>
+        tx.select({ status: rentals.status }).from(rentals).where(eq(rentals.id, draft.rentalId)),
+      );
+      expect(row?.status).toBe("draft");
+    });
+
     it("refuses a driver marked Do not rent", async () => {
       const { businessId, driverId } = await businessWithDriver();
       await changeRenterStatus(web.db, actor, driverId, {
@@ -360,6 +387,21 @@ describe("renting to a business", () => {
 
       expect(result.status).toBe("driver_waiting_review");
       expect(await driverOf(rentalId)).toBeNull();
+    });
+
+    it("finds the same driver named again unchanged, even once their details wait for review", async () => {
+      const { rentalId, businessId } = await bookingToBeNamed();
+      const waitingId = await driverWaitingReview(businessId);
+      // Named before they sent their details: the rental already names them.
+      await superuser.query("update rentals set driver_id = $2 where id = $1", [
+        rentalId,
+        waitingId,
+      ]);
+
+      const again = await nameRentalDriver(web.db, actor, rentalId, { driverId: waitingId }, CLOCK);
+
+      expect(again.status).toBe("unchanged");
+      expect(await driverOf(rentalId)).toBe(waitingId);
     });
 
     it("won't change or clear the driver while a handover checklist is under way", async () => {
