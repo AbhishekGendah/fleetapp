@@ -861,6 +861,29 @@ unchanged and passing).
     rental's page (mockup 6): slice 4.
   - Invoices still greet a business by its legal name; business money
     documents are slice 5.
+- **Review fixes (slice 3 review).** The driver can't be named, changed or
+  cleared while a handover checklist is under way ("Cancel the handover
+  first"): `nameRentalDriver` checks under the rental's lock, which a
+  handover's start also takes (two-connection test). The checklist's
+  fingerprint now covers the driver's record and name, so a signature drawn
+  for one driver (or a checklist saved offline and sent later) never hands
+  the car to another: refused as changed, also under the rental's lock at
+  completion. A handover can't start with no driver named, and Start
+  handover is never offered beside the contract or bond while no driver is
+  named. A driver whose details wait for review is refused on the server
+  too, at booking and naming. The signer can't give the business's legal or
+  trading name as their own. A business's signing page sends back a
+  fingerprint of the text plus the authority's names and the detail rows
+  shown, so a change between opening and signing is refused as changed.
+  The Operator's copy of a signed business contract (and change of terms)
+  names the business in its subject and who signed for it.
+- **For slice 4.** A driver change once the car is out must take the
+  return's and swap's signer, and `movePossession`'s driver, from the open
+  possession, read again under its lock, never from the rental's current
+  driver: today `complete-swap.ts` (about line 396), `driverColumn` in
+  `handover-queries.ts` and `documentDriverName` in `document-emails.ts`
+  read `rentals.driver_id`, which is only safe while the driver can't change
+  with the car out.
 - **Deviations from the mockups.** The chosen Renter stays in the record
   picker (no separate "chosen" card with Change): the picker already shows
   it and lets it be changed. The driver choice cards keep the app's tick on

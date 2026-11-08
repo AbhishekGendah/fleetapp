@@ -97,6 +97,11 @@ Add to this list whenever something is relaxed or put off "until launch".
 - [ ] Drop the four unused Stripe columns on the operators table (from
       Phase 1; replaced by stripe_accounts in Phase 4 slice 3) in a
       migration after the code that stopped reading them is deployed.
+- [ ] No rolling the code back past business Renters slice 3 once a
+      Business rental contract template exists: older code doesn't know the
+      `business_contract` template kind, so its Contracts settings and
+      sending would meet a kind it can't read. If a roll-back is ever
+      needed, archive those templates first (or roll forward instead).
 
 - [ ] The nightly rent run then issues every business's invoices one at a
       time, inside one 300-second call. Before many businesses are on the
