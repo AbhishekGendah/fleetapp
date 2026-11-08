@@ -937,6 +937,24 @@ unchanged and passing).
   beside Cancel swap. Two-connection tests (`swap-lock-order.test.ts`) in
   both orders: signing first, it finishes and the cancel is refused;
   cancelling first, it cancels and signing is refused as finished.
+- **Second review fixes (8 Nov 2026).** Booking a draft refuses a driver
+  whose details wait for review, as naming one and a new rental do (one
+  `lockBookingParties` for both); naming again the driver the rental already
+  names is "unchanged", even once their details wait. Start handover (and
+  Start return) is the shared action button: refused, it says why beside
+  it ("Name the driver first, then start the handover."). Email again on a
+  business's contract or change of terms greets whoever signed for it (from
+  the signing evidence) and names the business, through the same
+  `businessSignerCopy` the first send uses. The checklist fingerprint takes
+  a business's legal name, so a rename between the screen and the signature
+  is refused as changed (a person's fingerprint is as it was). A handover
+  reaching the lock with no driver named is refused as "No driver named
+  yet", not as a Renter change. Each emailed copy's try is kept on its own,
+  so one the database refuses never loses the others. The signer's name is
+  refused as the business's with its company words written another way
+  ("Pty Limited", "Proprietary Limited", "P/L", "Ltd"); a name with none is
+  refused only when it is the same name (Dana Wells may sign for Dana Wells
+  Pty Ltd). Cancelling a swap: see "Lock order".
 - **For slice 4.** A driver change once the car is out must take the
   return's and swap's signer, and `movePossession`'s driver, from the open
   possession, read again under its lock, never from the rental's current
