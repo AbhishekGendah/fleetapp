@@ -257,7 +257,7 @@ export async function renderDocumentCopyEmail(
     to,
     isForRenter
       ? subjects.renter(props.operatorName)
-      : `${subjects.operator}: ${props.renterName}, ${props.rentalSummary}`,
+      : `${subjects.operator}: ${props.forBusiness?.businessName ?? props.renterName}, ${props.rentalSummary}`,
     createElement(DocumentCopyEmail, props),
   );
   const withFile = { ...message, attachments: [attachment] };

@@ -295,6 +295,40 @@ describe("the contract emails", () => {
     expect(toBusiness.text).toContain("was returned on 29 Jun 2027, 6:40 pm AWST");
   });
 
+  it("words a business's handover copy as its driver receiving the car for it", async () => {
+    const business = {
+      kind: "handover_report" as const,
+      renterName: "Dana",
+      operatorName: "Sam's Cars Pty Ltd",
+      rentalSummary: "1BRT482 Toyota Camry",
+      at: "12 Oct 2026, 9:45 am AWST",
+      attachment: PDF,
+      forBusiness: { driverName: "Sam Lee", businessName: "Acme Rideshare Pty Ltd" },
+    };
+    const toContact = await renderDocumentCopyEmail({
+      ...business,
+      audience: "renter",
+      to: "dana@acme.example.test",
+    });
+    const toOperator = await renderDocumentCopyEmail({
+      ...business,
+      audience: "operator",
+      to: "office@example.test",
+    });
+
+    expect(toContact.text).toContain("Hi Dana,");
+    expect(toContact.text).toContain(
+      "Sam Lee received 1BRT482 Toyota Camry from Sam's Cars Pty Ltd for Acme Rideshare Pty Ltd.",
+    );
+    expect(toContact.text).not.toContain("The report you accepted");
+    expect(toOperator.subject).toBe(
+      "Car handed over: Acme Rideshare Pty Ltd, 1BRT482 Toyota Camry",
+    );
+    expect(toOperator.text).toContain(
+      "Sam Lee accepted 1BRT482 Toyota Camry for Acme Rideshare Pty Ltd",
+    );
+  });
+
   it("sends an invoice from the business with its number, amount and PDF", async () => {
     const PDF_FILE = {
       fileName: "INV-1001.pdf",

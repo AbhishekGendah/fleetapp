@@ -23,7 +23,42 @@ export interface DocumentCopyEmailProps {
   rentalSummary: string;
   /** When it was signed or accepted, e.g. "3 Nov 2026, 2:15 pm AWST". */
   at: string;
+  /** A business's car: its driver signed for it, for the business (rule 15). */
+  forBusiness?: { driverName: string; businessName: string };
 }
+
+type BusinessCar = NonNullable<DocumentCopyEmailProps["forBusiness"]>;
+
+/** A business's car changing hands: the driver did it, for the business, so the lines say so. */
+interface BusinessWording {
+  operatorPreview: (car: BusinessCar) => string;
+  renterLine: (props: DocumentCopyEmailProps, car: BusinessCar) => string;
+  operatorLine: (props: DocumentCopyEmailProps, car: BusinessCar) => string;
+}
+
+const BUSINESS_WORDING: Readonly<Partial<Record<CopiedDocumentKind, BusinessWording>>> = {
+  handover_report: {
+    operatorPreview: (car) => `${car.driverName} accepted a car for ${car.businessName}`,
+    renterLine: (props, car) =>
+      `${car.driverName} received ${props.rentalSummary} from ${props.operatorName} for ${car.businessName}. The report they accepted, with the kilometres, fuel and photos of the car, is attached: keep it for your records.`,
+    operatorLine: (props, car) =>
+      `${car.driverName} accepted ${props.rentalSummary} for ${car.businessName} on ${props.at}. The handover report is attached, and kept with the rental.`,
+  },
+  return_report: {
+    operatorPreview: (car) => `${car.businessName}'s car is back`,
+    renterLine: (props, car) =>
+      `${car.businessName}'s car, ${props.rentalSummary}, was returned to ${props.operatorName}. The return report, with the kilometres, fuel and photos of the car at handover and at return, is attached: keep it for your records.`,
+    operatorLine: (props, car) =>
+      `${car.businessName}'s car, ${props.rentalSummary}, was returned on ${props.at}. The return report is attached, and kept with the rental.`,
+  },
+  swap_form: {
+    operatorPreview: (car) => `${car.driverName} swapped cars for ${car.businessName}`,
+    renterLine: (props, car) =>
+      `${car.driverName} swapped cars with ${props.operatorName} for ${car.businessName}: ${car.businessName} now has ${props.rentalSummary}. The swap form ${car.driverName} signed is attached, and the reports for both cars come in their own emails.`,
+    operatorLine: (props, car) =>
+      `${car.driverName} swapped ${car.businessName} into ${props.rentalSummary} on ${props.at}. The signed swap form is attached, and kept with the rental.`,
+  },
+};
 
 interface Wording {
   preview: { renter: string; operator: (renterName: string) => string };
@@ -100,22 +135,42 @@ const WORDING: Readonly<Record<CopiedDocumentKind, Wording>> = {
   },
 };
 
+/** The lines for this copy: a business's own when its driver had the car, else the Renter's. */
+function linesFor(props: DocumentCopyEmailProps) {
+  const wording = WORDING[props.kind];
+  const car = props.forBusiness;
+  const business = car ? BUSINESS_WORDING[props.kind] : undefined;
+  if (!car || !business) {
+    return {
+      operatorPreview: wording.preview.operator(props.renterName),
+      renterLine: wording.renterLine(props),
+      operatorLine: wording.operatorLine(props),
+    };
+  }
+  return {
+    operatorPreview: business.operatorPreview(car),
+    renterLine: business.renterLine(props, car),
+    operatorLine: business.operatorLine(props, car),
+  };
+}
+
 export function DocumentCopyEmail(props: DocumentCopyEmailProps): ReactElement {
   const wording = WORDING[props.kind];
+  const lines = linesFor(props);
   const isForRenter = props.audience === "renter";
   return (
     <EmailLayout
-      preview={isForRenter ? wording.preview.renter : wording.preview.operator(props.renterName)}
+      preview={isForRenter ? wording.preview.renter : lines.operatorPreview}
       heading={isForRenter ? wording.heading.renter : wording.heading.operator}
       senderName={isForRenter ? props.operatorName : undefined}
     >
       {isForRenter ? (
         <>
           <Text>Hi {props.renterName},</Text>
-          <Text>{wording.renterLine(props)}</Text>
+          <Text>{lines.renterLine}</Text>
         </>
       ) : (
-        <Text>{wording.operatorLine(props)}</Text>
+        <Text>{lines.operatorLine}</Text>
       )}
       <SmallPrint>{wording.smallPrint(props.at)}</SmallPrint>
     </EmailLayout>
