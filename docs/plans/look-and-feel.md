@@ -537,3 +537,18 @@ rental (booked: "Name a driver"; out: "driver Sam Lee", Change driver, "Who
 had the car"); the three-step driver change on a phone; the business
 statement PDF ("Not a tax invoice", grouped by car). A driver's Owing reads
 "<business> pays". The Log's "By" filter is drawn but not built yet.
+
+## As built: business Renters pages, slice 2 (8 Nov 2026)
+
+Built from the boards above (docs/plans/business-renters.md, As built slice
+2): the Renters list's Business and "Driver for …" labels (a new badge tone,
+`kind`: grey outline on white, lighter than any status) and Businesses and
+Drivers filters; Add a Renter's Person or Business choice (a new shared
+piece, choice cards: a radio group of large cards, the chosen one with a
+navy border, soft fill and tick, so it differs in more than colour) and the
+business form; one business's page with its navy strip and seven tabs; the
+Drivers tab, its rows becoming cards on a phone with one tap opening the
+driver; a driver's Drives for and Cars driven cards. Add a Renter stays a
+page rather than a pop-up, as for a person. The business's New rental, its
+statement, invoices and the rental pages' "driver Sam Lee" come with slices
+3 and 5.

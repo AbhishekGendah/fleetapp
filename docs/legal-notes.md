@@ -955,3 +955,57 @@ now holds ready for the next slices (docs/plans/business-renters.md, Legal).
   answer for a business's car names the driver then, never a later one.
 - **ABN.** Checked with the ATO's checksum in the database too (it proves
   the shape only, not whose ABN it is; ABN Lookup is a later step).
+
+## Business Renters, slice 2: businesses and their drivers (8 Nov 2026, built)
+
+What the Operator app now collects and shows (docs/plans/business-renters.md,
+As built slice 2).
+
+- **A business's details** (legal name, trading name, ABN, contact's name,
+  email and phone, business and postal addresses) are typed by the Operator
+  (decision 11). The contact's details are personal information: never
+  written into the Log (only which detail changed), no admin access (rule
+  5), included in "Download everything we hold" for the business, and
+  removed seven years on as for a person. The contact is emailed the
+  privacy notice when the business is added (APP 5), as a Renter added at
+  the counter is.
+- **Drivers are told what the business sees (APP 5).** When a person is
+  added as a business's driver (new or already on file) they are emailed
+  the privacy notice, which now has a paragraph for drivers: the business
+  sees their name, their signature when they take or bring back a car, and
+  which car they had when with anything that happened to it then (damage,
+  tolls, fines); the Operator never gives the business their licence, date
+  of birth or address. The same paragraph shows on their details link.
+  Someone new is collected from directly (APP 3.6): the Operator types only
+  their name and a phone or email; they add their licence and photos
+  through their own details link. Needs the lawyer's check with the rest of
+  the notice (launch checklist).
+- **What the Operator's screens show of a driver** on the business's page
+  is their name, phone, the licence's kind, state and expiry and its
+  standing, never its number or photos (rule 8; licence photos open only
+  from the driver's own Licence tab, every view logged).
+- **Everything we hold (APP 12).** For a business: its details, its
+  drivers' names (when added and removed) and the driver of each rental by
+  name, all its rentals' money, signing records, damage and documents;
+  never a driver's licence, date of birth or address. The documents include
+  the handover and return reports its drivers signed (their name and
+  signature): the plan's approved rule. For a driver: also the businesses
+  they drive or drove for, each time they had one of a business's cars, the
+  reports and swap forms they signed then, and damage found when they
+  brought it back; never the business's money.
+- **Do not rent and archive.** Do not rent on a business stops its new
+  bookings only; its drivers are not marked (they may be blameless). A
+  person marked Do not rent can't be added as a driver. A business with
+  current drivers, or a person who drives for one, can't be archived until
+  the link is removed, so the current link's hold on the seven-year removal
+  always belongs to a current customer (slice 1 note, "No hold without
+  end").
+- **Spam Act.** The privacy notice and details link emails to drivers and
+  the business's contact are transactional, about their own rental
+  relationship; no marketing.
+- **Overseas disclosure.** Unchanged: a driver's or contact's details go to
+  the same services as any Renter's (Postmark for email, AWS Sydney for
+  storage, Google for the address box).
+- **For the accountant (slice 5):** a sole trader's ABN on a person Renter
+  (decision 8) is not collected yet; it comes with the invoices that print
+  it.

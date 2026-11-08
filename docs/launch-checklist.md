@@ -206,9 +206,14 @@ Add to this list whenever something is relaxed or put off "until launch".
 
 - [ ] **Business Renters' privacy wording** (docs/plans/business-renters.md,
       Legal): the Renter privacy notice says that a driver's name, signature
-      and the car's use are shared with the business they drive for; the
-      lawyer checks it, and the PPS lease question (long hires to a company),
-      before the first business Renter is added on a live site.
+      and the car's use are shared with the business they drive for (wording
+      added 8 Nov 2026, slice 2: emailed to each new driver and shown on
+      their details link); the lawyer checks it, and the PPS lease question
+      (long hires to a company), before the first business Renter is added
+      on a live site.
+- [ ] **A driver with only a phone gets no details link** (business Renters
+      slice 2): links and their codes go by email until the SMS provider is
+      chosen. The Drivers tab tells the Operator to add the driver's email.
 
 - [ ] Everything in docs/legal-notes.md reviewed by a lawyer: privacy
       policy, Operator terms (including AGS correcting car make and model

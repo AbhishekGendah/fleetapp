@@ -622,3 +622,106 @@ handover, invoices. No admin rows (admin can't see Renters).
 - A business rental's damage records are blanked on the business's
   seven-year clock (the business is charged for damage); who had the car
   stays on the possession records, kept on each driver's own clock.
+
+#### As built (slice 2, 8 Nov 2026)
+
+Abhi's go: 8 Nov 2026. No migration: slice 1's tables, grants and triggers
+were enough.
+
+- **Add a Renter.** Person or Business first (new shared piece: choice
+  cards, a Base UI radio group, in the component catalogue), Person ticked
+  to start so the person form works as before; `?kind=business` opens the
+  business form. The business form is its own Zod schema, the same in the
+  browser and on save: legal name, ABN (grouped 2-3-3-3 as typed, the ATO
+  checksum, kept as 11 digits; the one `requiredAbn` now shared with
+  Settings), contact's name and email required; trading name, contact's
+  phone, business address (address lookup) and postal address (ticked
+  "same as the business address" by default, kept as none). A trading name
+  the same as the legal name is kept as none. Names are free text (rule
+  31). The person form refuses a business's id and the business form a
+  person's, so neither writes over the other kind.
+- **Renters list.** A grey outlined label (new badge tone `kind`, lighter
+  than any status): Business, or Driver for <business>, one per business.
+  A business is shown and sorted by its trading name, its legal name under
+  it on a computer. Filters Businesses and Drivers (a person with a current
+  link), with counts. Renting now and Booked count a driver with a
+  business's car. A business with two or more cars out reads "3 cars out ·
+  1 booked, starts …"; with one, as a person. A driver with nothing of
+  their own to pay, in a business's car, reads "<business> pays". Search
+  also finds a trading name, an ABN typed with or without spaces (each
+  group is a word of the stored 11 digits) and a contact's name; the Rentals
+  list and top bar search also find a trading name and a business rental's
+  driver. The export adds Kind and Legal name columns.
+- **A business's page.** Its own strip: trading name; legal name and ABN;
+  "Contact Dana Wells" with Call, Text, Email; labels; Owing across cars (the
+  same fact as a person's, from the ledger of all its rentals), Cars out
+  (with the next booking), With you since (rentals and drivers). Tabs
+  Overview, Drivers, Rentals, Money, Details, Notes, Log (no Licence; an old
+  `?tab=licence` opens the Overview). Overview: still needed before renting
+  (ABN, contact, email, business address), shared phone or email note, Money
+  across cars (each car out or booked with its driver and its own balance),
+  Cars out now, Latest note, Drivers (5, with standing), Contact. Money: car
+  by car (charged, paid, owing per rental, from each rental's own lines by
+  `ledgerTotals`; a reversal is always on its own rental, so the cars add up
+  to the business: tested) above the whole ledger. Details: its details, Do
+  not rent ("stops new bookings; its cars out and its drivers carry on"),
+  "A business has no details link", What we hold, Archive. Log: its record,
+  notes and driver links.
+- **Drivers tab.** Current drivers as rows (cards on a phone): name (opens
+  the driver), phone, the licence's kind, state and expiry (never its
+  number), one standing label (Do not rent, To review, Licence not on file,
+  expired, due, Current), the car out now, when added, and Remove (asks
+  first) only with no car and no draft or booking naming them ("Has a car
+  out", "On a booking" instead). Add a driver: choice cards "Someone already
+  in your Renters" (a picker of current person Renters not marked Do not
+  rent and not already its drivers) or "Someone new" (full name, and a phone
+  or email, the person form's own rule). Someone new is added as a person
+  Renter and linked in one transaction, then sent the details link when
+  they have an email. Both get the privacy notice by email, now with the
+  driver paragraph. Past drivers, latest first.
+- **Locks.** Adding locks the business, then the person, then inserts the
+  link (the trigger takes both shared). Removing locks the business, then
+  the driver, then the link, checks no draft, booking or car out of the
+  business names them, then ends it: the booking's order. A test runs a
+  booking holding the business and driver, the removal waiting on it, and
+  the booking then naming the driver (taking the link) without a deadlock;
+  the removal is then refused (`business-renters.test.ts`).
+- **Refusals in words.** Adding: a business ("can't drive for another
+  business"), details removed, archived ("restore them first"), Do not rent,
+  already a driver. Removing: named on a draft, booking or car out. Archive:
+  a rental booked or out first, then "This business still has drivers" or
+  "They still drive for a business". The app checks under the Renter's lock
+  (a link insert locks both Renters shared, so the two run one after the
+  other); the database's triggers remain the second layer.
+- **A driver's page.** As a person's, plus Drives for (current and past,
+  each opening the business) and Cars driven (from possessions, shown once
+  they have driven a business's car); the strip has the Driver for label and
+  "<business> pays" under Owing.
+- **Everything we hold.** A business: Details (its own fields), Drivers (name,
+  added, removed), all its rentals with a Driver column (names only), money,
+  signing, damage, documents and the Log with its driver links; no Licence
+  sheet or scans. A person who drives or drove for a business: Drives for,
+  Cars driven, Damage while driving (found at the returns of their
+  possessions) and Reports signed driving (handover and return reports and
+  swap forms of their possessions, with the PDFs); never the business's
+  money. A person who never drove for a business gets the same download as
+  before.
+- **Not bookable yet.** A business Renter is left out of the New rental
+  form's Renter picker, its strip has no New rental, and its Rentals tab no
+  New rental link, until slice 3; a booking sent for one anyway is refused
+  (no driver can be found for it yet). A business gets no details link: the
+  server refuses one.
+- **Demo data.** A "business" step after the Renters: Acme Rides (Acme
+  Rideshare Pty Ltd, ABN 51 824 753 556, contact Dana Wells) with drivers
+  Sam Taylor, Victor Lee and Hana Suzuki, and Wei Zhang as a past driver.
+- **Deviations from the mockups.** Add a Renter stays a page, not a pop-up
+  (as for a person today). The Log says "Driver added" and "Driver removed",
+  not the driver's name (names are never written into the Log, rule 7).
+  "Phone or email" for a new driver is two boxes, and the link goes only by
+  email (SMS is not built: a driver with only a phone is told to add an
+  email). The business strip's New rental, the Rentals tab's Driver column,
+  Send a statement, How it pays, Bonds and Latest invoices on the Money tab
+  come with slices 3 and 5. Owing on the list has no "across 3 cars" note.
+  The Log's By filter is still drawn only.
+- **Not built here (decision 8):** the optional ABN box on a person (a sole
+  trader); it is printed on invoices, so it comes with slice 5.
