@@ -601,3 +601,43 @@ Calendar free spot, "New rental for Sam" on a Renter's page. No admin rows.
 - **Phone data use**: lazy first photo only, 800 px copies, 24 per page.
 - **Price agreement**: short hire vs long-term decided by the same core
   functions the rent run uses.
+
+### As built (late-car fix)
+
+Built 8 Nov 2026, on its own before the screens, as Abhi asked (decision 5;
+this takes the "car still out" part out of slice 3).
+
+- **Rule** (`isCarStillOutFor`, `packages/core/src/availability.ts`): another
+  rental has the car out (open possession) and its planned end has passed,
+  and the asked span reaches past that end (no end, or ending after it).
+  Then the car is not free, whatever the dates. Before the planned end
+  nothing changes (a booking from the planned end is fine, as before); an
+  ongoing rental already holds the car with no end.
+- **App** (`findNewHoldClash` in `apps/web/src/lib/rentals/car-holds.ts`):
+  every path that makes a **new** hold asks it first: New rental (Book),
+  "Book this car" on a draft, and the new car of a swap. It is said before an
+  ordinary clash, since no other dates would help: "This car is still out: it
+  was due back 3 Nov 2026, 10:00 am AWST and hasn't been returned yet. Choose
+  another car, or record its return first." (the Operator's timezone, rule
+  10), with "See that rental". Paths that only **move a hold the rental
+  already has** (a new end, an early handover) keep the ordinary
+  `findBookingClash`: an existing hold can only grow into another hold,
+  which that check and the no-overlap rule already refuse.
+- **Database** (migration 0054, trigger `car_holds_not_while_out` on
+  `car_holds`): the same rule, with the database's clock, so no code path or
+  race can skip it. Never refused: a hold being let go, the late rental's own
+  holds (new end, swap), and a hold that already reached past the planned
+  end before the change (a booking made before the car was late), so it can
+  still be moved, shortened or cancelled. It reads no rows when added, so it
+  is safe on the filled database with the old code running; it refuses with
+  the exclusion-rule error the old code already shows as "the car was taken".
+- **Bookings already made** for a car that is now late are kept (not
+  cancelled). The next pickup already shows in Needs attention as "Not
+  ready" when it is within the week; its badge now says "Car still out"
+  (it said "Check the rental"). Adding that next booking's name to the "Late
+  back" item is not trivial (a new query per late rental): left for slice 3,
+  where availability loads every car's holds anyway.
+- **Not covered, on purpose**: a handover that happens after its own planned
+  end makes the car late at once, while a booking from that end may already
+  exist. That booking is kept, like any other made before the car was late;
+  the possessions rule (0033) still refuses its handover until the return.
