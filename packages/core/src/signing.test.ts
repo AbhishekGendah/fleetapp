@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { contentFingerprint } from "./document-fingerprint";
 import {
+  authorisedToSignText,
   drawnSignatureInput,
   readRenterSignature,
   decodeDrawnSignature,
@@ -129,5 +130,61 @@ describe("a Renter's signature on the business's phone (review G9-10)", () => {
     expect(
       readRenterSignature({ method: "stamped", typedName: "", drawnSignature: drawn }, "Sam"),
     ).toBeNull();
+  });
+});
+
+describe("signing for a business (decision 3)", () => {
+  const ACME = { legalName: "Acme Rideshare Pty Ltd" };
+  function businessSigning(changes: Record<string, string> = {}) {
+    return signContractInputSchema("Acme Rideshare Pty Ltd", ACME).safeParse({
+      areDetailsConfirmed: "on",
+      hasConsented: "on",
+      method: "typed",
+      typedName: "Dana Wells",
+      drawnSignature: "",
+      contractFingerprint: FINGERPRINT,
+      signerName: "Dana Wells",
+      signerPosition: "Director",
+      isAuthorised: "on",
+      ...changes,
+    });
+  }
+
+  it("signs with the signer's own name, position and the authority tick", () => {
+    expect(businessSigning().success).toBe(true);
+  });
+
+  it("needs the name, the position and the tick, each said under its own box", () => {
+    const result = businessSigning({ signerName: "", signerPosition: " ", isAuthorised: "" });
+
+    expect(result.success).toBe(false);
+    const errors = z.flattenError(result.error!).fieldErrors as Record<string, string[]>;
+    expect(errors.signerName).toEqual(["Enter your full name."]);
+    expect(errors.signerPosition).toEqual(["Enter your position, e.g. Director or Fleet manager."]);
+    expect(errors.isAuthorised).toEqual([
+      "Tick the box to say you are authorised to sign for Acme Rideshare Pty Ltd.",
+    ]);
+  });
+
+  it("checks a typed signature against the signer's name, never the business's", () => {
+    const asBusiness = businessSigning({ typedName: "Acme Rideshare Pty Ltd" });
+    const otherPerson = businessSigning({ typedName: "Sam Lee" });
+
+    expect(asBusiness.success).toBe(false);
+    expect(otherPerson.success).toBe(false);
+    expect(z.flattenError(otherPerson.error!).fieldErrors).toMatchObject({
+      typedName: ["Type your full name exactly as you gave it above."],
+    });
+  });
+
+  it("asks a person for none of it", () => {
+    expect(signing({ signerName: "", signerPosition: "", isAuthorised: "" }).success).toBe(true);
+    expect(signing().success).toBe(true);
+  });
+
+  it("words the authority tick with the business's legal name", () => {
+    expect(authorisedToSignText(ACME.legalName)).toBe(
+      "I am authorised to sign for Acme Rideshare Pty Ltd.",
+    );
   });
 });

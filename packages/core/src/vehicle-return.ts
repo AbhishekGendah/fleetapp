@@ -64,6 +64,11 @@ export function returnAcceptanceText(facts: AcceptanceFacts): string {
 }
 
 /** What the report says in place of the Renter's acceptance when they were not there. */
-export function renterAbsentText(input: { at: Date; timeZone: string }): string {
-  return `The Renter was not present. The business recorded the car as returned on ${formatDateTimeInTimeZone(input.at, input.timeZone)}, in the condition shown in this report.`;
+export function renterAbsentText(input: {
+  at: Date;
+  timeZone: string;
+  /** Who was not there: the Renter, or a business's driver. */
+  isBusinessDriver?: boolean;
+}): string {
+  return `The ${input.isBusinessDriver ? "driver" : "Renter"} was not present. The business recorded the car as returned on ${formatDateTimeInTimeZone(input.at, input.timeZone)}, in the condition shown in this report.`;
 }

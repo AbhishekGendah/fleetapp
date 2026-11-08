@@ -93,6 +93,27 @@ const CONSENT_NEEDED_MESSAGE = "Tick the box to agree to sign electronically.";
 const DETAILS_NEEDED_MESSAGE = "Check your details and tick the box, or contact the business.";
 const DRAW_NEEDED_MESSAGE = "Draw your signature in the box.";
 const NAME_MISMATCH_MESSAGE = "Type your full name exactly as it is on the contract.";
+const SIGNER_NAME_MISMATCH_MESSAGE = "Type your full name exactly as you gave it above.";
+const SIGNER_NAME_NEEDED_MESSAGE = "Enter your full name.";
+const SIGNER_POSITION_NEEDED_MESSAGE = "Enter your position, e.g. Director or Fleet manager.";
+
+/**
+ * A business Renter signs through a person who says they may (decision 3):
+ * they give their name and position and tick that they are authorised to
+ * sign for the business, named by its legal name. Kept with the evidence.
+ */
+export interface SigningAuthority {
+  legalName: string;
+}
+
+/** The exact words a business's signer ticks, kept with the evidence as shown. */
+export function authorisedToSignText(legalName: string): string {
+  return `I am authorised to sign for ${legalName}.`;
+}
+
+function authorisedNeededMessage(legalName: string): string {
+  return `Tick the box to say you are authorised to sign for ${legalName}.`;
+}
 
 /**
  * What the Renter sends when they sign. `fullName` is the name on the
@@ -107,11 +128,55 @@ export interface SignContractInput {
   typedName: string;
   drawnSignature: string;
   contractFingerprint: string;
+  /** A business's signer only (none for a person): who signs, their position, and their tick. */
+  signerName: string;
+  signerPosition: string;
+  isAuthorised: string;
 }
 
+type AuthorityField = "signerName" | "signerPosition" | "isAuthorised";
+/** The signing form's values as sent: a person's form sends none of a business signer's fields. */
+type SignContractValues = Record<
+  Exclude<(typeof SIGN_CONTRACT_FIELDS)[number], AuthorityField>,
+  string
+> &
+  Partial<Record<AuthorityField, string>>;
+
+type SignFieldIssue = { path: [string]; message: string };
+
+/** What a business's signer still has to give: their name, position and the authority tick. */
+function authorityIssues(
+  input: Partial<Record<AuthorityField, unknown>>,
+  authority: SigningAuthority,
+): SignFieldIssue[] {
+  const isBlank = (value: unknown) => String(value ?? "").trim() === "";
+  return [
+    ...(isBlank(input.signerName)
+      ? [{ path: ["signerName"] as [string], message: SIGNER_NAME_NEEDED_MESSAGE }]
+      : []),
+    ...(isBlank(input.signerPosition)
+      ? [{ path: ["signerPosition"] as [string], message: SIGNER_POSITION_NEEDED_MESSAGE }]
+      : []),
+    ...(input.isAuthorised === TICKED
+      ? []
+      : [
+          {
+            path: ["isAuthorised"] as [string],
+            message: authorisedNeededMessage(authority.legalName),
+          },
+        ]),
+  ];
+}
+
+/**
+ * The signing form's rules. A person's typed signature must be their full
+ * name on the contract; a business's signer (`authority` given) types their
+ * own name as they gave it, with their position and the authority tick.
+ */
 export function signContractInputSchema(
   fullName: string,
-): z.ZodType<SignContractInput, Record<(typeof SIGN_CONTRACT_FIELDS)[number], string>> {
+  authority?: SigningAuthority,
+): z.ZodType<SignContractInput, SignContractValues> {
   return z
     .object({
       areDetailsConfirmed: z.literal(TICKED, DETAILS_NEEDED_MESSAGE),
@@ -120,14 +185,26 @@ export function signContractInputSchema(
       typedName: z.string().trim().max(MAXIMUM_LINE_LENGTH),
       drawnSignature: z.string(),
       contractFingerprint: z.string().regex(FINGERPRINT_PATTERN),
+      // A person's form has none of these: they read as empty.
+      signerName: z.string().trim().max(MAXIMUM_LINE_LENGTH).default(""),
+      signerPosition: z.string().trim().max(MAXIMUM_LINE_LENGTH).default(""),
+      isAuthorised: z.string().default(""),
     })
     .superRefine(
       (input, context) => {
+        const signerName = authority ? String(input.signerName ?? "") : fullName;
         if (
           input.method === "typed" &&
-          !isTypedNameMatching(String(input.typedName ?? ""), fullName)
+          !isTypedNameMatching(String(input.typedName ?? ""), signerName)
         ) {
-          context.addIssue({ code: "custom", path: ["typedName"], message: NAME_MISMATCH_MESSAGE });
+          context.addIssue({
+            code: "custom",
+            path: ["typedName"],
+            message: authority ? SIGNER_NAME_MISMATCH_MESSAGE : NAME_MISMATCH_MESSAGE,
+          });
+        }
+        for (const issue of authority ? authorityIssues(input, authority) : []) {
+          context.addIssue({ code: "custom", ...issue });
         }
         if (
           input.method === "drawn" &&
@@ -152,6 +229,9 @@ export const SIGN_CONTRACT_FIELDS = [
   "typedName",
   "drawnSignature",
   "contractFingerprint",
+  "signerName",
+  "signerPosition",
+  "isAuthorised",
 ] as const;
 
 /** A Renter's signature on the business's phone (handover, return, swap): drawn or typed. */

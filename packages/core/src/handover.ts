@@ -160,6 +160,16 @@ export interface AcceptanceFacts {
   timeZone: string;
   odometerKm: number;
   fuelLevel: FuelLevel;
+  forBusiness?: BusinessAcceptance;
+}
+
+/**
+ * A business Renter's car changes hands with its driver, who signs for it
+ * (rule 15): the words then name the driver and the business they have it for.
+ */
+export interface BusinessAcceptance {
+  driverName: string;
+  businessName: string;
 }
 
 /** When the phone shows the sentence before signing: the time is put in as they sign. */
@@ -174,10 +184,19 @@ export const AT_RETURN_TIME_WORDS = "the return time above";
  */
 export function acceptanceSentence(
   verb: "received" | "returned",
-  facts: { atText: string; odometerKm: number; fuelLevel: FuelLevel },
+  facts: {
+    atText: string;
+    odometerKm: number;
+    fuelLevel: FuelLevel;
+    forBusiness?: BusinessAcceptance;
+  },
 ): string {
   const kilometres = facts.odometerKm.toLocaleString(AUSTRALIAN_LOCALE);
-  return `I ${verb} this car on ${facts.atText}, with ${kilometres} km on the odometer and ${FUEL_LEVEL_LABELS[facts.fuelLevel]} fuel, in the condition shown in this report.`;
+  const business = facts.forBusiness;
+  const who = business
+    ? `I, ${business.driverName}, ${verb} this car for ${business.businessName}`
+    : `I ${verb} this car`;
+  return `${who} on ${facts.atText}, with ${kilometres} km on the odometer and ${FUEL_LEVEL_LABELS[facts.fuelLevel]} fuel, in the condition shown in this report.`;
 }
 
 /** The accepted words, the same at both ends of a rental but for "received" or "returned". */
@@ -186,6 +205,7 @@ export function acceptanceWording(verb: "received" | "returned", facts: Acceptan
     atText: formatDateTimeInTimeZone(facts.at, facts.timeZone),
     odometerKm: facts.odometerKm,
     fuelLevel: facts.fuelLevel,
+    forBusiness: facts.forBusiness,
   });
 }
 

@@ -1,3 +1,4 @@
+import type { BusinessDetailNeeded } from "./business-renters";
 import type { DirectDebitState } from "./direct-debits";
 import { TZDate } from "@date-fns/tz";
 import { getISODay } from "date-fns";
@@ -111,6 +112,10 @@ export type BookingProblem =
   /** No rego covering the car on the day it goes (review A8-2). */
   | { code: "no_rego"; level: "handover"; coverOn: string }
   | { code: "details_missing"; level: "handover"; missing: DetailNeededBeforeRenting[] }
+  /** A business Renter's own details still missing before its car goes (plan, "Booking"). */
+  | { code: "business_details_missing"; level: "handover"; missing: BusinessDetailNeeded[] }
+  /** A business's booking with its driver still to be named (decision 2). */
+  | { code: "driver_not_named"; level: "handover" }
   | { code: "licence_expired_by_start"; level: "handover"; expiresOn: string }
   | { code: "under_minimum_age"; level: "handover"; minimumAge: number }
   | { code: "provisional_licence"; level: "handover" }
@@ -122,7 +127,9 @@ export type BookingProblem =
       onItsWayCents: number;
     }
   | { code: "direct_debit_missing"; level: "handover"; state: DirectDebitState }
-  | { code: "licence_expires_during"; level: "notice"; expiresOn: string };
+  | { code: "licence_expires_during"; level: "notice"; expiresOn: string }
+  /** A business's driver already has another car out: allowed, worth knowing (plan, "Booking"). */
+  | { code: "driver_has_other_car"; level: "notice"; regos: string[] };
 
 /**
  * The handover problems the Operator can override with a reason kept with
@@ -141,9 +148,14 @@ const CARS_NEVER_RENTABLE: readonly VehicleStatus[] = ["sold", "written_off"];
 /** A car being fixed can be booked for later, but not handed over until it is back. */
 const CARS_NOT_READY: readonly VehicleStatus[] = ["in_service", "off_road"];
 
-/** What the Renter (who pays and signs the contract) must be to book: not Do not rent. */
+/**
+ * What the Renter (who pays and signs the contract) must be to book: not Do
+ * not rent; and a business, its own details on file before its car goes.
+ */
 export interface RenterCheckFacts {
   status: RenterStatus;
+  /** A business's details still missing (businessDetailsStillNeeded); none for a person. */
+  businessDetailsMissing?: readonly BusinessDetailNeeded[];
 }
 
 /**
@@ -171,8 +183,10 @@ export interface DriverCheckTerms {
 
 export interface BookingCheckInput extends DriverCheckTerms {
   renter: RenterCheckFacts;
-  /** Who drives: for a person Renter, the same person as `renter`. */
-  driver: DriverCheckFacts;
+  /** Who drives: for a person Renter, the same person as `renter`; none while a business's is to be named. */
+  driver: DriverCheckFacts | null;
+  /** The regos of other cars a business's driver has out now; none for a person's own rental. */
+  driverOtherCarsOut?: readonly string[];
   carStatus: VehicleStatus;
   /**
    * What is known about the car on the day it goes (`coverOn`): whether it
@@ -185,9 +199,23 @@ export interface BookingCheckInput extends DriverCheckTerms {
 
 const DO_NOT_RENT: BookingProblem = { code: "do_not_rent", level: "booking" };
 
-/** What stops this Renter booking whoever drives: marked Do not rent. */
+const DRIVER_NOT_NAMED: BookingProblem = { code: "driver_not_named", level: "handover" };
+
+/** What stops this Renter booking whoever drives: marked Do not rent; a business's details missing. */
 export function renterProblems(renter: RenterCheckFacts): BookingProblem[] {
-  return renter.status === "do_not_rent" ? [DO_NOT_RENT] : [];
+  const missing = renter.businessDetailsMissing ?? [];
+  return [
+    ...(renter.status === "do_not_rent" ? [DO_NOT_RENT] : []),
+    ...(missing.length > 0
+      ? [
+          {
+            code: "business_details_missing" as const,
+            level: "handover" as const,
+            missing: [...missing],
+          },
+        ]
+      : []),
+  ];
 }
 
 /**
@@ -252,15 +280,24 @@ function carProblems(input: Pick<BookingCheckInput, "car" | "coverOn">): Booking
  * driver (or, for a person, both: the same one) is marked.
  */
 export function bookingProblems(input: BookingCheckInput): BookingProblem[] {
-  const fromDriver = driverProblems(input.driver, input);
-  const isDoNotRent = [...renterProblems(input.renter), ...fromDriver].some(
+  const fromRenter = renterProblems(input.renter);
+  const otherCars = input.driverOtherCarsOut ?? [];
+  const fromDriver = [
+    ...(input.driver ? driverProblems(input.driver, input) : [DRIVER_NOT_NAMED]),
+    ...(otherCars.length > 0
+      ? [{ code: "driver_has_other_car" as const, level: "notice" as const, regos: [...otherCars] }]
+      : []),
+  ];
+  const isDoNotRent = [...fromRenter, ...fromDriver].some(
     (problem) => problem.code === "do_not_rent",
   );
+  const isNotDoNotRent = (problem: BookingProblem) => problem.code !== "do_not_rent";
   return [
     ...(isDoNotRent ? [DO_NOT_RENT] : []),
     ...carStatusProblems(input.carStatus),
     ...carProblems(input),
-    ...fromDriver.filter((problem) => problem.code !== "do_not_rent"),
+    ...fromRenter.filter(isNotDoNotRent),
+    ...fromDriver.filter(isNotDoNotRent),
   ];
 }
 

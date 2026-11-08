@@ -58,4 +58,22 @@ describe("handover", () => {
     expect(text).toContain("3/4 fuel");
     expect(text).toContain("9:30 am");
   });
+
+  it("names the driver and the business when a business's car changes hands", () => {
+    const facts = {
+      at: new Date("2027-06-01T01:30:00Z"),
+      timeZone: "Australia/Perth",
+      odometerKm: 12345,
+      fuelLevel: "full" as const,
+    };
+    const text = handoverAcceptanceText({
+      ...facts,
+      forBusiness: { driverName: "Sam Lee", businessName: "Acme Rideshare Pty Ltd" },
+    });
+
+    expect(text.startsWith("I, Sam Lee, received this car for Acme Rideshare Pty Ltd on ")).toBe(
+      true,
+    );
+    expect(handoverAcceptanceText(facts).startsWith("I received this car on ")).toBe(true);
+  });
 });

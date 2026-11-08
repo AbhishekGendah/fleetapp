@@ -33,9 +33,9 @@ const READY_CAR: BookingCheckInput["car"] = {
 
 type CheckOverrides = Partial<Omit<BookingCheckInput, "renter" | "driver">> & {
   /** A person Renter: who books and who drives. */
-  renter?: DriverCheckFacts;
-  /** A business's driver, when the Renter is a business. */
-  driver?: DriverCheckFacts;
+  renter?: DriverCheckFacts & BookingCheckInput["renter"];
+  /** A business's driver, when the Renter is a business; null while to be named. */
+  driver?: DriverCheckFacts | null;
 };
 
 function check(overrides: CheckOverrides = {}) {
@@ -50,7 +50,7 @@ function check(overrides: CheckOverrides = {}) {
     rules: { minimumRenterAgeYears: 21, isProvisionalLicenceAllowed: false },
     ...overrides,
     renter,
-    driver: overrides.driver ?? renter,
+    driver: overrides.driver === undefined ? renter : overrides.driver,
   });
 }
 
@@ -281,5 +281,49 @@ describe("rental settings", () => {
 
   it("refuse an age below any state's driving age", () => {
     expect(() => readSettings(operatorSettingsSchema, { minimumRenterAgeYears: 15 })).toThrow();
+  });
+});
+
+describe("booking checks for a business's car (slice 3)", () => {
+  it("allows a booking with the driver to be named, but not the handover", () => {
+    const problems = check({ renter: { ...READY_RENTER }, driver: null });
+
+    expect(problems).toEqual([{ code: "driver_not_named", level: "handover" }]);
+    expect(isBookingRefused(problems)).toBe(false);
+    expect(isHandoverAllowed(problems)).toBe(false);
+  });
+
+  it("names the business's own missing details, apart from the driver's", () => {
+    const problems = check({
+      renter: { ...READY_RENTER, businessDetailsMissing: ["abn", "businessAddress"] },
+      driver: { ...READY_RENTER, hasBothLicenceScans: false },
+    });
+
+    expect(problems).toEqual([
+      { code: "business_details_missing", level: "handover", missing: ["abn", "businessAddress"] },
+      { code: "details_missing", level: "handover", missing: ["licenceScans"] },
+    ]);
+  });
+
+  it("still refuses a business marked Do not rent with no driver named, once", () => {
+    const problems = check({ renter: { ...READY_RENTER, status: "do_not_rent" }, driver: null });
+
+    expect(problems).toEqual([
+      { code: "do_not_rent", level: "booking" },
+      { code: "driver_not_named", level: "handover" },
+    ]);
+  });
+
+  it("warns, never refuses, when the driver already has another car out", () => {
+    const problems = check({
+      renter: { ...READY_RENTER },
+      driver: { ...READY_RENTER },
+      driverOtherCarsOut: ["1BRT482"],
+    });
+
+    expect(problems).toEqual([
+      { code: "driver_has_other_car", level: "notice", regos: ["1BRT482"] },
+    ]);
+    expect(isHandoverAllowed(problems)).toBe(true);
   });
 });
