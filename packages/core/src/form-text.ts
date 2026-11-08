@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { isValidAbn, normaliseAbn } from "./abn";
 import { formatAustralianPhone, isValidAustralianPhone } from "./phone";
 
 export const MAXIMUM_LINE_LENGTH = 200;
@@ -52,6 +53,17 @@ export const requiredEmail = requiredLine.toLowerCase().pipe(z.email(INVALID_EMA
 
 export const INVALID_PHONE_MESSAGE =
   "Enter a full Australian number, e.g. 0412 345 678 or (08) 9123 4567.";
+
+export const INVALID_ABN_MESSAGE = "That is not a valid ABN. Check the 11 digits.";
+
+/**
+ * An ABN that passes the ATO's checksum, typed with or without spaces and
+ * kept as its 11 digits (rule 31): the Operator's own on Settings, and a
+ * business Renter's.
+ */
+export const requiredAbn = requiredLine
+  .refine(isValidAbn, INVALID_ABN_MESSAGE)
+  .transform(normaliseAbn);
 
 /** An Australian phone number, saved in its tidy written form. */
 export const requiredPhone = requiredLine

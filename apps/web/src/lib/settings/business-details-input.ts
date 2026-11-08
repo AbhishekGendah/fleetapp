@@ -3,11 +3,10 @@ import {
   checkGstRegistration,
   isCalendarDate,
   isAustralianTimezone,
-  isValidAbn,
-  normaliseAbn,
   optionalLine,
   optionalWebAddress,
   POSTCODE_PATTERN,
+  requiredAbn,
   requiredEmail,
   REQUIRED_MESSAGE,
   requiredLine,
@@ -31,9 +30,7 @@ export const businessDetailsInputSchema = z
   .object({
     legalName: requiredLine,
     tradingName: optionalLine,
-    abn: requiredLine
-      .refine(isValidAbn, "That is not a valid ABN. Check the 11 digits.")
-      .transform(normaliseAbn),
+    abn: requiredAbn,
     gstRegistered: z.boolean(),
     gstRegisteredFrom: optionalLine.refine(
       (value) => value === null || isCalendarDate(value),

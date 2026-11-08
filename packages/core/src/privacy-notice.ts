@@ -50,13 +50,39 @@ function contactText(business: PrivacyNoticeBusiness): string | null {
   return ways.length > 0 ? `Contact ${business.name}: ${ways.join(", ")}.` : null;
 }
 
+/** "Acme Rides", "Acme Rides and Swift Fleet", "A, B and C". */
+function namesInWords(names: readonly string[]): string {
+  return names.length <= 1
+    ? (names[0] ?? "")
+    : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+/**
+ * For a driver: what the business they drive for sees about them, and what
+ * it never does (plan "Legal", APP 5). Their licence, birthday and address
+ * stay with the Operator.
+ */
+function drivesForParagraph(name: string, drivesFor: readonly string[]): string | null {
+  if (drivesFor.length === 0) {
+    return null;
+  }
+  const businesses = namesInWords(drivesFor);
+  return `You drive for ${businesses}, which rents its cars from ${name}. ${businesses} sees your name, your signature when you take or bring back a car, and which car you had when, with anything that happened to it then (damage, tolls and fines). ${name} never gives ${businesses} your licence, date of birth or address.`;
+}
+
+/**
+ * The notice in words for one place. `drivesFor` names the businesses a
+ * driver drives for, so the notice says what they share; none for anyone else.
+ */
 export function privacyNoticeFor(
   business: PrivacyNoticeBusiness,
   productName: string,
   place: PrivacyNoticePlace,
+  drivesFor: readonly string[] = [],
 ): PrivacyNotice {
   const { name } = business;
   const placeParagraph = PLACE_PARAGRAPHS[place](name);
+  const driverParagraph = drivesForParagraph(name, drivesFor);
   return {
     title: "About your information",
     paragraphs: [
@@ -64,6 +90,7 @@ export function privacyNoticeFor(
       `They are seen by ${name} and by ${productName}, the system ${name} uses. When the law or a claim needs it, ${name} may also pass them to its insurers, debt collectors, the police, or government agencies for fines and tolls.`,
       `Emails ${name} sends you carry your signed documents and the car's handover and return reports, with their photos.`,
       ...(placeParagraph ? [placeParagraph] : []),
+      ...(driverParagraph ? [driverParagraph] : []),
       `${productName} uses these services, some of them overseas:`,
     ],
     services: RENTER_DATA_SERVICES,

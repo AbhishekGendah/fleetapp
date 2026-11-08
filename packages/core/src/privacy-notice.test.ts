@@ -46,4 +46,16 @@ describe("the Renter's privacy notice", () => {
     expect(notice.policyUrl).toBeNull();
     expect(notice.policyText).toMatch(/^Ask Coast Cars for its privacy policy/);
   });
+
+  it("tells a driver what the businesses they drive for see, and never their licence", () => {
+    const driver = privacyNoticeFor(BUSINESS, "TheApp", "details", ["Acme Rides", "Swift Fleet"]);
+    const text = driver.paragraphs.join(" ");
+
+    expect(text).toContain("You drive for Acme Rides and Swift Fleet");
+    expect(text).toMatch(/your name, your signature/);
+    expect(text).toContain("never gives Acme Rides and Swift Fleet your licence, date of birth");
+    expect(privacyNoticeFor(BUSINESS, "TheApp", "details").paragraphs.join(" ")).not.toContain(
+      "You drive for",
+    );
+  });
 });

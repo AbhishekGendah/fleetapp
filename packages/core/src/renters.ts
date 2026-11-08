@@ -21,6 +21,11 @@ export const RENTER_STATUS_LABELS: Readonly<Record<RenterStatus, string>> = {
 export const RENTER_KINDS = ["person", "organisation"] as const;
 export type RenterKind = (typeof RENTER_KINDS)[number];
 
+export const RENTER_KIND_LABELS: Readonly<Record<RenterKind, string>> = {
+  person: "Person",
+  organisation: "Business",
+};
+
 /** No Australian state licenses a driver younger than this. */
 export const MINIMUM_DRIVER_AGE_YEARS = 16;
 
@@ -89,4 +94,24 @@ export function renterFirstName(fullName: string, preferredName: string | null):
 /** "Sam Example (Sammy)": the preferred name only when it differs. */
 export function renterDisplayName(fullName: string, preferredName: string | null): string {
   return preferredName && preferredName !== fullName ? `${fullName} (${preferredName})` : fullName;
+}
+
+/** What a Renter is called in a list or on their page, whichever kind. */
+export interface RenterNames {
+  kind: RenterKind;
+  /** A person's full name, or a business's legal name. */
+  fullName: string;
+  preferredName: string | null;
+  tradingName: string | null;
+}
+
+/**
+ * A business by its trading name when it has one (what the Operator calls
+ * it: "Acme Rides"), else its legal name; a person as `renterDisplayName`.
+ */
+export function renterShownName(renter: RenterNames): string {
+  if (renter.kind === "organisation") {
+    return renter.tradingName?.trim() || renter.fullName;
+  }
+  return renterDisplayName(renter.fullName, renter.preferredName);
 }
