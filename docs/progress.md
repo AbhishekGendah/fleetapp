@@ -1294,6 +1294,12 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
 
 ## Next
 
+**Standing instruction (Abhi, 8 Nov):** when a choice is obvious, go with
+the recommendation without asking, and tell him what was chosen. Ask only
+when a choice is a real judgement call for him. Also decided 8 Nov (Abhi:
+yes): drivers get their own emailed copy of the handover, return and swap
+reports they sign (pulls the `driver` email recipient forward from slice 5).
+
 **8 Nov: two plans approved (all 20 decisions):** docs/plans/find-a-car.md
 (dates first, free cars as photo cards, filters, showroom photos; also
 fixes a car late back being bookable) and docs/plans/condition-photos.md
