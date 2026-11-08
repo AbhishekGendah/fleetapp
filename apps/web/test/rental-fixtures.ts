@@ -42,6 +42,8 @@ export const TEST_RENTAL_PERIOD = {
 export interface TestBooking {
   renterId: string;
   vehicleId: string;
+  /** A business's driver, as its driver picker sends it; none: "to be named" (or a person's own). */
+  driverId?: string;
   /** No end: an ongoing rental. */
   period?: { plannedStart: string; plannedEnd: string | null };
   status?: NewRentalStatus;
@@ -61,6 +63,7 @@ export async function attemptTestBooking(
   const input = parseRentalForm(
     {
       ...emptyRentalForm({ renterId: booking.renterId, vehicleId: booking.vehicleId }),
+      ...(booking.driverId ? { driverId: booking.driverId } : {}),
       ...(plannedEnd === null ? { type: "ongoing", plannedEnd: "" } : { plannedEnd }),
       plannedStart,
       dailyRateCents: "70",

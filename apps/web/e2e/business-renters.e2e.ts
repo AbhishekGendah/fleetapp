@@ -4,7 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { PHONE_VIEWPORT } from "./e2e-settings";
 import { expectNoSidewaysScroll } from "./phone-checks";
-import { addRenter } from "./rental-steps";
+import { addRenter, openBusinessPage } from "./rental-steps";
 
 /**
  * Business Renters and their drivers (docs/plans/business-renters.md slice
@@ -12,8 +12,8 @@ import { addRenter } from "./rental-steps";
  * business form with its ABN grouped and checked, the business's page and
  * tabs, the Drivers tab (add someone new or already on file, the privacy
  * notice to hand over when it can't be emailed, remove one with no car), the friendly refusals for archiving, a driver's Drives for, the
- * list's labels and filters, search by ABN, and New rental not offering a
- * business yet. At phone width and by keyboard.
+ * list's labels and filters, search by ABN, and New rental offering the
+ * business (slice 3). At phone width and by keyboard.
  */
 const BUSINESS = {
   legalName: "Kestrel Rideshare Pty Ltd",
@@ -46,13 +46,7 @@ function businessTab(page: Page, name: string) {
 }
 
 async function openBusiness(page: Page, tab = "Overview"): Promise<void> {
-  await page.goto("/renters?q=kestrel&status=businesses", { waitUntil: "networkidle" });
-  await page
-    .getByRole("link", { name: BUSINESS.tradingName, exact: true })
-    .filter({ visible: true })
-    .first()
-    .click();
-  await expect(page.getByRole("heading", { level: 1, name: BUSINESS.tradingName })).toBeVisible();
+  await openBusinessPage(page, { search: "kestrel", tradingName: BUSINESS.tradingName });
   if (tab !== "Overview") {
     await businessTab(page, tab).click();
     await expect(businessTab(page, tab)).toHaveAttribute("aria-current", "page");
@@ -102,8 +96,8 @@ test.describe.serial("business Renters and their drivers", () => {
       "href",
       `mailto:${BUSINESS.email}`,
     );
-    // No New rental for a business until renting to one is built (plan slice 3).
-    await expect(strip.getByRole("link", { name: /New rental/ })).toHaveCount(0);
+    // Its driver is picked on the New rental form (slice 3).
+    await expect(strip.getByRole("link", { name: "New rental" })).toBeVisible();
     await expect(page.getByText("Still needed before renting")).toBeVisible();
     await expectNoSidewaysScroll(page);
     await expectAccessible(page);
@@ -230,9 +224,11 @@ test.describe.serial("business Renters and their drivers", () => {
     expect((await download).suggestedFilename()).toBe("renter-everything-held.zip");
   });
 
-  test("doesn't offer the business on the New rental form yet", async ({ page }) => {
+  test("offers the business on the New rental form, described as a business", async ({ page }) => {
     await page.goto("/rentals/new", { waitUntil: "networkidle" });
     await page.getByRole("combobox", { name: /^Renter/ }).fill("Kestrel");
-    await expect(page.getByRole("option", { name: /Kestrel/ })).toHaveCount(0);
+    await expect(
+      page.getByRole("option", { name: new RegExp(`^${BUSINESS.tradingName}`) }),
+    ).toContainText(`Business · ${BUSINESS.legalName}`);
   });
 });

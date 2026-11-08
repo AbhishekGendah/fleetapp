@@ -67,3 +67,22 @@ export async function drawRenterSignature(page: Page): Promise<void> {
   await page.mouse.move(box.x + box.width - 20, box.y + 30, { steps: 10 });
   await page.mouse.up();
 }
+
+/**
+ * A short contract template, typed in: words, a merge field, ", who rents ",
+ * and the rego, then saved. Only fields on file, so nothing blocks sending.
+ */
+export async function writeShortTemplate(
+  page: Page,
+  template: { name: string; kind?: ContractTemplateKind; opening: string; nameField: string },
+): Promise<void> {
+  await startTemplate(page, template);
+  await page.keyboard.type(template.opening);
+  await page.getByRole("button", { name: "Insert field" }).click();
+  await page.getByRole("menuitem", { name: template.nameField }).click();
+  await page.keyboard.type(", who rents ");
+  await page.getByRole("button", { name: "Insert field" }).click();
+  await page.getByRole("menuitem", { name: "Rego" }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText(/^Saved as a new version/)).toBeVisible();
+}

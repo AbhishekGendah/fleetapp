@@ -297,10 +297,12 @@ describe("business Renters and their drivers", () => {
       expect(held).toEqual([]);
     });
 
-    it("isn't offered on the New rental form until renting to a business is built", async () => {
+    it("is offered on the New rental form (slice 3), but never as a person's pick", async () => {
       const businessId = await addBusiness();
       const picked = await listPickableRenters(web.db, actor.operatorId);
-      expect(picked.map((record) => record.value)).not.toContain(businessId);
+      const people = await listPickableRenters(web.db, actor.operatorId, { isPeopleOnly: true });
+      expect(picked.map((record) => record.value)).toContain(businessId);
+      expect(people.map((record) => record.value)).not.toContain(businessId);
     });
   });
 

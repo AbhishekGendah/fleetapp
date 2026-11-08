@@ -200,3 +200,19 @@ export async function addRenterReadyToRent(
     await expect(slot.getByText(/^Added /)).toBeVisible();
   }
 }
+
+/** A business Renter's page, found on the Renters list by its trading name. */
+export async function openBusinessPage(
+  page: Page,
+  business: { search: string; tradingName: string },
+): Promise<void> {
+  await page.goto(`/renters?q=${encodeURIComponent(business.search)}&status=businesses`, {
+    waitUntil: "networkidle",
+  });
+  await page
+    .getByRole("link", { name: business.tradingName, exact: true })
+    .filter({ visible: true })
+    .first()
+    .click();
+  await expect(page.getByRole("heading", { level: 1, name: business.tradingName })).toBeVisible();
+}

@@ -12,7 +12,7 @@ import {
   type TypedMoment,
 } from "./rental-steps";
 import { expectNoSidewaysScroll } from "./phone-checks";
-import { openSigningOnPhone, startTemplate } from "./signing-steps";
+import { openSigningOnPhone, writeShortTemplate } from "./signing-steps";
 import { latestEmailTo } from "./test-inbox";
 
 /**
@@ -115,15 +115,11 @@ test.describe.serial("signing a contract", () => {
     await expect(page.getByRole("heading", { name: `${CAR_REGO} · ${RENTER.name}` })).toBeVisible();
 
     // Only the Renter's name and the car's rego: both on file, so nothing blocks sending.
-    await startTemplate(page, { name: TEMPLATE_NAME });
-    await page.keyboard.type("Rental agreement for ");
-    await page.getByRole("button", { name: "Insert field" }).click();
-    await page.getByRole("menuitem", { name: "Renter's full name" }).click();
-    await page.keyboard.type(", who rents ");
-    await page.getByRole("button", { name: "Insert field" }).click();
-    await page.getByRole("menuitem", { name: "Rego" }).click();
-    await page.getByRole("button", { name: "Save", exact: true }).click();
-    await expect(page.getByText(/^Saved as a new version/)).toBeVisible();
+    await writeShortTemplate(page, {
+      name: TEMPLATE_NAME,
+      opening: "Rental agreement for ",
+      nameField: "Renter's full name",
+    });
     // The first template is the default already; after the contract tests, this one is made it.
     const makeDefault = page.getByRole("button", { name: "Use for new rentals" });
     if ((await makeDefault.count()) > 0) {
