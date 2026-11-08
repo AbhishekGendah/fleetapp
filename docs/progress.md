@@ -1277,14 +1277,33 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
   would have expired in 2034, a millisecond clock gap noted). Test sheet
   rows O-489 to O-491.
 
+- **Business Renters slice 2 (8 Nov, Abhi's go).** Adding and editing a
+  business (Person or Business choice, ABN checked), the business page with
+  its tabs (Overview, Drivers, Rentals, Money, Details, Notes, Log), adding
+  and removing drivers (existing or someone new, privacy notice emailed or
+  a "give them the notice" card), a driver's Drives for and Cars driven,
+  Businesses and Drivers filters, search by ABN and contact, the export
+  (Kind, Legal name, Paid by) and "everything we hold" for both. Friendly
+  messages for the database refusals. Demo business Acme Rides. No
+  migration. A business can't be booked yet (slice 3). Deep review, two
+  checkers: nothing serious; six small findings all fixed with tests (no
+  licence or scans on a business, crossed-add lock, driver privacy notice
+  result, newest rentals kept on big businesses, export Owing stays a
+  number, plain Log wording). Test sheet rows O-492 to O-510; O-148,
+  O-227, O-392, O-395, O-412, O-466, O-483 and O-486 updated.
+
 ## Next
 
 **8 Nov: two plans approved (all 20 decisions):** docs/plans/find-a-car.md
 (dates first, free cars as photo cards, filters, showroom photos; also
 fixes a car late back being bookable) and docs/plans/condition-photos.md
 (free photo gallery at pickup/return, Optional/Required, albums). Mockups on
-the design canvas (8 Nov). The late-car booking fix is live (8 Nov); next: business Renters slice 2,
-then Find a car, then condition photos.
+the design canvas (8 Nov). The late-car booking fix is live (8 Nov). Business Renters slice 2 is live
+(8 Nov); next: business Renters slice 3 (booking a business with a driver)
+with his go, then Find a car, then condition photos. Open questions for
+him from slice 2: email the privacy notice every time an existing person is
+added as a driver (built: yes); a phone-only new driver gets no details
+link until SMS exists (built: yes, on the launch checklist).
 
 **7 Nov: everything is on the dev site** (Abhi: "send all to the dev
 site"): the overdue batch, no-underline links, cancelled bookings counting
