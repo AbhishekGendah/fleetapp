@@ -5,6 +5,7 @@ import type { EmailMessage, EmailSender } from "@fleetapp/email";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import type { ActingUser } from "../src/lib/acting-user";
+import { recordEmailTries, type EmailTry } from "../src/lib/contracts/document-copies";
 import { emailDocumentAgain, loadDocumentEmailStates } from "../src/lib/contracts/document-emails";
 import { completeHandover } from "../src/lib/handover/complete-handover";
 import { createMemoryFileStorage } from "../src/lib/storage/memory-file-storage";
@@ -80,6 +81,20 @@ describe("emailed copies of fixed documents", () => {
       driver: null,
       business: "no_address",
     });
+  });
+
+  it("keeps every try it can when one can't be kept, rather than losing them all (second review)", async () => {
+    const documentId = await handedOverWithoutEmail();
+    // One the database refuses, between two it keeps.
+    const unkeepable = { recipient: "nobody", outcome: "sent" } as unknown as EmailTry;
+
+    await recordEmailTries(web.db, { operatorId: actor.operatorId, documentId }, [
+      { recipient: "renter", outcome: "sent" },
+      unkeepable,
+      { recipient: "business", outcome: "sent" },
+    ]);
+
+    expect(await stateOf(documentId)).toEqual({ renter: "sent", driver: null, business: "sent" });
   });
 
   it("sends the stored PDF again, and records that it went", async () => {

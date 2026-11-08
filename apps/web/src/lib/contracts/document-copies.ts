@@ -103,26 +103,39 @@ async function sendCopy(
   }
 }
 
-/** Keeps each try, so the rental page says what really happened (review G7-1, G9-9). */
-async function recordTries(
+/** One emailed copy's try, as sent or not. */
+export interface EmailTry {
+  recipient: DocumentEmailRecipient;
+  outcome: DocumentEmailOutcome;
+}
+
+/**
+ * Keeps each try, so the rental page says what really happened (review
+ * G7-1, G9-9). Each on its own: one that can't be kept never loses the
+ * others, and is logged by whose copy it was, never by any address.
+ */
+export async function recordEmailTries(
   database: AnyDatabase,
-  copies: DocumentCopies,
-  tries: { recipient: DocumentEmailRecipient; outcome: DocumentEmailOutcome }[],
+  copies: Pick<DocumentCopies, "operatorId" | "documentId" | "sentByUserId">,
+  tries: readonly EmailTry[],
 ): Promise<void> {
-  try {
-    await withTenant(database, copies.operatorId, (tx) =>
-      tx.insert(documentEmails).values(
-        tries.map((attempt) => ({
+  for (const attempt of tries) {
+    try {
+      await withTenant(database, copies.operatorId, (tx) =>
+        tx.insert(documentEmails).values({
           operatorId: copies.operatorId,
           documentId: copies.documentId,
           recipient: attempt.recipient,
           outcome: attempt.outcome,
           sentByUserId: copies.sentByUserId ?? null,
-        })),
-      ),
-    );
-  } catch (error) {
-    console.error("Recording an emailed copy failed", describeErrorForLog(error));
+        }),
+      );
+    } catch (error) {
+      console.error(
+        `Recording an emailed copy (to the ${attempt.recipient}) failed`,
+        describeErrorForLog(error),
+      );
+    }
   }
 }
 
@@ -170,6 +183,6 @@ export async function emailDocumentCopies(
         : await sendCopy(deps, copy, render, copies.kind);
     tries.push({ recipient: copy.recipient, outcome });
   }
-  await recordTries(deps.database, copies, tries);
+  await recordEmailTries(deps.database, copies, tries);
   return documentEmailState(tries);
 }
