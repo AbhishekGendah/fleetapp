@@ -30,7 +30,9 @@ export interface LicenceOnFile {
   isArchived: boolean;
 }
 
-export type SaveLicenceResult = "saved" | "unchanged" | "not_found" | LicenceOnFile;
+/** "not_a_person": a business has no licence; its drivers each have their own. */
+export type SaveLicenceResult =
+  "saved" | "unchanged" | "not_found" | "not_a_person" | LicenceOnFile;
 
 /** Who holds the licence, after the database refused a second one. */
 export async function findLicenceHolder(
@@ -72,7 +74,10 @@ export async function saveLicence(
   try {
     return await withTenant(database, actor.operatorId, async (tx) => {
       const before = await lockCurrentRenter(tx, actor.operatorId, renterId);
-      return before ? applyLicence(tx, actor, before, licence) : "not_found";
+      if (!before) {
+        return "not_found";
+      }
+      return before.kind === "person" ? applyLicence(tx, actor, before, licence) : "not_a_person";
     });
   } catch (error) {
     if (isLicenceOnFileError(error)) {

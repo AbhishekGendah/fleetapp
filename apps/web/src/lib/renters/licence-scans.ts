@@ -18,7 +18,9 @@ import {
 import { lockCurrentRenter } from "./renter-records";
 
 export type LicenceScanUploadStart =
-  Extract<UploadRequestResult, { status: "allowed" | "refused" }> | { status: "not_found" };
+  | Extract<UploadRequestResult, { status: "allowed" | "refused" }>
+  | { status: "not_found" }
+  | { status: "not_a_person" };
 
 class RenterNotFoundError extends Error {
   constructor() {
@@ -27,9 +29,17 @@ class RenterNotFoundError extends Error {
   }
 }
 
+class NotAPersonError extends Error {
+  constructor() {
+    super("A business has no licence of its own.");
+    this.name = "NotAPersonError";
+  }
+}
+
 /**
  * Starts sending one side of a Renter's licence. It goes in the identity
  * storage (rule 8), and once confirmed replaces that side's previous scan.
+ * A business has no licence: its drivers each have their own.
  */
 export async function startLicenceScanUpload(
   deps: FileDependencies,
@@ -42,15 +52,22 @@ export async function startLicenceScanUpload(
     purpose: "renter_licence_scan",
     ...planned,
     links: async (tx) => {
-      if (!(await lockCurrentRenter(tx, actor.operatorId, renterId))) {
-        // Undoes the transaction, so nothing is recorded.
+      const renter = await lockCurrentRenter(tx, actor.operatorId, renterId);
+      // Either undoes the transaction, so nothing is recorded.
+      if (!renter) {
         throw new RenterNotFoundError();
+      }
+      if (renter.kind !== "person") {
+        throw new NotAPersonError();
       }
       return { renterId, licenceSide: side };
     },
   }).catch((error: unknown) => {
     if (error instanceof RenterNotFoundError) {
       return { status: "not_found" as const };
+    }
+    if (error instanceof NotAPersonError) {
+      return { status: "not_a_person" as const };
     }
     throw error;
   });

@@ -79,6 +79,12 @@ export type RecordUploadStart =
   | { status: "allowed"; fileId: string; permission: UploadPermission }
   | { status: "refused"; message: string };
 
+/** The record takes no file of this kind, e.g. a licence scan for a business: why, in words. */
+export interface RecordRefusal {
+  status: "record_refused";
+  message: string;
+}
+
 /**
  * Step one of sending a file to a record (an attachment, a licence scan):
  * the record may be gone or not the Operator's, the file may be refused.
@@ -86,7 +92,7 @@ export type RecordUploadStart =
 export function startRecordUpload(
   description: string,
   notFoundMessage: string,
-  start: () => Promise<UploadRequestResult | { status: "not_found" }>,
+  start: () => Promise<UploadRequestResult | { status: "not_found" } | RecordRefusal>,
 ): Promise<RecordUploadStart> {
   return orUploadFailed(
     description,
@@ -94,6 +100,9 @@ export function startRecordUpload(
       const result = await start();
       if (result.status === "not_found") {
         return { status: "refused", message: notFoundMessage };
+      }
+      if (result.status === "record_refused") {
+        return { status: "refused", message: result.message };
       }
       return result.status === "refused"
         ? { status: "refused", message: refusedMessage(result) }

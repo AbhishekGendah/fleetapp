@@ -255,7 +255,8 @@ export async function buildEverythingHeld(
   const linkIds = await listRenterLinkIds(database, operatorId, renterId);
   const [notes, scans, fileIds, noteIds, submissions, records, driverLinkIds] = await Promise.all([
     listNotes(database, operatorId, renterId, { isRemovedIncluded: true }),
-    listAllLicenceScans(database, operatorId, renterId, linkIds),
+    // A business has no licence (its drivers' are theirs): none of its files are scans.
+    isBusiness ? [] : listAllLicenceScans(database, operatorId, renterId, linkIds),
     listRenterFileIds(database, operatorId, renterId, linkIds),
     listNoteIds(database, operatorId, renterId),
     listSubmissionsHeld(database, operatorId, renterId),

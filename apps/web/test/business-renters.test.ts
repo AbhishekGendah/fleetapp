@@ -1,5 +1,5 @@
 import { parseListQuery } from "@fleetapp/core";
-import { activityLog, organisationDrivers, rentals, renters } from "@fleetapp/db/schema";
+import { activityLog, files, organisationDrivers, rentals, renters } from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import type { EmailMessage } from "@fleetapp/email";
@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import { RENTER_LIST } from "../src/app/renters/renter-list";
 import type { ActingUser } from "../src/lib/acting-user";
+import type { FileDependencies } from "../src/lib/files/stored-files";
 import { listPickableRenters } from "../src/lib/rentals/pickable-records";
 import { sendDetailsLink } from "../src/lib/renter-links/details-links";
 import {
@@ -20,7 +21,8 @@ import {
 import { parseAddDriverForm } from "../src/lib/renters/driver-input";
 import { buildEverythingHeld } from "../src/lib/renters/everything-held";
 import { saveLicence } from "../src/lib/renters/licence-records";
-import { parseLicenceForm } from "../src/lib/renters/licence-input";
+import { parseLicenceForm, type LicenceInput } from "../src/lib/renters/licence-input";
+import { startLicenceScanUpload } from "../src/lib/renters/licence-scans";
 import {
   countCurrentDriverLinks,
   listBusinessDrivers,
@@ -46,6 +48,7 @@ import {
 } from "../src/lib/renters/renter-records";
 import { emptyRenterForm, parseRenterForm } from "../src/lib/renters/renter-input";
 import { searchOperatorRecords } from "../src/lib/search/header-search-queries";
+import { createMemoryFileStorage } from "../src/lib/storage/memory-file-storage";
 import { addTestCar, seedOperatorWithUser } from "./car-fixtures";
 import { recordingEmailSender } from "./renter-link-fixtures";
 import { addTestRenter, TEST_TIME_ZONE } from "./rental-fixtures";
@@ -56,6 +59,7 @@ const CLOCK = { timeZone: TEST_TIME_ZONE, now: new Date("2026-11-08T02:00:00Z") 
 const EXPIRY = { today: TODAY, warningDays: 30 };
 /** A driver's licence number: never in what is held about the business they drive for. */
 const DRIVER_LICENCE_NUMBER = "WA7766554";
+const SCAN = { contentType: "image/jpeg", sizeBytes: 300_000 };
 
 function businessInput(changes: Partial<BusinessRenterFormValues> = {}): BusinessRenterInput {
   const parsed = parseBusinessRenterForm({
@@ -168,8 +172,7 @@ describe("business Renters and their drivers", () => {
     );
   }
 
-  async function personWithLicence(fullName: string): Promise<string> {
-    const renterId = await addTestRenter(web, actor, fullName, "0491570006");
+  function driverLicence(): LicenceInput {
     const licence = parseLicenceForm({
       licenceIssuedIn: "WA",
       licenceCountry: "",
@@ -181,7 +184,12 @@ describe("business Renters and their drivers", () => {
     if (!licence.success) {
       throw new Error(licence.error.message);
     }
-    expect(await saveLicence(web.db, actor, renterId, licence.data)).toBe("saved");
+    return licence.data;
+  }
+
+  async function personWithLicence(fullName: string): Promise<string> {
+    const renterId = await addTestRenter(web, actor, fullName, "0491570006");
+    expect(await saveLicence(web.db, actor, renterId, driverLicence())).toBe("saved");
     return renterId;
   }
 
@@ -250,6 +258,23 @@ describe("business Renters and their drivers", () => {
         7,
       );
       expect(result.status).toBe("not_found");
+    });
+
+    it("refuses a licence or a licence scan for a business, with nothing saved", async () => {
+      const businessId = await addBusiness();
+      expect(await saveLicence(web.db, actor, businessId, driverLicence())).toBe("not_a_person");
+      const deps: FileDependencies = {
+        database: web.db,
+        storage: createMemoryFileStorage(),
+        now: () => new Date(),
+      };
+      expect(await startLicenceScanUpload(deps, actor, businessId, "front", SCAN)).toEqual({
+        status: "not_a_person",
+      });
+      const held = await withTenant(web.db, actor.operatorId, (tx) =>
+        tx.select({ id: files.id }).from(files).where(eq(files.renterId, businessId)),
+      );
+      expect(held).toEqual([]);
     });
 
     it("isn't offered on the New rental form until renting to a business is built", async () => {
@@ -468,6 +493,27 @@ describe("business Renters and their drivers", () => {
       expect(cells).toContain("Sam Licensed");
       expect(cells).not.toContain(DRIVER_LICENCE_NUMBER);
       expect(held?.files.some((file) => file.path.startsWith("licence-scans/"))).toBe(false);
+    });
+
+    it("never sends a scan with a business's, even one stored against it before refusals", async () => {
+      const businessId = await addBusiness();
+      await withTenant(web.db, actor.operatorId, (tx) =>
+        tx.insert(files).values({
+          operatorId: actor.operatorId,
+          purpose: "renter_licence_scan",
+          storageArea: "identity",
+          objectKey: `test/${crypto.randomUUID()}`,
+          contentType: "image/jpeg",
+          sizeBytes: SCAN.sizeBytes,
+          renterId: businessId,
+          licenceSide: "front",
+          confirmedAt: new Date(),
+        }),
+      );
+      const held = await buildEverythingHeld(web.db, actor, businessId, TEST_TIME_ZONE);
+      expect(held?.files.some((file) => file.path.startsWith("licence-scans/"))).toBe(false);
+      const scans = held?.sheets.find((sheet) => sheet.name === "Licence scans");
+      expect(scans?.table).toHaveLength(1);
     });
 
     it("holds the businesses a driver drives for", async () => {

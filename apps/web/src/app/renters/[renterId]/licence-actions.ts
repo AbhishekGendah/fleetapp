@@ -23,6 +23,9 @@ import { RENTER_NOT_FOUND_MESSAGE } from "../renter-form-state";
 
 const INVALID_MESSAGE =
   "Some details are not right, so nothing was saved. Check them and try again.";
+/** A business holds no licence (the database refuses one too). */
+const BUSINESS_HAS_NO_LICENCE_MESSAGE =
+  "A business has no licence of its own. Add the licence on each driver's page instead.";
 
 export async function saveLicenceAction(
   renterId: string,
@@ -43,6 +46,9 @@ export async function saveLicenceAction(
       const result = await saveLicence(appDb, actor, renterId, parsed.data);
       if (typeof result === "object") {
         return licenceOnFileState(result);
+      }
+      if (result === "not_a_person") {
+        return failedState(BUSINESS_HAS_NO_LICENCE_MESSAGE);
       }
       return result === "not_found"
         ? failedState(RENTER_NOT_FOUND_MESSAGE)
@@ -65,9 +71,12 @@ export async function startLicenceScanUploadAction(
     return { status: "refused", message: UPLOAD_PROBLEM_MESSAGES.type_not_allowed };
   }
   const { renterId, side, ...planned } = parsed.data;
-  return startRecordUpload("Starting a licence scan upload", RENTER_NOT_FOUND_MESSAGE, () =>
-    startLicenceScanUpload(fileDependencies(), actor, renterId, side, planned),
-  );
+  return startRecordUpload("Starting a licence scan upload", RENTER_NOT_FOUND_MESSAGE, async () => {
+    const result = await startLicenceScanUpload(fileDependencies(), actor, renterId, side, planned);
+    return result.status === "not_a_person"
+      ? { status: "record_refused", message: BUSINESS_HAS_NO_LICENCE_MESSAGE }
+      : result;
+  });
 }
 
 /** Null once saved (replacing that side's old scan); otherwise what to tell the person. */
