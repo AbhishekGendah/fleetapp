@@ -36,7 +36,9 @@ export type RenterListRow = RenterSummary & {
   renting: RenterRenting;
   /** From the ledger (rule 11); none when nothing has been charged or paid yet. */
   balanceCents: number | null;
-  /** A driver with nothing of their own to pay, in a business's car: "Acme Rides pays". */
+  /** A driver with nothing of their own to pay, in a business's car: the business, "Acme Rides". */
+  paidByName: string | null;
+  /** The same, in words: "Acme Rides pays". */
   paidByText: string | null;
   /** "Mar 2026": when they were added. */
   sinceText: string;
@@ -108,18 +110,21 @@ export function businessRentingOf(
 }
 
 /** The business that pays for the car a driver has, when it is not their own rental. */
-function paidByText(renterId: string, renting: RenterRenting, hasOwnMoney: boolean): string | null {
+function paidByNameOf(
+  renterId: string,
+  renting: RenterRenting,
+  hasOwnMoney: boolean,
+): string | null {
   const { rental } = renting;
   if (hasOwnMoney || !rental || rental.renterId === renterId) {
     return null;
   }
-  const payer = renterShownName({
+  return renterShownName({
     kind: rental.renterKind,
     fullName: rental.renterFullName,
     preferredName: rental.renterPreferredName,
     tradingName: rental.renterTradingName,
   });
-  return `${payer} pays`;
 }
 
 function kindLabelsOf(renter: RenterSummary, extras: RenterListExtras): string[] {
@@ -150,6 +155,7 @@ export function renterListRows(
       renter.kind === "organisation"
         ? businessRentingOf(renter, underWay, clock)
         : rentingOf(renter, underWay, clock);
+    const paidByName = paidByNameOf(renter.id, renting, money !== undefined);
     return {
       ...renter,
       shownName: renterShownName(renter),
@@ -167,7 +173,8 @@ export function renterListRows(
       }),
       renting,
       balanceCents: money?.balanceCents ?? null,
-      paidByText: paidByText(renter.id, renting, money !== undefined),
+      paidByName,
+      paidByText: paidByName ? `${paidByName} pays` : null,
       sinceText: formatMonthYearInTimeZone(renter.createdAt, clock.timeZone),
     };
   });

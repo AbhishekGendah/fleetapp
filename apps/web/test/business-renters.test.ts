@@ -488,6 +488,33 @@ describe("business Renters and their drivers", () => {
       ]);
     });
 
+    it("exports a driver's Owing as a number, blank when the business pays, and who pays beside it", async () => {
+      await bookingNaming(businessId, driverId, "2027-08-02T01:00:00Z");
+      const page = await listRenterPage(
+        web.db,
+        actor.operatorId,
+        parseListQuery(RENTER_LIST, { q: "zara" }),
+      );
+      const [row] = renterListRows(
+        page.rows,
+        await loadRenterListExtras(
+          web.db,
+          actor.operatorId,
+          page.rows.map((each) => each.id),
+          CLOCK,
+        ),
+        EXPIRY,
+        CLOCK,
+      );
+      const exported = (key: string) =>
+        RENTER_LIST.columns.find((column) => column.key === key)?.exportValue(row!);
+      expect(row?.paidByText).toBe("Zebra Fleet pays");
+      expect(exported("owing")).toBeNull();
+      expect(exported("paidBy")).toBe("Zebra Fleet");
+      const header = RENTER_LIST.columns.map((column) => column.label);
+      expect(header.indexOf("Paid by")).toBe(header.indexOf("Owing") + 1);
+    });
+
     it("finds a business in the top bar by trading name and ABN, shown by its trading name", async () => {
       const byName = await searchOperatorRecords(web.db, actor.operatorId, "Zebra");
       expect(byName.renters).toEqual([

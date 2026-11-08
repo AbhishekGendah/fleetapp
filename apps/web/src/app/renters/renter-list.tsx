@@ -201,8 +201,15 @@ export const RENTER_LIST: DataListDefinition<RenterListRow> = {
       key: "owing",
       label: "Owing",
       isAlignedEnd: true,
-      exportValue: (renter) => renter.paidByText ?? renter.balanceCents,
+      // Cents only, so a spreadsheet can add the column up; who pays instead is beside it.
+      exportValue: (renter) => renter.balanceCents,
       render: (renter) => <OwingAmount renter={renter} />,
+    },
+    {
+      key: "paidBy",
+      label: "Paid by",
+      isOnlyInExports: true,
+      exportValue: (renter) => renter.paidByName,
     },
     {
       key: "licenceExpires",
