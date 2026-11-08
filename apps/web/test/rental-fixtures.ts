@@ -6,7 +6,11 @@ import { sql } from "drizzle-orm";
 import type { ActingUser } from "../src/lib/acting-user";
 import { confirmUpload, type FileDependencies } from "../src/lib/files/stored-files";
 import { emptyRentalForm, parseRentalForm } from "../src/lib/rentals/rental-input";
-import { createRental, type NewRentalStatus } from "../src/lib/rentals/rental-records";
+import {
+  createRental,
+  type BookingResult,
+  type NewRentalStatus,
+} from "../src/lib/rentals/rental-records";
 import { parseLicenceForm } from "../src/lib/renters/licence-input";
 import { saveLicence } from "../src/lib/renters/licence-records";
 import { startLicenceScanUpload } from "../src/lib/renters/licence-scans";
@@ -34,35 +38,53 @@ export const TEST_RENTAL_PERIOD = {
   plannedEnd: "2027-06-29T09:00",
 };
 
+/** A test booking's parties and, unless the defaults do, its dates, status and clock. */
+export interface TestBooking {
+  renterId: string;
+  vehicleId: string;
+  /** No end: an ongoing rental. */
+  period?: { plannedStart: string; plannedEnd: string | null };
+  status?: NewRentalStatus;
+  now?: Date;
+}
+
 /**
- * Books this car for the Renter, $350 a week and a $500 bond, through the
- * same code as the New rental form.
+ * Tries to book this car for the Renter, $350 a week and a $500 bond, through
+ * the same code as the New rental form, and says what came back.
  */
-export async function bookTestRentalOn(
+export async function attemptTestBooking(
   web: TestConnection,
   owner: ActingUser,
-  booking: {
-    renterId: string;
-    vehicleId: string;
-    period?: { plannedStart: string; plannedEnd: string };
-    status?: NewRentalStatus;
-    now?: Date;
-  },
-): Promise<{ rentalId: string; vehicleId: string; problems: BookingProblem[] }> {
+  booking: TestBooking,
+): Promise<BookingResult> {
+  const { plannedStart, plannedEnd } = booking.period ?? TEST_RENTAL_PERIOD;
   const input = parseRentalForm(
     {
       ...emptyRentalForm({ renterId: booking.renterId, vehicleId: booking.vehicleId }),
-      ...(booking.period ?? TEST_RENTAL_PERIOD),
+      ...(plannedEnd === null ? { type: "ongoing", plannedEnd: "" } : { plannedEnd }),
+      plannedStart,
       dailyRateCents: "70",
       longTermWeeklyCents: "350",
       bondCents: "500",
     },
     TEST_TIME_ZONE,
   );
-  const result = await createRental(web.db, owner, input.data!, booking.status ?? "booked", {
+  if (!input.success) {
+    throw new Error(`The test booking is not valid: ${input.error.message}`);
+  }
+  return createRental(web.db, owner, input.data, booking.status ?? "booked", {
     timeZone: TEST_TIME_ZONE,
     now: booking.now ?? new Date(),
   });
+}
+
+/** Books this car for the Renter as `attemptTestBooking` does; throws if it is not saved. */
+export async function bookTestRentalOn(
+  web: TestConnection,
+  owner: ActingUser,
+  booking: TestBooking,
+): Promise<{ rentalId: string; vehicleId: string; problems: BookingProblem[] }> {
+  const result = await attemptTestBooking(web, owner, booking);
   if (result.status !== "saved") {
     throw new Error(`The test rental was not saved: ${result.status}`);
   }

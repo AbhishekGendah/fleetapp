@@ -1,4 +1,5 @@
 export * from "./abn";
+export * from "./availability";
 export * from "./account-access";
 export * from "./business-details";
 export * from "./calendar-dates";

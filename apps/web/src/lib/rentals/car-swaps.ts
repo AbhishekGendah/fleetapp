@@ -14,14 +14,14 @@ import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { recordUserChange, type ActingUser } from "../acting-user";
 import { loadDefaultTemplate } from "../contracts/templates";
 import { handoverPhotoNames, isChecklistUnderWay } from "../handover/handover-records";
-import { findBookingClash, type BookingClash } from "./car-holds";
+import { findNewHoldClash, type NewHoldClash } from "./car-holds";
 import type { RentalClock } from "./rental-records";
 
 export type CarSwap = typeof carSwaps.$inferSelect;
 
 export type StartSwapResult =
   | { status: "started" | "resumed"; swapId: string }
-  | { status: "clash"; clash: BookingClash }
+  | { status: "clash"; clash: NewHoldClash }
   | {
       status:
         | "not_found"
@@ -139,7 +139,7 @@ export async function startSwap(
     if (!(await isCarAvailable(tx, actor.operatorId, request.toVehicleId))) {
       return { status: "car_not_available" };
     }
-    const clash = await findBookingClash(
+    const clash = await findNewHoldClash(
       tx,
       actor.operatorId,
       request.toVehicleId,
@@ -147,6 +147,7 @@ export async function startSwap(
         start: clock.now,
         end: rental.plannedEnd && rental.plannedEnd > clock.now ? rental.plannedEnd : null,
       },
+      clock.now,
       rentalId,
     );
     if (clash) {

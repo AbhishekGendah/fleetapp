@@ -29,7 +29,9 @@
 - Extending: move the end date or convert to ongoing. Every change
   logged.
 - Fixed-term past its end date without return: flagged overdue; charges
-  continue.
+  continue. Until it is returned the car is not free for any new booking,
+  whatever the dates, as if its hold had no end (docs/plans/find-a-car.md,
+  decision 5; migration 0054). Bookings made before it was late are kept.
 
 ## Changes during a rental
 

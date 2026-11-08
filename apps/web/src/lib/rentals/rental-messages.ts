@@ -9,7 +9,7 @@ import {
   type BookingProblem,
 } from "@fleetapp/core";
 
-import type { BookingClash } from "./car-holds";
+import { isStillOutClash, type NewHoldClash } from "./car-holds";
 
 /** One booking problem in plain words, for the form and the rental page. */
 export function bookingProblemMessage(problem: BookingProblem): string {
@@ -52,10 +52,14 @@ export function bookingProblemMessage(problem: BookingProblem): string {
   }
 }
 
-/** Which booking already has the car, so the Operator can look at it. */
-export function bookingClashMessage(clash: BookingClash | null, timeZone: string): string {
+/** Which booking already has the car, or that it is still out late, so the Operator can look at it. */
+export function bookingClashMessage(clash: NewHoldClash | null, timeZone: string): string {
   if (!clash) {
     return "Someone booked this car for some of that time just now. Choose other dates or another car.";
+  }
+  if (isStillOutClash(clash)) {
+    // Other dates would not help: nobody knows when it comes back (find-a-car.md, decision 5).
+    return `This car is still out: it was due back ${formatDateTimeInTimeZone(clash.dueBack, timeZone)} and hasn't been returned yet. Choose another car, or record its return first.`;
   }
   const from = formatDateTimeInTimeZone(clash.plannedStart, timeZone);
   const until = clash.plannedEnd

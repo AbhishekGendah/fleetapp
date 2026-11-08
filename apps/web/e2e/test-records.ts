@@ -136,6 +136,31 @@ export async function recordReturn(rentalId: string): Promise<void> {
   }
 }
 
+/**
+ * Makes a rental out (`recordHandover`) late back, straight in the test
+ * database: booked from three days ago until an hour ago, its car's hold
+ * with it, and the car not returned. For tests of a car still out past its
+ * return date (docs/plans/find-a-car.md, decision 5).
+ */
+export async function recordLateBack(rentalId: string): Promise<void> {
+  const client = new Client({ connectionString: process.env.E2E_SUPERUSER_URL });
+  await client.connect();
+  try {
+    await client.query(
+      `UPDATE rentals SET planned_start = now() - interval '3 days', planned_end = now() - interval '1 hour'
+       WHERE id = $1`,
+      [rentalId],
+    );
+    await client.query(
+      `UPDATE car_holds SET held_during = tstzrange(now() - interval '3 days', now() - interval '1 hour', '[)')
+       WHERE rental_id = $1 AND released_at IS NULL`,
+      [rentalId],
+    );
+  } finally {
+    await client.end();
+  }
+}
+
 /** Puts a car in the workshop until a day, straight in the test database. */
 export async function recordInWorkshop(rego: string, expectedBack: string): Promise<void> {
   const client = new Client({ connectionString: process.env.E2E_SUPERUSER_URL });

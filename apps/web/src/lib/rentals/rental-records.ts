@@ -27,11 +27,11 @@ import { snapshotOperatorSettings } from "../settings/operator-settings";
 import { cancelOpenChecklists } from "../handover/handover-records";
 import { findBookingProblems, lockBookingParties } from "./booking-checks";
 import {
-  findBookingClash,
+  findNewHoldClash,
   holdCar,
   isCarAlreadyHeld,
   releaseCarHolds,
-  type BookingClash,
+  type NewHoldClash,
 } from "./car-holds";
 import type { CancelRentalInput, RentalInput } from "./rental-input";
 
@@ -47,7 +47,7 @@ export interface RentalClock {
 export type BookingResult =
   | { status: "saved"; rentalId: string; problems: BookingProblem[] }
   | { status: "refused"; problems: BookingProblem[] }
-  | { status: "car_taken"; clash: BookingClash | null }
+  | { status: "car_taken"; clash: NewHoldClash | null }
   | { status: "renter_not_found" | "car_not_found" | "not_found" | "not_allowed" };
 
 /** The Operator's own notes on a rental: kept with it, never written into the log. */
@@ -76,17 +76,19 @@ function problemCodes(problems: readonly BookingProblem[]): string[] {
 }
 
 /**
- * Holds the car unless another booking has it for some of that time. The
- * clash is looked up first so the Operator is told which booking is in the
- * way; the car row is locked, so the look-up cannot go stale before the hold.
+ * Holds the car unless another booking has it for some of that time, or it
+ * is still out late with another rental. The clash is looked up first so the
+ * Operator is told what is in the way; the car row is locked, so the look-up
+ * cannot go stale before the hold.
  */
 async function holdCarIfFree(
   tx: AnyTransaction,
   operatorId: string,
   rental: Pick<Rental, "id" | "vehicleId" | "plannedStart" | "plannedEnd">,
-): Promise<BookingClash | null> {
+  now: Date,
+): Promise<NewHoldClash | null> {
   const span = { start: rental.plannedStart, end: rental.plannedEnd };
-  const clash = await findBookingClash(tx, operatorId, rental.vehicleId, span);
+  const clash = await findNewHoldClash(tx, operatorId, rental.vehicleId, span, now);
   if (clash) {
     return clash;
   }
@@ -96,7 +98,7 @@ async function holdCarIfFree(
 
 /** Thrown inside the transaction so nothing of the booking is kept. */
 class CarTakenError extends Error {
-  constructor(readonly clash: BookingClash) {
+  constructor(readonly clash: NewHoldClash) {
     super("The car is already booked for some of that time.");
   }
 }
@@ -210,7 +212,7 @@ export async function createRental(
       appliesFromBlock: 0,
     });
     if (status === "booked") {
-      const clash = await holdCarIfFree(tx, actor.operatorId, created);
+      const clash = await holdCarIfFree(tx, actor.operatorId, created, clock.now);
       if (clash) {
         throw new CarTakenError(clash);
       }
@@ -270,7 +272,7 @@ export async function bookRental(
     if (isBookingRefused(problems)) {
       return { status: "refused", problems };
     }
-    const clash = await holdCarIfFree(tx, actor.operatorId, rental);
+    const clash = await holdCarIfFree(tx, actor.operatorId, rental, clock.now);
     if (clash) {
       return { status: "car_taken", clash };
     }

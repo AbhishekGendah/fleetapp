@@ -104,20 +104,26 @@ describe("handover safety", () => {
     expect(await carStatus(booked.vehicleId)).toBe("written_off");
   });
 
-  it("warns when booking a car whose Renter is overdue back, and blocks its handover until it is", async () => {
+  it("refuses booking a car whose Renter is overdue back, and blocks a booking made before until it is", async () => {
     const first = await kit.rentalOut(new Date("2027-05-31T01:00:00Z"));
+    const beforeFirstEnds = new Date("2027-06-15T01:00:00Z");
     const afterFirstEnds = new Date("2027-06-30T01:00:00Z");
-    const second = await bookSameCar(
-      first.vehicleId,
-      { plannedStart: "2027-07-01T09:00", plannedEnd: "2027-07-29T09:00" },
-      afterFirstEnds,
-    );
+    const nextPeriod = { plannedStart: "2027-07-01T09:00", plannedEnd: "2027-07-29T09:00" };
+    const second = await bookSameCar(first.vehicleId, nextPeriod, beforeFirstEnds);
     await kit.signAndHoldBond(second.rentalId);
     const inspectionId = await kit.filledHandover(second.rentalId);
 
+    // Once late, the car is not free for any new booking (find-a-car.md, decision 5).
+    await expect(
+      bookSameCar(
+        first.vehicleId,
+        { plannedStart: "2027-08-02T09:00", plannedEnd: "2027-08-30T09:00" },
+        afterFirstEnds,
+      ),
+    ).rejects.toThrow("car_taken");
     const result = await accept(inspectionId, new Date("2027-07-01T02:00:00Z"));
 
-    expect(second.problems.map((problem) => problem.code)).toContain("car_still_out");
+    expect(second.problems.map((problem) => problem.code)).not.toContain("car_still_out");
     expect(result.status).toBe("blocked");
     expect(result.status === "blocked" && result.problems[0]?.code).toBe("car_still_out");
   });

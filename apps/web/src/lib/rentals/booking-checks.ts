@@ -15,20 +15,14 @@ import {
 } from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import {
-  files,
-  possessions,
-  rentals,
-  renters,
-  stripeAccounts,
-  vehicles,
-} from "@fleetapp/db/schema";
-import { and, countDistinct, eq, isNull, lt, ne } from "drizzle-orm";
+import { files, renters, stripeAccounts, vehicles } from "@fleetapp/db/schema";
+import { and, countDistinct, eq, isNull } from "drizzle-orm";
 
 import { bondAccountOf, selectBondMovements } from "../bonds/bond-account";
 import { licenceScanInUse } from "../files/stored-files";
 import { rentalPaymentsIn } from "../payments/renter-payment-records";
 import { isInsuredOn, isRegisteredOn } from "../vehicles/expiry-columns";
+import { findCarOutWithAnother } from "./car-holds";
 
 /** Whether this site can send Renters to Stripe's page and hear back (app-payments). */
 export interface PaymentsReach {
@@ -197,24 +191,11 @@ async function isCarOutWithAnotherRenter(
   vehicleId: string,
   check: CarCheck & { now: Date },
 ): Promise<boolean> {
-  const [out] = await tx
-    .select({ id: possessions.id })
-    .from(possessions)
-    .innerJoin(
-      rentals,
-      and(eq(rentals.id, possessions.rentalId), eq(rentals.operatorId, possessions.operatorId)),
-    )
-    .where(
-      and(
-        eq(possessions.operatorId, operatorId),
-        eq(possessions.vehicleId, vehicleId),
-        isNull(possessions.endedAt),
-        check.rentalId ? ne(possessions.rentalId, check.rentalId) : undefined,
-        check.isHandingOverNow ? undefined : lt(rentals.plannedEnd, check.now),
-      ),
-    )
-    .limit(1);
-  return out !== undefined;
+  const out = await findCarOutWithAnother(tx, operatorId, vehicleId, check.rentalId);
+  if (!out) {
+    return false;
+  }
+  return check.isHandingOverNow || (out.dueBack !== null && out.dueBack < check.now);
 }
 
 /** The car's insurance and rego on that day, and whether it is still out with someone else. */

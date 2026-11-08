@@ -1,4 +1,5 @@
 import { rentalPath } from "../../lib/paths";
+import { isStillOutClash } from "../../lib/rentals/car-holds";
 import { bookingClashMessage, bookingProblemMessage } from "../../lib/rentals/rental-messages";
 import type { BookingResult } from "../../lib/rentals/rental-records";
 import type { RentalFormState } from "./rental-form-state";
@@ -22,7 +23,12 @@ export function bookingFailure(result: BookingResult, timeZone: string): RentalF
         formError: bookingClashMessage(result.clash, timeZone),
         reasons: [],
         ...(result.clash
-          ? { link: { href: rentalPath(result.clash.rentalId), label: "See that booking" } }
+          ? {
+              link: {
+                href: rentalPath(result.clash.rentalId),
+                label: isStillOutClash(result.clash) ? "See that rental" : "See that booking",
+              },
+            }
           : {}),
       };
     case "renter_not_found":
