@@ -48,26 +48,40 @@ function logLink(
   });
 }
 
+const PERSON_COLUMNS = {
+  id: renters.id,
+  kind: renters.kind,
+  status: renters.status,
+  archivedAt: renters.archivedAt,
+  retiredAt: renters.retiredAt,
+};
+
 /** The Operator's current business Renter, locked first (it comes first in every lock order). */
 async function lockBusiness(tx: AnyTransaction, operatorId: string, organisationId: string) {
   const locked = await lockCurrentRenter(tx, operatorId, organisationId);
   return locked?.kind === "organisation" ? locked : undefined;
 }
 
-/** The Operator's Renter, archived ones too (so the refusal can say why), locked after the business. */
+/**
+ * The Operator's Renter, archived ones too (so the refusal can say why),
+ * locked after the business if a person. A business is read but never
+ * locked: two crossed adds (each business named as the other's driver)
+ * would otherwise lock in opposite orders and wait on each other for ever.
+ * A Renter's kind never changes, so the unlocked read stays true.
+ */
 async function lockPerson(tx: AnyTransaction, operatorId: string, renterId: string) {
-  const [locked] = await tx
-    .select({
-      id: renters.id,
-      kind: renters.kind,
-      status: renters.status,
-      archivedAt: renters.archivedAt,
-      retiredAt: renters.retiredAt,
-    })
+  const which = and(eq(renters.id, renterId), eq(renters.operatorId, operatorId));
+  const [person] = await tx
+    .select(PERSON_COLUMNS)
     .from(renters)
-    .where(and(eq(renters.id, renterId), eq(renters.operatorId, operatorId)))
+    // A row the filter leaves out is never locked.
+    .where(and(which, eq(renters.kind, "person")))
     .for("update");
-  return locked;
+  if (person) {
+    return person;
+  }
+  const [other] = await tx.select(PERSON_COLUMNS).from(renters).where(which);
+  return other;
 }
 
 async function currentLinkOf(
@@ -185,7 +199,8 @@ export async function removeDriver(
     if (!(await lockBusiness(tx, actor.operatorId, organisationId))) {
       return "not_found";
     }
-    if (!(await lockPerson(tx, actor.operatorId, driverId))) {
+    const person = await lockPerson(tx, actor.operatorId, driverId);
+    if (person?.kind !== "person") {
       return "not_found";
     }
     const link = await currentLinkOf(tx, actor.operatorId, organisationId, driverId, true);

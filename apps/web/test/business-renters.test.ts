@@ -59,6 +59,8 @@ const CLOCK = { timeZone: TEST_TIME_ZONE, now: new Date("2026-11-08T02:00:00Z") 
 const EXPIRY = { today: TODAY, warningDays: 30 };
 /** A driver's licence number: never in what is held about the business they drive for. */
 const DRIVER_LICENCE_NUMBER = "WA7766554";
+/** Far longer than an add that takes no lock it must wait for. */
+const LOCK_WAIT_MS = 3_000;
 const SCAN = { contentType: "image/jpeg", sizeBytes: 300_000 };
 
 function businessInput(changes: Partial<BusinessRenterFormValues> = {}): BusinessRenterInput {
@@ -566,6 +568,32 @@ describe("business Renters and their drivers", () => {
         tx.select().from(organisationDrivers),
       );
       expect(links.every((link) => link.operatorId === otherActor.operatorId)).toBe(true);
+    });
+  });
+
+  describe("two crossed adds, each business named as the other's driver", () => {
+    it("refuses a business as a driver without waiting on its lock", async () => {
+      const firstId = await addBusiness();
+      const secondId = await addBusiness();
+      const other = new Client({ connectionString: inject("webAppRoleUrl") });
+      await other.connect();
+      try {
+        await other.query("begin");
+        await other.query("select set_config('app.operator_id', $1, true)", [actor.operatorId]);
+        // The crossed add has locked its own business, the second, first.
+        await other.query("select id from renters where id = $1 for update", [secondId]);
+        const adding = addExistingDriver(web.db, actor, firstId, secondId);
+        const waited = new Promise<"waited">((resolve) =>
+          setTimeout(() => resolve("waited"), LOCK_WAIT_MS),
+        );
+        expect(await Promise.race([adding, waited])).toEqual({
+          status: "refused",
+          problem: "not_a_person",
+        });
+      } finally {
+        await other.query("rollback").catch(() => undefined);
+        await other.end();
+      }
     });
   });
 
