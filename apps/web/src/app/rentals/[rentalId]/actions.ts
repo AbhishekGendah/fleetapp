@@ -96,6 +96,7 @@ function nameDriverState(result: NameDriverResult): ChangeFormState {
     case "driver_not_found":
     case "driver_archived":
     case "driver_not_current":
+    case "driver_waiting_review":
       return failedState(MISSING_DRIVER_MESSAGES[result.status]);
     case "renter_not_found":
       return failedState("The business has been archived. Restore it, or cancel this rental.");

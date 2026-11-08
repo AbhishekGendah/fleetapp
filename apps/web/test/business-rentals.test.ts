@@ -56,7 +56,12 @@ import {
   recordTestHandover,
   TEST_TIME_ZONE,
 } from "./rental-fixtures";
-import { recordingEmailSender } from "./renter-link-fixtures";
+import {
+  linkTestKit,
+  openRenterLink,
+  recordingEmailSender,
+  sendEverything,
+} from "./renter-link-fixtures";
 
 const CLOCK = { timeZone: TEST_TIME_ZONE, now: new Date("2026-11-08T02:00:00Z") };
 const EXPIRY = { today: "2026-11-08", warningDays: 30 };
@@ -134,6 +139,17 @@ describe("renting to a business", () => {
     );
     expect((await addExistingDriver(web.db, owner, businessId, driverId)).status).toBe("added");
     return { businessId, driverId };
+  }
+
+  /** One of the business's drivers whose details, sent through their link, wait for review. */
+  async function driverWaitingReview(businessId: string): Promise<string> {
+    const kit = linkTestKit(web, actor);
+    const visit = await openRenterLink(kit, "Pat Waiting");
+    await sendEverything(kit, visit);
+    expect((await addExistingDriver(web.db, actor, businessId, visit.renterId)).status).toBe(
+      "added",
+    );
+    return visit.renterId;
   }
 
   async function carWithPaperwork(owner = actor): Promise<string> {
@@ -241,6 +257,19 @@ describe("renting to a business", () => {
       expect(archivedDriver.status).toBe("driver_archived");
     });
 
+    it("refuses a driver whose details wait for review, as the picker greys them out", async () => {
+      const { businessId } = await businessWithDriver();
+      const waitingId = await driverWaitingReview(businessId);
+
+      const result = await attemptTestBooking(web, actor, {
+        renterId: businessId,
+        vehicleId: await carWithPaperwork(),
+        driverId: waitingId,
+      });
+
+      expect(result.status).toBe("driver_waiting_review");
+    });
+
     it("refuses a driver marked Do not rent", async () => {
       const { businessId, driverId } = await businessWithDriver();
       await changeRenterStatus(web.db, actor, driverId, {
@@ -301,6 +330,22 @@ describe("renting to a business", () => {
         expect.objectContaining({ driverId }),
       );
       expect(JSON.stringify(log)).not.toContain("Sam Lee");
+    });
+
+    it("won't name a driver whose details wait for review, even posted directly", async () => {
+      const { rentalId, businessId } = await bookingToBeNamed();
+      const waitingId = await driverWaitingReview(businessId);
+
+      const result = await nameRentalDriver(
+        web.db,
+        actor,
+        rentalId,
+        { driverId: waitingId },
+        CLOCK,
+      );
+
+      expect(result.status).toBe("driver_waiting_review");
+      expect(await driverOf(rentalId)).toBeNull();
     });
 
     it("names a driver only on a business's draft or booking", async () => {

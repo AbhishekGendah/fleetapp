@@ -16,7 +16,14 @@ import {
 } from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { files, rentals, renters, stripeAccounts, vehicles } from "@fleetapp/db/schema";
+import {
+  files,
+  rentals,
+  renterSubmissions,
+  renters,
+  stripeAccounts,
+  vehicles,
+} from "@fleetapp/db/schema";
 import { and, asc, countDistinct, eq, isNull, ne } from "drizzle-orm";
 
 import { bondAccountOf, selectBondMovements } from "../bonds/bond-account";
@@ -83,13 +90,16 @@ export interface CarCheck {
 /**
  * Why the parties can't be found: the Renter or car gone, or a business's
  * named driver archived (restored first), no longer its driver, or gone.
+ * Being named, a driver is also refused while details they sent wait for
+ * review, as the picker greys them out (slice 3 review).
  */
 export type MissingParty =
   | "renter_not_found"
   | "car_not_found"
   | "driver_not_found"
   | "driver_archived"
-  | "driver_not_current";
+  | "driver_not_current"
+  | "driver_waiting_review";
 
 type PartiesOrMissing = BookingParties | MissingParty;
 
@@ -211,6 +221,33 @@ async function findBookingParties(
 }
 
 /**
+ * The parties as found, unless a business's driver being named has sent
+ * details that wait for review: the picker greys them out, and a form
+ * posted directly is refused the same (slice 3 review).
+ */
+async function unlessDriverWaitsReview(
+  tx: AnyTransaction,
+  operatorId: string,
+  parties: PartiesOrMissing,
+): Promise<PartiesOrMissing> {
+  if (typeof parties === "string" || parties.renter.kind !== "organisation" || !parties.driver) {
+    return parties;
+  }
+  const [waiting] = await tx
+    .select({ id: renterSubmissions.id })
+    .from(renterSubmissions)
+    .where(
+      and(
+        eq(renterSubmissions.operatorId, operatorId),
+        eq(renterSubmissions.renterId, parties.driver.id),
+        eq(renterSubmissions.status, "waiting"),
+      ),
+    )
+    .limit(1);
+  return waiting ? "driver_waiting_review" : parties;
+}
+
+/**
  * For naming a business's driver on a draft or booking: the business, then
  * the driver, locked (the order a handover takes them, before the rental),
  * and the car as it is, unlocked (nothing about the car changes).
@@ -225,7 +262,24 @@ export async function lockDriverNamingParties(
     return people;
   }
   const carStatus = await findCarStatus(tx, operatorId, ids.vehicleId, false);
-  return carStatus ? { ...people, vehicleId: ids.vehicleId, carStatus } : "car_not_found";
+  return unlessDriverWaitsReview(
+    tx,
+    operatorId,
+    carStatus ? { ...people, vehicleId: ids.vehicleId, carStatus } : "car_not_found",
+  );
+}
+
+/** As `lockBookingParties`, for a new rental: the driver it names is being named now. */
+export async function lockNewBookingParties(
+  tx: AnyTransaction,
+  operatorId: string,
+  ids: PartyIds,
+): Promise<PartiesOrMissing> {
+  return unlessDriverWaitsReview(
+    tx,
+    operatorId,
+    await findBookingParties(tx, operatorId, ids, true),
+  );
 }
 
 /**

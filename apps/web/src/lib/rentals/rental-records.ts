@@ -29,6 +29,7 @@ import {
   findBookingProblems,
   lockBookingParties,
   lockDriverNamingParties,
+  lockNewBookingParties,
   type MissingParty,
 } from "./booking-checks";
 import {
@@ -168,7 +169,7 @@ export async function createRental(
   clock: RentalClock,
 ): Promise<BookingResult> {
   return bookingTransaction(database, actor.operatorId, async (tx) => {
-    const parties = await lockBookingParties(tx, actor.operatorId, input);
+    const parties = await lockNewBookingParties(tx, actor.operatorId, input);
     if (typeof parties === "string") {
       return { status: parties };
     }

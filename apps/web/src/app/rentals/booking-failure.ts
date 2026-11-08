@@ -42,6 +42,7 @@ export function bookingFailure(result: BookingResult, timeZone: string): RentalF
     case "driver_not_found":
     case "driver_archived":
     case "driver_not_current":
+    case "driver_waiting_review":
       return { status: "failed", formError: MISSING_DRIVER_MESSAGES[result.status], reasons: [] };
     case "not_found":
     case "not_allowed":

@@ -21,6 +21,8 @@ export const MISSING_DRIVER_MESSAGES: Readonly<
   driver_archived: "That driver has been archived. Restore them first, or choose another driver.",
   driver_not_current:
     "That person no longer drives for this business. Choose another driver, or add them again on its Drivers tab.",
+  driver_waiting_review:
+    "That driver sent details that wait for review. Review them on the driver's page before naming them, or choose another driver.",
 };
 
 /** Why a rental's page can't check its Renter, driver or car: one is archived or gone. */
