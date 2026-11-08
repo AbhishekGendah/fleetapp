@@ -1,4 +1,5 @@
 import { addDemoCar, allDemoCars } from "./demo-cars";
+import { addDemoBusiness } from "./demo-business";
 import { addDemoChanges } from "./demo-changes";
 import { addDemoDamage } from "./demo-damage";
 import { addDemoDocuments } from "./demo-billing";
@@ -78,6 +79,7 @@ const RUNNABLE_STEPS: readonly RunnableStep[] = [
   ...carSteps,
   { key: "insurance", label: "Insurance policies", run: addDemoInsurance },
   ...renterSteps,
+  { key: "business", label: "A business Renter and its drivers", run: addDemoBusiness },
   {
     key: "rentals-out",
     label: "Rentals that are out now",

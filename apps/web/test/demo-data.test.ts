@@ -8,6 +8,7 @@ import {
   possessions,
   rentalChanges,
   rentals,
+  organisationDrivers,
   renters,
   vehicles,
 } from "@fleetapp/db/schema";
@@ -73,7 +74,16 @@ describe("demo data", () => {
       await runEveryDemoStep(context);
 
       expect(await countOf(vehicles, actor.operatorId)).toBe(DEMO_CAR_COUNT);
-      expect(await countOf(renters, actor.operatorId)).toBe(DEMO_RENTERS.length);
+      // The people, and one business (Acme Rides) whose drivers are some of them.
+      expect(await countOf(renters, actor.operatorId)).toBe(DEMO_RENTERS.length + 1);
+      const links = await withTenant(web.db, actor.operatorId, (tx) =>
+        tx
+          .select({ removedAt: organisationDrivers.removedAt })
+          .from(organisationDrivers)
+          .where(eq(organisationDrivers.operatorId, actor.operatorId)),
+      );
+      expect(links.filter((link) => link.removedAt === null)).toHaveLength(3);
+      expect(links.filter((link) => link.removedAt !== null)).toHaveLength(1);
       expect(await countOf(rentals, actor.operatorId)).toBe(DEMO_RENTALS.length);
       const statuses = await withTenant(web.db, actor.operatorId, (tx) =>
         tx
