@@ -1292,6 +1292,22 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
   number, plain Log wording). Test sheet rows O-492 to O-510; O-148,
   O-227, O-392, O-395, O-412, O-466, O-483 and O-486 updated.
 
+- **Business Renters slice 3 (8 Nov, Abhi's go).** Renting a car to a
+  business: New rental offers businesses with a driver picker (or "driver to
+  be named"), Name/Change driver on a draft or booking, a Business rental
+  contract template kind (migration 0055) signed by an authorised person
+  (name, position, authority tick), handover/return/swap signed by the
+  driver, report copies naming the driver and business, the driver's own
+  copy of what they sign (migration 0056, Abhi: yes), damage page names the
+  driver, strip New rental and Driver column. Deep review, two checkers,
+  twice. First round: one serious bug (driver could be changed while a
+  handover was open, so the car went out in another driver's name over the
+  first driver's signature) plus six small ones, all fixed with tests.
+  Second round: nothing serious; eight small ones fixed, including an older
+  bug where cancelling a swap at the moment it was signed could overwrite
+  the signature, and a naming-vs-handover deadlock. Test sheet rows O-511 to
+  O-528 and A-80; O-227, O-495 and O-509 updated.
+
 ## Next
 
 **Standing instruction (Abhi, 8 Nov):** when a choice is obvious, go with
@@ -1304,9 +1320,10 @@ reports they sign (pulls the `driver` email recipient forward from slice 5).
 (dates first, free cars as photo cards, filters, showroom photos; also
 fixes a car late back being bookable) and docs/plans/condition-photos.md
 (free photo gallery at pickup/return, Optional/Required, albums). Mockups on
-the design canvas (8 Nov). The late-car booking fix is live (8 Nov). Business Renters slice 2 is live
-(8 Nov); next: business Renters slice 3 (booking a business with a driver)
-with his go, then Find a car, then condition photos. Decided 8 Nov: an
+the design canvas (8 Nov). The late-car booking fix is live (8 Nov). Business Renters slices 2 and 3
+are live (8 Nov); next: business Renters slice 4 (changing the driver while
+the car is out) with his go, then slice 5 (business invoices), then Find a
+car, then condition photos. Decided 8 Nov: an
 existing person added as a driver is emailed the privacy notice each time
 (Abhi: yes). Also decided 8 Nov (Abhi: yes): a phone-only new
 driver gets no details link until texting is built; the app asks for an
