@@ -1,6 +1,7 @@
 # Condition photos: a free gallery and albums
 
-Status: **draft for Abhi's approval (8 Nov 2026).** Nothing is built until he
+Status: **approved by Abhi, 8 Nov 2026 (all 10 decisions; each slice still
+gets his go before it is built).** Nothing is built until he
 says go, slice by slice. It touches schema, settings snapshotted on rentals
 (rule 14), signed reports (rule 12) and the offline checklist (rule 25), so
 CLAUDE.md asks for a plan first. Source: Abhi's decisions of 8 Nov 2026 (2)

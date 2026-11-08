@@ -1,6 +1,7 @@
 # Find a car and Showroom photos
 
-Status: **draft for Abhi's approval (8 Nov 2026).** Nothing is built until he
+Status: **approved by Abhi, 8 Nov 2026 (all 10 decisions; each slice still
+gets his go before it is built).** Nothing is built until he
 says go, slice by slice. It touches schema (a new kind of car photo, a car
 tick if decision 9 is yes) and the booking path (which cars can be chosen for
 which dates), so CLAUDE.md asks for a plan first. Source: Abhi's decisions of
