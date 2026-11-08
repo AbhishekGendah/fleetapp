@@ -11,14 +11,17 @@ export function isChecklistFingerprint(value: unknown): value is string {
 
 /**
  * A fingerprint of everything the Renter is shown and the report prints
- * from a checklist: its details, damage marks and photos. The signing
- * screen sends back the one it showed; it is checked again under the lock
- * that issues the report, so a change made on another phone in between
- * stops the signing instead of slipping past it (review A6-10, G9-2).
+ * from a checklist: who signs for the car (the driver, by id and name), its
+ * details, damage marks and photos. The signing screen sends back the one it
+ * showed; it is checked again under the lock that issues the report, so a
+ * change made on another phone in between (or before a checklist saved
+ * offline is sent) stops the signing instead of slipping past it (review
+ * A6-10, G9-2, slice 3 review).
  */
 export function checklistFingerprint(view: HandoverView): string {
   const shown = {
     inspectionId: view.inspectionId,
+    signer: [view.driverId, view.driverFullName],
     details: [view.odometerKm, view.fuelLevel, view.keysCount, view.accessories, view.notes],
     photos: [...view.photos.entries()]
       .map(([name, photo]) => [name, photo.fileId, photo.thumbnailFileId])

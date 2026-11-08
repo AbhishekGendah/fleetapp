@@ -8,6 +8,7 @@ import { rentalPath, RENTALS_PATH } from "../../../lib/paths";
 import { cancelRentalInputSchema, nameDriverInputSchema } from "../../../lib/rentals/rental-input";
 import {
   bookingProblemMessage,
+  DRIVER_CHECKLIST_UNDER_WAY,
   MISSING_DRIVER_MESSAGES,
 } from "../../../lib/rentals/rental-messages";
 import {
@@ -104,6 +105,8 @@ function nameDriverState(result: NameDriverResult): ChangeFormState {
       return failedState("The car has been archived. Restore it, or cancel this rental.");
     case "not_allowed":
       return failedState("Only a business's draft or booking names its driver here.");
+    case "checklist_under_way":
+      return failedState(DRIVER_CHECKLIST_UNDER_WAY);
     case "not_found":
       return failedState(NOT_FOUND_MESSAGE);
   }

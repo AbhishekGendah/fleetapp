@@ -8,7 +8,7 @@ import { bookingProblemMessage } from "../../../../lib/rentals/rental-messages";
 export const SIGNATURE_NEEDED = "Ask the Renter to sign in the box.";
 /** Said when the checklist changed after the screen showed it: nothing was signed (review A6-10). */
 export const CHECKLIST_CHANGED_MESSAGE =
-  "Something on the checklist changed, so nothing was signed. Check it again, then sign.";
+  "Something on the checklist or its driver changed, so nothing was signed. Check it again, then sign.";
 /** Said when a checklist photo couldn't be put in the report: nothing was signed (review G9-7). */
 export const PHOTO_MISSING_MESSAGE =
   "Couldn't add every photo to the report, so nothing was signed. Check your signal and try again.";

@@ -280,10 +280,10 @@ async function lockRentalDriver(
 /**
  * The Renter, then the driver (the same person for a person's own rental),
  * then the rental, locked for the handover and checked once more: marked Do
- * not rent or archived since the checks above, or the rental now naming
- * another driver than the one shown, the car stays (review A6-1, slice 1
- * review F5). Gives who the car goes to. A business's car never goes before
- * its driver is named.
+ * not rent or archived since the checks above, the car stays (review A6-1,
+ * slice 1 review F5); the rental now naming another driver than the one the
+ * signing screen showed, it stays as changed (slice 3 review). Gives who the
+ * car goes to. A business's car never goes before its driver is named.
  */
 export async function lockPartiesForHandover(
   tx: AnyTransaction,
@@ -295,10 +295,12 @@ export async function lockPartiesForHandover(
   if (
     driverId === null ||
     !(await isRenterStillActive(tx, operatorId, renterId)) ||
-    (isDriverOther && !(await isRenterStillActive(tx, operatorId, driverId))) ||
-    (await lockRentalDriver(tx, operatorId, view.rentalId)) !== driverId
+    (isDriverOther && !(await isRenterStillActive(tx, operatorId, driverId)))
   ) {
     throw new HandoverRefusedError({ status: "renter_changed" });
+  }
+  if ((await lockRentalDriver(tx, operatorId, view.rentalId)) !== driverId) {
+    throw new HandoverRefusedError({ status: "changed" });
   }
   return driverId;
 }

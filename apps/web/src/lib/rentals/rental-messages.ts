@@ -25,6 +25,10 @@ export const MISSING_DRIVER_MESSAGES: Readonly<
     "That driver sent details that wait for review. Review them on the driver's page before naming them, or choose another driver.",
 };
 
+/** Why the driver can't be changed now: the handover's checklist shows the one named. */
+export const DRIVER_CHECKLIST_UNDER_WAY =
+  "A handover is under way with the driver named now. Cancel the handover first, then change the driver.";
+
 /** Why a rental's page can't check its Renter, driver or car: one is archived or gone. */
 export const RENTAL_PARTY_MISSING_MESSAGES: Readonly<Record<MissingParty, string>> = {
   car_not_found: "The car has been archived. Restore it, or cancel this rental.",

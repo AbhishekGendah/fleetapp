@@ -141,6 +141,18 @@ describe("renting to a business", () => {
     return { businessId, driverId };
   }
 
+  /** Another of the business's drivers, with everything renting needs on file. */
+  async function anotherDriver(businessId: string, driverName: string): Promise<string> {
+    const driverId = await addRenterReadyToRent(
+      web,
+      { database: web.db, storage, now: () => new Date() },
+      actor,
+      driverName,
+    );
+    expect((await addExistingDriver(web.db, actor, businessId, driverId)).status).toBe("added");
+    return driverId;
+  }
+
   /** One of the business's drivers whose details, sent through their link, wait for review. */
   async function driverWaitingReview(businessId: string): Promise<string> {
     const kit = linkTestKit(web, actor);
@@ -348,6 +360,72 @@ describe("renting to a business", () => {
       expect(await driverOf(rentalId)).toBeNull();
     });
 
+    it("won't change or clear the driver while a handover checklist is under way", async () => {
+      const { businessId, driverId } = await businessWithDriver();
+      const otherDriverId = await anotherDriver(businessId, "Kim Other");
+      const booked = await bookTestRentalOn(web, actor, {
+        renterId: businessId,
+        vehicleId: await carWithPaperwork(),
+        driverId,
+      });
+      expect((await startHandover(web.db, actor, booked.rentalId)).status).toBe("started");
+
+      const changed = await nameRentalDriver(
+        web.db,
+        actor,
+        booked.rentalId,
+        { driverId: otherDriverId },
+        CLOCK,
+      );
+      const cleared = await nameRentalDriver(
+        web.db,
+        actor,
+        booked.rentalId,
+        { driverId: null },
+        CLOCK,
+      );
+
+      expect(changed.status).toBe("checklist_under_way");
+      expect(cleared.status).toBe("checklist_under_way");
+      expect(await driverOf(booked.rentalId)).toBe(driverId);
+    });
+
+    it("waits for a handover start holding the rental, then finds its checklist and refuses", async () => {
+      const { businessId, driverId } = await businessWithDriver();
+      const otherDriverId = await anotherDriver(businessId, "Kim Waiting");
+      const booked = await bookTestRentalOn(web, actor, {
+        renterId: businessId,
+        vehicleId: await carWithPaperwork(),
+        driverId,
+      });
+      const { client: starting, pid } = await openTransactionAs(actor);
+      try {
+        // A handover's start: the rental locked, then its checklist added.
+        await starting.query("select id from rentals where id = $1 for update", [booked.rentalId]);
+
+        const naming = nameRentalDriver(
+          web.db,
+          actor,
+          booked.rentalId,
+          { driverId: otherDriverId },
+          CLOCK,
+        );
+        await waitUntilBlockedBy(pid);
+        await starting.query(
+          `insert into inspections (operator_id, rental_id, vehicle_id, kind, photo_names, started_by_user_id)
+           values ($1, $2, $3, 'handover', '{}', $4)`,
+          [actor.operatorId, booked.rentalId, booked.vehicleId, actor.userId],
+        );
+        await starting.query("commit");
+
+        expect((await naming).status).toBe("checklist_under_way");
+        expect(await driverOf(booked.rentalId)).toBe(driverId);
+      } finally {
+        await starting.query("rollback").catch(() => undefined);
+        await starting.end();
+      }
+    });
+
     it("names a driver only on a business's draft or booking", async () => {
       const personId = await addTestRenter(web, actor, "Person Booking");
       const own = await bookTestRentalOn(web, actor, {
@@ -404,14 +482,8 @@ describe("renting to a business", () => {
 
     it("waits for a driver's removal that started first, then finds them no longer a driver", async () => {
       const { rentalId, businessId, driverId } = await bookingToBeNamed();
-      const removal = new Client({ connectionString: inject("webAppRoleUrl") });
-      await removal.connect();
+      const { client: removal, pid } = await openTransactionAs(actor);
       try {
-        await removal.query("set lock_timeout = '5s'");
-        const pid = (await removal.query<{ pid: number }>("select pg_backend_pid() as pid"))
-          .rows[0]!.pid;
-        await removal.query("begin");
-        await removal.query("select set_config('app.operator_id', $1, true)", [actor.operatorId]);
         // The removal's order: the business, then the driver, then the link (slice 2).
         await removal.query("select id from renters where id = $1 for update", [businessId]);
         await removal.query("select id from renters where id = $1 for update", [driverId]);
@@ -435,14 +507,8 @@ describe("renting to a business", () => {
 
     it("holds a driver's removal back while it names them, then the removal is refused", async () => {
       const { rentalId, businessId, driverId } = await bookingToBeNamed();
-      const naming = new Client({ connectionString: inject("webAppRoleUrl") });
-      await naming.connect();
+      const { client: naming, pid } = await openTransactionAs(actor);
       try {
-        await naming.query("set lock_timeout = '5s'");
-        const pid = (await naming.query<{ pid: number }>("select pg_backend_pid() as pid")).rows[0]!
-          .pid;
-        await naming.query("begin");
-        await naming.query("select set_config('app.operator_id', $1, true)", [actor.operatorId]);
         // Naming locks the business, the driver, then the rental, as the handover does.
         await naming.query("select id from renters where id = $1 for update", [businessId]);
         await naming.query("select id from renters where id = $1 for update", [driverId]);
@@ -612,13 +678,14 @@ describe("renting to a business", () => {
       return { ...booked, businessId, driverId };
     }
 
-    async function accept(inspectionId: string, typedName: string | null) {
+    /** The driver accepts on the phone, for the checklist as it stands unless told what it showed. */
+    async function accept(inspectionId: string, typedName: string | null, shown?: string) {
       return completeHandover(
         kit().handoverDeps(),
         actor,
         inspectionId,
         {
-          shownFingerprint: await kit().shown(inspectionId),
+          shownFingerprint: shown ?? (await kit().shown(inspectionId)),
           signature:
             typedName === null
               ? drawnSignatureInput(TEST_SIGNATURE)
@@ -653,6 +720,29 @@ describe("renting to a business", () => {
         problems: [{ code: "driver_not_named" }],
         isBusinessRental: true,
       });
+    });
+
+    it("refuses as changed when the driver changes after the phone showed the checklist", async () => {
+      const booked = await signedBooking(true);
+      const otherDriverId = await anotherDriver(booked.businessId, "Kim Other");
+      const inspectionId = await kit().filledHandover(booked.rentalId);
+      const shownFingerprint = await kit().shown(inspectionId);
+      // Past every screen (naming is refused while the checklist is open): straight in the database.
+      await superuser.query("update rentals set driver_id = $2 where id = $1", [
+        booked.rentalId,
+        otherDriverId,
+      ]);
+
+      const result = await accept(inspectionId, null, shownFingerprint);
+
+      expect(result.status).toBe("changed");
+      const held = await withTenant(web.db, actor.operatorId, (tx) =>
+        tx
+          .select({ id: possessions.id })
+          .from(possessions)
+          .where(eq(possessions.rentalId, booked.rentalId)),
+      );
+      expect(held).toEqual([]);
     });
 
     it("takes the driver's typed name, never the business's, and starts the driver's possession", async () => {
@@ -789,6 +879,18 @@ describe("renting to a business", () => {
       expect(bookingProblemMessage(expired!, true)).toMatch(/^The driver's licence expires on /);
     });
   });
+
+  /** A second connection, in a transaction as the Operator: its locks hold until it ends. */
+  async function openTransactionAs(owner: ActingUser): Promise<{ client: Client; pid: number }> {
+    const client = new Client({ connectionString: inject("webAppRoleUrl") });
+    await client.connect();
+    await client.query("set lock_timeout = '5s'");
+    const pid = (await client.query<{ pid: number }>("select pg_backend_pid() as pid")).rows[0]!
+      .pid;
+    await client.query("begin");
+    await client.query("select set_config('app.operator_id', $1, true)", [owner.operatorId]);
+    return { client, pid };
+  }
 
   /** Resolves once some connection waits on a lock the given backend holds. */
   async function waitUntilBlockedBy(pid: number): Promise<void> {

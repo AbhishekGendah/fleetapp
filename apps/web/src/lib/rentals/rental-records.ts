@@ -24,7 +24,7 @@ import { and, eq } from "drizzle-orm";
 import { recordUserChange, type ActingUser, type UserChange } from "../acting-user";
 import { cancelLiveLinks } from "../renter-links/cancel-links";
 import { snapshotOperatorSettings } from "../settings/operator-settings";
-import { cancelOpenChecklists } from "../handover/handover-records";
+import { cancelOpenChecklists, isChecklistUnderWay } from "../handover/handover-records";
 import {
   findBookingProblems,
   lockBookingParties,
@@ -295,7 +295,7 @@ export type NameDriverResult =
   | { status: "saved"; problems: BookingProblem[] }
   | { status: "refused"; problems: BookingProblem[] }
   | { status: "unchanged" }
-  | { status: MissingParty | "not_found" | "not_allowed" };
+  | { status: MissingParty | "not_found" | "not_allowed" | "checklist_under_way" };
 
 /** Only a draft or a booking names its driver here; once out, a driver change is its own flow (slice 4). */
 const DRIVER_NAMEABLE: ReadonlySet<RentalStatus> = new Set(["draft", "booked"]);
@@ -320,7 +320,9 @@ async function rentalPartiesOf(
  * Renter and status may have changed meanwhile). The driver's checks run
  * under the rental's own rules (rule 14): a Do not rent driver is refused,
  * anything else is a warning the handover deals with. The database then
- * takes the driver's link shared, so their removal waits for this.
+ * takes the driver's link shared, so their removal waits for this. Refused
+ * while a handover checklist is under way (cancel it first), so the driver
+ * the checklist shows is the one who signs (slice 3 review).
  */
 export async function nameRentalDriver(
   database: AnyDatabase,
@@ -353,6 +355,11 @@ export async function nameRentalDriver(
     const driverId = parties.driver?.id ?? null;
     if (rental.driverId === driverId) {
       return { status: "unchanged" };
+    }
+    // A handover is started under the rental's lock, held here: the car never
+    // goes in a new driver's name over the one its checklist showed.
+    if (await isChecklistUnderWay(tx, actor.operatorId, rental.id)) {
+      return { status: "checklist_under_way" };
     }
     const settings = readSettings(operatorSettingsSchema, rental.settingsSnapshot);
     const problems = await findBookingProblems(

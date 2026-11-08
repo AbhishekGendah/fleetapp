@@ -111,6 +111,6 @@ describe("the handover's driver, read under the rental's lock", () => {
     );
 
     expect(refusal).toBeInstanceOf(HandoverRefusedError);
-    expect((refusal as HandoverRefusedError).result).toEqual({ status: "renter_changed" });
+    expect((refusal as HandoverRefusedError).result).toEqual({ status: "changed" });
   });
 });
