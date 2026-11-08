@@ -24,7 +24,7 @@ import type { RenterDetail } from "../../../lib/renters/renter-queries";
 import type { ExpiryContext } from "../../../lib/vehicles/expiry-columns";
 import { CARD_ROW_CLASSES } from "../../rentals/rental-row";
 import { RenterBadges } from "../renter-list";
-import { AddDriverForm } from "./add-driver-form";
+import { LazyAddDriverForm } from "./lazy-add-driver-form";
 import type { BusinessPageData } from "./business-page-data";
 import { addDriverAction, removeDriverAction } from "./driver-actions";
 import { QUIET_LINE_CLASSES } from "./card-lines";
@@ -187,7 +187,7 @@ export async function DriversTab(props: {
       {isEditable ? (
         <SectionCard heading="Add a driver">
           <div className="border-t py-3">
-            <AddDriverForm
+            <LazyAddDriverForm
               businessName={businessName}
               candidates={candidates}
               today={todayInTimeZone(new Date(), user.operatorTimezone)}

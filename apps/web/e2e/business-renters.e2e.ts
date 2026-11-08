@@ -32,10 +32,10 @@ const NEW_DRIVER = { name: "Ned Newdriver", email: "ned.newdriver@example.test" 
 const TAB_NAMES = ["Overview", "Drivers", "Rentals", "Money", "Details", "Notes", "Log"];
 /**
  * A business's page's JavaScript budget, compressed (rule 33), on the
- * Drivers tab at phone width, its heaviest: the Add a driver form with its
- * Renter picker and choice cards. Measured 8 Nov 2026 plus about 10%.
+ * Drivers tab at phone width with its Add a driver form loaded: 403 KB
+ * measured on 8 Nov 2026 plus about 10%, the same as a person's page.
  */
-const BUSINESS_PAGE_BUDGET_KB = 470;
+const BUSINESS_PAGE_BUDGET_KB = 445;
 
 function businessTab(page: Page, name: string) {
   return page
