@@ -13,6 +13,7 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import {
   renderDocumentCopyEmail,
   type CopiedDocumentKind,
+  type DocumentCopyAudience,
   type EmailSender,
 } from "@fleetapp/email";
 
@@ -33,13 +34,39 @@ export interface DocumentCopies {
   pdf: Uint8Array;
   /** Who pressed "Email again"; none for the copies sent when it was issued. */
   sentByUserId?: string | null;
-  /** Just one of the two, when only that copy is sent again. */
-  onlyTo?: DocumentEmailRecipient;
+  /** Just these copies, when only they are sent again. */
+  onlyTo?: readonly DocumentEmailRecipient[];
   /** A business's car: the driver who signed, and the business they have it for (rule 15). */
   forBusiness?: BusinessAcceptance;
+  /**
+   * The driver who signed a business's car's papers gets their own copy, to
+   * their own email only (none on file: recorded as no address). Never for a
+   * person's own rental (the Renter is the driver) or a contract.
+   */
+  driverCopy?: { email: string | null };
 }
 
 type Recipient = { recipient: DocumentEmailRecipient; to: string | null };
+
+const AUDIENCE_OF: Readonly<Record<DocumentEmailRecipient, DocumentCopyAudience>> = {
+  renter: "renter",
+  driver: "driver",
+  business: "operator",
+};
+
+/** Whose copies these papers have: the Renter, a business's driver who signed, and the business. */
+function recipientsOf(copies: DocumentCopies, businessEmail: string | null): Recipient[] {
+  const driver: Recipient[] =
+    copies.forBusiness && copies.driverCopy
+      ? [{ recipient: "driver", to: copies.driverCopy.email }]
+      : [];
+  const all: Recipient[] = [
+    { recipient: "renter", to: copies.renterEmail },
+    ...driver,
+    { recipient: "business", to: businessEmail },
+  ];
+  return copies.onlyTo ? all.filter((copy) => copies.onlyTo?.includes(copy.recipient)) : all;
+}
 
 /** One copy sent, or why it wasn't. Never throws: the document is kept either way. */
 async function sendCopy(
@@ -47,7 +74,7 @@ async function sendCopy(
   copy: Recipient,
   render: (
     to: string,
-    audience: "renter" | "operator",
+    audience: DocumentCopyAudience,
   ) => ReturnType<typeof renderDocumentCopyEmail>,
   kind: CopiedDocumentKind,
 ): Promise<DocumentEmailOutcome> {
@@ -55,9 +82,7 @@ async function sendCopy(
     return "no_address";
   }
   try {
-    await deps.emailSender.send(
-      await render(copy.to, copy.recipient === "renter" ? "renter" : "operator"),
-    );
+    await deps.emailSender.send(await render(copy.to, AUDIENCE_OF[copy.recipient]));
     return "sent";
   } catch (error) {
     // Never the error itself: a provider's message can quote the address.
@@ -90,8 +115,9 @@ async function recordTries(
 }
 
 /**
- * Emails a fixed document's copies: the Renter's from the business (replies
- * go to it), and the business's to its own email, and records how each went.
+ * Emails a fixed document's copies: the Renter's and a business's driver's
+ * from the business (replies go to it), each to their own email only, and
+ * the business's to its own email, and records how each went.
  * Never throws: it runs after the document is kept for good, so nothing here
  * may make a screen say that nothing was saved (review G9-9).
  */
@@ -105,11 +131,8 @@ export async function emailDocumentCopies(
       return undefined;
     },
   );
-  const recipients: Recipient[] = [
-    { recipient: "renter" as const, to: copies.renterEmail },
-    { recipient: "business" as const, to: business?.email ?? null },
-  ].filter((copy) => !copies.onlyTo || copy.recipient === copies.onlyTo);
-  const render = (to: string, audience: "renter" | "operator") =>
+  const recipients = recipientsOf(copies, business?.email ?? null);
+  const render = (to: string, audience: DocumentCopyAudience) =>
     renderDocumentCopyEmail({
       kind: copies.kind,
       renterName: copies.renterName,

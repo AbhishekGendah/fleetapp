@@ -219,11 +219,11 @@ Add to this list whenever something is relaxed or put off "until launch".
 - [ ] **A driver with only a phone gets no details link** (business Renters
       slice 2): links and their codes go by email until the SMS provider is
       chosen. The Drivers tab tells the Operator to add the driver's email.
-- [ ] **A business's driver gets no copy of the reports they sign yet**
-      (business Renters slice 3): handover, return and swap copies go to the
-      business's contact and the Operator. The driver's own copy needs the
-      "driver" email recipient (plan Migration B, slice 5, or pulled forward
-      if Abhi approves). See docs/legal-notes.md, slice 3.
+- [ ] **A driver with no email gets no copy of the papers they sign**
+      (business Renters, driver copies, 8 Nov 2026): the copy goes by email
+      only until the SMS provider is chosen; the rental page says "Not
+      emailed to the driver: no email on file", and the Operator can
+      download the report for them.
 - [ ] **Signing for a business** (slice 3): the lawyer checks the
       authorised-signer wording ("I am authorised to sign for …", name and
       position) for companies (Corporations Act s 127, agents), and the

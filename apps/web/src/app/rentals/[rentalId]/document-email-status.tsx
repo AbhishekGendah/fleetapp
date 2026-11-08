@@ -1,4 +1,9 @@
-import { canEmailAgain, documentEmailText, type DocumentEmailState } from "@fleetapp/core";
+import {
+  canEmailAgain,
+  documentEmailText,
+  hasDocumentEmailRecord,
+  type DocumentEmailState,
+} from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
 import { Mail } from "lucide-react";
 
@@ -14,7 +19,7 @@ export function DocumentEmailStatus(props: {
   state: DocumentEmailState | undefined;
 }) {
   // No record at all (issued before copies were recorded): nothing is claimed either way.
-  if (!props.state || (props.state.renter === null && props.state.business === null)) {
+  if (!props.state || !hasDocumentEmailRecord(props.state)) {
     return null;
   }
   return (

@@ -16,6 +16,7 @@ import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import type { ActingUser } from "../src/lib/acting-user";
+import { emailDocumentAgain, loadDocumentEmailStates } from "../src/lib/contracts/document-emails";
 import { loadSigningView, signContract } from "../src/lib/contracts/signing";
 import { sendSigningLink } from "../src/lib/contracts/signing-links";
 import { createTemplate, saveTemplate } from "../src/lib/contracts/templates";
@@ -67,6 +68,8 @@ const CLOCK = { timeZone: TEST_TIME_ZONE, now: new Date("2026-11-08T02:00:00Z") 
 const EXPIRY = { today: "2026-11-08", warningDays: 30 };
 const LEGAL_NAME = "Acme Rideshare Pty Ltd";
 const CONTACT_EMAIL = "dana.wells@acme.example.test";
+/** The email every driver made by `addRenterReadyToRent` has on file. */
+const DRIVER_EMAIL = "rory.ready@example.test";
 const TOKEN_PATTERN = /\/r\/([A-Za-z0-9_-]+)/;
 const META = { ipAddress: "203.0.113.9", userAgent: "Mozilla/5.0 (iPhone)" };
 /** Far longer than the wait it proves. */
@@ -699,6 +702,14 @@ describe("renting to a business", () => {
       );
     }
 
+    /** What a completed paper's copies came to. */
+    async function emailedTo(result: { status: string; documentId?: string }) {
+      const documentId = result.documentId ?? "";
+      return (await loadDocumentEmailStates(web.db, actor.operatorId, [documentId])).get(
+        documentId,
+      );
+    }
+
     it("won't start a handover of a business's car with no driver named", async () => {
       const booked = await signedBooking(false);
 
@@ -776,6 +787,18 @@ describe("renting to a business", () => {
       );
       expect(toContact?.text).toContain(`Sam Lee received`);
       expect(toContact?.text).toContain(`for ${LEGAL_NAME}`);
+      // The driver's own copy: to them alone, worded to them; their address goes nowhere else.
+      const toDriver = sentEmails.filter((email) => email.to === DRIVER_EMAIL);
+      expect(toDriver).toHaveLength(1);
+      expect(toDriver[0]?.subject).toMatch(/handover report/);
+      expect(toDriver[0]?.text).toContain("Hi Sam Lee,");
+      expect(toDriver[0]?.text).toContain("You received");
+      expect(toDriver[0]?.text).toContain(`for ${LEGAL_NAME}. The report you accepted`);
+      expect(toDriver[0]?.attachments).toHaveLength(1);
+      expect(
+        sentEmails.filter((email) => email.to !== DRIVER_EMAIL).map((email) => email.text),
+      ).not.toContainEqual(expect.stringContaining(DRIVER_EMAIL));
+      expect(await emailedTo(asDriver)).toMatchObject({ renter: "sent", driver: "sent" });
       const rental = await loadRental(web.db, actor.operatorId, booked.rentalId, CLOCK);
       expect(rental).toMatchObject({ status: "active", driverFullName: "Sam Lee" });
     });
@@ -821,7 +844,18 @@ describe("renting to a business", () => {
         );
 
       expect((await swapAs(LEGAL_NAME)).status).toBe("no_signature");
+      sentEmails.length = 0;
       expect((await swapAs("Sam Lee")).status).toBe("completed");
+      // The driver's own copy of each of the swap's three papers.
+      const swapCopies = sentEmails.filter((email) => email.to === DRIVER_EMAIL);
+      expect(swapCopies.map((email) => email.subject).sort()).toEqual([
+        expect.stringMatching(/^Your car handover report/),
+        expect.stringMatching(/^Your car return report/),
+        expect.stringMatching(/^Your car swap/),
+      ]);
+      expect(swapCopies.find((email) => /swap/.test(email.subject))?.text).toContain(
+        `You swapped cars with Business Rentals Pty Ltd for ${LEGAL_NAME}: you now have`,
+      );
 
       const returnStarted = await startReturn(web.db, actor, booked.rentalId);
       const returnId = "inspectionId" in returnStarted ? returnStarted.inspectionId : "";
@@ -841,7 +875,14 @@ describe("renting to a business", () => {
         );
 
       expect((await returnAs(LEGAL_NAME)).status).toBe("no_signature");
-      expect((await returnAs("Sam Lee")).status).toBe("completed");
+      sentEmails.length = 0;
+      const returned = await returnAs("Sam Lee");
+      expect(returned.status).toBe("completed");
+      const returnCopies = sentEmails.filter((email) => email.to === DRIVER_EMAIL);
+      expect(returnCopies).toHaveLength(1);
+      expect(returnCopies[0]?.text).toContain("Hi Sam Lee,");
+      expect(returnCopies[0]?.text).toContain(`for ${LEGAL_NAME}. The return report`);
+      expect(await emailedTo(returned)).toMatchObject({ driver: "sent" });
       const held = await withTenant(web.db, actor.operatorId, (tx) =>
         tx
           .select({ driverId: possessions.driverId, endedAt: possessions.endedAt })
@@ -851,15 +892,85 @@ describe("renting to a business", () => {
       expect(held).toHaveLength(2);
       expect(held.every((possession) => possession.driverId === booked.driverId)).toBe(true);
       expect(held.every((possession) => possession.endedAt !== null)).toBe(true);
-      const [returned] = await withTenant(web.db, actor.operatorId, (tx) =>
+      const [returnChecklist] = await withTenant(web.db, actor.operatorId, (tx) =>
         tx
           .select({ acceptanceText: inspections.acceptanceText })
           .from(inspections)
           .where(eq(inspections.id, returnId)),
       );
-      expect(returned?.acceptanceText).toMatch(
+      expect(returnChecklist?.acceptanceText).toMatch(
         new RegExp(`^I, Sam Lee, returned this car for ${LEGAL_NAME} on `),
       );
+    });
+
+    it("records a driver with no email as not sent, and the handover goes ahead", async () => {
+      const booked = await signedBooking(true);
+      // A driver added with a phone only (the Drivers tab allows it).
+      await superuser.query("update renters set email = null where id = $1", [booked.driverId]);
+      const inspectionId = await kit().filledHandover(booked.rentalId);
+      sentEmails.length = 0;
+
+      const result = await accept(inspectionId, null);
+
+      expect(result.status).toBe("completed");
+      expect(await emailedTo(result)).toEqual({
+        renter: "sent",
+        driver: "no_address",
+        business: "no_address",
+      });
+      expect(sentEmails.map((email) => email.to)).not.toContain(DRIVER_EMAIL);
+      expect(
+        sentEmails
+          .filter((email) => /handover report/.test(email.subject))
+          .map((email) => email.to),
+      ).toEqual([CONTACT_EMAIL]);
+    });
+
+    it("emails the driver's copy again when it didn't go, and only that copy", async () => {
+      const booked = await signedBooking(true);
+      const inspectionId = await kit().filledHandover(booked.rentalId);
+      sentEmails.length = 0;
+      const failingForDriver = {
+        async send(message: EmailMessage) {
+          if (message.to === DRIVER_EMAIL) {
+            throw new Error("The driver's mailbox is full");
+          }
+          sentEmails.push(message);
+        },
+      };
+      const result = await completeHandover(
+        { ...kit().handoverDeps(), emailSender: failingForDriver },
+        actor,
+        inspectionId,
+        {
+          shownFingerprint: await kit().shown(inspectionId),
+          signature: drawnSignatureInput(TEST_SIGNATURE),
+          bondOverrideReason: null,
+          directDebitOverrideReason: null,
+          insuranceOverrideReason: null,
+          regoOverrideReason: null,
+        },
+        { timeZone: TEST_TIME_ZONE, now: new Date() },
+      );
+      expect(await emailedTo(result)).toMatchObject({ renter: "sent", driver: "failed" });
+      sentEmails.length = 0;
+
+      const again = await emailDocumentAgain(
+        kit().handoverDeps(),
+        actor,
+        result.status === "completed" ? result.documentId : "",
+        TEST_TIME_ZONE,
+      );
+
+      expect(again).toMatchObject({ status: "sent", state: { driver: "sent" } });
+      expect(sentEmails.map((email) => email.to)).toEqual([DRIVER_EMAIL]);
+      expect(sentEmails[0]?.text).toContain("Hi Sam Lee,");
+      expect(sentEmails[0]?.text).toContain(`for ${LEGAL_NAME}. The report you accepted`);
+      expect(await emailedTo(result)).toEqual({
+        renter: "sent",
+        driver: "sent",
+        business: "no_address",
+      });
     });
 
     it("says the driver's licence problems as the driver's, on the rental's checks", async () => {

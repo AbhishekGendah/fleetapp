@@ -329,6 +329,44 @@ describe("the contract emails", () => {
     );
   });
 
+  it("words the driver's own copy to them, as the one who had the car for the business", async () => {
+    const forDriver = {
+      audience: "driver" as const,
+      to: "sam.lee@example.test",
+      renterName: "Dana",
+      operatorName: "Sam's Cars Pty Ltd",
+      rentalSummary: "1BRT482 Toyota Camry",
+      at: "12 Oct 2026, 9:45 am AWST",
+      attachment: PDF,
+      replyTo: "hello@samscars.test",
+      forBusiness: { driverName: "Sam Lee", businessName: "Acme Rideshare Pty Ltd" },
+    };
+
+    const [handover, returned, swapped] = await Promise.all(
+      (["handover_report", "return_report", "swap_form"] as const).map((kind) =>
+        renderDocumentCopyEmail({ ...forDriver, kind }),
+      ),
+    );
+
+    expect(handover).toMatchObject({
+      fromName: "Sam's Cars Pty Ltd",
+      replyTo: "hello@samscars.test",
+      subject: "Your car handover report from Sam's Cars Pty Ltd",
+      attachments: [PDF],
+    });
+    expect(handover!.text).toContain("Hi Sam Lee,");
+    expect(handover!.text).not.toContain("Dana");
+    expect(handover!.text).toContain(
+      "You received 1BRT482 Toyota Camry from Sam's Cars Pty Ltd for Acme Rideshare Pty Ltd. The report you accepted",
+    );
+    expect(returned!.text).toContain(
+      "You returned 1BRT482 Toyota Camry to Sam's Cars Pty Ltd for Acme Rideshare Pty Ltd.",
+    );
+    expect(swapped!.text).toContain(
+      "You swapped cars with Sam's Cars Pty Ltd for Acme Rideshare Pty Ltd: you now have 1BRT482 Toyota Camry.",
+    );
+  });
+
   it("names the business, and who signed for it, on a business's signed contract", async () => {
     const signed = {
       kind: "contract" as const,

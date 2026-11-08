@@ -155,8 +155,8 @@ export const issuedDocuments = pgTable(
 );
 
 /**
- * Each try at emailing a copy of an issued document, to the Renter or the
- * business: never changed, a resend is a new row (review G7-1, G9-9). Kept
+ * Each try at emailing a copy of an issued document, to the Renter, a
+ * business's driver or the business: never changed, a resend is a new row (review G7-1, G9-9). Kept
  * apart from the document, which can never be changed (rule 12).
  */
 export const documentEmails = pgTable(
@@ -180,7 +180,7 @@ export const documentEmails = pgTable(
       foreignColumns: [issuedDocuments.id, issuedDocuments.operatorId],
     }),
     index("document_emails_document_idx").on(table.operatorId, table.documentId, table.triedAt),
-    check("document_emails_recipient", sql`${table.recipient} in ('renter', 'business')`),
+    check("document_emails_recipient", sql`${table.recipient} in ('renter', 'driver', 'business')`),
     check("document_emails_outcome", sql`${table.outcome} in ('sent', 'failed', 'no_address')`),
   ],
 );

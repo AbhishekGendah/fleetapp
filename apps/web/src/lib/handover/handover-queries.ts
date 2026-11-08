@@ -431,19 +431,31 @@ export function businessAcceptanceOf(
 /**
  * Who a checklist's emailed copies go to and greet (rule 15): the Renter's
  * email (a business's contact), greeted by name, and for a business's car
- * the driver who signed and the business they have it for.
+ * the driver who signed and the business they have it for, with the driver's
+ * own copy to the driver's own email. The view is the one the signature was
+ * checked against, so the copy goes to the driver who signed.
  */
 export function checklistCopyParties(
   view: Pick<
     HandoverView,
-    "renterKind" | "renterFullName" | "driverFullName" | "renterEmail" | "renterGreetingName"
+    | "renterKind"
+    | "renterFullName"
+    | "driverFullName"
+    | "driverEmail"
+    | "renterEmail"
+    | "renterGreetingName"
   >,
-): { renterEmail: string | null; renterName: string; forBusiness?: BusinessAcceptance } {
+): {
+  renterEmail: string | null;
+  renterName: string;
+  forBusiness?: BusinessAcceptance;
+  driverCopy?: { email: string | null };
+} {
   const forBusiness = businessAcceptanceOf(view);
   return {
     renterEmail: view.renterEmail,
     renterName: view.renterGreetingName,
-    ...(forBusiness ? { forBusiness } : {}),
+    ...(forBusiness ? { forBusiness, driverCopy: { email: view.driverEmail } } : {}),
   };
 }
 

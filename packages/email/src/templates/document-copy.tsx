@@ -13,10 +13,16 @@ export const COPIED_DOCUMENT_KINDS = [
 ] as const;
 export type CopiedDocumentKind = (typeof COPIED_DOCUMENT_KINDS)[number];
 
+export type DocumentCopyAudience = "renter" | "driver" | "operator";
+
 export interface DocumentCopyEmailProps {
   kind: CopiedDocumentKind;
-  /** The Renter gets their copy; the business gets its copy and what happened. */
-  audience: "renter" | "operator";
+  /**
+   * The Renter gets their copy; a business's driver their own copy of the
+   * papers they signed for its car (rule 15); the business its copy and what
+   * happened.
+   */
+  audience: DocumentCopyAudience;
   renterName: string;
   operatorName: string;
   /** e.g. "1ABC234 Toyota Corolla, from 1 June 2027". */
@@ -82,7 +88,8 @@ const BUSINESS_WORDING: Readonly<Partial<Record<CopiedDocumentKind, BusinessWord
 interface Wording {
   preview: { renter: string; operator: (renterName: string) => string };
   heading: { renter: string; operator: string };
-  renterLine: (props: DocumentCopyEmailProps) => string;
+  /** `forWhom`: " for <business>" on a driver's own copy, else nothing. */
+  renterLine: (props: DocumentCopyEmailProps, forWhom: string) => string;
   operatorLine: (props: DocumentCopyEmailProps) => string;
   smallPrint: (at: string) => string;
 }
@@ -107,8 +114,8 @@ const WORDING: Readonly<Record<CopiedDocumentKind, Wording>> = {
       operator: (renterName) => `${renterName} accepted their car`,
     },
     heading: { renter: "Your handover report", operator: "Car handed over" },
-    renterLine: (props) =>
-      `You received ${props.rentalSummary} from ${props.operatorName}. The report you accepted, with the kilometres, fuel and photos of the car, is attached: keep it for your records.`,
+    renterLine: (props, forWhom) =>
+      `You received ${props.rentalSummary} from ${props.operatorName}${forWhom}. The report you accepted, with the kilometres, fuel and photos of the car, is attached: keep it for your records.`,
     operatorLine: (props) =>
       `${props.renterName} accepted ${props.rentalSummary} on ${props.at}. The handover report is attached, and kept with the rental.`,
     smallPrint: (at) =>
@@ -133,8 +140,8 @@ const WORDING: Readonly<Record<CopiedDocumentKind, Wording>> = {
       operator: (renterName) => `${renterName} swapped cars`,
     },
     heading: { renter: "Your car swap", operator: "Car swapped" },
-    renterLine: (props) =>
-      `You swapped cars with ${props.operatorName}: you now have ${props.rentalSummary}. The swap form you signed is attached, and the reports for both cars come in their own emails.`,
+    renterLine: (props, forWhom) =>
+      `You swapped cars with ${props.operatorName}${forWhom}: you now have ${props.rentalSummary}. The swap form you signed is attached, and the reports for both cars come in their own emails.`,
     operatorLine: (props) =>
       `${props.renterName} swapped into ${props.rentalSummary} on ${props.at}. The signed swap form is attached, and kept with the rental.`,
     smallPrint: (at) => `Signed on ${at}. The form is fixed: it can never be changed.`,
@@ -145,8 +152,8 @@ const WORDING: Readonly<Record<CopiedDocumentKind, Wording>> = {
       operator: (renterName) => `${renterName}'s car is back`,
     },
     heading: { renter: "Your return report", operator: "Car returned" },
-    renterLine: (props) =>
-      `You returned ${props.rentalSummary} to ${props.operatorName}. The return report, with the kilometres, fuel and photos of the car at handover and at return, is attached: keep it for your records.`,
+    renterLine: (props, forWhom) =>
+      `You returned ${props.rentalSummary} to ${props.operatorName}${forWhom}. The return report, with the kilometres, fuel and photos of the car at handover and at return, is attached: keep it for your records.`,
     operatorLine: (props) =>
       `${props.renterName}'s car, ${props.rentalSummary}, was returned on ${props.at}. The return report is attached, and kept with the rental.`,
     smallPrint: (at) =>
@@ -154,39 +161,60 @@ const WORDING: Readonly<Record<CopiedDocumentKind, Wording>> = {
   },
 };
 
-/** The lines for this copy: a business's own when its driver had the car, else the Renter's. */
+/**
+ * The lines for this copy: a business's own when its driver had the car,
+ * else the Renter's. The driver's own copy is worded to them as the one who
+ * had the car, for the business ("You received … for Acme Rideshare Pty Ltd").
+ */
 function linesFor(props: DocumentCopyEmailProps) {
   const wording = WORDING[props.kind];
   const car = props.forBusiness;
   const business = car ? BUSINESS_WORDING[props.kind] : undefined;
+  const driverLine = car ? wording.renterLine(props, ` for ${car.businessName}`) : undefined;
   if (!car || !business) {
     return {
       operatorPreview: wording.preview.operator(props.renterName),
-      renterLine: wording.renterLine(props),
+      renterLine: wording.renterLine(props, ""),
+      driverLine,
       operatorLine: wording.operatorLine(props),
     };
   }
   return {
     operatorPreview: business.operatorPreview(car),
     renterLine: business.renterLine(props, car),
+    driverLine,
     operatorLine: business.operatorLine(props, car),
   };
+}
+
+/** Who a copy greets and what it says to them; none for the business's own copy. */
+function greetingFor(
+  props: DocumentCopyEmailProps,
+  lines: ReturnType<typeof linesFor>,
+): { name: string; line: string } | null {
+  if (props.audience === "operator") {
+    return null;
+  }
+  if (props.audience === "driver" && props.forBusiness && lines.driverLine) {
+    return { name: props.forBusiness.driverName, line: lines.driverLine };
+  }
+  return { name: props.renterName, line: lines.renterLine };
 }
 
 export function DocumentCopyEmail(props: DocumentCopyEmailProps): ReactElement {
   const wording = WORDING[props.kind];
   const lines = linesFor(props);
-  const isForRenter = props.audience === "renter";
+  const greeting = greetingFor(props, lines);
   return (
     <EmailLayout
-      preview={isForRenter ? wording.preview.renter : lines.operatorPreview}
-      heading={isForRenter ? wording.heading.renter : wording.heading.operator}
-      senderName={isForRenter ? props.operatorName : undefined}
+      preview={greeting ? wording.preview.renter : lines.operatorPreview}
+      heading={greeting ? wording.heading.renter : wording.heading.operator}
+      senderName={greeting ? props.operatorName : undefined}
     >
-      {isForRenter ? (
+      {greeting ? (
         <>
-          <Text>Hi {props.renterName},</Text>
-          <Text>{lines.renterLine}</Text>
+          <Text>Hi {greeting.name},</Text>
+          <Text>{greeting.line}</Text>
         </>
       ) : (
         <Text>{lines.operatorLine}</Text>

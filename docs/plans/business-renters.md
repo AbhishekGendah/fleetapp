@@ -260,7 +260,10 @@ deploy; progress.md "Open items").
   have `rental_id`, so nothing changes for them. Every query that joins
   `issued_documents` to `rentals` is checked (inner joins still right; a
   Renter statement is listed on the Renter page only).
-- `document_emails.recipient` gains `'driver'` (check widened).
+- ~~`document_emails.recipient` gains `'driver'` (check widened).~~ Pulled
+  forward on Abhi's go (8 Nov 2026) as `0056_driver_document_copies`, with
+  the driver's own copies (see "As built (slice 3)"); Migration B is now the
+  Renter statement change only.
 
 #### Migration C (slice 4, driver change)
 
@@ -848,11 +851,6 @@ unchanged and passing).
   contract" (unless the Operator has one), so a booking for Acme Rides can be
   sent to sign straight away.
 - **Not built here, and why.**
-  - *The driver's own emailed copy* of the handover, return and swap: the
-    copy would have to be recorded as sent to "driver", the recipient the
-    plan puts in Migration B (slice 5); that is a schema change outside
-    slice 3, so it waits for Abhi's go (launch checklist). The copies go to
-    the business's contact and the Operator.
   - *Signer's name and position as merge fields* (plan, "Contract"): the
     text signed must be exactly the text shown (its fingerprint), and the
     signer is only known as they sign; so they are printed on the signature
@@ -877,13 +875,39 @@ unchanged and passing).
   shown, so a change between opening and signing is refused as changed.
   The Operator's copy of a signed business contract (and change of terms)
   names the business in its subject and who signed for it.
+- **The driver's own copy (added 8 Nov 2026, Abhi's go).** Pulled forward
+  from Migration B, nothing else of it: `0056_driver_document_copies` widens
+  the `document_emails_recipient` check to allow `'driver'` (one statement;
+  every existing row is `'renter'` or `'business'`, and the code deployed
+  before it writes only those and reads each recipient by name, so it
+  ignores a driver's row). A test (`driver-document-copies-update.test.ts`)
+  runs it on a database filled at 0055 with copies already recorded: they
+  stay as they were, the old code's two kinds still go in, a driver's copy
+  now does, anything else is still refused. For a business's handover,
+  return and swap, `emailDocumentCopies` sends a third copy to the driver
+  who signed (the checklist's view the signature was checked against), to
+  their email only, worded to them ("You received 1BRT482 … from <Operator>
+  for Acme Rideshare Pty Ltd"; "You returned …"; "You swapped cars … for
+  …: you now have …"), greeted by their name, from the Operator. Never for a
+  person's own rental (they are the driver and already get theirs) or a
+  contract. A driver with no email is recorded as no address ("Not emailed
+  to the driver: no email on file", no Email again for it, as for the
+  Renter); a failed send offers Email again, which sends only the copies
+  that didn't go, the driver's among them, taking the driver from the
+  paper's own possession (a swap form: the possession its swap's handover
+  started), never the rental's driver now. The rental page reads "Emailed
+  to the Renter, to the driver and to you". Tests: the driver's copy at the
+  handover, the swap's three papers and the return; none for a person's
+  rental; a driver with no email; Email again for a failed driver's copy;
+  the driver's address in no other email.
 - **For slice 4.** A driver change once the car is out must take the
   return's and swap's signer, and `movePossession`'s driver, from the open
   possession, read again under its lock, never from the rental's current
   driver: today `complete-swap.ts` (about line 396), `driverColumn` in
-  `handover-queries.ts` and `documentDriverName` in `document-emails.ts`
+  `handover-queries.ts` (which also gives the driver's copy its address)
   read `rentals.driver_id`, which is only safe while the driver can't change
-  with the car out.
+  with the car out. ("Email again" already takes the driver from the
+  paper's possession.)
 - **Deviations from the mockups.** The chosen Renter stays in the record
   picker (no separate "chosen" card with Change): the picker already shows
   it and lets it be changed. The driver choice cards keep the app's tick on

@@ -81,22 +81,30 @@ function isCopiedKind(kind: string): kind is CopiedDocumentKind {
 }
 
 /**
- * Who signed for the car on a report (rule 15): the driver of the possession
- * its checklist started or ended, else the rental's driver (a swap form).
+ * One of the columns of who signed for the car on a paper (rule 15): the
+ * driver of the possession its checklist started or ended, or, for a swap
+ * form, the one its swap's handover started. Never the rental's driver now,
+ * which may not be who signed.
  */
-const documentDriverName = sql<string | null>`(
-  select "driver"."full_name" from "renters" "driver"
-  where "driver"."operator_id" = "rentals"."operator_id"
-    and "driver"."id" = coalesce(
-      (select "held"."driver_id" from "possessions" "held"
-        where "held"."operator_id" = "issued_documents"."operator_id"
-          and ("held"."handover_inspection_id" = "issued_documents"."inspection_id"
-            or "held"."return_inspection_id" = "issued_documents"."inspection_id")
-        order by "held"."started_at" desc limit 1),
-      "rentals"."driver_id")
-)`;
+function documentDriverColumn(column: "full_name" | "email") {
+  return sql<string | null>`(
+    select "driver".${sql.identifier(column)} from "possessions" "held"
+    inner join "renters" "driver"
+      on "driver"."id" = "held"."driver_id" and "driver"."operator_id" = "held"."operator_id"
+    where "held"."operator_id" = "issued_documents"."operator_id"
+      and coalesce("issued_documents"."inspection_id", (
+        select "swap"."handover_inspection_id" from "car_swaps" "swap"
+        where "swap"."operator_id" = "issued_documents"."operator_id"
+          and "swap"."document_id" = "issued_documents"."id"
+      )) in ("held"."handover_inspection_id", "held"."return_inspection_id")
+    order by "held"."started_at" desc limit 1
+  )`;
+}
 
-/** The document and who it goes to now: the Renter's email as it is today, and its car. */
+/**
+ * The document and who it goes to now: the Renter's email as it is today,
+ * the driver who signed it (their email as it is today), and its car.
+ */
 async function loadResendable(database: AnyDatabase, operatorId: string, documentId: string) {
   const [row] = await withTenant(database, operatorId, (tx) =>
     tx
@@ -108,7 +116,8 @@ async function loadResendable(database: AnyDatabase, operatorId: string, documen
         renterKind: renters.kind,
         // A business's copy greets its contact, whose email it is.
         greetingName: sql<string>`coalesce(${renters.contactName}, ${renters.fullName})`,
-        driverName: documentDriverName,
+        driverName: documentDriverColumn("full_name"),
+        driverEmail: documentDriverColumn("email"),
         renterEmail: renters.email,
         rentalVehicleId: rentals.vehicleId,
         inspectionVehicleId: inspections.vehicleId,
@@ -187,16 +196,23 @@ export async function emailDocumentAgain(
   if (!document || !isCopiedKind(document.kind)) {
     return { status: "not_found" };
   }
+  const forBusiness =
+    document.renterKind === "organisation" && document.driverName && isChecklistCopy(document.kind)
+      ? { driverName: document.driverName, businessName: document.renterName }
+      : undefined;
+  // A driver's copy only for the papers a business's driver signed (rule 15).
+  const recipients = DOCUMENT_EMAIL_RECIPIENTS.filter(
+    (recipient) => recipient !== "driver" || forBusiness,
+  );
   const before = (await loadDocumentEmailStates(deps.database, actor.operatorId, [documentId])).get(
     documentId,
   );
-  // Only the copies that haven't gone are sent again; both, if neither has.
-  const unsent = DOCUMENT_EMAIL_RECIPIENTS.filter((recipient) => before?.[recipient] !== "sent");
+  // Only the copies that haven't gone are sent again; all of them, if none has.
+  const unsent = recipients.filter((recipient) => before?.[recipient] !== "sent");
   if (before && unsent.length === 0) {
-    // Both went already (a second press, or an old page): nothing is sent twice.
+    // Every copy went already (a second press, or an old page): nothing is sent twice.
     return { status: "sent", state: before };
   }
-  const onlyTo = unsent.length === 1 ? unsent[0] : undefined;
   const pdf = await readStoredPdf(deps.storage, document.objectKey);
   if (!pdf) {
     return { status: "not_found" };
@@ -212,19 +228,13 @@ export async function emailDocumentAgain(
     operatorId: actor.operatorId,
     renterEmail: document.renterEmail,
     renterName: document.greetingName,
-    ...(document.renterKind === "organisation" &&
-    document.driverName &&
-    isChecklistCopy(document.kind)
-      ? {
-          forBusiness: { driverName: document.driverName, businessName: document.renterName },
-        }
-      : {}),
+    ...(forBusiness ? { forBusiness, driverCopy: { email: document.driverEmail } } : {}),
     rentalSummary: carText,
     atText: formatDateTimeInTimeZone(document.issuedAt, timeZone),
     fileName: `${[COPY_TITLES[document.kind], document.car?.rego].filter(Boolean).join(" ")}.pdf`,
     pdf,
     sentByUserId: actor.userId,
-    onlyTo,
+    onlyTo: unsent,
   });
   await withTenant(deps.database, actor.operatorId, (tx) =>
     recordUserChange(tx, actor, {

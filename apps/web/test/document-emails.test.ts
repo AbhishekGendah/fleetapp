@@ -74,7 +74,12 @@ describe("emailed copies of fixed documents", () => {
   it("records a copy that didn't go, and the business has no email to send to", async () => {
     const documentId = await handedOverWithoutEmail();
 
-    expect(await stateOf(documentId)).toEqual({ renter: "failed", business: "no_address" });
+    // A person's own rental: they are the driver, so no driver's copy is tried.
+    expect(await stateOf(documentId)).toEqual({
+      renter: "failed",
+      driver: null,
+      business: "no_address",
+    });
   });
 
   it("sends the stored PDF again, and records that it went", async () => {
@@ -86,7 +91,11 @@ describe("emailed copies of fixed documents", () => {
     expect(result).toMatchObject({ status: "sent", state: { renter: "sent" } });
     expect(sentEmails).toHaveLength(1);
     expect(sentEmails[0]?.attachments?.[0]?.content).toBeDefined();
-    expect(await stateOf(documentId)).toEqual({ renter: "sent", business: "no_address" });
+    expect(await stateOf(documentId)).toEqual({
+      renter: "sent",
+      driver: null,
+      business: "no_address",
+    });
 
     // Pressed again from an old page: what went already is not sent twice.
     sentEmails.length = 0;
@@ -106,6 +115,6 @@ describe("emailed copies of fixed documents", () => {
     const seen = await loadDocumentEmailStates(web.db, otherOperator.operatorId, [documentId]);
 
     expect(result).toEqual({ status: "not_found" });
-    expect(seen.get(documentId)).toEqual({ renter: null, business: null });
+    expect(seen.get(documentId)).toEqual({ renter: null, driver: null, business: null });
   });
 });

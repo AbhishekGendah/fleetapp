@@ -251,7 +251,8 @@ export async function renderDocumentCopyEmail(
   },
 ): Promise<EmailMessage> {
   const { to, replyTo, attachment, ...props } = input;
-  const isForRenter = props.audience === "renter";
+  // The Renter's and the driver's own copies come from the business; the business's to itself.
+  const isForRenter = props.audience !== "operator";
   const subjects = COPY_SUBJECTS[props.kind];
   const message = await renderEmail(
     to,

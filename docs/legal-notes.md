@@ -1042,12 +1042,20 @@ As built slice 2).
   driver's typed or drawn signature. They never hold the driver's licence,
   date of birth or address (the reports never did). This is what the
   driver's privacy notice already says (slice 2).
-- **Not built yet: the driver's own copy.** The copies go to the business
-  and the Operator, not yet to the driver: recording a copy sent to the
-  driver needs the "driver" recipient the plan puts in slice 5 (Migration
-  B). Until then the driver signs on the Operator's phone and can ask for a
-  copy; the Operator can download it. Nothing legal needs it now (the
-  business is the hirer), but drivers would reasonably expect their copy.
+- **The driver's own copy (added 8 Nov 2026, Abhi's go).** The driver who
+  signed a business's handover, return or swap gets their own emailed copy
+  of each paper, worded to them ("You received 1BRT482 … for Acme Rideshare
+  Pty Ltd"), from the Operator (replies go to the Operator). It goes to the
+  driver's own email only, in its own email: never copied to the business,
+  and the business's copy never carries the driver's email address. The
+  driver is the one who signed (the report's own possession, for "Email
+  again"), never whoever the rental names later. A driver with no email gets
+  no copy, and the rental page says "Not emailed to the driver: no email on
+  file". The papers hold nothing the driver didn't see and sign (their name,
+  signature, the car, the business's name); transactional under the Spam
+  Act; sent through the same email provider as every other copy, so the
+  overseas disclosure is unchanged. Nothing is logged about the email but
+  the try's outcome (rule 7).
 - **Payments link and emails.** The payments link goes to the business's
   contact (the Renter's email), greeting them by name; Stripe's customer is
   the business, by its legal name. Transactional under the Spam Act.
