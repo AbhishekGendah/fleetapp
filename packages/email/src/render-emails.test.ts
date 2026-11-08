@@ -329,6 +329,31 @@ describe("the contract emails", () => {
     );
   });
 
+  it("names the business, and who signed for it, on a business's signed contract", async () => {
+    const signed = {
+      kind: "contract" as const,
+      renterName: "Dana Wells",
+      operatorName: "Sam's Cars Pty Ltd",
+      rentalSummary: "1BRT482 Toyota Camry, from 1 June 2027",
+      at: "8 Nov 2026, 10:00 am AWST",
+      attachment: PDF,
+      forBusiness: { driverName: "Dana Wells", businessName: "Acme Rideshare Pty Ltd" },
+    };
+
+    const [toSigner, toOffice] = await Promise.all(
+      (["renter", "operator"] as const).map((audience) =>
+        renderDocumentCopyEmail({ ...signed, audience, to: `${audience}@example.test` }),
+      ),
+    );
+
+    expect(toOffice!.subject).toBe(
+      "Contract signed: Acme Rideshare Pty Ltd, 1BRT482 Toyota Camry, from 1 June 2027",
+    );
+    expect(toOffice!.text).toContain("Dana Wells signed Acme Rideshare Pty Ltd's contract");
+    expect(toSigner!.text).toContain("Hi Dana Wells,");
+    expect(toSigner!.text).toContain("the rental contract for Acme Rideshare Pty Ltd");
+  });
+
   it("sends an invoice from the business with its number, amount and PDF", async () => {
     const PDF_FILE = {
       fileName: "INV-1001.pdf",

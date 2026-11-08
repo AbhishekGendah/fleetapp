@@ -23,13 +23,17 @@ export interface DocumentCopyEmailProps {
   rentalSummary: string;
   /** When it was signed or accepted, e.g. "3 Nov 2026, 2:15 pm AWST". */
   at: string;
-  /** A business's car: its driver signed for it, for the business (rule 15). */
+  /**
+   * A business's paper: who signed it for the business, by its legal name. Its
+   * driver for a car changing hands (rule 15); the authorised person for a
+   * contract or change of terms (decision 3).
+   */
   forBusiness?: { driverName: string; businessName: string };
 }
 
 type BusinessCar = NonNullable<DocumentCopyEmailProps["forBusiness"]>;
 
-/** A business's car changing hands: the driver did it, for the business, so the lines say so. */
+/** A business's paper: its signer did it, for the business, so the lines say so. */
 interface BusinessWording {
   operatorPreview: (car: BusinessCar) => string;
   renterLine: (props: DocumentCopyEmailProps, car: BusinessCar) => string;
@@ -37,6 +41,21 @@ interface BusinessWording {
 }
 
 const BUSINESS_WORDING: Readonly<Partial<Record<CopiedDocumentKind, BusinessWording>>> = {
+  contract: {
+    operatorPreview: (signer) => `${signer.driverName} signed for ${signer.businessName}`,
+    renterLine: (props, signer) =>
+      `Thank you for signing the rental contract for ${signer.businessName} with ${props.operatorName} for ${props.rentalSummary}. The signed copy is attached: keep it for your records.`,
+    operatorLine: (props, signer) =>
+      `${signer.driverName} signed ${signer.businessName}'s contract for ${props.rentalSummary} on ${props.at}. The signed copy is attached, and kept with the rental.`,
+  },
+  change_of_terms: {
+    operatorPreview: (signer) =>
+      `${signer.driverName} signed a change of terms for ${signer.businessName}`,
+    renterLine: (props, signer) =>
+      `Thank you for signing the change to ${signer.businessName}'s rental with ${props.operatorName} for ${props.rentalSummary}. The signed copy is attached: keep it with the contract.`,
+    operatorLine: (props, signer) =>
+      `${signer.driverName} signed the change of terms for ${signer.businessName}, ${props.rentalSummary}, on ${props.at}. The signed copy is attached, and kept with the rental.`,
+  },
   handover_report: {
     operatorPreview: (car) => `${car.driverName} accepted a car for ${car.businessName}`,
     renterLine: (props, car) =>

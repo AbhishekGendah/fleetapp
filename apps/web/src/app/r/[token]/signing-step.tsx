@@ -119,7 +119,7 @@ export async function SigningStep({ token, visit }: { token: string; visit: Link
             ? { legalName: view.authority.legalName, contactName: view.contactName }
             : null
         }
-        contractFingerprint={view.fingerprint}
+        contractFingerprint={view.shownFingerprint}
         documentName={name}
         operatorName={visit.operatorName}
       />

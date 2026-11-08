@@ -134,7 +134,7 @@ describe("a Renter's signature on the business's phone (review G9-10)", () => {
 });
 
 describe("signing for a business (decision 3)", () => {
-  const ACME = { legalName: "Acme Rideshare Pty Ltd" };
+  const ACME = { legalName: "Acme Rideshare Pty Ltd", tradingName: "Acme Rides" };
   function businessSigning(changes: Record<string, string> = {}) {
     return signContractInputSchema("Acme Rideshare Pty Ltd", ACME).safeParse({
       areDetailsConfirmed: "on",
@@ -175,6 +175,24 @@ describe("signing for a business (decision 3)", () => {
     expect(z.flattenError(otherPerson.error!).fieldErrors).toMatchObject({
       typedName: ["Type your full name exactly as you gave it above."],
     });
+  });
+
+  it("refuses the business's legal or trading name as the signer's own, however it is written", () => {
+    const asLegalName = businessSigning({
+      signerName: "acme  rideshare pty ltd",
+      typedName: "acme  rideshare pty ltd",
+    });
+    const asTradingName = businessSigning({
+      signerName: " ACME Rides ",
+      typedName: "ACME Rides",
+    });
+
+    for (const result of [asLegalName, asTradingName]) {
+      expect(result.success).toBe(false);
+      expect(z.flattenError(result.error!).fieldErrors).toMatchObject({
+        signerName: ["Enter your own full name, not the business's: you sign for it as yourself."],
+      });
+    }
   });
 
   it("asks a person for none of it", () => {

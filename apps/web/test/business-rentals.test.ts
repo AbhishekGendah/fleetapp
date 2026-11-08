@@ -422,6 +422,11 @@ describe("renting to a business", () => {
 
     beforeAll(async () => {
       owner = await seedOperatorWithUser(admin, "Business Contracts Pty Ltd");
+      // The business's own copy of a signed contract goes here.
+      await superuser.query(
+        "update operators set email = 'office@contracts.example.test' where id = $1",
+        [owner.operatorId],
+      );
     });
 
     async function bookedForBusiness() {
@@ -429,6 +434,30 @@ describe("renting to a business", () => {
       const vehicleId = await addTestCar(web, owner);
       const booked = await bookTestRentalOn(web, owner, { renterId: businessId, vehicleId });
       return booked.rentalId;
+    }
+
+    /** The rental's signing link sent and opened: the visit, and the page as it shows. */
+    async function openedSigningLink(rentalId: string) {
+      const sent = await sendSigningLink(linkDeps(), owner, rentalId, CLOCK);
+      expect(sent.status).toBe("sent");
+      const token = TOKEN_PATTERN.exec(sent.status === "sent" ? sent.url : "")?.[1] ?? "";
+      const visit = (await openLink(web.db, token))!;
+      return { visit, view: await loadSigningView(web.db, visit) };
+    }
+
+    /** The signing form as the authorised person fills it, for the page it showed. */
+    function signedFormFor(view: Awaited<ReturnType<typeof loadSigningView>>) {
+      return {
+        areDetailsConfirmed: "on",
+        hasConsented: "on",
+        method: "typed",
+        typedName: "Dana Wells",
+        drawnSignature: "",
+        contractFingerprint: view.status === "ready" ? view.shownFingerprint : "",
+        signerName: "Dana Wells",
+        signerPosition: "Director",
+        isAuthorised: "on",
+      };
     }
 
     it("needs a Business rental contract template: a person's contract is never used", async () => {
@@ -452,33 +481,18 @@ describe("renting to a business", () => {
       const rentalId = await bookedForBusiness();
       sentEmails.length = 0;
 
-      const sent = await sendSigningLink(linkDeps(), owner, rentalId, CLOCK);
-      expect(sent.status).toBe("sent");
+      const { visit, view } = await openedSigningLink(rentalId);
       expect(sentEmails[0]?.to).toBe(CONTACT_EMAIL);
       expect(sentEmails[0]?.text).toContain("Hi Dana Wells,");
-      const token = TOKEN_PATTERN.exec(sent.status === "sent" ? sent.url : "")?.[1] ?? "";
-      const visit = (await openLink(web.db, token))!;
-      const view = await loadSigningView(web.db, visit);
       expect(view).toMatchObject({
         status: "ready",
         authority: { legalName: LEGAL_NAME },
         contactName: "Dana Wells",
       });
-      const fingerprint = view.status === "ready" ? view.fingerprint : "";
       expect(view.status === "ready" ? view.details.map(([label]) => label) : []).not.toContain(
         "Date of birth",
       );
-      const values = {
-        areDetailsConfirmed: "on",
-        hasConsented: "on",
-        method: "typed",
-        typedName: "Dana Wells",
-        drawnSignature: "",
-        contractFingerprint: fingerprint,
-        signerName: "Dana Wells",
-        signerPosition: "Director",
-        isAuthorised: "on",
-      };
+      const values = signedFormFor(view);
 
       const withoutAuthority = await signContract(
         { ...linkDeps() },
@@ -492,11 +506,21 @@ describe("renting to a business", () => {
         { ...values, typedName: LEGAL_NAME },
         META,
       );
+      const asTradingName = await signContract(
+        linkDeps(),
+        visit,
+        { ...values, signerName: "acme rides", typedName: "acme rides" },
+        META,
+      );
       const signed = await signContract(linkDeps(), visit, values, META);
 
       expect(withoutAuthority.status).toBe("invalid");
       expect(asTheBusiness.status).toBe("invalid");
+      expect(asTradingName.status).toBe("invalid");
       expect(signed.status).toBe("signed");
+      const officeCopy = sentEmails.find((email) => email.subject.startsWith("Contract signed:"));
+      expect(officeCopy?.subject).toContain(`Contract signed: ${LEGAL_NAME}, `);
+      expect(officeCopy?.text).toContain(`Dana Wells signed ${LEGAL_NAME}'s contract`);
       const [evidence] = await withTenant(web.db, owner.operatorId, (tx) =>
         tx
           .select({ details: signingEvidence.details })
@@ -508,6 +532,22 @@ describe("renting to a business", () => {
         signerPosition: "Director",
         authorityText: `I am authorised to sign for ${LEGAL_NAME}.`,
       });
+    });
+
+    it("refuses as changed when the business's names or details shown change before signing", async () => {
+      const rentalId = await bookedForBusiness();
+      const { visit, view } = await openedSigningLink(rentalId);
+      const [rental] = await withTenant(web.db, owner.operatorId, (tx) =>
+        tx.select({ renterId: rentals.renterId }).from(rentals).where(eq(rentals.id, rentalId)),
+      );
+      // Not in the contract's text: only the details rows and the authority show it.
+      await superuser.query("update renters set trading_name = 'Acme Fleet' where id = $1", [
+        rental!.renterId,
+      ]);
+
+      const result = await signContract(linkDeps(), visit, signedFormFor(view), META);
+
+      expect(result.status).toBe("changed");
     });
   });
 

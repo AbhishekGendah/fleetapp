@@ -14,6 +14,7 @@ import {
   type TemplateDocument,
   isContractSignable,
 } from "@fleetapp/core";
+import { contentFingerprint } from "@fleetapp/core/server";
 import { recordActivity } from "@fleetapp/db/activity";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import {
@@ -72,7 +73,14 @@ export type SigningView =
       status: "ready";
       kind: SignedDocumentKind;
       document: TemplateDocument;
+      /** The filled-in text's fingerprint: the one its link was sent with, and the PDF prints. */
       fingerprint: string;
+      /**
+       * What the signing page sends back: for a business, the text with the
+       * authority (its legal and trading names) and the detail rows shown, so a
+       * change to any between opening and signing is refused (slice 3 review).
+       */
+      shownFingerprint: string;
       renterFullName: string;
       /** A business Renter signs through an authorised person (decision 3); none for a person. */
       authority: SigningAuthority | null;
@@ -323,17 +331,23 @@ export async function loadSigningView(
   // Only a business Renter's paper has its legal name filled in.
   const legalName = filled.data.renterLegalName;
   const isBusinessContract = legalName !== null && state.kind === "contract";
+  const authority =
+    legalName === null ? null : { legalName, tradingName: filled.data.renterTradingName };
+  const details = isBusinessContract
+    ? businessContractDetailRows(filled.data)
+    : DETAIL_ROWS_BY_KIND[state.kind](filled.data);
   return {
     status: "ready",
     kind: state.kind,
     document: filled.document,
     fingerprint: filled.fingerprint,
+    shownFingerprint: authority
+      ? contentFingerprint({ document: filled.fingerprint, authority, details })
+      : filled.fingerprint,
     renterFullName: filled.data.renterFullName,
-    authority: legalName === null ? null : { legalName },
+    authority,
     contactName: filled.data.renterContactName,
-    details: isBusinessContract
-      ? businessContractDetailRows(filled.data)
-      : DETAIL_ROWS_BY_KIND[state.kind](filled.data),
+    details,
     rentalSummary: rentalSummaryText(filled.data),
   };
 }
@@ -497,7 +511,7 @@ export async function signContract(
     };
   }
   const input = parsed.data;
-  if (input.contractFingerprint !== view.fingerprint) {
+  if (input.contractFingerprint !== view.shownFingerprint) {
     return { status: "changed" };
   }
   const { rentalId, templateVersionId } = visit.signing;
@@ -592,8 +606,11 @@ export async function signContract(
     kind: view.kind,
     operatorId: visit.operatorId,
     renterEmail: link.sentToEmail,
-    // A business's copy greets the person who signed for it.
+    // A business's copy greets the person who signed for it; the business's own names both.
     renterName: view.authority ? input.signerName : view.renterFullName,
+    ...(view.authority
+      ? { forBusiness: { driverName: input.signerName, businessName: view.authority.legalName } }
+      : {}),
     rentalSummary: view.rentalSummary,
     atText: signedAtText,
     fileName: `${documentTitle(view)} ${view.rentalSummary}.pdf`,

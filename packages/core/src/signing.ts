@@ -96,6 +96,8 @@ const NAME_MISMATCH_MESSAGE = "Type your full name exactly as it is on the contr
 const SIGNER_NAME_MISMATCH_MESSAGE = "Type your full name exactly as you gave it above.";
 const SIGNER_NAME_NEEDED_MESSAGE = "Enter your full name.";
 const SIGNER_POSITION_NEEDED_MESSAGE = "Enter your position, e.g. Director or Fleet manager.";
+const SIGNER_IS_BUSINESS_MESSAGE =
+  "Enter your own full name, not the business's: you sign for it as yourself.";
 
 /**
  * A business Renter signs through a person who says they may (decision 3):
@@ -104,6 +106,8 @@ const SIGNER_POSITION_NEEDED_MESSAGE = "Enter your position, e.g. Director or Fl
  */
 export interface SigningAuthority {
   legalName: string;
+  /** What the business trades as, if anything: no more a person's name than its legal name. */
+  tradingName?: string | null;
 }
 
 /** The exact words a business's signer ticks, kept with the evidence as shown. */
@@ -144,16 +148,34 @@ type SignContractValues = Record<
 
 type SignFieldIssue = { path: [string]; message: string };
 
-/** What a business's signer still has to give: their name, position and the authority tick. */
+/** Whether the signer gave the business's own name (legal or trading) as theirs. */
+function isBusinessName(signerName: string, authority: SigningAuthority): boolean {
+  return [authority.legalName, authority.tradingName ?? ""].some((businessName) =>
+    isTypedNameMatching(signerName, businessName),
+  );
+}
+
+/** Why the signer's name won't do: none given, or the business's own; null when it will. */
+function signerNameIssue(value: unknown, authority: SigningAuthority): string | null {
+  const signerName = String(value ?? "").trim();
+  if (signerName === "") {
+    return SIGNER_NAME_NEEDED_MESSAGE;
+  }
+  return isBusinessName(signerName, authority) ? SIGNER_IS_BUSINESS_MESSAGE : null;
+}
+
+/**
+ * What a business's signer still has to give: their own name (never the
+ * business's), their position and the authority tick.
+ */
 function authorityIssues(
   input: Partial<Record<AuthorityField, unknown>>,
   authority: SigningAuthority,
 ): SignFieldIssue[] {
   const isBlank = (value: unknown) => String(value ?? "").trim() === "";
+  const nameIssue = signerNameIssue(input.signerName, authority);
   return [
-    ...(isBlank(input.signerName)
-      ? [{ path: ["signerName"] as [string], message: SIGNER_NAME_NEEDED_MESSAGE }]
-      : []),
+    ...(nameIssue ? [{ path: ["signerName"] as [string], message: nameIssue }] : []),
     ...(isBlank(input.signerPosition)
       ? [{ path: ["signerPosition"] as [string], message: SIGNER_POSITION_NEEDED_MESSAGE }]
       : []),
