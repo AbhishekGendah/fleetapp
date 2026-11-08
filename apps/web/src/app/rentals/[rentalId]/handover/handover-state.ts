@@ -1,6 +1,7 @@
 import { bondOnItsWayText, formatCents, formatKilometres, type HandoverGap } from "@fleetapp/core";
 
 import type { CompleteHandoverResult } from "../../../../lib/handover/complete-handover";
+import type { StartHandoverResult } from "../../../../lib/handover/handover-records";
 import type { OverridableProblemCode } from "../../../../lib/handover/override-reasons";
 import { bookingProblemMessage } from "../../../../lib/rentals/rental-messages";
 
@@ -22,6 +23,20 @@ export const OVERRIDE_REASON_NEEDED: Readonly<Record<OverridableProblemCode, str
   no_insurance: "Say why the car goes with no insurance on file.",
   no_rego: "Say why the car goes with no rego on file.",
 };
+
+/** Why the handover could not start, beside its Start handover button. */
+export function startHandoverRefusalMessage(
+  status: Exclude<StartHandoverResult["status"], "started" | "resumed">,
+): string {
+  switch (status) {
+    case "driver_not_named":
+      return "Name the driver first, then start the handover.";
+    case "not_booked":
+      return "Only a booked rental is handed over. Reload the page to see where it stands.";
+    case "not_found":
+      return "This rental could not be found.";
+  }
+}
 
 /** What finishing the handover came back with, for its form. */
 export type CompleteHandoverState =

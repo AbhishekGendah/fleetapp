@@ -1,6 +1,8 @@
 import { canSwapCar, type InspectionKind } from "@fleetapp/core";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ActionButton } from "@fleetapp/ui/action-button";
 import { Button, type ButtonProps } from "@fleetapp/ui/button";
+import type { ChangeFormState } from "@fleetapp/ui/change-form-state";
 import { ConfirmButton } from "@fleetapp/ui/confirm-button";
 import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 import { ClipboardCheck, XCircle } from "lucide-react";
@@ -21,7 +23,7 @@ const SWAP_FIRST = "A car swap is under way. Finish or cancel it first.";
 interface ChecklistWording {
   verb: string;
   path: (rentalId: string) => string;
-  start: (rentalId: string) => Promise<void>;
+  start: (rentalId: string, previous: ChangeFormState) => Promise<ChangeFormState>;
   cancel: (rentalId: string, inspectionId: string) => Promise<void>;
 }
 
@@ -60,12 +62,14 @@ export function ChecklistMainButton(props: {
     );
   }
   return (
-    <form action={wording.start.bind(null, props.rentalId)}>
-      <Button type="submit" variant={props.variant} className={classes}>
-        <ClipboardCheck aria-hidden />
-        Start {wording.verb}
-      </Button>
-    </form>
+    <ActionButton
+      action={wording.start.bind(null, props.rentalId)}
+      label={`Start ${wording.verb}`}
+      pendingLabel="Starting…"
+      variant={props.variant ?? "default"}
+      icon={<ClipboardCheck aria-hidden />}
+      className={classes}
+    />
   );
 }
 

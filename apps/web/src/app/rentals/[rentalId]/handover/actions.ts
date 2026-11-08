@@ -8,6 +8,7 @@ import {
   optionalLine,
   UPLOAD_PROBLEM_MESSAGES,
 } from "@fleetapp/core";
+import { failedState, type ChangeFormState } from "@fleetapp/ui/change-form-state";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -47,7 +48,11 @@ import {
   PHOTO_TARGET_GONE,
   type SendOutcome,
 } from "../../../../lib/handover/offline/queued-changes";
-import { completionMessage, type CompleteHandoverState } from "./handover-state";
+import {
+  completionMessage,
+  startHandoverRefusalMessage,
+  type CompleteHandoverState,
+} from "./handover-state";
 
 const NOT_FOUND_MESSAGE = "This handover could not be found, or is already finished.";
 const FAILED_MESSAGE = "Something went wrong and nothing was saved. Try again.";
@@ -59,16 +64,22 @@ async function actingUser() {
 
 /**
  * Starts the rental's handover (or picks up the one under way) and opens it.
- * Refused (not booked, or a business's driver still to be named), it goes
- * back to the rental, whose next step says what comes first.
+ * Refused (not booked, or a business's driver still to be named), it says
+ * why beside the button.
  */
-export async function startHandoverAction(rentalId: string): Promise<void> {
+export async function startHandoverAction(
+  rentalId: string,
+  _previous: ChangeFormState,
+): Promise<ChangeFormState> {
   const { actor } = await actingUser();
   if (!isRecordId(rentalId)) {
-    redirect(rentalPath(""));
+    return failedState(startHandoverRefusalMessage("not_found"));
   }
   const started = await startHandover(appDb, actor, rentalId);
-  redirect("inspectionId" in started ? rentalHandoverPath(rentalId) : rentalPath(rentalId));
+  if ("inspectionId" in started) {
+    redirect(rentalHandoverPath(rentalId));
+  }
+  return failedState(startHandoverRefusalMessage(started.status));
 }
 
 export type SaveDetailsResult = { status: "saved" } | { status: "problem"; message: string };

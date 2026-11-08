@@ -37,6 +37,8 @@ export function ActionButton(props: {
   /** Only the icon shows, in a square button; the label is still read out. Needs `icon`. */
   isIconOnly?: boolean;
   confirm?: ActionConfirm;
+  /** On the button without `confirm`, e.g. full width on phones. */
+  className?: string;
 }) {
   const [state, formAction, isPending] = useActionState(props.action, INITIAL_CHANGE_STATE);
   const formRef = useRef<HTMLFormElement>(null);
@@ -84,6 +86,7 @@ export function ActionButton(props: {
         variant={props.variant ?? "outline"}
         size={props.isIconOnly ? "icon" : props.size}
         disabled={isPending}
+        className={props.className}
         aria-label={props.isIconOnly ? (isPending ? props.pendingLabel : props.label) : undefined}
       >
         {props.icon}

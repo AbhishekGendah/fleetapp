@@ -1,6 +1,7 @@
 "use server";
 
 import { describeErrorForLog, isRecordId } from "@fleetapp/core";
+import type { ChangeFormState } from "@fleetapp/ui/change-form-state";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -19,7 +20,10 @@ const FIX_MESSAGE = "Some boxes need a look: see below.";
 const FAILED_MESSAGE = "Something went wrong and nothing was saved. Try again.";
 
 /** Starts the rental's return (or picks up the one under way) and opens it. */
-export async function startReturnAction(rentalId: string): Promise<void> {
+export async function startReturnAction(
+  rentalId: string,
+  _previous: ChangeFormState,
+): Promise<ChangeFormState> {
   const user = await requireUser();
   if (isRecordId(rentalId)) {
     await startReturn(appDb, { userId: user.id, operatorId: user.operatorId }, rentalId);
