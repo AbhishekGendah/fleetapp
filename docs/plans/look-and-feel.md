@@ -552,3 +552,17 @@ driver; a driver's Drives for and Cars driven cards. Add a Renter stays a
 page rather than a pop-up, as for a person. The business's New rental, its
 statement, invoices and the rental pages' "driver Sam Lee" come with slices
 3 and 5.
+
+## As built: business Renters pages, slice 3 (8 Nov 2026)
+
+Built from mockups 5 and 6 (docs/plans/business-renters.md, As built slice
+3): New rental's driver picker (the shared choice cards stacked one under
+another, each driver with their standing label, a warning in words for a car
+already out, and a dashed, not-choosable card for one whose details wait for
+review), "Driver to be named" first; the rental's strip "rego · business ·
+driver Sam Lee" (or "driver to be named"), the Next step's Name a driver,
+and Renter and Driver rows on the Rental card; the business strip's New
+rental and its Rentals tab's Driver column. The chosen Renter stays in the
+record picker rather than a separate card, and the choice cards keep the
+app's tick on the right.
+

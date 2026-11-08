@@ -1009,3 +1009,50 @@ As built slice 2).
 - **For the accountant (slice 5):** a sole trader's ABN on a person Renter
   (decision 8) is not collected yet; it comes with the invoices that print
   it.
+
+## Business Renters, slice 3: renting to a business (8 Nov 2026, built)
+
+- **Signing for a company (Electronic Transactions Act 1999, s 10; plan
+  decision 3).** A business's contract (and any change of terms) is signed
+  through the link by a person who gives their full name and position and
+  ticks "I am authorised to sign for [legal name]". The link still goes to
+  the business's contact's email and needs the code emailed there, so the
+  signer is identified the same way as a person; their name, position and
+  the exact ticked words are kept with the evidence and printed on the
+  signing record page of the PDF. The app can't check that the person
+  really holds authority: that is the business's statement, as on paper.
+  For the lawyer (already on the list): whether this is enough for a
+  company (Corporations Act s 127 covers signing by directors; anyone else
+  signs as an agent), and whether the business contract should say who may
+  sign.
+- **The business contract is the Operator's own template** (decision 10):
+  the starter has no legal wording, only a note where the Operator writes
+  who is responsible for anyone else who drives and for naming the driver
+  on a fine (decision 5). Unfair contract terms law applies to standard-form
+  contracts with a small business: the lawyer checks the Operator's terms
+  (launch checklist).
+- **The driver signs for the car (rule 15).** At the handover, return and
+  swap, the typed name must be the driver's, never the business's; the
+  accepted words name both ("I, Sam Lee, received this car for Acme
+  Rideshare Pty Ltd on …"), so the report proves who had the car for whom.
+  Possession records name the driver.
+- **What the business sees of its driver.** The emailed handover, return
+  and swap copies go to the business's contact (the Renter's email): they
+  name the driver and the car, as the reports do, and the reports hold the
+  driver's typed or drawn signature. They never hold the driver's licence,
+  date of birth or address (the reports never did). This is what the
+  driver's privacy notice already says (slice 2).
+- **Not built yet: the driver's own copy.** The copies go to the business
+  and the Operator, not yet to the driver: recording a copy sent to the
+  driver needs the "driver" recipient the plan puts in slice 5 (Migration
+  B). Until then the driver signs on the Operator's phone and can ask for a
+  copy; the Operator can download it. Nothing legal needs it now (the
+  business is the hirer), but drivers would reasonably expect their copy.
+- **Payments link and emails.** The payments link goes to the business's
+  contact (the Renter's email), greeting them by name; Stripe's customer is
+  the business, by its legal name. Transactional under the Spam Act.
+- **Privacy (APPs).** No new personal information is collected. The New
+  rental form and the rental page show a driver's name, licence kind,
+  state and expiry and standing, never the licence number or photos (rule
+  8). The Log records that a driver was named (their record id), never
+  their name (rule 7).

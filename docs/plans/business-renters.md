@@ -743,3 +743,127 @@ were enough.
 - Decided 8 Nov 2026 (Abhi): until texting is built, a new driver with only
   a phone gets no details link and the app asks for an email (on the launch
   checklist).
+
+#### As built (slice 3, 8 Nov 2026)
+
+Abhi's go: 8 Nov 2026. Person Renters behave as before (their own tests
+unchanged and passing).
+
+- **Migration.** `0055_business_contract_template`: the
+  `contract_template_kind` enum gains `business_contract` (the slice's
+  "contract template kind"; decision 10). It reads and changes no rows; a
+  test (`business-contract-template-update.test.ts`) runs it on a database
+  filled at 0054 with a default rental contract, which stays as it was, and
+  a business contract then becomes a default of its own kind beside it. No
+  other schema change.
+- **New rental.** The Renter picker offers businesses (by trading name,
+  "Business · legal name · ABN" under it), never as someone's driver. With a
+  business chosen: "The contract goes to <contact> to sign for <legal
+  name>" and the driver picker (the shared choice cards, now with a stacked
+  layout, a label, a warning and a not-choosable state, in the component
+  catalogue): "Driver to be named" first and chosen, then each current
+  driver with their licence's kind, state and expiry (never its number) and
+  standing; a driver with another car out is warned ("Already has 1BRT482
+  out. You can still pick Sam."), one whose details wait for review or who
+  is Do not rent is shown but can't be picked; "+ Add a driver to <business>"
+  opens its Drivers tab. Changing the Renter puts the driver back to "to be
+  named". The picker loads only once a business is chosen, so the plain form
+  keeps its JavaScript budget (510 KB); with a business chosen it is 542 KB
+  measured, budget 595 KB (rule 33). The business strip has New rental, and its Rentals tab a Driver
+  column; the Rentals list shows "driver Sam Lee" (or "driver to be named")
+  under a business's name.
+- **Booking checks.** New problems: `driver_not_named` (handover level),
+  `business_details_missing` (handover level: ABN, contact's name and email,
+  business address, from slice 2's rule) and `driver_has_other_car` (notice
+  only). A named driver must be a person, not retired, not archived ("Restore
+  them first") and a current driver of the business ("no longer drives for
+  this business"), read after the business's lock; Do not rent on the
+  driver or the business refuses the booking as before. On a business's
+  rental the licence and age messages say "The driver's licence …".
+- **Naming a driver later.** The rental page's Next step, while the driver is
+  to be named: "No driver named yet", main button Name a driver (the same
+  picker in a pop-up), no Start handover, and "The handover can't start
+  until a driver is named and their licence passes the checks" (shown while
+  no driver is named, whatever the main step). The Rental card has Name a
+  driver too, Change driver once one is named (draft or booked only; once out
+  it is slice 4). Saved with a warning (e.g. the business's address still
+  missing), the pop-up stays open to be read. `nameRentalDriver` locks the business, then the driver, then the
+  rental (the handover's order), reads the rental again under its lock (its
+  Renter and status), runs the checks under the rental's own rules, and
+  logs the driver's record id, never their name. Two-connection tests: a
+  removal of the driver's link that started first makes the naming wait,
+  which then finds them no longer a driver; a naming that started first
+  makes the removal wait, which is then refused ("named on a rental").
+- **The rental page.** The strip reads "1BRT482 · Acme Rides · driver Sam
+  Lee" (each a link) or "· driver to be named"; the Rental card has Renter
+  (trading name, then legal name · ABN) and Driver; the Next step ticks
+  add "Driver named: Sam Lee" and the details tick is the driver's (or the
+  business's own while they are missing); Check details opens whose they
+  are. The signed contract is listed as "Business rental contract".
+- **The business contract.** A business's rentals use the default "Business
+  rental contract" template (Settings → Contracts → Kind). None yet: the
+  rental's Contract card says so and sending is refused with "Set up a
+  Business rental contract template first". The starter has the business's
+  legal name, ABN, address, contact, phone and email (no date of birth or
+  licence) and a note where the Operator writes who may drive and who names
+  the driver on a fine. New merge fields (group "Business Renter (filled in
+  only for a business)"): legal name, trading name, ABN, address, contact;
+  each is empty for a person, so a person's contract that used one shows the
+  gap before sending. The rent-terms warning covers both contracts.
+- **Authorised signing.** The link goes to the contact (greeted by name).
+  The signing page says "Check the details" and shows the business's
+  details; section 4 asks for "Your full name" (filled with the contact's,
+  changeable), "Your position" and the tick "I am authorised to sign for
+  <legal name>.", each required and checked as typed with the server's Zod
+  schema; a typed signature must match the name given there, never the
+  business's. The evidence keeps the name, position and the exact ticked
+  words; the PDF's signature line reads "Signed by Dana Wells, Director, for
+  Acme Rideshare Pty Ltd" and the signing record has Signed for, Signed by,
+  Position and Ticked rows. A change of terms for a business is signed the
+  same way.
+- **Payments link.** Already to the Renter's email, which for a business is
+  its contact's; the email now greets the contact (Stripe's customer stays
+  the business by its legal name).
+- **Handover, return and swap.** The driver signs (rule 15): the typed name
+  is checked against the driver's name (`signerNameOf`), never the
+  business's; the pages say "For Acme Rides, driver Sam Lee", "The driver
+  accepts the car", "The driver signs the swap"; the accepted words read "I,
+  Sam Lee, received this car for Acme Rideshare Pty Ltd on …" (and
+  "returned"), on the phone and in the report; the reports list "Renter
+  (business)" and "Driver" and are "Accepted by Sam Lee for Acme Rideshare
+  Pty Ltd"; a return with nobody there says "The driver was not present". A
+  business's car never goes before a driver is named (`driver_not_named`
+  blocks, as the database's rule does). Tests: the business's name is
+  refused at the handover, swap and return; the driver's works; both
+  possessions name the driver.
+- **Emails.** The copies to the business's contact and the Operator name the
+  driver and the business ("Sam Lee received 1BRT482 … for Acme Rideshare
+  Pty Ltd"); the Operator's subject names the business. "Email again" says
+  the same, the driver taken from the report's own possession.
+- **Damage page.** Who had the car shows "Acme Rideshare Pty Ltd, driver
+  Sam Lee" (the driver a link) from the possession of the return it was
+  found at, or of the confirmed rental on the day; the suggestion from who
+  had the car that day names the driver too.
+- **Demo data.** The business step adds a starter "Demo business rental
+  contract" (unless the Operator has one), so a booking for Acme Rides can be
+  sent to sign straight away.
+- **Not built here, and why.**
+  - *The driver's own emailed copy* of the handover, return and swap: the
+    copy would have to be recorded as sent to "driver", the recipient the
+    plan puts in Migration B (slice 5); that is a schema change outside
+    slice 3, so it waits for Abhi's go (launch checklist). The copies go to
+    the business's contact and the Operator.
+  - *Signer's name and position as merge fields* (plan, "Contract"): the
+    text signed must be exactly the text shown (its fingerprint), and the
+    signer is only known as they sign; so they are printed on the signature
+    line and the signing record page instead.
+  - *Change driver once the car is out* and *Who had the car* on the
+    rental's page (mockup 6): slice 4.
+  - Invoices still greet a business by its legal name; business money
+    documents are slice 5.
+- **Deviations from the mockups.** The chosen Renter stays in the record
+  picker (no separate "chosen" card with Change): the picker already shows
+  it and lets it be changed. The driver choice cards keep the app's tick on
+  the right rather than the mockup's radio dot on the left, as for Person or
+  Business. On a phone the strip's "driver …" is in the title line rather
+  than its own line.

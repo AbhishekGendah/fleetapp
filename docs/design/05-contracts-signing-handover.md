@@ -18,6 +18,12 @@
 - Multiple templates allowed. Editing creates a new version; signed
   documents keep the version they used.
 - Swap form and change-of-terms form are templates too.
+- A business Renter's rentals use their own kind, the "Business rental
+  contract" (business Renters slice 3): the business's legal name, ABN,
+  address and contact, never a date of birth or licence. Its signer gives
+  their name and position and ticks that they are authorised to sign for
+  the business; both are kept with the evidence and printed on the signing
+  record.
 - We provide layout, not legal wording.
 
 ## Signing flow (Renter's phone, via link or QR code)

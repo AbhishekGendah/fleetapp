@@ -214,6 +214,16 @@ Add to this list whenever something is relaxed or put off "until launch".
 - [ ] **A driver with only a phone gets no details link** (business Renters
       slice 2): links and their codes go by email until the SMS provider is
       chosen. The Drivers tab tells the Operator to add the driver's email.
+- [ ] **A business's driver gets no copy of the reports they sign yet**
+      (business Renters slice 3): handover, return and swap copies go to the
+      business's contact and the Operator. The driver's own copy needs the
+      "driver" email recipient (plan Migration B, slice 5, or pulled forward
+      if Abhi approves). See docs/legal-notes.md, slice 3.
+- [ ] **Signing for a business** (slice 3): the lawyer checks the
+      authorised-signer wording ("I am authorised to sign for …", name and
+      position) for companies (Corporations Act s 127, agents), and the
+      Operator's Business rental contract terms (unfair contract terms for
+      small businesses, other drivers, naming drivers on fines).
 
 - [ ] Everything in docs/legal-notes.md reviewed by a lawyer: privacy
       policy, Operator terms (including AGS correcting car make and model
