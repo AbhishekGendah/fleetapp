@@ -843,6 +843,20 @@ describe("renting to a business", () => {
       expect(held).toEqual([]);
     });
 
+    it("refuses as changed when the business's legal name changes after the phone showed the checklist", async () => {
+      const booked = await signedBooking(true);
+      const inspectionId = await kit().filledHandover(booked.rentalId);
+      const shownFingerprint = await kit().shown(inspectionId);
+      // The acceptance words say "for <legal name>": a rename in between is a change.
+      await superuser.query("update renters set full_name = 'Acme Fleet Pty Ltd' where id = $1", [
+        booked.businessId,
+      ]);
+
+      const result = await accept(inspectionId, null, shownFingerprint);
+
+      expect(result.status).toBe("changed");
+    });
+
     it("takes the driver's typed name, never the business's, and starts the driver's possession", async () => {
       const booked = await signedBooking(true);
       const inspectionId = await kit().filledHandover(booked.rentalId);
