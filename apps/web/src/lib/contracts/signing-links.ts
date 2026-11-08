@@ -1,7 +1,9 @@
 import {
+  contractKindFor,
   describeErrorForLog,
   MILLISECONDS_PER_DAY,
   SIGNING_LINK_DAYS,
+  type ContractTemplateKind,
   type MergeFieldKey,
   isContractSignable,
   type RentalStatus,
@@ -29,6 +31,7 @@ import {
 } from "../rentals/rental-changes";
 import type { RentalClock } from "../rentals/rental-records";
 import { cancelLiveLinks, cancelRentalLink } from "../renter-links/cancel-links";
+import { rentalRenterStanding } from "../renters/renter-archived";
 import {
   LINK_IN_PLAY_COLUMNS,
   linkInPlay,
@@ -51,6 +54,7 @@ export type SendSigningLinkResult =
         | "no_email"
         | "renter_archived"
         | "no_template"
+        | "no_business_template"
         | "already_signed";
     };
 
@@ -118,6 +122,7 @@ async function sendLinkFor(
         email: renters.email,
         fullName: renters.fullName,
         preferredName: renters.preferredName,
+        contactName: renters.contactName,
         archivedAt: renters.archivedAt,
       })
       .from(renters)
@@ -171,7 +176,8 @@ async function sendLinkFor(
     return {
       status: "ready" as const,
       email: renter.email,
-      name: renter.preferredName ?? renter.fullName,
+      // A business's link greets its contact, who signs for it.
+      name: renter.contactName ?? renter.preferredName ?? renter.fullName,
       sender: await loadLinkSender(tx, actor.operatorId),
     };
   });
@@ -206,7 +212,7 @@ async function filledFor(
   deps: LinkDependencies,
   actor: ActingUser,
   request: {
-    kind: "contract" | "change_of_terms";
+    kind: ContractTemplateKind;
     rentalId: string;
     clock: RentalClock;
     change?: ChangeFields;
@@ -214,7 +220,12 @@ async function filledFor(
 ) {
   const template = await loadDefaultTemplate(deps.database, actor.operatorId, request.kind);
   if (!template) {
-    return { status: "no_template" as const };
+    return {
+      status:
+        request.kind === "business_contract"
+          ? ("no_business_template" as const)
+          : ("no_template" as const),
+    };
   }
   const filled = await fillContract(
     deps.database,
@@ -233,6 +244,18 @@ async function filledFor(
   return { status: "ready" as const, template, filled };
 }
 
+/** The template kind a rental's contract comes from: a business Renter's own (decision 10). */
+export async function contractKindOfRental(
+  database: AnyDatabase,
+  operatorId: string,
+  rentalId: string,
+): Promise<ContractTemplateKind | null> {
+  const renter = await withTenant(database, operatorId, (tx) =>
+    rentalRenterStanding(tx, operatorId, rentalId),
+  );
+  return renter ? contractKindFor(renter.kind) : null;
+}
+
 /**
  * Sends the Renter their contract to sign. Every field the template uses
  * must be on file: a contract is never sent with gaps in it.
@@ -243,7 +266,11 @@ export async function sendSigningLink(
   rentalId: string,
   clock: RentalClock,
 ): Promise<SendSigningLinkResult> {
-  const ready = await filledFor(deps, actor, { kind: "contract", rentalId, clock });
+  const kind = await contractKindOfRental(deps.database, actor.operatorId, rentalId);
+  if (!kind) {
+    return { status: "not_found" };
+  }
+  const ready = await filledFor(deps, actor, { kind, rentalId, clock });
   if (ready.status !== "ready") {
     return ready;
   }

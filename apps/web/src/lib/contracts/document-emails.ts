@@ -18,7 +18,7 @@ import {
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { COPIED_DOCUMENT_KINDS, type CopiedDocumentKind, type EmailSender } from "@fleetapp/email";
-import { and, asc, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
 import type { FileDependencies } from "../files/stored-files";
@@ -71,9 +71,30 @@ export async function loadDocumentEmailStates(
   );
 }
 
+/** The papers a business's driver signs for the car on the Operator's phone (rule 15). */
+function isChecklistCopy(kind: CopiedDocumentKind): boolean {
+  return kind === "handover_report" || kind === "return_report" || kind === "swap_form";
+}
+
 function isCopiedKind(kind: string): kind is CopiedDocumentKind {
   return COPIED_DOCUMENT_KINDS.some((copied) => copied === kind);
 }
+
+/**
+ * Who signed for the car on a report (rule 15): the driver of the possession
+ * its checklist started or ended, else the rental's driver (a swap form).
+ */
+const documentDriverName = sql<string | null>`(
+  select "driver"."full_name" from "renters" "driver"
+  where "driver"."operator_id" = "rentals"."operator_id"
+    and "driver"."id" = coalesce(
+      (select "held"."driver_id" from "possessions" "held"
+        where "held"."operator_id" = "issued_documents"."operator_id"
+          and ("held"."handover_inspection_id" = "issued_documents"."inspection_id"
+            or "held"."return_inspection_id" = "issued_documents"."inspection_id")
+        order by "held"."started_at" desc limit 1),
+      "rentals"."driver_id")
+)`;
 
 /** The document and who it goes to now: the Renter's email as it is today, and its car. */
 async function loadResendable(database: AnyDatabase, operatorId: string, documentId: string) {
@@ -84,6 +105,10 @@ async function loadResendable(database: AnyDatabase, operatorId: string, documen
         issuedAt: issuedDocuments.issuedAt,
         objectKey: files.objectKey,
         renterName: renters.fullName,
+        renterKind: renters.kind,
+        // A business's copy greets its contact, whose email it is.
+        greetingName: sql<string>`coalesce(${renters.contactName}, ${renters.fullName})`,
+        driverName: documentDriverName,
         renterEmail: renters.email,
         rentalVehicleId: rentals.vehicleId,
         inspectionVehicleId: inspections.vehicleId,
@@ -186,7 +211,14 @@ export async function emailDocumentAgain(
     kind: document.kind,
     operatorId: actor.operatorId,
     renterEmail: document.renterEmail,
-    renterName: document.renterName,
+    renterName: document.greetingName,
+    ...(document.renterKind === "organisation" &&
+    document.driverName &&
+    isChecklistCopy(document.kind)
+      ? {
+          forBusiness: { driverName: document.driverName, businessName: document.renterName },
+        }
+      : {}),
     rentalSummary: carText,
     atText: formatDateTimeInTimeZone(document.issuedAt, timeZone),
     fileName: `${[COPY_TITLES[document.kind], document.car?.rego].filter(Boolean).join(" ")}.pdf`,

@@ -66,6 +66,7 @@ const RATE_REFUSALS: Record<
     | "no_email"
     | "renter_archived"
     | "no_template"
+    | "no_business_template"
     | "already_signed"
   >,
   string

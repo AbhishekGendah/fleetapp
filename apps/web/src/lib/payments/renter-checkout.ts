@@ -80,7 +80,10 @@ export interface PaymentsRental {
   status: string;
   bondCents: number;
   renterId: string;
+  /** The Renter's full name, or a business's legal name: who Stripe's customer is. */
   renterName: string;
+  /** Who the payments email greets: a business's contact (the email is theirs), else the Renter. */
+  greetingName: string;
   renterEmail: string | null;
   carRego: string;
   carMakeModel: string;
@@ -101,6 +104,7 @@ export async function findPaymentsRental(
       bondCents: rentals.bondCents,
       renterId: rentals.renterId,
       renterName: renters.fullName,
+      greetingName: sql<string>`coalesce(${renters.contactName}, ${renters.fullName})`,
       renterEmail: renters.email,
       carRego: vehicles.rego,
       carMakeModel: sql<string>`${vehicles.make} || ' ' || ${vehicles.model}`,

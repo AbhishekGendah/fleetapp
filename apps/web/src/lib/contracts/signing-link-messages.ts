@@ -33,6 +33,8 @@ export function signingLinkNotSentState(
     no_email: "Add the Renter’s email first: the link and its codes are sent there.",
     renter_archived: RENTER_ARCHIVED_MESSAGE,
     no_template: `Set up ${SETTINGS_TEMPLATE_NAMES[name]} first, in Settings → Contracts.`,
+    no_business_template:
+      "Set up a Business rental contract template first, in Settings → Contracts: a business's rentals are signed under it.",
     already_signed: `This ${name} is already signed.`,
   };
   return { status: "failed", message: messages[result.status] };

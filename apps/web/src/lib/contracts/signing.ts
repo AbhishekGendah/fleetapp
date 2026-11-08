@@ -2,8 +2,10 @@ import {
   decodeDrawnSignature,
   describeDevice,
   formatDateTimeInTimeZone,
+  authorisedToSignText,
   SIGNATURE_METHOD_LABELS,
   SIGNING_CONSENT_TEXT,
+  type SigningAuthority,
   SIGNING_EVIDENCE_STEP_LABELS,
   signContractInputSchema,
   type ContractData,
@@ -53,6 +55,14 @@ const DOCUMENT_TITLES: Readonly<Record<SignedDocumentKind, string>> = {
   contract: "Rental contract",
   change_of_terms: "Change of terms",
 };
+const BUSINESS_CONTRACT_TITLE = "Business rental contract";
+
+/** What the signed paper is called: a business's contract has its own name. */
+function documentTitle(view: { kind: SignedDocumentKind; authority: SigningAuthority | null }) {
+  return view.kind === "contract" && view.authority
+    ? BUSINESS_CONTRACT_TITLE
+    : DOCUMENT_TITLES[view.kind];
+}
 
 /** What the Renter checks before reading: label and value, in their own words. */
 export type DetailRow = readonly [label: string, value: string];
@@ -64,6 +74,10 @@ export type SigningView =
       document: TemplateDocument;
       fingerprint: string;
       renterFullName: string;
+      /** A business Renter signs through an authorised person (decision 3); none for a person. */
+      authority: SigningAuthority | null;
+      /** The business's contact, offered as the signer's name; they can change it. */
+      contactName: string | null;
       details: DetailRow[];
       rentalSummary: string;
     }
@@ -88,6 +102,24 @@ function contractDetailRows(data: ContractData): DetailRow[] {
     ["Phone", data.renterPhone],
     ["Email", data.renterEmail],
     ["Licence", data.renterLicenceNumber],
+    ["Car", carText(data)],
+    ["Starts", data.rentalStart],
+    ["Ends", data.rentalEnd],
+    ["Weekly rate", data.weeklyRate],
+    ["Bond", data.bond],
+  ]);
+}
+
+/** A business's contract: the business, its contact and the rental; it has no licence or birth date. */
+function businessContractDetailRows(data: ContractData): DetailRow[] {
+  return presentRows([
+    ["Business", data.renterLegalName],
+    ["Trading as", data.renterTradingName],
+    ["ABN", data.renterAbn],
+    ["Business address", data.renterBusinessAddress],
+    ["Contact", data.renterContactName],
+    ["Phone", data.renterPhone],
+    ["Email", data.renterEmail],
     ["Car", carText(data)],
     ["Starts", data.rentalStart],
     ["Ends", data.rentalEnd],
@@ -288,13 +320,20 @@ export async function loadSigningView(
   ) {
     return { status: "changed" };
   }
+  // Only a business Renter's paper has its legal name filled in.
+  const legalName = filled.data.renterLegalName;
+  const isBusinessContract = legalName !== null && state.kind === "contract";
   return {
     status: "ready",
     kind: state.kind,
     document: filled.document,
     fingerprint: filled.fingerprint,
     renterFullName: filled.data.renterFullName,
-    details: DETAIL_ROWS_BY_KIND[state.kind](filled.data),
+    authority: legalName === null ? null : { legalName },
+    contactName: filled.data.renterContactName,
+    details: isBusinessContract
+      ? businessContractDetailRows(filled.data)
+      : DETAIL_ROWS_BY_KIND[state.kind](filled.data),
     rentalSummary: rentalSummaryText(filled.data),
   };
 }
@@ -317,11 +356,31 @@ function stepLine(timeZone: string, occurredAt: Date, meta: RequestMeta): string
   return `${formatDateTimeInTimeZone(occurredAt, timeZone)}${from}, ${describeDevice(meta.userAgent)}`;
 }
 
+/** Who signed for a business and on what authority, for its signing record (decision 3). */
+function authorityRows(
+  authority: SigningAuthority | null,
+  input: SignContractInput,
+): PdfSigningRecord["rows"] {
+  return authority
+    ? [
+        ["Signed for", authority.legalName],
+        ["Signed by", input.signerName],
+        ["Position", input.signerPosition],
+        ["Ticked", `“${authorisedToSignText(authority.legalName)}”`],
+      ]
+    : [];
+}
+
 async function signingRecordRows(
   database: AnyDatabase,
   visit: LinkVisit,
   link: { sentToEmail: string },
-  signed: { at: Date; meta: RequestMeta; methodLabel: string },
+  signed: {
+    at: Date;
+    meta: RequestMeta;
+    methodLabel: string;
+    authority: PdfSigningRecord["rows"];
+  },
 ): Promise<PdfSigningRecord["rows"]> {
   const steps = await withTenant(database, visit.operatorId, (tx) =>
     tx
@@ -346,6 +405,7 @@ async function signingRecordRows(
         ] as const,
     ),
     ["Agreed to", `“${SIGNING_CONSENT_TEXT}”`],
+    ...signed.authority,
     [SIGNING_EVIDENCE_STEP_LABELS.signed, stepLine(visit.timeZone, signed.at, signed.meta)],
     ["How they signed", signed.methodLabel],
   ];
@@ -375,7 +435,9 @@ async function renderSignedContract(
   signed: { at: Date; text: string; meta: RequestMeta },
 ): Promise<Uint8Array> {
   const signature: PdfSignature = {
-    signedByText: `Signed by ${view.renterFullName}`,
+    signedByText: view.authority
+      ? `Signed by ${input.signerName}, ${input.signerPosition}, for ${view.authority.legalName}`
+      : `Signed by ${view.renterFullName}`,
     signedAtText: `Signed electronically on ${signed.text}`,
     ...(input.method === "drawn"
       ? { drawnPng: decodeDrawnSignature(input.drawnSignature) ?? undefined }
@@ -387,7 +449,7 @@ async function renderSignedContract(
       : SIGNATURE_METHOD_LABELS.drawn;
   return renderDocumentPdf({
     ...(await loadPdfBranding(deps, visit.operatorId)),
-    title: `${DOCUMENT_TITLES[view.kind]} ${view.rentalSummary}`,
+    title: `${documentTitle(view)} ${view.rentalSummary}`,
     document: view.document,
     signature,
     signingRecord: {
@@ -395,6 +457,7 @@ async function renderSignedContract(
         at: signed.at,
         meta: signed.meta,
         methodLabel,
+        authority: authorityRows(view.authority, input),
       }),
       contentFingerprint: view.fingerprint,
     },
@@ -421,7 +484,10 @@ export async function signContract(
   if (view.status !== "ready" || !visit.signing) {
     return { status: view.status === "changed" ? "changed" : "not_signable" };
   }
-  const parsed = signContractInputSchema(view.renterFullName).safeParse(values);
+  const parsed = signContractInputSchema(
+    view.renterFullName,
+    view.authority ?? undefined,
+  ).safeParse(values);
   if (!parsed.success) {
     return {
       status: "invalid",
@@ -486,6 +552,13 @@ export async function signContract(
             consentText: SIGNING_CONSENT_TEXT,
             contractFingerprint: view.fingerprint,
             areDetailsConfirmed: true,
+            ...(view.authority
+              ? {
+                  signerName: input.signerName,
+                  signerPosition: input.signerPosition,
+                  authorityText: authorisedToSignText(view.authority.legalName),
+                }
+              : {}),
           }),
           occurredAt: signedAt,
           issuedDocumentId: documentId,
@@ -519,10 +592,11 @@ export async function signContract(
     kind: view.kind,
     operatorId: visit.operatorId,
     renterEmail: link.sentToEmail,
-    renterName: view.renterFullName,
+    // A business's copy greets the person who signed for it.
+    renterName: view.authority ? input.signerName : view.renterFullName,
     rentalSummary: view.rentalSummary,
     atText: signedAtText,
-    fileName: `${DOCUMENT_TITLES[view.kind]} ${view.rentalSummary}.pdf`,
+    fileName: `${documentTitle(view)} ${view.rentalSummary}.pdf`,
     pdf,
   });
   return { status: "signed", signedAtText, isCopyEmailed: emailed.renter === "sent" };

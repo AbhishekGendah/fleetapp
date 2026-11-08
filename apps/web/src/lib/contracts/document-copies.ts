@@ -4,6 +4,7 @@ import {
   type DocumentEmailOutcome,
   type DocumentEmailRecipient,
   type DocumentEmailState,
+  type BusinessAcceptance,
   operatorDisplayName,
 } from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
@@ -34,6 +35,8 @@ export interface DocumentCopies {
   sentByUserId?: string | null;
   /** Just one of the two, when only that copy is sent again. */
   onlyTo?: DocumentEmailRecipient;
+  /** A business's car: the driver who signed, and the business they have it for (rule 15). */
+  forBusiness?: BusinessAcceptance;
 }
 
 type Recipient = { recipient: DocumentEmailRecipient; to: string | null };
@@ -110,6 +113,7 @@ export async function emailDocumentCopies(
     renderDocumentCopyEmail({
       kind: copies.kind,
       renterName: copies.renterName,
+      forBusiness: copies.forBusiness,
       operatorName: operatorDisplayName(business),
       rentalSummary: copies.rentalSummary,
       at: copies.atText,

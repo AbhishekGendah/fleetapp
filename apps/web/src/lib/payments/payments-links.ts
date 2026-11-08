@@ -195,7 +195,7 @@ export async function sendPaymentsLink(
             {
               operatorId: actor.operatorId,
               email: rental.renterEmail,
-              renterName: rental.renterName,
+              renterName: rental.greetingName,
               rental,
             },
             issued,
@@ -287,7 +287,7 @@ export async function continueToPayments(
       {
         operatorId: signing.operatorId,
         email: link.email,
-        renterName: rental.renterName,
+        renterName: rental.greetingName,
         rental,
       },
       issued,

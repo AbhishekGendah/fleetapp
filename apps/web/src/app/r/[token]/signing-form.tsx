@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  authorisedToSignText,
   SIGN_CONTRACT_FIELDS,
   SIGNATURE_METHOD_CHOICES,
   SIGNING_CONSENT_TEXT,
@@ -25,9 +26,15 @@ import { INITIAL_SIGN_STATE } from "./signing-state";
 type SignField = (typeof SIGN_CONTRACT_FIELDS)[number];
 const TICKED = "on";
 const ALWAYS_REQUIRED = new Set<SignField>(["areDetailsConfirmed", "hasConsented", "method"]);
+/** A business's signer gives these too (decision 3). */
+const AUTHORITY_FIELDS = new Set<SignField>(["signerName", "signerPosition", "isAuthorised"]);
 
-function isRequiredSignField(field: SignField, values: Readonly<Record<SignField, string>>) {
-  if (ALWAYS_REQUIRED.has(field)) {
+function isRequiredSignField(
+  field: SignField,
+  values: Readonly<Record<SignField, string>>,
+  isForBusiness: boolean,
+) {
+  if (ALWAYS_REQUIRED.has(field) || (isForBusiness && AUTHORITY_FIELDS.has(field))) {
     return true;
   }
   return (
@@ -63,14 +70,54 @@ function RequiredTick(props: { form: FormFields<SignField>; field: SignField; la
   );
 }
 
-function SignatureFields({ form }: { form: FormFields<SignField> }) {
+/** Who signs for a business, in what position, and their word that they may. */
+function AuthorityFields(props: { form: FormFields<SignField>; legalName: string }) {
+  const { form } = props;
+  return (
+    <>
+      <FormField
+        htmlFor={form.idFor("signerName")}
+        label="Your full name"
+        isRequired
+        hint={`You sign for ${props.legalName}.`}
+        error={form.errorFor("signerName")}
+      >
+        <Input {...form.textBoxProps("signerName")} autoComplete="name" />
+      </FormField>
+      <FormField
+        htmlFor={form.idFor("signerPosition")}
+        label="Your position"
+        isRequired
+        hint="For example Director, Owner or Fleet manager."
+        error={form.errorFor("signerPosition")}
+      >
+        <Input {...form.textBoxProps("signerPosition")} autoComplete="organization-title" />
+      </FormField>
+      <RequiredTick
+        form={form}
+        field="isAuthorised"
+        label={authorisedToSignText(props.legalName)}
+      />
+    </>
+  );
+}
+
+function SignatureFields({
+  form,
+  isForBusiness,
+}: {
+  form: FormFields<SignField>;
+  isForBusiness: boolean;
+}) {
   if (form.values.method === "typed") {
     return (
       <FormField
         htmlFor={form.idFor("typedName")}
-        label="Your full name"
+        label={isForBusiness ? "Your signature: your full name typed" : "Your full name"}
         isRequired
-        hint="Exactly as it is in the details above."
+        hint={
+          isForBusiness ? "Exactly as you gave it above." : "Exactly as it is in the details above."
+        }
         error={form.errorFor("typedName")}
       >
         <Input {...form.textBoxProps("typedName")} autoComplete="name" />
@@ -104,6 +151,8 @@ function SignatureFields({ form }: { form: FormFields<SignField> }) {
 export function SigningForm(props: {
   token: string;
   renterFullName: string;
+  /** For a business Renter: its legal name, and its contact as the signer to start with. */
+  authority: { legalName: string; contactName: string | null } | null;
   contractFingerprint: string;
   /** What is signed, as the page names it: "contract" or "change of terms". */
   documentName: string;
@@ -111,10 +160,12 @@ export function SigningForm(props: {
 }) {
   const sign = useMemo(() => signContractAction.bind(null, props.token), [props.token]);
   const [state, formAction, isPending] = useActionState(sign, INITIAL_SIGN_STATE);
+  const legalName = props.authority?.legalName;
   const schema = useMemo(
-    () => signContractInputSchema(props.renterFullName),
-    [props.renterFullName],
+    () => signContractInputSchema(props.renterFullName, legalName ? { legalName } : undefined),
+    [props.renterFullName, legalName],
   );
+  const isForBusiness = props.authority !== null;
   const form = useFormFields({
     fields: SIGN_CONTRACT_FIELDS,
     initialValues: {
@@ -124,12 +175,15 @@ export function SigningForm(props: {
       typedName: "",
       drawnSignature: "",
       contractFingerprint: props.contractFingerprint,
+      signerName: props.authority?.contactName ?? "",
+      signerPosition: "",
+      isAuthorised: "",
     },
     validate: (values) => {
       const parsed = schema.safeParse(values);
       return parsed.success ? {} : z.flattenError(parsed.error).fieldErrors;
     },
-    isRequired: isRequiredSignField,
+    isRequired: (field, values) => isRequiredSignField(field, values, isForBusiness),
   });
 
   if (state.status === "signed") {
@@ -177,11 +231,14 @@ export function SigningForm(props: {
         <RequiredTick
           form={form}
           field="areDetailsConfirmed"
-          label={`My details above are right, and I have read the whole ${props.documentName}.`}
+          label={`${isForBusiness ? "The" : "My"} details above are right, and I have read the whole ${props.documentName}.`}
         />
         <RequiredTick form={form} field="hasConsented" label={SIGNING_CONSENT_TEXT} />
       </FormSection>
       <FormSection title="4. Sign">
+        {props.authority ? (
+          <AuthorityFields form={form} legalName={props.authority.legalName} />
+        ) : null}
         <FormField htmlFor={form.idFor("method")} label="How do you want to sign?" isRequired>
           <Select
             {...form.boxProps("method")}
@@ -194,7 +251,7 @@ export function SigningForm(props: {
             ))}
           </Select>
         </FormField>
-        <SignatureFields form={form} />
+        <SignatureFields form={form} isForBusiness={isForBusiness} />
       </FormSection>
       {form.isResultShown && !isPending && state.status === "problem" ? (
         <FormError message={state.message} />

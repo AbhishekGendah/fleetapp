@@ -1,4 +1,9 @@
-import { isContractSignable, mergeFieldLabel, missingMergeFields } from "@fleetapp/core";
+import {
+  contractKindFor,
+  isContractSignable,
+  mergeFieldLabel,
+  missingMergeFields,
+} from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
@@ -19,13 +24,15 @@ import { NoBusinessEmailWarning } from "../../../components/no-business-email-wa
 import type { SignedInUser } from "../../../lib/require-user";
 import { cancelSigningLinkAction, sendSigningLinkAction } from "./signing-actions";
 
-function NoTemplateCard() {
+function NoTemplateCard({ isForBusiness }: { isForBusiness: boolean }) {
   return (
     <Card>
       <CardHeader>
         <SectionLabel>Contract</SectionLabel>
         <CardDescription>
-          You have no contract template yet. Write yours once and it is filled in for each rental.
+          {isForBusiness
+            ? "You have no Business rental contract template yet. A business's rentals are signed under it: write it once and it is filled in for each of them."
+            : "You have no contract template yet. Write yours once and it is filled in for each rental."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -91,9 +98,13 @@ export async function ContractCard({
   if (signing.signed || !isContractSignable(rental.status)) {
     return null;
   }
-  const template = await loadDefaultTemplate(appDb, user.operatorId, "contract");
+  const template = await loadDefaultTemplate(
+    appDb,
+    user.operatorId,
+    contractKindFor(rental.renterKind),
+  );
   if (!template) {
-    return <NoTemplateCard />;
+    return <NoTemplateCard isForBusiness={rental.renterKind === "organisation"} />;
   }
   const data = await loadContractData(appDb, user.operatorId, rental.id, clock);
   const missing = data ? missingMergeFields(template.content, data) : [];
@@ -103,8 +114,11 @@ export async function ContractCard({
         <SectionLabel>Contract</SectionLabel>
         <CardDescription>
           From your template “{template.name}” (version {template.latestVersion}), filled in with
-          this rental’s details. The Renter reads and signs it on their phone; the first time they
-          open the link on a phone, they type a code we email them.
+          this rental’s details.{" "}
+          {rental.renterKind === "organisation"
+            ? "The business’s contact, or another person authorised to sign for it, reads and signs it on their phone"
+            : "The Renter reads and signs it on their phone"}
+          ; the first time they open the link on a phone, they type a code we email them.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">

@@ -37,6 +37,16 @@ function closedMessage(
   return `This ${name} can no longer be signed. Ask ${operatorName} if you think that is wrong.`;
 }
 
+/** What was sent, in the signer's words: a business's paper is the business's, not theirs. */
+function introFor(view: Extract<SigningView, { status: "ready" }>): string {
+  if (view.authority) {
+    return view.kind === "contract"
+      ? `the business rental contract of ${view.authority.legalName}`
+      : `a change to the rental of ${view.authority.legalName}`;
+  }
+  return view.kind === "contract" ? "your contract" : "a change to your rental";
+}
+
 const NOT_RECORDED_MESSAGE =
   "Something went wrong opening this. Please try again in a moment by reloading the page.";
 
@@ -80,11 +90,10 @@ export async function SigningStep({ token, visit }: { token: string; visit: Link
   return (
     <div className="flex flex-col gap-6">
       <CardDescription>
-        {visit.operatorName} has sent{" "}
-        {view.kind === "contract" ? "your contract" : "a change to your rental"} for{" "}
-        {view.rentalSummary}. Check your details, read the whole {name}, then sign at the bottom.
+        {visit.operatorName} has sent {introFor(view)} for {view.rentalSummary}. Check{" "}
+        {view.authority ? "the" : "your"} details, read the whole {name}, then sign at the bottom.
       </CardDescription>
-      <FormSection title="1. Check your details">
+      <FormSection title={view.authority ? "1. Check the details" : "1. Check your details"}>
         <DetailLines lines={view.details} />
         <p className="text-muted-foreground text-sm">
           Something not right? Don’t sign: contact {visit.operatorName} to fix it first.
@@ -93,12 +102,23 @@ export async function SigningStep({ token, visit }: { token: string; visit: Link
       <FormSection title={`2. Read the ${name}`}>
         <ContractReader
           content={view.document}
-          label={view.kind === "contract" ? "Your rental contract" : "The change of terms"}
+          label={
+            view.kind === "contract"
+              ? view.authority
+                ? "The business rental contract"
+                : "Your rental contract"
+              : "The change of terms"
+          }
         />
       </FormSection>
       <SigningForm
         token={token}
         renterFullName={view.renterFullName}
+        authority={
+          view.authority
+            ? { legalName: view.authority.legalName, contactName: view.contactName }
+            : null
+        }
         contractFingerprint={view.fingerprint}
         documentName={name}
         operatorName={visit.operatorName}
