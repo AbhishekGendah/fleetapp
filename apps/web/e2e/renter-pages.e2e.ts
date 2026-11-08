@@ -26,7 +26,16 @@ const LICENSED = {
   phone: "0412000973",
   licenceNumber: "7659973",
 };
-const FILTER_WORDS = ["All", "Renting now", "Booked", "To review", "Do not rent", "Archived"];
+const FILTER_WORDS = [
+  "All",
+  "Renting now",
+  "Booked",
+  "To review",
+  "Businesses",
+  "Drivers",
+  "Do not rent",
+  "Archived",
+];
 const TAB_NAMES = ["Overview", "Rentals", "Money", "Details", "Licence", "Notes", "Log"];
 const DAYS_LATE = 9;
 /**
@@ -39,7 +48,7 @@ const DESKTOP_VIEWPORT = { width: 1280, height: 900 };
 
 async function searchRenters(page: Page, text: string): Promise<void> {
   await page.goto("/renters", { waitUntil: "networkidle" });
-  const search = page.getByRole("searchbox", { name: "Search by name, phone or email" });
+  const search = page.getByRole("searchbox", { name: "Search by name, ABN, phone or email" });
   await search.fill(text);
   await search.press("Enter");
   await page.waitForURL(/q=/);
