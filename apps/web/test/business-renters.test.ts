@@ -83,8 +83,10 @@ describe("the business Renter form's rules", () => {
       ["abn", "contactName", "email", "fullName"].sort(),
     );
     expect(
-      parseBusinessRenterForm({ ...emptyBusinessRenterForm(), abn: "51 824 753 557" }).error
-        ?.flatten().fieldErrors.abn,
+      parseBusinessRenterForm({
+        ...emptyBusinessRenterForm(),
+        abn: "51 824 753 557",
+      }).error?.flatten().fieldErrors.abn,
     ).toEqual(["That is not a valid ABN. Check the 11 digits."]);
   });
 
@@ -160,21 +162,22 @@ describe("business Renters and their drivers", () => {
       tx
         .select({ action: activityLog.action, valuesAfter: activityLog.valuesAfter })
         .from(activityLog)
-        .where(and(eq(activityLog.operatorId, actor.operatorId), eq(activityLog.entityId, entityId))),
+        .where(
+          and(eq(activityLog.operatorId, actor.operatorId), eq(activityLog.entityId, entityId)),
+        ),
     );
   }
 
   async function personWithLicence(fullName: string): Promise<string> {
     const renterId = await addTestRenter(web, actor, fullName, "0491570006");
-    const licence = parseLicenceForm(
-      {
-        licenceIssuedIn: "WA",
-        licenceCountry: "",
-        licenceNumber: DRIVER_LICENCE_NUMBER,
-        licenceClass: "C",
-        licenceType: "full",
-        licenceExpiresOn: "2029-06-03",
-      });
+    const licence = parseLicenceForm({
+      licenceIssuedIn: "WA",
+      licenceCountry: "",
+      licenceNumber: DRIVER_LICENCE_NUMBER,
+      licenceClass: "C",
+      licenceType: "full",
+      licenceExpiresOn: "2029-06-03",
+    });
     if (!licence.success) {
       throw new Error(licence.error.message);
     }
@@ -216,9 +219,16 @@ describe("business Renters and their drivers", () => {
         TODAY,
       ).data!;
       expect(await updateRenter(web.db, actor, businessId, person)).toBe("not_found");
-      expect(await updateBusinessRenter(web.db, actor, personId, businessInput())).toBe("not_found");
+      expect(await updateBusinessRenter(web.db, actor, personId, businessInput())).toBe(
+        "not_found",
+      );
       expect(
-        await updateBusinessRenter(web.db, actor, businessId, businessInput({ tradingName: "Acme" })),
+        await updateBusinessRenter(
+          web.db,
+          actor,
+          businessId,
+          businessInput({ tradingName: "Acme" }),
+        ),
       ).toBe("changed");
       const entries = await logOf(businessId);
       expect(entries.map((entry) => entry.action)).toContain("updated");
@@ -500,7 +510,11 @@ describe("business Renters and their drivers", () => {
       );
       const found = await searchOperatorRecords(web.db, otherActor.operatorId, "Kept Apart");
       expect(found.renters).toEqual([]);
-      const candidates = await listDriverCandidates(web.db, otherActor.operatorId, othersBusinessId);
+      const candidates = await listDriverCandidates(
+        web.db,
+        otherActor.operatorId,
+        othersBusinessId,
+      );
       expect(candidates.map((record) => record.value)).not.toContain(driverId);
       const links = await withTenant(web.db, otherActor.operatorId, (tx) =>
         tx.select().from(organisationDrivers),
