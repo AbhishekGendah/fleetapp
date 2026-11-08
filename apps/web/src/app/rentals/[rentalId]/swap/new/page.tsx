@@ -3,7 +3,11 @@ import { PageHeader } from "@fleetapp/ui/page-header";
 
 import { AppShell } from "../../../../app-shell";
 import { appDb } from "../../../../../lib/app-db";
-import { loadReturn } from "../../../../../lib/handover/handover-queries";
+import {
+  checklistPartyWords,
+  checklistSigner,
+  loadReturn,
+} from "../../../../../lib/handover/handover-queries";
 import { rentalSwapPath } from "../../../../../lib/paths";
 import { checklistData } from "../../handover/checklist-page-data";
 import { HandoverChecklist } from "../../handover/handover-checklist";
@@ -42,8 +46,8 @@ export default async function SwapNewCarPage(props: { params: Promise<{ rentalId
         title={`Swap, 2 of 2: ${view.carRego} out`}
       />
       <p className="text-muted-foreground mb-6 text-sm">
-        For {view.renterFullName}. Everything is kept on this phone as you go, and sent when there
-        is signal.
+        For {checklistPartyWords(view)}. Everything is kept on this phone as you go, and sent when
+        there is signal.
         {oldCarGaps > 0
           ? ` The car handed back still needs ${oldCarGaps} more things: go back to finish it.`
           : ""}
@@ -55,12 +59,15 @@ export default async function SwapNewCarPage(props: { params: Promise<{ rentalId
           lastKilometres={view.lastKilometres}
           damageTitle="Damage already on the car"
           finalStep={{
-            title: "The Renter signs the swap",
+            title:
+              view.renterKind === "organisation"
+                ? "The driver signs the swap"
+                : "The Renter signs the swap",
             form: (
               <SwapSigningStep
                 rentalId={rentalId}
                 signing={signing}
-                renterName={view.renterFullName}
+                {...checklistSigner(view)}
                 privacyLine={<RenterPrivacyLine business={business} />}
                 oldCar={oldCarText}
                 newCar={`${view.carRego} · ${view.carMakeModel}`}

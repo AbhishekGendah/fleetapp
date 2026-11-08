@@ -38,6 +38,8 @@ export function SwapForm(props: {
   privacyLine: React.ReactNode;
   oldCar: string;
   shown: ShownSwap;
+  /** A business's car: its driver signs the swap. */
+  isForBusiness?: boolean;
 }) {
   const complete = useMemo(() => completeSwapAction.bind(null, props.rentalId), [props.rentalId]);
   const [state, formAction, isPending] = useActionState(complete, INITIAL_SWAP_STATE);
@@ -86,7 +88,9 @@ export function SwapForm(props: {
         privacyLine={props.privacyLine}
         problem={problem ?? (state.status === "problem" ? state.message : null)}
         isPending={isPending}
-        submitLabel="The Renter signs the swap"
+        submitLabel={
+          props.isForBusiness ? "The driver signs the swap" : "The Renter signs the swap"
+        }
         pendingLabel="Swapping…"
       />
     </form>

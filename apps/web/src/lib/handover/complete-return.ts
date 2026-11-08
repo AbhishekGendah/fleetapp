@@ -34,7 +34,14 @@ import { addReading } from "../vehicles/odometer";
 import type { HandoverDependencies } from "./complete-handover";
 import { checklistRefusal, FinishedAlreadyError, issueChecklistReport } from "./checklist-report";
 import { lockOpenInspection } from "./handover-records";
-import { loadCompletedHandover, loadReturn, type HandoverView } from "./handover-queries";
+import {
+  businessAcceptanceOf,
+  checklistCopyParties,
+  loadCompletedHandover,
+  loadReturn,
+  signerNameOf,
+  type HandoverView,
+} from "./handover-queries";
 import { checklistFingerprint } from "./checklist-fingerprint";
 import { isPhotoMissing, PHOTO_MISSING, reportOrPhotoMissing } from "./handover-report";
 import { signatureColumns } from "./phone-signature";
@@ -196,8 +203,7 @@ async function emailReturnReport(
     documentId: report.documentId,
     kind: "return_report",
     operatorId: actor.operatorId,
-    renterEmail: view.renterEmail,
-    renterName: view.renterFullName,
+    ...checklistCopyParties(view),
     rentalSummary: rentalSummaryText({
       carRego: view.carRego,
       carMakeModel: view.carMakeModel,
@@ -254,7 +260,9 @@ export async function completeReturn(
     return refusal ?? { status: "not_found" };
   }
   const signature =
-    input.signature === null ? null : readRenterSignature(input.signature, view.renterFullName);
+    input.signature === null
+      ? null
+      : readRenterSignature(input.signature, signerNameOf(view) ?? "");
   if (input.signature !== null && !signature) {
     return { status: "no_signature" };
   }
@@ -264,8 +272,9 @@ export async function completeReturn(
         ...facts,
         odometerKm: view.odometerKm ?? 0,
         fuelLevel: view.fuelLevel ?? "empty",
+        forBusiness: businessAcceptanceOf(view),
       })
-    : renterAbsentText(facts);
+    : renterAbsentText({ ...facts, isBusinessDriver: view.renterKind === "organisation" });
   const atText = formatDateTimeInTimeZone(input.returnedAt, clock.timeZone);
   const pdf = await reportOrPhotoMissing(() =>
     renderReturnReport(deps, actor.operatorId, view, {

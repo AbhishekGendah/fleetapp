@@ -1,4 +1,9 @@
-import { acceptanceSentence, formatKilometres, FUEL_LEVEL_LABELS } from "@fleetapp/core";
+import {
+  acceptanceSentence,
+  formatKilometres,
+  FUEL_LEVEL_LABELS,
+  type BusinessAcceptance,
+} from "@fleetapp/core";
 
 import { DetailLines } from "../../../../components/detail-lines";
 import type { ShownChecklist } from "../../../../lib/handover/checklist-fingerprint";
@@ -14,6 +19,8 @@ export function AcceptanceSummary(props: {
   verb: "received" | "returned";
   atText: string;
   shown: ShownChecklist;
+  /** A business's car: its driver accepts it for the business (rule 15). */
+  forBusiness?: BusinessAcceptance;
 }) {
   return (
     <div className="bg-muted flex flex-col gap-3 rounded-md p-3 text-sm">
@@ -30,6 +37,7 @@ export function AcceptanceSummary(props: {
           atText: props.atText,
           odometerKm: props.shown.odometerKm,
           fuelLevel: props.shown.fuelLevel,
+          forBusiness: props.forBusiness,
         })}
       </blockquote>
     </div>

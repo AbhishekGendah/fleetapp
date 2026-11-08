@@ -7,7 +7,10 @@ import { redirect } from "next/navigation";
 
 import { AppShell } from "../../../../app-shell";
 import { appDb } from "../../../../../lib/app-db";
-import { loadCompletedHandover } from "../../../../../lib/handover/handover-queries";
+import {
+  checklistPartyWords,
+  loadCompletedHandover,
+} from "../../../../../lib/handover/handover-queries";
 import { rentalPath, rentalSwapPath } from "../../../../../lib/paths";
 import { checklistData } from "../../handover/checklist-page-data";
 import { HandoverChecklist } from "../../handover/handover-checklist";
@@ -39,7 +42,7 @@ export default async function SwapOldCarPage(props: { params: Promise<{ rentalId
         title={`Swap, 1 of 2: ${view.carRego} back`}
       />
       <p className="text-muted-foreground mb-6 text-sm">
-        {view.renterFullName} hands back {view.carRego} ({swap.reason}). Each step shows the
+        {checklistPartyWords(view)} hands back {view.carRego} ({swap.reason}). Each step shows the
         handover beside it. Everything is kept on this phone as you go.
       </p>
       <OfflineReady>

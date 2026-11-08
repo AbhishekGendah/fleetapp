@@ -12,7 +12,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { isPrintableImageType, loadPdfBranding, loadPdfImage } from "../contracts/contract-pdf";
 import { renderDocumentPdf, type PdfPhoto } from "../contracts/document-pdf";
 import type { FileDependencies } from "../files/stored-files";
-import type { ChecklistPhoto, HandoverView } from "./handover-queries";
+import { businessAcceptanceOf, type ChecklistPhoto, type HandoverView } from "./handover-queries";
 import { phoneSignature } from "./phone-signature";
 
 export const HANDOVER_REPORT_TITLE = "Handover report";
@@ -34,6 +34,28 @@ export const line = (label: string, value: string): TemplateBlock => ({
   ],
 });
 
+/** Who the report is for: the Renter, and for a business the driver who signs for the car (rule 15). */
+export function partyLines(
+  view: Pick<HandoverView, "renterKind" | "renterFullName" | "driverFullName">,
+): TemplateBlock[] {
+  const isBusiness = view.renterKind === "organisation";
+  return [
+    line(isBusiness ? "Renter (business)" : "Renter", view.renterFullName),
+    ...(isBusiness && view.driverFullName ? [line("Driver", view.driverFullName)] : []),
+  ];
+}
+
+/** "Accepted by Sam Lee", or for a business's car, "Accepted by Sam Lee for Acme Rideshare Pty Ltd". */
+export function signedByText(
+  verb: "Accepted" | "Signed",
+  view: Pick<HandoverView, "renterKind" | "renterFullName" | "driverFullName">,
+): string {
+  const business = businessAcceptanceOf(view);
+  return business
+    ? `${verb} by ${business.driverName} for ${business.businessName}`
+    : `${verb} by ${view.renterFullName}`;
+}
+
 /** The report's text: who, which car, its condition, the damage already on it, and the words accepted. */
 function reportDocument(
   view: HandoverView,
@@ -47,7 +69,7 @@ function reportDocument(
     type: "doc",
     content: [
       heading(1, HANDOVER_REPORT_TITLE),
-      line("Renter", view.renterFullName),
+      ...partyLines(view),
       line("Car", `${view.carRego} · ${view.carMakeModel}`),
       line("Handed over", accepted.atText),
       heading(2, "Condition"),
@@ -198,10 +220,6 @@ export async function renderHandoverReport(
     title: `${HANDOVER_REPORT_TITLE} ${view.carRego}`,
     document: reportDocument(view, accepted),
     photos: { heading: "Photos at handover", photos },
-    signature: phoneSignature(
-      accepted.signature,
-      `Accepted by ${view.renterFullName}`,
-      accepted.atText,
-    ),
+    signature: phoneSignature(accepted.signature, signedByText("Accepted", view), accepted.atText),
   });
 }

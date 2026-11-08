@@ -5,7 +5,11 @@ import { redirect } from "next/navigation";
 
 import { AppShell } from "../../../app-shell";
 import { appDb } from "../../../../lib/app-db";
-import { loadCompletedHandover } from "../../../../lib/handover/handover-queries";
+import {
+  checklistPartyWords,
+  checklistSigner,
+  loadCompletedHandover,
+} from "../../../../lib/handover/handover-queries";
 import { initialReturnValues } from "../../../../lib/handover/return-input";
 import { rentalPath } from "../../../../lib/paths";
 import { checklistData } from "../handover/checklist-page-data";
@@ -45,8 +49,8 @@ export default async function ReturnPage(props: { params: Promise<{ rentalId: st
         title={`Return: ${view.carRego}`}
       />
       <p className="text-muted-foreground mb-6 text-sm">
-        From {view.renterFullName}. Each step shows the handover beside it. Everything is kept on
-        this phone as you go, and sent when there is signal.
+        From {checklistPartyWords(view)}. Each step shows the handover beside it. Everything is kept
+        on this phone as you go, and sent when there is signal.
       </p>
       <NoBusinessEmailWarning user={user} />
       <OfflineReady>
@@ -61,7 +65,7 @@ export default async function ReturnPage(props: { params: Promise<{ rentalId: st
               <LazyReturnForm
                 rentalId={rentalId}
                 inspectionId={view.inspectionId}
-                renterName={view.renterFullName}
+                {...checklistSigner(view)}
                 privacyLine={<RenterPrivacyLine business={business} />}
                 summary={`${view.carRego} · ${view.carMakeModel}`}
                 timeZone={user.operatorTimezone}

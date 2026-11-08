@@ -55,14 +55,18 @@ import {
   HANDOVER_REPORT_TITLE,
   renderHandoverReport,
   reportOrPhotoMissing,
+  signedByText,
 } from "./handover-report";
 import { phoneSignature, signatureColumns } from "./phone-signature";
 import { endPossession, startPossession } from "./possession-records";
 import { lockOpenInspection } from "./handover-records";
 import {
+  businessAcceptanceOf,
+  checklistCopyParties,
   loadCompletedHandover,
   loadHandover,
   loadReturn,
+  signerNameOf,
   type HandoverView,
 } from "./handover-queries";
 import { RETURN_REPORT_TITLE, renderReturnReport } from "./return-report";
@@ -286,11 +290,7 @@ async function renderSwapForm(
     ...(await loadPdfBranding(deps, operatorId)),
     title: `${SWAP_FORM_TITLE} ${views.new.carRego}`,
     document: form.document,
-    signature: phoneSignature(
-      moment.signature,
-      `Signed by ${views.new.renterFullName}`,
-      moment.atText,
-    ),
+    signature: phoneSignature(moment.signature, signedByText("Signed", views.new), moment.atText),
   });
   return { status: "ready" as const, pdf, templateVersionId: form.templateVersionId };
 }
@@ -326,6 +326,8 @@ async function renderSwapDocuments(
     timeZone: moment.timeZone,
     odometerKm: view.odometerKm ?? 0,
     fuelLevel: view.fuelLevel ?? "empty",
+    // The driver can't change during a swap: the same one hands back and receives.
+    forBusiness: businessAcceptanceOf(view),
   });
   const acceptance = {
     old: returnAcceptanceText(facts(views.old)),
@@ -626,8 +628,7 @@ async function emailSwapCopies(
 ): Promise<void> {
   const shared = {
     operatorId,
-    renterEmail: views.new.renterEmail,
-    renterName: views.new.renterFullName,
+    ...checklistCopyParties(views.new),
     atText: done.atText,
   };
   const summaryOf = (view: HandoverView) =>
@@ -684,7 +685,8 @@ export async function completeSwap(
   if (refusal) {
     return refusal;
   }
-  const signature = readRenterSignature(input.signature, views.new.renterFullName);
+  // The driver signs a business's swap (rule 15); for a person, the Renter.
+  const signature = readRenterSignature(input.signature, signerNameOf(views.new) ?? "");
   if (!signature) {
     return { status: "no_signature" };
   }

@@ -7,6 +7,7 @@ import {
   repeatedTimeMoments,
   REPEATED_TIME_CHOICES,
   type RepeatedTimeChoice,
+  type BusinessAcceptance,
 } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
 import { Checkbox } from "@fleetapp/ui/checkbox";
@@ -90,6 +91,8 @@ export function ReturnForm(props: {
   /** The rental's settings want the Renter's signature: "not here" is not offered. */
   isSignatureRequired: boolean;
   shown: ShownChecklist;
+  /** A business's car: its driver hands it back for the business. */
+  forBusiness?: BusinessAcceptance;
 }) {
   const complete = useMemo(
     () => completeReturnAction.bind(null, props.rentalId, props.inspectionId),
@@ -160,6 +163,7 @@ export function ReturnForm(props: {
             verb="returned"
             atText={AT_RETURN_TIME_WORDS}
             shown={props.shown}
+            forBusiness={props.forBusiness}
           />
           <RenterSignatureFields
             id="renter-signature"
@@ -170,7 +174,8 @@ export function ReturnForm(props: {
         </>
       ) : (
         <p className="bg-muted rounded-md p-3 text-sm">
-          The report will say the Renter was not here, and that you recorded the return.
+          The report will say the {props.forBusiness ? "driver" : "Renter"} was not here, and that
+          you recorded the return.
         </p>
       )}
       <input type="hidden" name="checklistFingerprint" value={props.shown.fingerprint} />

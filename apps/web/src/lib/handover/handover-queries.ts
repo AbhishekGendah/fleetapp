@@ -1,5 +1,8 @@
 import {
   handoverGaps,
+  renterShownName,
+  type BusinessAcceptance,
+  type RenterKind,
   type FuelLevel,
   type HandoverGap,
   type InspectionKind,
@@ -21,6 +24,14 @@ import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm
 import { rentalHandoverPath, rentalReturnPath, rentalSwapPath } from "../paths";
 import { latestKilometres } from "../vehicles/odometer";
 import { latestHandoverOf } from "./handover-records";
+
+/** One of the rental's driver's columns (the Renter for a person); none while a business's is to be named. */
+function driverColumn(column: "full_name" | "email") {
+  return sql<string | null>`(
+    select "driver".${sql.identifier(column)} from "renters" "driver"
+    where "driver"."id" = "rentals"."driver_id" and "driver"."operator_id" = "rentals"."operator_id"
+  )`;
+}
 
 /** A photo on the checklist, and its small copy for showing it. */
 export interface ChecklistPhoto {
@@ -49,8 +60,17 @@ export interface HandoverView {
   renterId: string;
   /** Who has the car and signs for it (rule 15); none while a business's driver is still to be named. */
   driverId: string | null;
+  /** The Renter's full name, or a business's legal name. */
   renterFullName: string;
   renterEmail: string | null;
+  renterKind: RenterKind;
+  /** What the business is called, for a business Renter: its trading name, else its legal name. */
+  renterShownName: string;
+  /** Who greets an email to the Renter: a business's contact, else the Renter. */
+  renterGreetingName: string;
+  /** The driver's full name: the Renter's own for a person; none while a business's is to be named. */
+  driverFullName: string | null;
+  driverEmail: string | null;
   carRego: string;
   carMakeModel: string;
   bondCents: number;
@@ -213,6 +233,11 @@ async function loadChecklist(
         settingsSnapshot: rentals.settingsSnapshot,
         renterFullName: renters.fullName,
         renterEmail: renters.email,
+        renterKind: renters.kind,
+        renterTradingName: renters.tradingName,
+        renterContactName: renters.contactName,
+        driverFullName: driverColumn("full_name"),
+        driverEmail: driverColumn("email"),
         carRego: vehicles.rego,
         make: vehicles.make,
         model: vehicles.model,
@@ -254,6 +279,16 @@ async function loadChecklist(
       driverId: row.driverId,
       renterFullName: row.renterFullName,
       renterEmail: row.renterEmail,
+      renterKind: row.renterKind,
+      renterShownName: renterShownName({
+        kind: row.renterKind,
+        fullName: row.renterFullName,
+        preferredName: null,
+        tradingName: row.renterTradingName,
+      }),
+      renterGreetingName: row.renterContactName ?? row.renterFullName,
+      driverFullName: row.driverFullName,
+      driverEmail: row.driverEmail,
       carRego: row.carRego,
       carMakeModel: `${row.make} ${row.model}`,
       bondCents: row.bondCents,
@@ -371,4 +406,65 @@ export async function loadCompletedHandover(
       .limit(1),
   );
   return handover ? loadHandover(database, operatorId, handover.id) : null;
+}
+
+/**
+ * Who signs for the car on the Operator's phone (rule 15): the Renter for a
+ * person; for a business, its named driver (none while still to be named).
+ * A typed signature is checked against this name.
+ */
+export function signerNameOf(
+  view: Pick<HandoverView, "renterKind" | "renterFullName" | "driverFullName">,
+): string | null {
+  return view.renterKind === "organisation" ? view.driverFullName : view.renterFullName;
+}
+
+/** The words a business's driver accepts the car with; none for a person's own rental. */
+export function businessAcceptanceOf(
+  view: Pick<HandoverView, "renterKind" | "renterFullName" | "driverFullName">,
+): BusinessAcceptance | undefined {
+  return view.renterKind === "organisation" && view.driverFullName
+    ? { driverName: view.driverFullName, businessName: view.renterFullName }
+    : undefined;
+}
+
+/**
+ * Who a checklist's emailed copies go to and greet (rule 15): the Renter's
+ * email (a business's contact), greeted by name, and for a business's car
+ * the driver who signed and the business they have it for.
+ */
+export function checklistCopyParties(
+  view: Pick<
+    HandoverView,
+    "renterKind" | "renterFullName" | "driverFullName" | "renterEmail" | "renterGreetingName"
+  >,
+): { renterEmail: string | null; renterName: string; forBusiness?: BusinessAcceptance } {
+  const forBusiness = businessAcceptanceOf(view);
+  return {
+    renterEmail: view.renterEmail,
+    renterName: view.renterGreetingName,
+    ...(forBusiness ? { forBusiness } : {}),
+  };
+}
+
+/** Who a checklist is with, in words: "Sam Example", or "Acme Rides, driver Sam Lee". */
+export function checklistPartyWords(
+  view: Pick<HandoverView, "renterKind" | "renterFullName" | "renterShownName" | "driverFullName">,
+): string {
+  if (view.renterKind !== "organisation") {
+    return view.renterFullName;
+  }
+  return `${view.renterShownName}, ${view.driverFullName ? `driver ${view.driverFullName}` : "driver to be named"}`;
+}
+
+/** What a checklist page's signing step needs: who signs, and for a business, for whom. */
+export function checklistSigner(view: HandoverView): {
+  renterName: string;
+  forBusiness?: BusinessAcceptance;
+} {
+  const forBusiness = businessAcceptanceOf(view);
+  return {
+    renterName: signerNameOf(view) ?? view.renterFullName,
+    ...(forBusiness ? { forBusiness } : {}),
+  };
 }

@@ -41,7 +41,13 @@ import { checklistRefusal, FinishedAlreadyError, issueChecklistReport } from "./
 import { checklistFingerprint } from "./checklist-fingerprint";
 import { lockOpenInspection } from "./handover-records";
 import { startPossession } from "./possession-records";
-import { loadHandover, type HandoverView } from "./handover-queries";
+import {
+  businessAcceptanceOf,
+  checklistCopyParties,
+  loadHandover,
+  signerNameOf,
+  type HandoverView,
+} from "./handover-queries";
 import {
   firstReasonMissing,
   overrideLogFlags,
@@ -72,7 +78,7 @@ export interface CompleteHandoverInput extends OverrideReasons {
 export type CompleteHandoverResult =
   | { status: "completed"; documentId: string }
   | { status: "gaps"; gaps: HandoverGap[] }
-  | { status: "blocked"; problems: BookingProblem[] }
+  | { status: "blocked"; problems: BookingProblem[]; isBusinessRental: boolean }
   | { status: "bond_short"; owingCents: number; onItsWayCents: number }
   | { status: "direct_debit_missing" }
   | { status: "reason_needed"; problem: "no_insurance" | "no_rego" }
@@ -172,7 +178,11 @@ async function checkAcceptance(
   }
   const blocking = handoverBlockers(problems);
   if (blocking.length > 0) {
-    return { status: "blocked", problems: blocking };
+    return {
+      status: "blocked",
+      problems: blocking,
+      isBusinessRental: view.renterKind === "organisation",
+    };
   }
   const clash = await findEarlyClash(deps, operatorId, view, clock.now);
   if (clash) {
@@ -500,7 +510,8 @@ export async function completeHandover(
   if (checked.status !== "accepted") {
     return checked;
   }
-  const signature = readRenterSignature(input.signature, view.renterFullName);
+  // The driver signs for a business's car (rule 15); for a person, the Renter.
+  const signature = readRenterSignature(input.signature, signerNameOf(view) ?? "");
   if (!signature) {
     return { status: "no_signature" };
   }
@@ -511,6 +522,7 @@ export async function completeHandover(
     timeZone: clock.timeZone,
     odometerKm: view.odometerKm ?? 0,
     fuelLevel: view.fuelLevel ?? "empty",
+    forBusiness: businessAcceptanceOf(view),
   });
   const pdf = await reportOrPhotoMissing(() =>
     renderHandoverReport(deps, actor.operatorId, view, { atText, acceptanceText, signature }),
@@ -539,8 +551,7 @@ export async function completeHandover(
     documentId: issued.documentId,
     kind: "handover_report",
     operatorId: actor.operatorId,
-    renterEmail: view.renterEmail,
-    renterName: view.renterFullName,
+    ...checklistCopyParties(view),
     rentalSummary,
     atText,
     fileName: `${HANDOVER_REPORT_TITLE} ${view.carRego}.pdf`,

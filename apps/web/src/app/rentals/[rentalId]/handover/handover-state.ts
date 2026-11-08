@@ -52,7 +52,9 @@ export function completionMessage(
     case "gaps":
       return gapsMessage(result.gaps);
     case "blocked":
-      return result.problems.map(bookingProblemMessage).join(" ");
+      return result.problems
+        .map((problem) => bookingProblemMessage(problem, result.isBusinessRental))
+        .join(" ");
     case "bond_short":
       return [
         `The bond is ${formatCents(result.owingCents)} short.`,

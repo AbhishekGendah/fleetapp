@@ -1,6 +1,6 @@
 "use client";
 
-import { AT_SIGNING_WORDS } from "@fleetapp/core";
+import { AT_SIGNING_WORDS, type BusinessAcceptance } from "@fleetapp/core";
 import { FormField } from "@fleetapp/ui/form-field";
 import { Input, RequiredFieldsNote } from "@fleetapp/ui/input";
 import { useActionState, useMemo, useState } from "react";
@@ -69,6 +69,8 @@ export function AcceptanceForm(props: {
   summary: string;
   shown: ShownChecklist;
   overrides: readonly OverrideAsked[];
+  /** A business's car: its driver signs for it, for the business. */
+  forBusiness?: BusinessAcceptance;
 }) {
   const complete = useMemo(
     () => completeHandoverAction.bind(null, props.rentalId, props.inspectionId),
@@ -114,6 +116,7 @@ export function AcceptanceForm(props: {
         verb="received"
         atText={AT_SIGNING_WORDS}
         shown={props.shown}
+        forBusiness={props.forBusiness}
       />
       <input type="hidden" name="checklistFingerprint" value={props.shown.fingerprint} />
       {props.overrides.map((override) => (
@@ -133,7 +136,9 @@ export function AcceptanceForm(props: {
         privacyLine={props.privacyLine}
         problem={problem ?? (state.status === "problem" ? state.message : null)}
         isPending={isPending}
-        submitLabel="The Renter accepts the car"
+        submitLabel={
+          props.forBusiness ? "The driver accepts the car" : "The Renter accepts the car"
+        }
         pendingLabel="Handing over…"
       />
     </form>

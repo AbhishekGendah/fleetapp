@@ -10,7 +10,11 @@ import {
   isOverridableProblem,
   OVERRIDE_REASON_FIELDS,
 } from "../../../../lib/handover/override-reasons";
-import type { HandoverView } from "../../../../lib/handover/handover-queries";
+import {
+  checklistPartyWords,
+  checklistSigner,
+  type HandoverView,
+} from "../../../../lib/handover/handover-queries";
 import { canHearRenterPayments } from "../../../../lib/payments/app-payments";
 import { rentalPath } from "../../../../lib/paths";
 import { loadRentalProblems } from "../../../../lib/rentals/booking-checks";
@@ -18,6 +22,7 @@ import type { BookingClash } from "../../../../lib/rentals/car-holds";
 import {
   bookingClashMessage,
   bookingProblemMessage,
+  RENTAL_PARTY_MISSING_MESSAGES,
 } from "../../../../lib/rentals/rental-messages";
 import { findEarlyClash } from "../../../../lib/handover/complete-handover";
 import type { SignedInUser } from "../../../../lib/require-user";
@@ -44,11 +49,6 @@ const UNSIGNED_MESSAGE =
 function earlyClashMessage(clash: BookingClash, timeZone: string): string {
   return `${bookingClashMessage(clash, timeZone).replace(" Choose other dates or another car.", "")} Hand it over at this rental's booked time, or move that booking.`;
 }
-
-const ARCHIVED_MESSAGES = {
-  car_not_found: "The car has been archived. Restore it, or cancel this rental.",
-  renter_not_found: "The Renter has been archived. Restore them, or cancel this rental.",
-} as const;
 
 /** The question the business answers to let the car go without this check. */
 function overrideQuestion(
@@ -87,8 +87,10 @@ async function acceptanceChecks(user: SignedInUser, view: HandoverView) {
   ]);
   const found = typeof problems === "string" ? [] : problems;
   const blockers = [
-    ...(typeof problems === "string" ? [ARCHIVED_MESSAGES[problems]] : []),
-    ...handoverBlockers(found).map(bookingProblemMessage),
+    ...(typeof problems === "string" ? [RENTAL_PARTY_MISSING_MESSAGES[problems]] : []),
+    ...handoverBlockers(found).map((problem) =>
+      bookingProblemMessage(problem, view.renterKind === "organisation"),
+    ),
     ...(earlyClash ? [earlyClashMessage(earlyClash, user.operatorTimezone)] : []),
   ];
   const overrides: OverrideAsked[] = found.filter(isOverridableProblem).map((problem) => ({
@@ -119,8 +121,8 @@ export default async function HandoverPage(props: { params: Promise<{ rentalId: 
         title={`Handover: ${view.carRego}`}
       />
       <p className="text-muted-foreground mb-6 text-sm">
-        For {view.renterFullName}. Everything is kept on this phone as you go, and sent when there
-        is signal.
+        For {checklistPartyWords(view)}. Everything is kept on this phone as you go, and sent when
+        there is signal.
       </p>
       <NoBusinessEmailWarning user={user} />
       <OfflineReady>
@@ -129,13 +131,16 @@ export default async function HandoverPage(props: { params: Promise<{ rentalId: 
           lastKilometres={view.lastKilometres}
           damageTitle="Damage already on the car"
           finalStep={{
-            title: "The Renter accepts the car",
+            title:
+              view.renterKind === "organisation"
+                ? "The driver accepts the car"
+                : "The Renter accepts the car",
             // Shown only once the details are saved: the checklist's gaps say so until then.
             form: shown ? (
               <AcceptanceForm
                 rentalId={view.rentalId}
                 inspectionId={view.inspectionId}
-                renterName={view.renterFullName}
+                {...checklistSigner(view)}
                 privacyLine={<RenterPrivacyLine business={business} />}
                 summary={`${view.carRego} · ${view.carMakeModel}`}
                 shown={shown}

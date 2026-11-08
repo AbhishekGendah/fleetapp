@@ -1,4 +1,4 @@
-import type { HandoverView } from "../../../../lib/handover/handover-queries";
+import { signerNameOf, type HandoverView } from "../../../../lib/handover/handover-queries";
 import {
   HANDOVER_DETAIL_FIELDS,
   type HandoverDetailField,
@@ -41,7 +41,7 @@ export function checklistData(
     rentalId: view.rentalId,
     inspectionId: view.inspectionId,
     carLabel: `${view.carRego} · ${view.carMakeModel}`,
-    renterName: view.renterFullName,
+    renterName: signerNameOf(view) ?? view.renterFullName,
     photoNames: view.photoNames,
     photos: Object.fromEntries(
       [...view.photos].map(([name, photo]) => [name, savedPhoto(view.vehicleId, photo)]),

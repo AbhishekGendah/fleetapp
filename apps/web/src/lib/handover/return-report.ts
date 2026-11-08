@@ -17,7 +17,9 @@ import {
   heading,
   line,
   paragraph,
+  partyLines,
   printablePhotos,
+  signedByText,
   type WantedPhoto,
 } from "./handover-report";
 
@@ -53,7 +55,7 @@ function returnDocument(view: HandoverView, facts: ReturnReportFacts): TemplateD
     type: "doc",
     content: [
       heading(1, RETURN_REPORT_TITLE),
-      line("Renter", view.renterFullName),
+      ...partyLines(view),
       line("Car", `${view.carRego} · ${view.carMakeModel}`),
       line("Returned", facts.returnedAtText),
       heading(2, "Condition"),
@@ -108,7 +110,7 @@ export async function renderReturnReport(
     document: returnDocument(view, facts),
     photos: { heading: "Photos at handover and return", photos },
     signature: facts.signature
-      ? phoneSignature(facts.signature, `Accepted by ${view.renterFullName}`, facts.signedAtText)
+      ? phoneSignature(facts.signature, signedByText("Accepted", view), facts.signedAtText)
       : undefined,
   });
 }

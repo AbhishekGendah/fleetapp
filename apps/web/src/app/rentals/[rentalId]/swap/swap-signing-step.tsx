@@ -1,4 +1,4 @@
-import { AT_SIGNING_WORDS } from "@fleetapp/core";
+import { AT_SIGNING_WORDS, type BusinessAcceptance } from "@fleetapp/core";
 import { ContractReader } from "@fleetapp/ui/contract-reader";
 
 import {
@@ -25,6 +25,8 @@ export function SwapSigningStep(props: {
   privacyLine: React.ReactNode;
   oldCar: string;
   newCar: string;
+  /** A business's car: its driver signs the swap, for the business. */
+  forBusiness?: BusinessAcceptance;
 }) {
   const { signing } = props;
   if (!signing) {
@@ -60,12 +62,14 @@ export function SwapSigningStep(props: {
         verb="returned"
         atText={AT_SIGNING_WORDS}
         shown={returned}
+        forBusiness={props.forBusiness}
       />
       <AcceptanceSummary
         car={props.newCar}
         verb="received"
         atText={AT_SIGNING_WORDS}
         shown={handedOver}
+        forBusiness={props.forBusiness}
       />
       <LazySwapForm
         rentalId={props.rentalId}
@@ -74,6 +78,7 @@ export function SwapSigningStep(props: {
         renterName={props.renterName}
         privacyLine={props.privacyLine}
         oldCar={props.oldCar}
+        isForBusiness={props.forBusiness !== undefined}
         shown={{
           swapId: signing.swapId,
           returnFingerprint: checklistFingerprint(signing.returned),
