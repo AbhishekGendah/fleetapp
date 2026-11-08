@@ -39,8 +39,9 @@ the two meet on the car's page (see "Order with the condition photos plan").
 - The database rule that stops a car being booked twice (rule 18) stays the
   real guard. If someone books the car in the seconds between you looking and
   saving, you're told plainly and nothing is double-booked.
-- **Each car gets a "Showroom" tab** with its best photos: you put them in
-  order and star the main one (the one on its card). These are separate from
+- **Each car gets a "Showroom" tab** with its best photos: as many as you
+  like, no categories, each with an optional name you can change any time;
+  you put them in order and star the main one (the one on its card). These are separate from
   the pickup and return photos, which stay private (the other plan).
 - Later, the same page can become each business's online booking page for
   Renters. That is not built here, but everything is shaped so it can be.
@@ -88,10 +89,15 @@ Each has my recommendation and the main tradeoff. Say yes, or push back.
    Recommend: yes. Tradeoff: you add your best photos to the Showroom once;
    in return a pickup photo (which may show a Renter or someone's house) can
    never end up on a card or, later, a public page.
-8. **Up to 20 Showroom photos a car**, each kept sharper than the pickup
-   photos' small copies (so cards look crisp on a phone). Recommend: yes.
-   Tradeoff: about 0.5 MB stored per photo; in return cards look like a
-   dealer's.
+8. **No limit you'll see, no categories** (Abhi, 8 Nov): add whatever
+   photos you want (five of the front and one inside is fine). Each can have
+   an optional name ("Front", "Boot space") that you can change at any time;
+   it is also what a screen reader says for the photo. Behind the scenes a
+   quiet safety cap of 100 photos a car protects page speed and storage, and
+   is mentioned only if reached. Each photo's card copy is kept sharper than
+   a pickup photo's small copy, so cards look crisp on a phone. Recommend:
+   yes. Tradeoff: about 0.5 MB stored per photo (tracked per business, rule
+   23); in return cards look like a dealer's.
 9. **(Open proposal) A "Rideshare-ready" tick on each car**, set by you on
    the car's form, and a "Rideshare-ready only" filter. Recommend: yes, a
    tick you set, **not** guessed from the car's year or seats. Tradeoff: one
@@ -194,6 +200,12 @@ deployed, as every migration must be, progress.md "Open items"):
    - `files_inspection_photos` and `files_damage_record_photos` already allow
      only `vehicle_photo` on a checklist or damage record, so a Showroom
      photo can never be evidence, and evidence can never be a Showroom photo.
+3b. `files.caption text`, nullable: the photo's optional name (decision 8),
+   shared with condition photos (docs/plans/condition-photos.md; whichever
+   migration lands first adds it, the other only widens its check). Check:
+   1 to 80 characters (`MAXIMUM_PHOTO_CAPTION_LENGTH`), only on
+   `vehicle_photo` or `vehicle_showroom_photo`. `UPDATE (caption)` grant.
+   Renames are logged without the text (rule 7). Not the system `label`.
 4. Trigger `files_thumbnail_matches` (BEFORE INSERT): a
    `vehicle_showroom_thumbnail` must point at a `vehicle_showroom_photo` and a
    `vehicle_photo_thumbnail` at a `vehicle_photo`, of the same Operator and
@@ -212,9 +224,13 @@ deployed, as every migration must be, progress.md "Open items"):
 - `FILE_PURPOSE_RULES`: `vehicle_showroom_photo` general storage, JPEG/PNG
   (`PRINTABLE_PICTURE_TYPES`, so it can go on a PDF later), 5 MB, "a photo";
   `vehicle_showroom_thumbnail` general, JPEG/PNG, 1 MB.
-- `VEHICLE_FILE_PURPOSES` gains both. `MAXIMUM_SHOWROOM_PHOTOS = 20`
-  (decision 8), checked when the upload is asked for and again under the car
-  lock when it is confirmed (two phones at once can't make 21).
+- `VEHICLE_FILE_PURPOSES` gains both. `MAXIMUM_SHOWROOM_PHOTOS = 100`, a
+  quiet safety cap (decision 8: never shown unless reached), checked when the
+  upload is asked for and again under the car lock when it is confirmed (two
+  phones at once can't make 101). At 100 the tab says "This car already has
+  100 Showroom photos, the most it can hold." Why 100: the preview page lists
+  every photo (loading each small copy only as it scrolls into view); 100
+  keeps that list and the car's storage (about 50 MB) bounded.
 - `SHOWROOM_CARD_EDGE_PX = 800` next to `THUMBNAIL_EDGE_PX` in
   `packages/ui/src/lib/shrink-image.ts`. Why 800: a card is about 343 px wide
   on a 375 px phone, and phones show 2 to 3 screen dots per pixel; 400 px
@@ -375,11 +391,13 @@ own view adds a link to the clashing rental only in the not-free section.
 6. **Car page, Showroom tab** (new, second after Overview; the old Photos tab
    is renamed "Condition photos" by the other plan; an old `?tab=photos`
    opens Condition photos): the photos in order, the first with a "Main"
-   label and a filled star; per photo: Make main, Move earlier, Move later,
-   Remove (30 days to restore, as today). Add photos (`FilePicker`, several
+   label and a filled star; per photo: its name (tap to add or rename, any
+   time), Make main, Move earlier, Move later, Remove (30 days to restore, as
+   today). No slots or categories. Add photos (`FilePicker`, several
    at once, or the camera), each shrunk on the device to 1600 px plus an
    800 px card copy. Hint: "Your best photos of this car, for Find a car.
-   Keep people, other cars' plates and homes out of them." Up to 20.
+   Keep people, other cars' plates and homes out of them." No limit is
+   shown.
    Reordering is by buttons, not dragging: they work with a keyboard, a
    screen reader and one thumb; a drag library (dnd-kit) is not added unless
    Abhi asks for dragging (rule 32: nothing is rebuilt; the buttons are the
@@ -404,8 +422,8 @@ format fits: it searches several fields).
   above it, 44 px.
 - Status words in the not-free section differ in lightness, not only colour
   (rule 34). Contrast of text over photos avoided: no text on the photo.
-- Alt text for Showroom photos: "1ABC234, photo 2 of 6" (they have no
-  captions; an optional caption is not asked for).
+- Alt text for Showroom photos: the photo's name with the rego ("Boot
+  space, 1ABC234, photo 2 of 6"), or "1ABC234, photo 2 of 6" when unnamed.
 
 ### Download size (rule 33)
 
@@ -465,7 +483,7 @@ format fits: it searches several fields).
 - **Tenant isolation**: Operator A's search never lists B's cars or counts
   B's holds; A can't open B's car in the preview or B's Showroom photo; A
   can't reorder B's photos.
-- **Concurrency**: two confirms of the 20th and 21st Showroom photo at once
+- **Concurrency**: two confirms of the 100th and 101st Showroom photo at once
   (one refused); two reorders at once end with positions 1..n.
 - **Performance**: 500 cars, 5,000 holds: the search stays under a set time
   in the test database (the number recorded in the commit).
@@ -529,8 +547,8 @@ order.
 
 ### Test sheet rows (numbered when built, from the next free O- number)
 
-New: Showroom tab (add, star main, move, remove, restore, 20 limit, people
-hint); car Overview "for Find a car" line; rideshare tick on the car form and
+New: Showroom tab (add any number, name and rename, star main, move,
+remove, restore, cap message only at 100, people hint); car Overview "for Find a car" line; rideshare tick on the car form and
 its filter (if approved); Find a car step 1 (dates, Ongoing, body type,
 budget, "I know which car"); results list (cards, photo flip, details line,
 price incl. short hire); each filter and its counts; Filters sheet on a
@@ -569,7 +587,9 @@ Calendar free spot, "New rental for Sam" on a Renter's page. No admin rows.
   small copies match their photo's kind, and decision 7 (existing photos stay
   private).
 - **Main photo vs order**: one source of truth (position 1).
-- **21 photos by two phones**: counted under the car lock at confirm.
+- **101 photos by two phones**: counted under the car lock at confirm.
+- **No visible limit**: the quiet cap of 100 keeps the preview page and
+  storage bounded; storage is tracked per Operator (rule 23).
 - **Tenancy**: every query scoped and in `withTenant`; address values only
   narrow the Operator's own cars; nothing about Renters in results that a
   public page could reuse.

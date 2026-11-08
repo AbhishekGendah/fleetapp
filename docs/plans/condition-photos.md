@@ -17,8 +17,10 @@ plan docs/plans/find-a-car.md adds the Showroom photos.
 - **No more named photo list.** Today Settings has a list of 8 photos
   (Front, Rear, Left side …) and the checklist won't let the Renter sign until
   every one is taken. Instead, each pickup, return and swap gets **one free
-  gallery**: take as many photos as you like (none up to 30), in any order,
-  and add a short note to any photo ("scratch by the fuel cap").
+  gallery**: take whatever photos you want (five of the front and one inside
+  is fine), in any order, with no list and no limit you'll ever notice. Any
+  photo can have a name ("Scratch by the fuel cap"), and you can rename it
+  whenever you like.
 - **Settings becomes one choice**: photos at pickup, return and swap are
   **Optional** (the default for new businesses) or **Required** (at least one
   photo before the Renter can sign).
@@ -37,7 +39,7 @@ plan docs/plans/find-a-car.md adds the Showroom photos.
   signal, as today. New: the Renter can't sign while photos are still waiting
   on the phone, so none can be left out of the report by accident.
 - **What the Renter signs is still exactly what the report shows**: every
-  photo in the gallery when they sign is in the PDF, in order, with its note.
+  photo in the gallery when they sign is in the PDF, in order, with its name.
   If a photo can't be put in the report, nothing is signed (as today).
 
 ### Decisions you need to make
@@ -56,18 +58,29 @@ Each has my recommendation and the main tradeoff. Say yes, or push back.
    wants Optional changes it in Settings; in return nobody's checklist gets
    less strict without them choosing it. (On the dev site these are test
    businesses only.)
-3. **Up to 30 photos per checklist.** Recommend: yes. Tradeoff: a very
-   thorough pickup is capped; in return the report stays a sensible size (a
-   return report holds the pickup and return photos, about 2.5 MB at most)
-   and quick to make on the spot.
-4. **A photo's note is printed under it in the report**, up to 200
-   characters. Recommend: yes. Tradeoff: notes become part of the signed
-   record, so they can't be changed after signing; in return the Renter signs
-   to the note as well as the photo.
-5. **The return report shows the pickup photos, then the return photos**
-   (one after the other, no longer in matching pairs). Recommend: yes, as
-   today the report shows both. Tradeoff: a longer PDF; in return one
-   document shows the car at both ends.
+3. **No limit you'll see** (Abhi, 8 Nov). Behind the scenes there is a quiet
+   safety cap of 100 photos per pickup, return or swap album, there only to
+   protect page speed, the report's size and storage; nothing mentions it
+   unless it is reached ("This pickup already has 100 photos, the most one
+   can hold"). Recommend: yes. Tradeoff: none in practice; in return a
+   mistake (a phone sending one photo over and over) can't fill a report or
+   your storage. Storage used is tracked per business as today (rule 23).
+4. **Photo names are optional and can be changed at any time.** A name given
+   before the Renter signs is printed under the photo in the report.
+   Renaming after signing changes the name in the app only: the signed report
+   keeps the name it was signed with (it can never change, rule 12), and the
+   rename is written to the Log. Recommend: yes. Tradeoff: the app and the
+   PDF can show different names for an old photo (the album says "In the
+   report as: Front"); in return you can tidy names later without touching
+   what the Renter signed.
+5. **The return report shows the return photos and names the pickup report**
+   (its date and its fingerprint code) instead of printing the pickup photos
+   again; the pickup photos are on screen beside the return's to compare.
+   Recommend: yes. Tradeoff: to see both ends on paper you open two PDFs; in
+   return a report always fits in an email (Postmark's limit is 10 MB per
+   message) however many photos were taken. Today's return report reprints
+   the pickup photos; with no visible limit, two albums of up to 100 each
+   could pass that size.
 6. **"Required" means at least one photo in the gallery**; photos of damage
    marks don't count towards it. Recommend: yes. Tradeoff: a car with only a
    damage photo still needs one general photo; in return "Required" always
@@ -184,10 +197,15 @@ new code goes live; progress.md "Open items").
    `photo_rule is null or photo_rule in ('optional', 'required')`;
    `status <> 'in_progress' or photo_rule is not null`. `photo_names` stays
    NOT NULL; new checklists store `'{}'`.
-2. `files.photo_note text`, nullable. Check `files_photo_note`: `photo_note
-   is null or (inspection_id is not null and damage_mark_id is null and
-   inspection_photo_name is null and char_length(photo_note) between 1 and
-   200)` (`MAXIMUM_PHOTO_NOTE_LENGTH`, decision 4).
+2. `files.caption text`, nullable: the photo's optional name (decision 4),
+   shared with Showroom photos (docs/plans/find-a-car.md; whichever migration
+   lands first adds it, the other only widens its check). Not the existing
+   `label` (the system's "1ABC234 2026-11-03 014", kept for downloads) and not
+   `inspection_photo_name` (the old named list). Check `files_caption`:
+   `caption is null or (char_length(caption) between 1 and 80 and purpose::text
+   in ('vehicle_photo', 'vehicle_showroom_photo') and damage_mark_id is null
+   and inspection_photo_name is null)` (`MAXIMUM_PHOTO_CAPTION_LENGTH = 80`).
+   An old named photo shows its `inspection_photo_name` until it is renamed.
 3. `files.client_key uuid`, nullable, set at insert only: the phone's own key
    for a gallery photo. Partial unique index `files_one_gallery_photo_per_key
    (operator_id, inspection_id, client_key) WHERE client_key IS NOT NULL AND
@@ -204,17 +222,17 @@ new code goes live; progress.md "Open items").
    still holds); the album shows "taken during the pickup on Tue 3 Nov, after
    it was signed" from the link. It is not `inspection_id`, so the finished
    checklist, its fingerprint and its report are untouched.
-5. Grants: `UPDATE (photo_note, sha256)` on `files` to `web_app_role`.
-   Nothing for the admin roles (notes may name people; rule 5).
+5. Grants: `UPDATE (caption, sha256)` on `files` to `web_app_role`.
+   Nothing for the admin roles (names may name people; rule 5).
 6. Trigger `keep_finished_inspection_photos` replaced (`CREATE OR REPLACE`,
-   starting from 0045's body): also refuses a change to `photo_note` or
-   `sha256` once the checklist is not in progress (completed **or**
-   cancelled), and `sha256` once set.
+   starting from 0045's body): also refuses any change to `sha256` once set.
+   `caption` stays changeable after finishing (decision 4): it is not part of
+   the signed record; the PDF is.
 7. Trigger on confirm (`BEFORE UPDATE OF confirmed_at` on `files`): a gallery
-   photo may not be confirmed when its checklist already has 30 confirmed
+   photo may not be confirmed when its checklist already has 100 confirmed
    gallery photos in use (`MAXIMUM_CONDITION_PHOTOS`, decision 3). The app
    confirm takes the checklist row `FOR UPDATE` (not `FOR SHARE`) for a
-   gallery photo, so two confirms of the 30th and 31st queue, and the count
+   gallery photo, so two confirms of the 100th and 101st queue, and the count
    is right.
 8. Trigger on finishing (`BEFORE UPDATE OF status` on `inspections`, when the
    new status is `completed` and `photo_rule = 'required'`): at least one
@@ -229,8 +247,8 @@ new code goes live; progress.md "Open items").
    Built in the migration's transaction (not concurrently): fine at today's
    size (dev only, production empty); a note goes in the migration.
 10. **Retirement** (new function body via `CREATE OR REPLACE`, starting from
-    0053's exactly, never editing 0053): also `photo_note = NULL` on the
-    cleared rentals' checklist photos (they are binned as before; the note is
+    0053's exactly, never editing 0053): also `caption = NULL` on the
+    cleared rentals' checklist photos (they are binned as before; the name is
     free text that may name the Renter).
 11. **Existing businesses' settings** (decision 2): for every Operator, insert
     the settings row if missing (version 0, as the app's first save does),
@@ -281,18 +299,17 @@ migration, then does a handover the old way.
 - Starting a checklist (`startChecklist`, `addSwapChecklist`): `photo_rule =
   conditionPhotoRuleOf(rental.settingsSnapshot)`, `photo_names = '{}'`.
   `handoverPhotoNames` goes.
-- **Gallery** on the phone (mockups (8 Nov)): "Photos (7 of 30)", a grid of
+- **Gallery** on the phone (mockups (8 Nov)): "Photos (7)" (no limit shown), a grid of
   small copies in the order taken; **Take photos** (the in-app camera, which
   stays open for several shots) and **Choose from phone** (several at once).
-  Each photo: its note (a short text box, opened with "Add note"), Remove,
+  Each photo: its name ("Add a name" or tap the name to rename), Remove,
   and a status (Saved / Waiting to send). A photo still waiting can be
   removed from the phone before it sends. Old named photos taken before the
-  change, in a checklist that was under way then, show with their name as the
-  note.
+  change, in a checklist that was under way then, show with their old name.
 - **Uploads**: the phone gives each photo a key (`crypto.randomUUID()`) when
   it is taken. `startChecklistPhotoUpload` gets a new target `{ galleryKey,
-  note }`: the server checks the checklist is in progress and the count is
-  under 30, then, inside the same transaction, finds an earlier row with that
+  caption }`: the server checks the checklist is in progress and the count is
+  under the quiet cap, then, inside the same transaction, finds an earlier row with that
   key: confirmed means "already saved" (the phone drops its copy), pending
   means the same file and a fresh upload permission. So a photo sent twice on
   patchy signal is kept once (the index is the last word).
@@ -300,8 +317,11 @@ migration, then does a handover the old way.
   moved), plus for gallery photos the checklist row `FOR UPDATE`, the count,
   and the SHA-256 of the whole stored photo (decision 9; about 400 KB read
   once, at confirm, never again).
-- **Notes**: edited while in progress (`UPDATE photo_note`, logged as "photo
-  note changed" without the text, rule 7: notes may name people). Never
+- **Names**: changed at any time, before or after signing (`UPDATE caption`,
+  logged as "photo renamed" without the text, rule 7: names may name people).
+  After signing the album shows "In the report as: …" when the name differs
+  from the one printed (read from the fingerprint record kept with the issued
+  report, below). Never
   written to logs or errors.
 - **Remove**: marks the photo and its small copy deleted (as a retake does
   today), logged; refused once finished (trigger). Restoring a photo removed
@@ -314,9 +334,9 @@ migration, then does a handover the old way.
 ### Offline (rule 25)
 
 - The queue gains three kinds, all keyed by the photo's key so every send is
-  safe to repeat: `photo` with target `{ galleryKey }` and its note; `note`
-  (`galleryKey`, the new note); `remove` (`galleryKey`). Oldest first, as
-  today; a `note` or `remove` for a photo still in the queue just changes or
+  safe to repeat: `photo` with target `{ galleryKey }` and its name; `rename`
+  (`galleryKey`, the new name); `remove` (`galleryKey`). Oldest first, as
+  today; a `rename` or `remove` for a photo still in the queue just changes or
   drops the queued photo on the phone.
 - Dexie: a version 2 with the same tables (the new kinds need no new index);
   version 1 entries stay readable.
@@ -328,29 +348,33 @@ migration, then does a handover the old way.
 - **Two phones**: if the report is signed on phone B while phone A still has
   photos waiting, A's photos are refused by the checklist (as today). Instead
   of dropping them silently, the server keeps them as "Other photos" of the
-  car (decision 10): a new upload target `{ lateFor: inspectionId }` that
-  records them with no `inspection_id` and a label "taken during the pickup on
-  Tue 3 Nov, after it was signed". Phone A says so in plain words.
-- Phone storage: 30 photos and small copies are about 13 MB on the phone;
+  car (decision 10): a new upload target `{ lateFor: inspectionId }`
+  (accepted only for a finished checklist of that Operator, and only with the
+  photo's key, so it is still kept once) that records them with
+  `late_for_inspection_id` and no `inspection_id`. Phone A says so in plain
+  words.
+- Phone storage: each photo waiting is about 0.45 MB on the phone (100 would
+  be about 45 MB, well within what browsers allow a site; if the phone refuses
+  to store one, the photo is not taken and the phone says so plainly);
   the existing wipe on finishing and after 7 days applies unchanged.
 
 ### Signed reports (rule 12)
 
 - **Fingerprint** (`checklistFingerprint`): gallery photos in order as
-  `[fileId, thumbnailFileId, note]`, plus the named photos as now (for a
-  checklist under way at the change) and damage marks. A note edited, a photo
+  `[fileId, thumbnailFileId, caption]`, plus the named photos as now (for a
+  checklist under way at the change) and damage marks. A photo renamed, a photo
   added or removed on another phone after the screen showed it, and the
   signing is refused as "changed" (existing message).
 - **What the Renter sees before signing** (`AcceptanceSummary`): adds
   "Photos: 12 (above)" so the count they sign to is on screen; the gallery
   is on the same page above it.
 - **Rendering**: "Photos at pickup (12)": each photo's small copy, captioned
-  "Photo 1", or "Photo 3: scratch by the fuel cap", or an old photo's name;
+  "Photo 1", or "Photo 3: Scratch by the fuel cap", or an old photo's name;
   then damage photos as now. None taken: "No photos were taken." (decision 7).
-- **Return report** (decision 5): "Photos at pickup (Tue 3 Nov)" from the
-  handover it compares with (`loadCompletedHandover`: the rental's own, or
-  the swap that brought this car), then "Photos at return", then new damage.
-  Old named handovers print with their names.
+- **Return report** (decision 5): a line "Condition at pickup: see the
+  handover report of Tue 3 Nov (fingerprint 4f2a9c1e…)" for the handover it
+  compares with (`loadCompletedHandover`: the rental's own, or the swap that
+  brought this car), then "Photos at return", then new damage.
 - **Fingerprints page**: after the signature, a short list "Photo 1 …
   4f2a9c1e" (the first 8 characters of each full-size photo's SHA-256; the
   full codes are on the file records). Photos from before decision 9 have
@@ -365,9 +389,13 @@ migration, then does a handover the old way.
      the Renter signs is in the PDF.
   3. *New*: a photo still waiting on the phone stops the signing on that
      phone (offline guard above).
-- Size: 400 px small copies are about 30 to 50 KB; two albums of 30 plus
-  damage photos are about 2.5 MB, well under the 10 MB limit for issued
-  documents. The time to make the PDF with 60 pictures is measured in a test
+- **Signed names kept**: when the report is issued, the list of photo ids and
+  the names printed is stored with it (in `issued_documents`' existing details,
+  or a small `report_photos` list if there is none: settled in slice 2), so the
+  album can say "In the report as: …" after a rename without opening the PDF.
+- Size: 400 px small copies are about 30 to 50 KB; an album at the quiet cap
+  of 100 is about 4 to 5 MB, under the 10 MB limit for issued documents and
+  for one email (decision 5 keeps the return report to one album). The time to make the PDF with 60 pictures is measured in a test
   and recorded in the commit; if it is too slow for the phone's wait, the
   small copies are fetched in parallel (they already are, `Promise.all`).
 
@@ -418,9 +446,10 @@ migration, then does a handover the old way.
   current treatment (not moved), noted for the lawyer's retention review.
 - Removed while under way: binned, purged 30 days later. Finished checklist
   photos can't be removed (evidence). Retirement bins them with the rental's
-  other records and blanks notes (Migration A step 10).
+  other records and blanks names (Migration A step 10).
 - Storage used per Operator: counted as today. More photos per checklist
-  means more storage (typical 10 photos is about 4.5 MB; the cap 13 MB).
+  means more storage (typical 10 photos is about 4.5 MB; the quiet cap about
+  45 MB per album).
 
 ### Tenancy and security
 
@@ -429,7 +458,7 @@ migration, then does a handover the old way.
   stop a photo pointing at another Operator's checklist.
 - The client key is only matched within the same Operator and checklist, so a
   guessed key can never reach another's photo.
-- Notes and photos never logged (rule 7); admin has no access to notes or
+- Names and photos never logged (rule 7); admin has no access to names or
   photos (rule 5).
 - No new session-less job; the Glacier job is unchanged in how it sets each
   Operator's context (rule 3).
@@ -442,26 +471,27 @@ migration, then does a handover the old way.
 - **Database**, on a database filled at the previous migration then migrated:
   old finished checklists have a null rule and are unchanged (row by row);
   in-progress ones are required; an insert the old way gets required; the
-  old code's named-photo handover still completes. Triggers: a note can't
-  change after finishing or cancelling; the 31st gallery photo is refused;
-  two confirms of the 30th and 31st at once (one refused); a required
+  old code's named-photo handover still completes. Triggers: `sha256` can't
+  change once set; a rename after finishing is allowed and logged; the 101st
+  gallery photo is refused; two confirms of the 100th and 101st at once (one
+  refused); a required
   checklist can't complete with no photo; one key, one photo. Settings: every
   Operator has `conditionPhotoRule = required`, versions bumped, logged;
   every unfinished old rental has its Log line.
-- **Signing**: fingerprint changes when a photo is added, removed or its note
+- **Signing**: fingerprint changes when a photo is added, removed or renamed
   edited on another phone (refused as changed); a photo that can't load stops
-  the report; the report lists every photo in order with notes and the "no
+  the report; the report lists every photo in order with names and the "no
   photos" line; old named checklists' reports are byte-for-byte unchanged
   (their PDFs are never remade, and their stored hashes still match).
-- **Offline**: a photo sent twice is kept once; queued note and remove
+- **Offline**: a photo sent twice is kept once; queued rename and remove
   repeat safely; signing is refused while the queue has photos; old
   `{photoName}` queue entries still send; late photos land in Other photos.
 - **Tenant isolation**: A can't list B's albums, send a photo to B's
-  checklist (by id or by key), or read B's notes.
-- **Retention**: retirement blanks notes; the Glacier job moves small copies
+  checklist (by id or by key), or read or rename B's photos.
+- **Retention**: retirement blanks names; the Glacier job moves small copies
   (fails before the fix, passes after).
 - **Browser** (`handover.e2e.ts`, `swap.e2e.ts`, `car-pages.e2e.ts`,
-  `rental-page.e2e.ts`): gallery take, note, remove; offline then back; sign
+  `rental-page.e2e.ts`): gallery take, name, rename, remove; offline then back; sign
   blocked while sending; compare at return; Settings choice; Condition photos
   albums; rental Photos tab; keyboard only, 375 px and computer, axe,
   budgets (the handover page's budget measured again; the gallery reuses the
@@ -481,7 +511,7 @@ migration, then does a handover the old way.
   later damage claim.
 - **Privacy (APPs 3, 6, 11)**: more photos can mean more people, other plates,
   homes or belongings caught. The gallery hint: "Photograph the car. Keep
-  people out of the photos." Notes are free text that may name people: never
+  people out of the photos." Names are free text that may name people: never
   logged, blanked at retirement, never seen by AGS staff. Kept in S3 Sydney
   (overseas table unchanged). Kept on the phone up to 7 days as today.
 - **Consumer law**: unchanged; the Renter still signs to the condition shown.
@@ -495,12 +525,12 @@ migration, then does a handover the old way.
 1. **Foundations, no visible change.** Migration A; `conditionPhotoRuleOf`;
    new checklists store their rule (required for every rental so far) but
    **still copy the named list and use today's screen**, so handovers keep
-   working until slice 2; retirement blanks notes. Deep review (snapshots,
+   working until slice 2; retirement blanks names. Deep review (snapshots,
    signing triggers, migration on a filled database), two checkers.
 2. **The free gallery.** Settings schema switch (`handoverPhotos` out,
    `conditionPhotoRule` in) and the Settings choice; new checklists store
    `photo_names = '{}'`; gallery on handover, return and both halves of a
-   swap; uploads with keys, notes, remove; offline queue and
+   swap; uploads with keys, names and renames, remove; offline queue and
    the signing guard; late photos; fingerprint, acceptance summary, report
    and return report rendering with per-photo SHA-256; compare at return.
    Mockups first. Deep review (signing and evidence), two checkers.
@@ -513,10 +543,11 @@ migration, then does a handover the old way.
 ### Test sheet rows (numbered when built, from the next free O- number)
 
 New: Settings "Photos at pickup, return and swap" choice; gallery (take
-several, choose from phone, note, remove, 30 limit); waiting photos block
+several, choose from phone, name, rename before and after signing, remove;
+the quiet cap message only at 100); waiting photos block
 signing; no-photos warning (Optional); Required with no photo blocked; report
-shows gallery photos with notes and the fingerprints page; return report
-pickup then return; compare at return; swap galleries; late photos in Other
+shows gallery photos with names and the fingerprints page; return report
+names the pickup report; "In the report as" after a rename; compare at return; swap galleries; late photos in Other
 photos; car Condition photos tab and albums; rental Photos tab; damage and
 Other photos albums. Changed (Result back to "Not tested"): Settings handover
 photo list (replaced), handover checklist photos, return photo pairs, car
@@ -550,16 +581,19 @@ Photos tab, offline handover rows. No admin rows.
   keeping late photos from another phone (decision 10).
 - **Over the cap by racing confirms**: confirm locks the checklist for
   update; a trigger counts.
-- **Notes after signing**: trigger refuses changes once completed or
-  cancelled; notes are in the fingerprint.
+- **Renaming after signing** (Abhi: rename at any time) vs rule 12: the
+  name is not the signed record, the PDF is; the printed names are stored with
+  the issued report so the app can show both; renames are logged.
 - **Evidence strength of full-size photos**: only the PDF was hashed. Fixed
   by per-photo SHA-256 set once at confirm (decision 9).
 - **Required with only a damage photo**: defined (decision 6), enforced in
   the app and the database.
-- **Return report pairing by name**: no names any more; pickup album then
-  return album; old named handovers still print their names.
+- **Return report pairing by name**: no fixed names any more; the return
+  report prints its own album and points to the signed pickup report.
 - **Glacier small copies**: existing bug found; fixed with a test (slice 4).
-- **Retirement**: new free text (notes) blanked; files already binned.
+- **Retirement**: new free text (names) blanked; files already binned.
+- **No visible limit vs report and email size**: a quiet cap of 100 per album
+  and the return report printing one album keep every report under 10 MB.
 - **Tenancy**: every new look-up includes the Operator; keys scoped to one
   checklist; no admin grants.
 - **Two meanings of "Photos" on the car page**: resolved by Showroom (other
