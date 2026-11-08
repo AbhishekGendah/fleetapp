@@ -20,7 +20,12 @@ import {
 } from "../../../../lib/rentals/swap-input";
 import { requireUser } from "../../../../lib/require-user";
 import { runUserChange } from "../../../../lib/run-change";
-import { startSwapRefusalMessage, swapRefusalMessage, type CompleteSwapState } from "./swap-state";
+import {
+  cancelSwapRefusalMessage,
+  startSwapRefusalMessage,
+  swapRefusalMessage,
+  type CompleteSwapState,
+} from "./swap-state";
 
 const INVALID_MESSAGE = "Some details are not right. Check them and try again.";
 const FAILED_MESSAGE = "Something went wrong and nothing was saved. Try again.";
@@ -56,12 +61,27 @@ export async function startSwapAction(
 }
 
 /** Stops the swap under way: the Renter keeps the car they have. */
-export async function cancelSwapAction(rentalId: string): Promise<void> {
-  const user = await requireUser();
-  if (isRecordId(rentalId)) {
-    await cancelSwap(appDb, { userId: user.id, operatorId: user.operatorId }, rentalId);
+export async function cancelSwapAction(
+  rentalId: string,
+  _previous: ChangeFormState,
+): Promise<ChangeFormState> {
+  if (!isRecordId(rentalId)) {
+    return failedState(cancelSwapRefusalMessage("not_found"));
   }
-  redirect(rentalPath(rentalId));
+  const state = await runUserChange({
+    description: "Cancelling a car swap",
+    pagesToRefresh: [],
+    change: async (actor) => {
+      const result = await cancelSwap(appDb, actor, rentalId);
+      return result === "cancelled"
+        ? savedState("Swap cancelled.")
+        : failedState(cancelSwapRefusalMessage(result));
+    },
+  });
+  if (state.status === "saved") {
+    redirect(rentalPath(rentalId));
+  }
+  return state;
 }
 
 /** What the signing step showed, as it sent it back: checked against the swap as it stands. */

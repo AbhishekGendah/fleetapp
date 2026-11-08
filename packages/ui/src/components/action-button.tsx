@@ -17,6 +17,8 @@ export interface ActionConfirm {
   title: string;
   description: string;
   confirmLabel: string;
+  /** On the button that backs out, e.g. "No, keep the swap". */
+  keepLabel?: string;
 }
 
 /**
@@ -65,6 +67,7 @@ export function ActionButton(props: {
             title={props.confirm.title}
             description={props.confirm.description}
             confirmLabel={props.confirm.confirmLabel}
+            keepLabel={props.confirm.keepLabel}
             pendingLabel={props.pendingLabel}
             action={() => formRef.current?.requestSubmit()}
             className={props.isIconOnly ? undefined : "w-auto"}

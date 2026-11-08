@@ -1,7 +1,7 @@
 import { formatKilometres, mergeFieldLabel } from "@fleetapp/core";
 
 import type { CompleteSwapResult } from "../../../../lib/handover/complete-swap";
-import type { StartSwapResult } from "../../../../lib/rentals/car-swaps";
+import type { CancelSwapResult, StartSwapResult } from "../../../../lib/rentals/car-swaps";
 import {
   gapsMessage,
   CHECKLIST_CHANGED_MESSAGE,
@@ -71,5 +71,18 @@ export function startSwapRefusalMessage(
       return SWAP_FORM_SETUP;
     case "not_found":
       return "That rental could not be found.";
+  }
+}
+
+/**
+ * Why the swap could not be cancelled. The page is left as it was, so the
+ * words stay; reloading shows the swap as it now stands.
+ */
+export function cancelSwapRefusalMessage(result: Exclude<CancelSwapResult, "cancelled">): string {
+  switch (result) {
+    case "finished_already":
+      return "This swap was already finished or cancelled, so nothing was changed. Reload the page to see where it stands.";
+    case "not_found":
+      return "This rental could not be found.";
   }
 }

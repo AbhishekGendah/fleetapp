@@ -252,7 +252,7 @@ describe("swapping the Renter's car", () => {
     );
     expect(rental?.vehicleId).toBe(vehicleId);
     expect(checklists).toEqual([{ status: "cancelled" }]);
-    expect(await cancelSwap(web.db, actor, rentalId)).toBe("not_found");
+    expect(await cancelSwap(web.db, actor, rentalId)).toBe("finished_already");
   });
 
   it("signs only the swap, checklists and swap form the Renter was shown (review A6-11, G9-1)", async () => {

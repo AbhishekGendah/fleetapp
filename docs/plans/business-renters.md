@@ -926,6 +926,17 @@ unchanged and passing).
   driver and then the rental" (slice 1 F5) describe the order among those
   two only: the rental was always locked before them. The one exception
   left is the retirement job (Renter, then their rentals), noted in slice 1.
+  Swaps (second review, 8 Nov 2026): signing a swap locks the rental, then
+  the swap, then the new car, then the old car's checklist and the new
+  car's; cancelling one updated both checklists and then the swap without
+  the rental, so the two could deadlock (each holding what the other
+  needed). `cancelSwap` now locks the rental, then the swap, then the two
+  checklists in signing's order, and reads the swap again under the lock:
+  if it was finished or cancelled meanwhile it is refused in words ("This
+  swap was already finished or cancelled, so nothing was changed."), shown
+  beside Cancel swap. Two-connection tests (`swap-lock-order.test.ts`) in
+  both orders: signing first, it finishes and the cancel is refused;
+  cancelling first, it cancels and signing is refused as finished.
 - **For slice 4.** A driver change once the car is out must take the
   return's and swap's signer, and `movePossession`'s driver, from the open
   possession, read again under its lock, never from the rental's current

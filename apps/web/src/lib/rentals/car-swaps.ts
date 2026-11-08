@@ -13,7 +13,11 @@ import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
 import { loadDefaultTemplate } from "../contracts/templates";
-import { handoverPhotoNames, isChecklistUnderWay } from "../handover/handover-records";
+import {
+  handoverPhotoNames,
+  isChecklistUnderWay,
+  lockOpenInspection,
+} from "../handover/handover-records";
 import { findNewHoldClash, type NewHoldClash } from "./car-holds";
 import type { RentalClock } from "./rental-records";
 
@@ -32,13 +36,14 @@ export type StartSwapResult =
         | "no_template";
     };
 
-/** The swap under way for the rental, if any. */
+/** The swap under way for the rental, if any; locked when asked. */
 export async function swapUnderWay(
   tx: AnyTransaction,
   operatorId: string,
   rentalId: string,
+  shouldLock = false,
 ): Promise<CarSwap | null> {
-  const [swap] = await tx
+  const query = tx
     .select()
     .from(carSwaps)
     .where(
@@ -48,6 +53,7 @@ export async function swapUnderWay(
         eq(carSwaps.status, "in_progress"),
       ),
     );
+  const [swap] = shouldLock ? await query.for("update") : await query;
   return swap ?? null;
 }
 
@@ -188,16 +194,38 @@ export async function startSwap(
   });
 }
 
-/** Stops a swap under way: both checklists are cancelled and the Renter keeps the old car. */
+/** Cancelled; the rental isn't this Operator's; or its swap was finished or cancelled meanwhile. */
+export type CancelSwapResult = "cancelled" | "not_found" | "finished_already";
+
+/**
+ * Stops a swap under way: both checklists are cancelled and the Renter
+ * keeps the old car. Locked in the order signing the swap takes them
+ * (docs/plans/business-renters.md, "Lock order"): the rental, then the
+ * swap, then its two checklists, so a signature at the same moment waits
+ * or is waited for, never both (a deadlock). Whichever waited finds the
+ * other's result under the lock.
+ */
 export async function cancelSwap(
   database: AnyDatabase,
   actor: ActingUser,
   rentalId: string,
-): Promise<"cancelled" | "not_found"> {
-  return withTenant(database, actor.operatorId, async (tx) => {
-    const swap = await swapUnderWay(tx, actor.operatorId, rentalId);
-    if (!swap) {
+): Promise<CancelSwapResult> {
+  return withTenant(database, actor.operatorId, async (tx): Promise<CancelSwapResult> => {
+    const [rental] = await tx
+      .select({ id: rentals.id })
+      .from(rentals)
+      .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, actor.operatorId)))
+      .for("update");
+    if (!rental) {
       return "not_found";
+    }
+    const swap = await swapUnderWay(tx, actor.operatorId, rentalId, true);
+    if (!swap) {
+      return "finished_already";
+    }
+    // The return's checklist, then the handover's: as signing locks them.
+    for (const inspectionId of [swap.returnInspectionId, swap.handoverInspectionId]) {
+      await lockOpenInspection(tx, actor.operatorId, inspectionId);
     }
     const now = new Date();
     await tx
