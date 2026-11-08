@@ -112,7 +112,7 @@ function DriverRow(props: {
   );
 }
 
-/** Drivers who stopped driving for the business, newest first: when, and who removed them. */
+/** Drivers who stopped driving for the business, the latest first, and when they drove for it. */
 function PastDriversCard(props: { drivers: readonly BusinessDriver[]; timeZone: string }) {
   if (props.drivers.length === 0) {
     return null;
