@@ -10,7 +10,10 @@ export interface FormResultLink {
   label: string;
 }
 
-export const INITIAL_CHANGE_STATE: ChangeFormState = { status: "editing" };
+/** Before the form is first sent. */
+export type EditingChangeState = Extract<ChangeFormState, { status: "editing" }>;
+
+export const INITIAL_CHANGE_STATE: EditingChangeState = { status: "editing" };
 
 export function savedState(
   message: string,

@@ -14,6 +14,7 @@ import { appDb } from "../../../lib/app-db";
 import { appEmailSender } from "../../../lib/email-sender";
 import { renterPath, RENTERS_PATH } from "../../../lib/paths";
 import { sendPrivacyNotice } from "../../../lib/privacy/send-privacy-notice";
+import type { AddDriverState } from "../../../lib/renters/driver-input";
 import { appLinkDependencies } from "../../../lib/renter-links/app-link-dependencies";
 import { sendDetailsLink } from "../../../lib/renter-links/details-links";
 import type { SignedInUser } from "../../../lib/require-user";
@@ -97,7 +98,7 @@ export async function addDriverAction(
   organisationId: string,
   _previous: ChangeFormState,
   formData: FormData,
-): Promise<ChangeFormState> {
+): Promise<AddDriverState> {
   if (!isRecordId(organisationId)) {
     return failedState(RENTER_NOT_FOUND_MESSAGE);
   }
@@ -123,14 +124,31 @@ export async function addDriverAction(
       }
       // They are told what the business sees about them (APP 5), new or not.
       const deps = { database: appDb, emailSender: appEmailSender };
-      await sendPrivacyNotice(deps, actor, result.driverId);
-      if (input.source === "existing") {
-        return savedState("Driver added.");
+      const notice = await sendPrivacyNotice(deps, actor, result.driverId);
+      const saved =
+        input.source === "existing"
+          ? savedState("Driver added.")
+          : await newDriverSaved(user, actor, result.driverId);
+      if (notice === "sent" || saved.status !== "saved") {
+        return saved;
       }
-      const link = await sendLinkToNewDriver(user, actor, result.driverId);
-      return savedState(NEW_DRIVER_SAVED[link], link !== "sent");
+      // A warning stays up, so the business sees it must hand the notice over itself.
+      return {
+        ...saved,
+        isWarning: true,
+        unsentNotice: { driverName: result.driverName, outcome: notice },
+      };
     },
   });
+}
+
+async function newDriverSaved(
+  user: SignedInUser,
+  actor: ActingUser,
+  driverId: string,
+): Promise<ChangeFormState> {
+  const link = await sendLinkToNewDriver(user, actor, driverId);
+  return savedState(NEW_DRIVER_SAVED[link], link !== "sent");
 }
 
 /** Ends a driver's link to the business; refused while a rental of it names them. */

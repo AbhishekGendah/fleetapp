@@ -10,8 +10,8 @@ import { addRenter } from "./rental-steps";
  * Business Renters and their drivers (docs/plans/business-renters.md slice
  * 2, 7 Nov 2026 mockups): Person or Business when adding a Renter, the
  * business form with its ABN grouped and checked, the business's page and
- * tabs, the Drivers tab (add someone new or already on file, remove one with
- * no car), the friendly refusals for archiving, a driver's Drives for, the
+ * tabs, the Drivers tab (add someone new or already on file, the privacy
+ * notice to hand over when it can't be emailed, remove one with no car), the friendly refusals for archiving, a driver's Drives for, the
  * list's labels and filters, search by ABN, and New rental not offering a
  * business yet. At phone width and by keyboard.
  */
@@ -29,6 +29,8 @@ const EXISTING_DRIVER = {
   phone: "0412000981",
 };
 const NEW_DRIVER = { name: "Ned Newdriver", email: "ned.newdriver@example.test" };
+/** No email, so neither the privacy notice nor the details link can go by email. */
+const PHONE_ONLY_DRIVER = { name: "Pia Phoneonly", phone: "0412000982" };
 const TAB_NAMES = ["Overview", "Drivers", "Rentals", "Money", "Details", "Notes", "Log"];
 /**
  * A business's page's JavaScript budget, compressed (rule 33), on the
@@ -127,9 +129,30 @@ test.describe.serial("business Renters and their drivers", () => {
     await page.getByRole("button", { name: "Add and send details link" }).click();
     await expect(page.getByText(/^Driver added\. Their details link is on its way/)).toBeVisible();
     await expect(current.getByRole("listitem").filter({ hasText: NEW_DRIVER.name })).toBeVisible();
+    // Sent by email, so there is nothing to hand over.
+    await expect(page.getByText(/the privacy notice$/)).toHaveCount(0);
     await expectNoSidewaysScroll(page);
     await expectAccessible(page);
     expect(await scriptKilobytes(page)).toBeLessThanOrEqual(BUSINESS_PAGE_BUDGET_KB);
+  });
+
+  test("asks the business to hand the privacy notice to a driver with no email", async ({
+    page,
+  }) => {
+    await openBusiness(page, "Drivers");
+    const source = page.getByRole("radiogroup", { name: /^Who drives for it/ });
+    await source.getByRole("radio", { name: /^Someone new/ }).click();
+    await page.getByRole("textbox", { name: /^Full name/ }).fill(PHONE_ONLY_DRIVER.name);
+    await page.getByRole("textbox", { name: /^Phone/ }).fill(PHONE_ONLY_DRIVER.phone);
+    await page.getByRole("button", { name: "Add and send details link" }).click();
+    await expect(page.getByText(/^Driver added\. Add their email on their page/)).toBeVisible();
+    const notice = page.getByRole("status").filter({
+      hasText: `Give ${PHONE_ONLY_DRIVER.name} the privacy notice`,
+    });
+    await expect(notice).toContainText("has no email address");
+    await expect(notice.getByRole("link", { name: "Open the privacy notice" })).toBeVisible();
+    await expectNoSidewaysScroll(page);
+    await expectAccessible(page);
   });
 
   test("labels the business and its drivers on the list, and filters and finds them", async ({

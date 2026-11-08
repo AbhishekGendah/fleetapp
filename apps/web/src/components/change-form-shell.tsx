@@ -1,17 +1,25 @@
 "use client";
 
 import { Button } from "@fleetapp/ui/button";
-import { INITIAL_CHANGE_STATE, type ChangeFormState } from "@fleetapp/ui/change-form-state";
+import {
+  INITIAL_CHANGE_STATE,
+  type ChangeFormState,
+  type EditingChangeState,
+} from "@fleetapp/ui/change-form-state";
 import { useDialogClose } from "@fleetapp/ui/form-dialog";
 import { FormResult } from "@fleetapp/ui/form-result";
 import { RequiredFieldsNote } from "@fleetapp/ui/input";
 import { useFormFields, type FieldErrors, type FormFields } from "@fleetapp/ui/use-form-fields";
 import { useActionState } from "react";
 
-type ChangeAction = (state: ChangeFormState, formData: FormData) => Promise<ChangeFormState>;
+/** `State` is the answer, maybe with more for the form to show (e.g. a notice still to give). */
+type ChangeAction<State extends ChangeFormState> = (
+  state: ChangeFormState,
+  formData: FormData,
+) => Promise<State>;
 
-interface ChangeFormOptions<Field extends string> {
-  action: ChangeAction;
+interface ChangeFormOptions<Field extends string, State extends ChangeFormState> {
+  action: ChangeAction<State>;
   fields: readonly Field[];
   initialValues: Readonly<Record<Field, string>>;
   validate: (values: Readonly<Record<Field, string>>) => FieldErrors<Field>;
@@ -22,17 +30,18 @@ interface ChangeFormOptions<Field extends string> {
   idPrefix?: string;
 }
 
-export interface ChangeForm<Field extends string> {
+export interface ChangeForm<Field extends string, State extends ChangeFormState = ChangeFormState> {
   fields: FormFields<Field>;
-  state: ChangeFormState;
+  state: State | EditingChangeState;
   formAction: (formData: FormData) => void;
   isPending: boolean;
 }
 
 /** A small form on a record's page (a car, a Renter) that saves through a server action and shows its answer. */
-export function useChangeForm<Field extends string>(
-  options: ChangeFormOptions<Field>,
-): ChangeForm<Field> {
+export function useChangeForm<
+  Field extends string,
+  State extends ChangeFormState = ChangeFormState,
+>(options: ChangeFormOptions<Field, State>): ChangeForm<Field, State> {
   const closeDialog = useDialogClose();
   const fields = useFormFields({
     fields: options.fields,
@@ -41,8 +50,8 @@ export function useChangeForm<Field extends string>(
     isRequired: (field, values) => options.isRequired(field, values),
     ...(options.idPrefix ? { idPrefix: options.idPrefix } : {}),
   });
-  const [state, formAction, isPending] = useActionState(
-    async (previous: ChangeFormState, formData: FormData) => {
+  const [state, formAction, isPending] = useActionState<State | EditingChangeState, FormData>(
+    async (previous, formData) => {
       const result = await options.action(previous, formData);
       if (result.status !== "saved") {
         return result;

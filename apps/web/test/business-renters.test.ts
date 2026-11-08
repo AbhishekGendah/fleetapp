@@ -293,6 +293,7 @@ describe("business Renters and their drivers", () => {
       expect(await addExistingDriver(web.db, actor, businessId, driverId)).toEqual({
         status: "added",
         driverId,
+        driverName: "Sam Lee",
       });
       expect(await addExistingDriver(web.db, actor, businessId, driverId)).toEqual({
         status: "refused",

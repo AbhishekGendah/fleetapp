@@ -23,7 +23,8 @@ import { insertRenter, lockCurrentRenter } from "./renter-records";
  */
 
 export type AddDriverResult =
-  | { status: "added"; driverId: string }
+  /** The driver's name, for "give them the privacy notice" when it could not be emailed. */
+  | { status: "added"; driverId: string; driverName: string }
   | { status: "business_not_found" }
   | { status: "driver_not_found" }
   | { status: "refused"; problem: DriverToAddProblem };
@@ -51,6 +52,7 @@ function logLink(
 const PERSON_COLUMNS = {
   id: renters.id,
   kind: renters.kind,
+  fullName: renters.fullName,
   status: renters.status,
   archivedAt: renters.archivedAt,
   retiredAt: renters.retiredAt,
@@ -141,7 +143,7 @@ async function linkDriver(
     throw new Error("The driver was not saved.");
   }
   await logLink(tx, actor, link.id, ACTIVITY_ACTIONS.created, { organisationId, driverId });
-  return { status: "added", driverId };
+  return { status: "added", driverId, driverName: person.fullName };
 }
 
 /** Makes one of the Operator's person Renters a driver of the business. */

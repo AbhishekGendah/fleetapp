@@ -1,6 +1,8 @@
 import { isRecordId, REQUIRED_MESSAGE } from "@fleetapp/core";
+import type { ChangeFormState } from "@fleetapp/ui/change-form-state";
 import { z } from "zod";
 
+import type { PrivacyNoticeOutcome } from "../privacy/send-privacy-notice";
 import { emptyRenterForm, parseRenterForm, type RenterInput } from "./renter-input";
 
 /** Someone already in the Operator's Renters, or someone new (7 Nov 2026 mockups). */
@@ -12,6 +14,15 @@ export type AddDriverField = (typeof ADD_DRIVER_FIELDS)[number];
 export type AddDriverFormValues = Record<AddDriverField, string>;
 
 const PICK_MESSAGE = "Pick who drives for it.";
+
+/** A driver added whose privacy notice could not be emailed: the business hands it over (APP 5). */
+export interface UnsentDriverNotice {
+  driverName: string;
+  outcome: Exclude<PrivacyNoticeOutcome, "sent">;
+}
+
+/** What adding a driver comes back with: the answer, and the notice still to give them. */
+export type AddDriverState = ChangeFormState & { unsentNotice?: UnsentDriverNotice };
 
 export type AddDriverInput =
   { source: "existing"; driverId: string } | { source: "new"; person: RenterInput };

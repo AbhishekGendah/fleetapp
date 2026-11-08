@@ -15,8 +15,10 @@ import {
   emptyAddDriverForm,
   isRequiredAddDriverField,
   parseAddDriverForm,
+  type AddDriverState,
   type DriverSource,
 } from "../../../lib/renters/driver-input";
+import { NoticeNotSent } from "./notice-not-sent";
 
 const SOURCE_OPTIONS = [
   {
@@ -43,7 +45,7 @@ export function AddDriverForm(props: {
   businessName: string;
   candidates: readonly PickableRecord[];
   today: string;
-  action: (state: ChangeFormState, formData: FormData) => Promise<ChangeFormState>;
+  action: (state: ChangeFormState, formData: FormData) => Promise<AddDriverState>;
 }) {
   const initialSource: DriverSource = props.candidates.length > 0 ? "existing" : "new";
   const changeForm = useChangeForm({
@@ -58,81 +60,90 @@ export function AddDriverForm(props: {
   const form = changeForm.fields;
   const isExisting = form.values.source === "existing";
   const submitLabel = isExisting ? "Add driver" : "Add and send details link";
+  const { state } = changeForm;
+  const unsentNotice =
+    state.status === "saved" && !changeForm.isPending ? state.unsentNotice : null;
 
   return (
-    <ChangeFormShell form={changeForm} submitLabel={submitLabel}>
-      <ChoiceCards
-        id={form.idFor("source")}
-        name="source"
-        label="Who drives for it?"
-        options={SOURCE_OPTIONS}
-        value={isExisting ? "existing" : "new"}
-        onValueChange={(source) => form.setValue("source", source)}
-        isRequired
-      />
-      {isExisting ? (
-        <FormField
-          htmlFor={form.idFor("driverId")}
-          label="Renter"
+    <div className="flex flex-col gap-4">
+      <ChangeFormShell form={changeForm} submitLabel={submitLabel}>
+        <ChoiceCards
+          id={form.idFor("source")}
+          name="source"
+          label="Who drives for it?"
+          options={SOURCE_OPTIONS}
+          value={isExisting ? "existing" : "new"}
+          onValueChange={(source) => form.setValue("source", source)}
           isRequired
-          hint="Type part of their name or phone. Do not rent and archived Renters can't be picked."
-          error={form.errorFor("driverId")}
-        >
-          <RecordPicker
-            {...form.boxProps("driverId")}
-            records={props.candidates}
-            onValueChange={(value) => form.setValue("driverId", value)}
-            emptyMessage="No one matches. Add them as someone new."
-          />
-        </FormField>
-      ) : (
-        <>
+        />
+        {isExisting ? (
           <FormField
-            htmlFor={form.idFor("fullName")}
-            label="Full name"
+            htmlFor={form.idFor("driverId")}
+            label="Renter"
             isRequired
-            hint="As on their licence."
-            error={form.errorFor("fullName")}
+            hint="Type part of their name or phone. Do not rent and archived Renters can't be picked."
+            error={form.errorFor("driverId")}
           >
-            <Input {...form.textBoxProps("fullName")} autoComplete="off" />
+            <RecordPicker
+              {...form.boxProps("driverId")}
+              records={props.candidates}
+              onValueChange={(value) => form.setValue("driverId", value)}
+              emptyMessage="No one matches. Add them as someone new."
+            />
           </FormField>
-          <div className="grid gap-4 sm:grid-cols-2">
+        ) : (
+          <>
             <FormField
-              htmlFor={form.idFor("email")}
-              label="Email"
-              hint="The details link and its codes go here."
-              error={form.errorFor("email")}
+              htmlFor={form.idFor("fullName")}
+              label="Full name"
+              isRequired
+              hint="As on their licence."
+              error={form.errorFor("fullName")}
             >
-              <Input
-                {...form.textBoxProps("email")}
-                onChange={(event) => form.setValue("email", event.target.value.toLowerCase())}
-                type="email"
-                inputMode="email"
-                autoCapitalize="none"
-                autoComplete="off"
-              />
+              <Input {...form.textBoxProps("fullName")} autoComplete="off" />
             </FormField>
-            <FormField
-              htmlFor={form.idFor("phone")}
-              label="Phone"
-              hint="A phone number or an email, or both."
-              error={form.errorFor("phone")}
-            >
-              <FormattedInput
-                {...form.formattedBoxProps("phone", formatAustralianPhone)}
-                type="tel"
-                inputMode="tel"
-                autoComplete="off"
-              />
-            </FormField>
-          </div>
-        </>
-      )}
-      <p className="text-muted-foreground text-sm">
-        {isExisting
-          ? `Once added, they can be named on ${props.businessName}'s cars, after their licence is checked.`
-          : `They get the details link to add their own licence and photos. Once you approve what they send, they can be named on ${props.businessName}'s cars.`}
-      </p>
-    </ChangeFormShell>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                htmlFor={form.idFor("email")}
+                label="Email"
+                hint="The details link and its codes go here."
+                error={form.errorFor("email")}
+              >
+                <Input
+                  {...form.textBoxProps("email")}
+                  onChange={(event) => form.setValue("email", event.target.value.toLowerCase())}
+                  type="email"
+                  inputMode="email"
+                  autoCapitalize="none"
+                  autoComplete="off"
+                />
+              </FormField>
+              <FormField
+                htmlFor={form.idFor("phone")}
+                label="Phone"
+                hint="A phone number or an email, or both."
+                error={form.errorFor("phone")}
+              >
+                <FormattedInput
+                  {...form.formattedBoxProps("phone", formatAustralianPhone)}
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="off"
+                />
+              </FormField>
+            </div>
+          </>
+        )}
+        <p className="text-muted-foreground text-sm">
+          {isExisting
+            ? `Once added, they can be named on ${props.businessName}'s cars, after their licence is checked.`
+            : `They get the details link to add their own licence and photos. Once you approve what they send, they can be named on ${props.businessName}'s cars.`}
+        </p>
+      </ChangeFormShell>
+      {/* Under the answer, so it is read with it. */}
+      {unsentNotice ? (
+        <NoticeNotSent renterName={unsentNotice.driverName} outcome={unsentNotice.outcome} />
+      ) : null}
+    </div>
   );
 }
