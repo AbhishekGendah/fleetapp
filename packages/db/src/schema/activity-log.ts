@@ -70,6 +70,8 @@ export const ACTIVITY_ENTITY_TYPES = {
   renter: "renter",
   renterNote: "renter_note",
   renterLink: "renter_link",
+  /** A person driving for a business Renter: added, then removed (never deleted). */
+  organisationDriver: "organisation_driver",
   rental: "rental",
   contractTemplate: "contract_template",
   issuedDocument: "issued_document",
@@ -148,6 +150,8 @@ export const ACTIVITY_ACTIONS = {
   submissionRemoved: "submission_removed",
   /** A Renter signed through their link: the contract was issued. */
   signed: "signed",
+  /** Taken off a list it was on, its history kept: a driver from a business. */
+  removed: "removed",
 } as const;
 
 export type ActivityEntityType = (typeof ACTIVITY_ENTITY_TYPES)[keyof typeof ACTIVITY_ENTITY_TYPES];

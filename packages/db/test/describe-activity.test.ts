@@ -6,6 +6,8 @@ describe("a Log line in words", () => {
   it("names a record and what happened to it", () => {
     expect(describeActivity("vehicle", "status_changed")).toBe("Car status changed");
     expect(describeActivity("renter", "updated")).toBe("Renter changed");
+    expect(describeActivity("organisation_driver", "created")).toBe("Driver added");
+    expect(describeActivity("organisation_driver", "removed")).toBe("Driver removed");
   });
 
   it("names a file by what it is for, when its line says", () => {

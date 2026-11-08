@@ -59,6 +59,7 @@ const ACTIVITY_ENTITY_LABELS = {
   [ACTIVITY_ENTITY_TYPES.renter]: "Renter",
   [ACTIVITY_ENTITY_TYPES.renterNote]: "Note",
   [ACTIVITY_ENTITY_TYPES.renterLink]: "Renter link",
+  [ACTIVITY_ENTITY_TYPES.organisationDriver]: "Driver",
   [ACTIVITY_ENTITY_TYPES.rental]: "Rental",
   [ACTIVITY_ENTITY_TYPES.contractTemplate]: "Contract template",
   [ACTIVITY_ENTITY_TYPES.issuedDocument]: "Document",
@@ -122,6 +123,7 @@ const ACTIVITY_ACTION_LABELS = {
   [ACTIVITY_ACTIONS.sentBack]: "details sent back to the Renter for changes",
   [ACTIVITY_ACTIONS.submissionRemoved]: "details sent through the link removed",
   [ACTIVITY_ACTIONS.signed]: "signed",
+  [ACTIVITY_ACTIONS.removed]: "removed",
 } satisfies Record<ActivityAction, string>;
 
 function labelFor(labels: Readonly<Record<string, string>>, key: string): string {
