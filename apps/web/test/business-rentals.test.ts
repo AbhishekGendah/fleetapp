@@ -21,7 +21,11 @@ import { emailDocumentAgain, loadDocumentEmailStates } from "../src/lib/contract
 import { loadSigningView, signContract } from "../src/lib/contracts/signing";
 import { sendSigningLink } from "../src/lib/contracts/signing-links";
 import { createTemplate, saveTemplate } from "../src/lib/contracts/templates";
-import { completeHandover } from "../src/lib/handover/complete-handover";
+import {
+  completeHandover,
+  HandoverRefusedError,
+  lockPartiesForHandover,
+} from "../src/lib/handover/complete-handover";
 import { completeReturn } from "../src/lib/handover/complete-return";
 import { completeSwap, currentShownSwap } from "../src/lib/handover/complete-swap";
 import { startHandover, startReturn } from "../src/lib/handover/handover-records";
@@ -816,6 +820,25 @@ describe("renting to a business", () => {
       expect(result).toMatchObject({
         status: "blocked",
         problems: [{ code: "driver_not_named" }],
+        isBusinessRental: true,
+      });
+    });
+
+    it("says the driver isn't named, never that the Renter changed, when the car would go to nobody", async () => {
+      const booked = await signedBooking(false);
+      // What a checklist started before naming was required reaches, under the rental's lock.
+      const refused = await withTenant(web.db, actor.operatorId, (tx) =>
+        lockPartiesForHandover(tx, actor.operatorId, {
+          rentalId: booked.rentalId,
+          renterId: booked.businessId,
+          driverId: null,
+        }),
+      ).catch((error: unknown) => error);
+
+      expect(refused).toBeInstanceOf(HandoverRefusedError);
+      expect((refused as HandoverRefusedError).result).toEqual({
+        status: "blocked",
+        problems: [{ code: "driver_not_named", level: "handover" }],
         isBusinessRental: true,
       });
     });

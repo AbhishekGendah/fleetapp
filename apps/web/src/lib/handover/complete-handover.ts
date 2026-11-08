@@ -295,11 +295,18 @@ export async function lockPartiesForHandover(
   view: Pick<HandoverView, "rentalId" | "renterId" | "driverId">,
 ): Promise<string> {
   const { renterId, driverId } = view;
-  const isDriverOther = driverId !== null && driverId !== renterId;
+  if (driverId === null) {
+    // Said as the checks before say it, never as a Renter marked Do not rent: a
+    // checklist started before naming was required can still get here.
+    throw new HandoverRefusedError({
+      status: "blocked",
+      problems: [{ code: "driver_not_named", level: "handover" }],
+      isBusinessRental: true,
+    });
+  }
   if (
-    driverId === null ||
     !(await isRenterStillActive(tx, operatorId, renterId)) ||
-    (isDriverOther && !(await isRenterStillActive(tx, operatorId, driverId)))
+    (driverId !== renterId && !(await isRenterStillActive(tx, operatorId, driverId)))
   ) {
     throw new HandoverRefusedError({ status: "renter_changed" });
   }
