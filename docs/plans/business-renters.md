@@ -736,3 +736,7 @@ were enough.
   The Log's By filter is still drawn only.
 - **Not built here (decision 8):** the optional ABN box on a person (a sole
   trader); it is printed on invoices, so it comes with slice 5.
+
+- Decided 8 Nov 2026 (Abhi): a person already on file who is added as a
+  business's driver is emailed the privacy notice every time, so they know
+  what that business can now see about them.

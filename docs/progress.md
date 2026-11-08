@@ -1300,9 +1300,9 @@ fixes a car late back being bookable) and docs/plans/condition-photos.md
 (free photo gallery at pickup/return, Optional/Required, albums). Mockups on
 the design canvas (8 Nov). The late-car booking fix is live (8 Nov). Business Renters slice 2 is live
 (8 Nov); next: business Renters slice 3 (booking a business with a driver)
-with his go, then Find a car, then condition photos. Open questions for
-him from slice 2: email the privacy notice every time an existing person is
-added as a driver (built: yes); a phone-only new driver gets no details
+with his go, then Find a car, then condition photos. Decided 8 Nov: an
+existing person added as a driver is emailed the privacy notice each time
+(Abhi: yes). Open question from slice 2: a phone-only new driver gets no details
 link until SMS exists (built: yes, on the launch checklist).
 
 **7 Nov: everything is on the dev site** (Abhi: "send all to the dev
