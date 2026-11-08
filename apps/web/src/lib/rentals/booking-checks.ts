@@ -248,9 +248,10 @@ async function unlessDriverWaitsReview(
 }
 
 /**
- * For naming a business's driver on a draft or booking: the business, then
- * the driver, locked (the order a handover takes them, before the rental),
- * and the car as it is, unlocked (nothing about the car changes).
+ * For naming a business's driver on a draft or booking, under the rental's
+ * lock: the business, then the driver, locked (the order a handover takes
+ * them, after the rental and the car), and the car as it is, unlocked
+ * (nothing about the car changes).
  */
 export async function lockDriverNamingParties(
   tx: AnyTransaction,

@@ -49,6 +49,7 @@ import {
 } from "../src/lib/storage/memory-file-storage";
 import { addCurrentPaperwork, addTestCar, seedOperatorWithUser } from "./car-fixtures";
 import { checklistKit, HANDOVER_KM, TEST_SIGNATURE } from "./handover-fixtures";
+import { openTransactionAs, waitUntilBlockedBy } from "./lock-fixtures";
 import {
   addRenterReadyToRent,
   addTestRenter,
@@ -72,8 +73,6 @@ const CONTACT_EMAIL = "dana.wells@acme.example.test";
 const DRIVER_EMAIL = "rory.ready@example.test";
 const TOKEN_PATTERN = /\/r\/([A-Za-z0-9_-]+)/;
 const META = { ipAddress: "203.0.113.9", userAgent: "Mozilla/5.0 (iPhone)" };
-/** Far longer than the wait it proves. */
-const LOCK_WAIT_ATTEMPTS = 250;
 
 /** A short business contract: fields every test business has on file. */
 const SHORT_BUSINESS_CONTRACT: TemplateDocument = {
@@ -401,7 +400,7 @@ describe("renting to a business", () => {
         vehicleId: await carWithPaperwork(),
         driverId,
       });
-      const { client: starting, pid } = await openTransactionAs(actor);
+      const { client: starting, pid } = await openTransactionAs(actor.operatorId);
       try {
         // A handover's start: the rental locked, then its checklist added.
         await starting.query("select id from rentals where id = $1 for update", [booked.rentalId]);
@@ -413,7 +412,7 @@ describe("renting to a business", () => {
           { driverId: otherDriverId },
           CLOCK,
         );
-        await waitUntilBlockedBy(pid);
+        await waitUntilBlockedBy(superuser, pid);
         await starting.query(
           `insert into inspections (operator_id, rental_id, vehicle_id, kind, photo_names, started_by_user_id)
            values ($1, $2, $3, 'handover', '{}', $4)`,
@@ -485,14 +484,14 @@ describe("renting to a business", () => {
 
     it("waits for a driver's removal that started first, then finds them no longer a driver", async () => {
       const { rentalId, businessId, driverId } = await bookingToBeNamed();
-      const { client: removal, pid } = await openTransactionAs(actor);
+      const { client: removal, pid } = await openTransactionAs(actor.operatorId);
       try {
         // The removal's order: the business, then the driver, then the link (slice 2).
         await removal.query("select id from renters where id = $1 for update", [businessId]);
         await removal.query("select id from renters where id = $1 for update", [driverId]);
 
         const naming = nameRentalDriver(web.db, actor, rentalId, { driverId }, CLOCK);
-        await waitUntilBlockedBy(pid);
+        await waitUntilBlockedBy(superuser, pid);
         await removal.query(
           `update organisation_drivers set removed_at = now(), removed_by_user_id = $3
            where organisation_id = $1 and driver_id = $2 and removed_at is null`,
@@ -510,7 +509,7 @@ describe("renting to a business", () => {
 
     it("holds a driver's removal back while it names them, then the removal is refused", async () => {
       const { rentalId, businessId, driverId } = await bookingToBeNamed();
-      const { client: naming, pid } = await openTransactionAs(actor);
+      const { client: naming, pid } = await openTransactionAs(actor.operatorId);
       try {
         // Naming locks the business, the driver, then the rental, as the handover does.
         await naming.query("select id from renters where id = $1 for update", [businessId]);
@@ -518,7 +517,7 @@ describe("renting to a business", () => {
         await naming.query("select id from rentals where id = $1 for update", [rentalId]);
 
         const removing = removeDriver(web.db, actor, businessId, driverId);
-        await waitUntilBlockedBy(pid);
+        await waitUntilBlockedBy(superuser, pid);
         await naming.query("update rentals set driver_id = $2 where id = $1", [rentalId, driverId]);
         await naming.query("commit");
 
@@ -973,6 +972,63 @@ describe("renting to a business", () => {
       });
     });
 
+    it("hands the car over when the handover takes the rental first; naming a driver then is refused", async () => {
+      const booked = await signedBooking(true);
+      const otherDriverId = await anotherDriver(booked.businessId, "Kim Other");
+      const inspectionId = await kit().filledHandover(booked.rentalId);
+      const shownFingerprint = await kit().shown(inspectionId);
+      // Holding the checklist: the handover takes the rental, then waits here.
+      const holder = await openTransactionAs(actor.operatorId);
+      await holder.client.query("select id from inspections where id = $1 for update", [
+        inspectionId,
+      ]);
+      const handedOver = accept(inspectionId, null, shownFingerprint);
+      await waitUntilBlockedBy(superuser, holder.pid);
+      // Naming waits for the rental too, holding neither the business nor the driver the handover needs.
+      const naming = nameRentalDriver(
+        web.db,
+        actor,
+        booked.rentalId,
+        { driverId: otherDriverId },
+        CLOCK,
+      );
+      await waitUntilBlockedBy(superuser, holder.pid, 2);
+      await holder.client.query("commit");
+      await holder.client.end();
+
+      expect((await handedOver).status).toBe("completed");
+      expect(await naming).toEqual({ status: "not_allowed" });
+      expect(await driverOf(booked.rentalId)).toBe(booked.driverId);
+    });
+
+    it("refuses naming a driver that reached the rental first while its checklist is open; the handover then goes ahead", async () => {
+      const booked = await signedBooking(true);
+      const otherDriverId = await anotherDriver(booked.businessId, "Kim Other");
+      const inspectionId = await kit().filledHandover(booked.rentalId);
+      const shownFingerprint = await kit().shown(inspectionId);
+      // Holding the rental: the naming queues for it first, the handover after it.
+      const holder = await openTransactionAs(actor.operatorId);
+      await holder.client.query("select id from rentals where id = $1 for update", [
+        booked.rentalId,
+      ]);
+      const naming = nameRentalDriver(
+        web.db,
+        actor,
+        booked.rentalId,
+        { driverId: otherDriverId },
+        CLOCK,
+      );
+      await waitUntilBlockedBy(superuser, holder.pid);
+      const handedOver = accept(inspectionId, null, shownFingerprint);
+      await waitUntilBlockedBy(superuser, holder.pid, 2);
+      await holder.client.query("commit");
+      await holder.client.end();
+
+      expect(await naming).toEqual({ status: "checklist_under_way" });
+      expect((await handedOver).status).toBe("completed");
+      expect(await driverOf(booked.rentalId)).toBe(booked.driverId);
+    });
+
     it("says the driver's licence problems as the driver's, on the rental's checks", async () => {
       const booked = await signedBooking(true);
       // A licence that ran out before the start: the driver's, checked for the business's car.
@@ -990,31 +1046,4 @@ describe("renting to a business", () => {
       expect(bookingProblemMessage(expired!, true)).toMatch(/^The driver's licence expires on /);
     });
   });
-
-  /** A second connection, in a transaction as the Operator: its locks hold until it ends. */
-  async function openTransactionAs(owner: ActingUser): Promise<{ client: Client; pid: number }> {
-    const client = new Client({ connectionString: inject("webAppRoleUrl") });
-    await client.connect();
-    await client.query("set lock_timeout = '5s'");
-    const pid = (await client.query<{ pid: number }>("select pg_backend_pid() as pid")).rows[0]!
-      .pid;
-    await client.query("begin");
-    await client.query("select set_config('app.operator_id', $1, true)", [owner.operatorId]);
-    return { client, pid };
-  }
-
-  /** Resolves once some connection waits on a lock the given backend holds. */
-  async function waitUntilBlockedBy(pid: number): Promise<void> {
-    for (let attempt = 0; attempt < LOCK_WAIT_ATTEMPTS; attempt += 1) {
-      const result = await superuser.query<{ waiting: number }>(
-        "select count(*)::int as waiting from pg_stat_activity where $1 = any(pg_blocking_pids(pid))",
-        [pid],
-      );
-      if ((result.rows[0]?.waiting ?? 0) > 0) {
-        return;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    }
-    throw new Error("Nothing waited for the lock.");
-  }
 });

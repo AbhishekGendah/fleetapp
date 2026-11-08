@@ -301,28 +301,18 @@ export type NameDriverResult =
 const DRIVER_NAMEABLE: ReadonlySet<RentalStatus> = new Set(["draft", "booked"]);
 
 /** The rental's Renter and car as they are now, read before any lock: whose lock comes first. */
-async function rentalPartiesOf(
-  tx: AnyTransaction,
-  operatorId: string,
-  rentalId: string,
-): Promise<{ renterId: string; vehicleId: string } | undefined> {
-  const [rental] = await tx
-    .select({ renterId: rentals.renterId, vehicleId: rentals.vehicleId })
-    .from(rentals)
-    .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, operatorId)));
-  return rental;
-}
-
 /**
  * Names a business's driver on its draft or booking, or puts it back to "to
- * be named" (decision 2). Locked as a handover locks them: the business, then
- * the driver, then the rental, which is read again under its lock (its
- * Renter and status may have changed meanwhile). The driver's checks run
- * under the rental's own rules (rule 14): a Do not rent driver is refused,
- * anything else is a warning the handover deals with. The database then
- * takes the driver's link shared, so their removal waits for this. Refused
- * while a handover checklist is under way (cancel it first), so the driver
- * the checklist shows is the one who signs (slice 3 review).
+ * be named" (decision 2). Locked in the order everything else takes them
+ * (docs/plans/business-renters.md, "Lock order"): the rental first, then the
+ * business, then the driver, so a handover finishing at the same moment
+ * (which takes the rental to number its report) waits or is waited for,
+ * never both. The driver's checks run under the rental's own rules (rule
+ * 14): a Do not rent driver is refused, anything else is a warning the
+ * handover deals with. The database then takes the driver's link shared, so
+ * their removal waits for this. Refused while a handover checklist is under
+ * way (cancel it first), so the driver the checklist shows is the one who
+ * signs (slice 3 review).
  */
 export async function nameRentalDriver(
   database: AnyDatabase,
@@ -332,25 +322,23 @@ export async function nameRentalDriver(
   clock: RentalClock,
 ): Promise<NameDriverResult> {
   return withTenant(database, actor.operatorId, async (tx) => {
-    const before = await rentalPartiesOf(tx, actor.operatorId, rentalId);
-    if (!before) {
+    const rental = await lockRental(tx, actor.operatorId, rentalId);
+    if (!rental) {
       return { status: "not_found" };
     }
+    if (!DRIVER_NAMEABLE.has(rental.status)) {
+      return { status: "not_allowed" };
+    }
     const parties = await lockDriverNamingParties(tx, actor.operatorId, {
-      ...before,
+      renterId: rental.renterId,
+      vehicleId: rental.vehicleId,
       driverId: input.driverId,
     });
     if (typeof parties === "string") {
       return { status: parties };
     }
-    const rental = await lockRental(tx, actor.operatorId, rentalId);
-    if (
-      !rental ||
-      rental.renterId !== before.renterId ||
-      parties.renter.kind !== "organisation" ||
-      !DRIVER_NAMEABLE.has(rental.status)
-    ) {
-      return { status: rental ? "not_allowed" : "not_found" };
+    if (parties.renter.kind !== "organisation") {
+      return { status: "not_allowed" };
     }
     const driverId = parties.driver?.id ?? null;
     if (rental.driverId === driverId) {

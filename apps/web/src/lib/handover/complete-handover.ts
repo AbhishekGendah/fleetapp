@@ -263,7 +263,7 @@ async function isRenterStillActive(
   return renter?.status === "active";
 }
 
-/** The rental's driver now, read under the rental's lock (taken after the Renter's and driver's). */
+/** The rental's driver now, read again under the rental's lock (held since the report was numbered). */
 async function lockRentalDriver(
   tx: AnyTransaction,
   operatorId: string,
@@ -279,11 +279,15 @@ async function lockRentalDriver(
 
 /**
  * The Renter, then the driver (the same person for a person's own rental),
- * then the rental, locked for the handover and checked once more: marked Do
- * not rent or archived since the checks above, the car stays (review A6-1,
- * slice 1 review F5); the rental now naming another driver than the one the
- * signing screen showed, it stays as changed (slice 3 review). Gives who the
- * car goes to. A business's car never goes before its driver is named.
+ * locked for the handover and checked once more, then the rental's driver
+ * read again: marked Do not rent or archived since the checks above, the
+ * car stays (review A6-1, slice 1 review F5); the rental now naming another
+ * driver than the one the signing screen showed, it stays as changed (slice
+ * 3 review). Gives who the car goes to. A business's car never goes before
+ * its driver is named. The rental is already locked (its report is numbered
+ * under that lock), then the checklist and the car: the order every change
+ * to a rental takes (docs/plans/business-renters.md, "Lock order"), so
+ * naming a driver or cancelling at the same moment waits, never deadlocks.
  */
 export async function lockPartiesForHandover(
   tx: AnyTransaction,

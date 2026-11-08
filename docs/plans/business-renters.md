@@ -790,9 +790,9 @@ unchanged and passing).
   no driver is named, whatever the main step). The Rental card has Name a
   driver too, Change driver once one is named (draft or booked only; once out
   it is slice 4). Saved with a warning (e.g. the business's address still
-  missing), the pop-up stays open to be read. `nameRentalDriver` locks the business, then the driver, then the
-  rental (the handover's order), reads the rental again under its lock (its
-  Renter and status), runs the checks under the rental's own rules, and
+  missing), the pop-up stays open to be read. `nameRentalDriver` locks the rental, then the business, then the
+  driver (the handover's order, see "Lock order" below), reads the rental
+  under its lock (its Renter and status), runs the checks under the rental's own rules, and
   logs the driver's record id, never their name. Two-connection tests: a
   removal of the driver's link that started first makes the naming wait,
   which then finds them no longer a driver; a naming that started first
@@ -900,6 +900,32 @@ unchanged and passing).
   handover, the swap's three papers and the return; none for a person's
   rental; a driver with no email; Email again for a failed driver's copy;
   the driver's address in no other email.
+- **Lock order (8 Nov 2026, from the slice 3 review).** Every change to a
+  rental locks the rental first, then its checklist, then the car, then the
+  Renter, then the driver, then the driver's link: booking a draft (rental,
+  car, Renter, driver), starting a checklist (rental), cancelling (rental,
+  then its holds and open checklists), the handover, return and swap
+  (`recordIssuedDocument` locks the rental to number the report before
+  anything else; then the checklist or swap, the car, and for a handover the
+  Renter and driver), and the database's own driver rule (the rental row,
+  then the driver and link shared). The review thought cancelling and a
+  handover finishing could deadlock (cancel: rental then checklist; handover:
+  checklist then rental); in fact the handover already holds the rental
+  first, so one waits for the other: a two-connection test
+  (`rental-lock-order.test.ts`) runs both orders: the handover that got the
+  rental first finishes and the cancel is refused ("Only a draft or a
+  booking can be cancelled."); the cancel that got it first cancels the
+  checklist and the handover is refused as cancelled. Checking every caller
+  found the real one: `nameRentalDriver` locked the business and driver
+  before the rental, so naming a driver while the handover finished
+  deadlocked (shown by a test before the fix). It now locks the rental
+  first; two-connection tests in both orders: the handover first, naming is
+  refused ("Only a business's draft or booking names its driver here."); the
+  naming first, it is refused as a checklist is under way and the handover
+  goes ahead. The earlier notes saying the handover locks "the Renter, the
+  driver and then the rental" (slice 1 F5) describe the order among those
+  two only: the rental was always locked before them. The one exception
+  left is the retirement job (Renter, then their rentals), noted in slice 1.
 - **For slice 4.** A driver change once the car is out must take the
   return's and swap's signer, and `movePossession`'s driver, from the open
   possession, read again under its lock, never from the rental's current
