@@ -219,7 +219,10 @@ describe("the next step before handover", () => {
   it("names a business's driver after the contract and bond, never offering a handover to nobody", () => {
     const noDriver = { ...ready, isDriverNamed: false, isHandoverAllowed: false };
     expect(nextStepOf(noDriver)).toEqual({ main: "name_driver", canStartHandoverToo: false });
-    expect(nextStepOf({ ...noDriver, isContractSigned: false }).main).toBe("send_contract");
+    expect(nextStepOf({ ...noDriver, isContractSigned: false })).toEqual({
+      main: "send_contract",
+      canStartHandoverToo: false,
+    });
     expect(nextStepOf({ ...noDriver, isDetailsApproved: false }).main).toBe("name_driver");
   });
 

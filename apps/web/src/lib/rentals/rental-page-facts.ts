@@ -256,8 +256,9 @@ export function nextStepOf(input: NextStepInput): NextStep {
         : !input.isDetailsApproved
           ? "check_details"
           : null;
-  if (missing === "name_driver") {
-    // Nothing can give the car to nobody: the handover waits for a driver.
+  // Nothing can give the car to nobody: the handover waits for a driver,
+  // even while the contract or bond comes first (slice 3 review).
+  if (missing !== null && !input.isDriverNamed) {
     return { main: missing, canStartHandoverToo: false };
   }
   // Everything ticked but something else in the way (a car not insured, say):

@@ -26,7 +26,8 @@ import { latestKilometres } from "../vehicles/odometer";
  * finished by the Renter's acceptance (or, at a return, the business's record).
  */
 export type StartHandoverResult =
-  { status: "started" | "resumed"; inspectionId: string } | { status: "not_found" | "not_booked" };
+  | { status: "started" | "resumed"; inspectionId: string }
+  | { status: "not_found" | "not_booked" | "driver_not_named" };
 
 export type SaveHandoverResult =
   { status: "saved" } | { status: "lower"; lastKilometres: number } | { status: "not_found" };
@@ -150,7 +151,8 @@ const STATUS_TO_START: Readonly<Record<InspectionKind, string>> = {
  * under way. A handover's photo list comes from the settings the rental
  * was made with (rule 14); a return asks for the handover's own list, so
  * each photo can be compared. The rental is locked, so two phones cannot
- * start two.
+ * start two, and its driver cannot change meanwhile. A business's rental
+ * with its driver still to be named is refused (slice 3 review).
  */
 async function startChecklist(
   database: AnyDatabase,
@@ -163,6 +165,7 @@ async function startChecklist(
       .select({
         status: rentals.status,
         vehicleId: rentals.vehicleId,
+        driverId: rentals.driverId,
         settingsSnapshot: rentals.settingsSnapshot,
       })
       .from(rentals)
@@ -177,6 +180,10 @@ async function startChecklist(
     }
     if (rental.status !== STATUS_TO_START[kind]) {
       return { status: "not_booked" as const };
+    }
+    // Nobody can sign for a business's car before its driver is named (rule 15).
+    if (kind === "handover" && rental.driverId === null) {
+      return { status: "driver_not_named" as const };
     }
     // A swap under way has its own return of this car: the rental's waits for it.
     if (await isSwapUnderWay(tx, actor.operatorId, rentalId)) {

@@ -57,14 +57,18 @@ async function actingUser() {
   return { user, actor: { userId: user.id, operatorId: user.operatorId } };
 }
 
-/** Starts the rental's handover (or picks up the one under way) and opens it. */
+/**
+ * Starts the rental's handover (or picks up the one under way) and opens it.
+ * Refused (not booked, or a business's driver still to be named), it goes
+ * back to the rental, whose next step says what comes first.
+ */
 export async function startHandoverAction(rentalId: string): Promise<void> {
   const { actor } = await actingUser();
   if (!isRecordId(rentalId)) {
     redirect(rentalPath(""));
   }
-  await startHandover(appDb, actor, rentalId);
-  redirect(rentalHandoverPath(rentalId));
+  const started = await startHandover(appDb, actor, rentalId);
+  redirect("inspectionId" in started ? rentalHandoverPath(rentalId) : rentalPath(rentalId));
 }
 
 export type SaveDetailsResult = { status: "saved" } | { status: "problem"; message: string };

@@ -22,7 +22,7 @@ import { createTemplate, saveTemplate } from "../src/lib/contracts/templates";
 import { completeHandover } from "../src/lib/handover/complete-handover";
 import { completeReturn } from "../src/lib/handover/complete-return";
 import { completeSwap, currentShownSwap } from "../src/lib/handover/complete-swap";
-import { startReturn } from "../src/lib/handover/handover-records";
+import { startHandover, startReturn } from "../src/lib/handover/handover-records";
 import { startSwap } from "../src/lib/rentals/car-swaps";
 import { loadRentalProblems } from "../src/lib/rentals/booking-checks";
 import { bookingProblemMessage } from "../src/lib/rentals/rental-messages";
@@ -632,9 +632,19 @@ describe("renting to a business", () => {
       );
     }
 
-    it("won't hand a business's car to nobody: the handover waits for a driver", async () => {
+    it("won't start a handover of a business's car with no driver named", async () => {
       const booked = await signedBooking(false);
+
+      expect(await startHandover(web.db, actor, booked.rentalId)).toEqual({
+        status: "driver_not_named",
+      });
+    });
+
+    it("won't hand a business's car to nobody, even if its driver went from under a checklist", async () => {
+      const booked = await signedBooking(true);
       const inspectionId = await kit().filledHandover(booked.rentalId);
+      // Past every screen: the driver cleared straight in the database.
+      await superuser.query("update rentals set driver_id = null where id = $1", [booked.rentalId]);
 
       const result = await accept(inspectionId, null);
 
