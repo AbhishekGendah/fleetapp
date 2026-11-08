@@ -1265,14 +1265,26 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
   - Abhi decided: a business with current drivers is kept past seven years;
     a business rental's damage records follow the business's clock.
 
+- **Late-car fix (8 Nov, Abhi's go; find-a-car decision 5).** A car still
+  out past its return date can't be booked for any dates until it's back:
+  checked in the app (findNewHoldClash, clear "still out" message with a
+  link to the late rental) and by a database trigger on car_holds (0054),
+  which raises the no-overlap rule's own error so the code deployed before
+  it shows its "booked just now" message. Bookings made before the car went
+  late are kept and stay editable. Needs attention says "Car still out" on a
+  pickup waiting on a late car. Deep review, two checkers: four findings,
+  all fixed or noted (deploy-window wording, swap tests, test dates that
+  would have expired in 2034, a millisecond clock gap noted). Test sheet
+  rows O-489 to O-491.
+
 ## Next
 
 **8 Nov: two plans approved (all 20 decisions):** docs/plans/find-a-car.md
 (dates first, free cars as photo cards, filters, showroom photos; also
 fixes a car late back being bookable) and docs/plans/condition-photos.md
 (free photo gallery at pickup/return, Optional/Required, albums). Mockups on
-the design canvas (8 Nov). Order proposed: the late-car booking fix first,
-then business Renters slice 2, Find a car, condition photos.
+the design canvas (8 Nov). The late-car booking fix is live (8 Nov); next: business Renters slice 2,
+then Find a car, then condition photos.
 
 **7 Nov: everything is on the dev site** (Abhi: "send all to the dev
 site"): the overdue batch, no-underline links, cancelled bookings counting
@@ -1363,6 +1375,10 @@ generator needs Abhi's say-so.
 
 ## Open items
 
+- Late-car review follow-up (8 Nov, low): if a car's status were ever wrong
+  (out but marked Available), a swap or handover into it is refused by the
+  possessions overlap rule as an error page rather than a message. Catch
+  `possessions_no_overlap` as a clash in a later slice. Unreachable today.
 - Browser test flake (7 Nov): the accessibility check can run before a
   page's tab name appears (seen once on Needs attention). Fix in the shared
   test helper by waiting for the title first.
