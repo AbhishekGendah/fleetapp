@@ -1302,8 +1302,9 @@ the design canvas (8 Nov). The late-car booking fix is live (8 Nov). Business Re
 (8 Nov); next: business Renters slice 3 (booking a business with a driver)
 with his go, then Find a car, then condition photos. Decided 8 Nov: an
 existing person added as a driver is emailed the privacy notice each time
-(Abhi: yes). Open question from slice 2: a phone-only new driver gets no details
-link until SMS exists (built: yes, on the launch checklist).
+(Abhi: yes). Also decided 8 Nov (Abhi: yes): a phone-only new
+driver gets no details link until texting is built; the app asks for an
+email (on the launch checklist).
 
 **7 Nov: everything is on the dev site** (Abhi: "send all to the dev
 site"): the overdue batch, no-underline links, cancelled bookings counting

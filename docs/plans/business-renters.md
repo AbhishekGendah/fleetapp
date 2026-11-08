@@ -740,3 +740,6 @@ were enough.
 - Decided 8 Nov 2026 (Abhi): a person already on file who is added as a
   business's driver is emailed the privacy notice every time, so they know
   what that business can now see about them.
+- Decided 8 Nov 2026 (Abhi): until texting is built, a new driver with only
+  a phone gets no details link and the app asks for an email (on the launch
+  checklist).
