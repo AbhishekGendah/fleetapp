@@ -3,6 +3,7 @@ import {
   activityLog,
   carSwaps,
   inspections,
+  issuedDocuments,
   possessions,
   rentals,
   signingEvidence,
@@ -591,6 +592,18 @@ describe("renting to a business", () => {
       return booked.rentalId;
     }
 
+    /** A Business rental contract template, the default unless one was written already. */
+    async function writeBusinessTemplate(): Promise<void> {
+      const templateId = await createTemplate(web.db, owner, {
+        kind: "business_contract",
+        name: "Business contract",
+      });
+      await saveTemplate(web.db, owner, templateId, {
+        name: "Business contract",
+        content: SHORT_BUSINESS_CONTRACT,
+      });
+    }
+
     /** The rental's signing link sent and opened: the visit, and the page as it shows. */
     async function openedSigningLink(rentalId: string) {
       const sent = await sendSigningLink(linkDeps(), owner, rentalId, CLOCK);
@@ -625,14 +638,7 @@ describe("renting to a business", () => {
     });
 
     it("is sent to the contact, signed by an authorised person with their position, kept as evidence", async () => {
-      const templateId = await createTemplate(web.db, owner, {
-        kind: "business_contract",
-        name: "Business contract",
-      });
-      await saveTemplate(web.db, owner, templateId, {
-        name: "Business contract",
-        content: SHORT_BUSINESS_CONTRACT,
-      });
+      await writeBusinessTemplate();
       const rentalId = await bookedForBusiness();
       sentEmails.length = 0;
 
@@ -687,6 +693,46 @@ describe("renting to a business", () => {
         signerPosition: "Director",
         authorityText: `I am authorised to sign for ${LEGAL_NAME}.`,
       });
+    });
+
+    it("emails a signed business contract again in the same words as when it was signed (second review)", async () => {
+      await writeBusinessTemplate();
+      const rentalId = await bookedForBusiness();
+      const { visit, view } = await openedSigningLink(rentalId);
+      const noEmail = {
+        async send(): Promise<void> {
+          throw new Error("The mail service is down");
+        },
+      };
+      const signed = await signContract(
+        { ...linkDeps(), emailSender: noEmail },
+        visit,
+        { ...signedFormFor(view), signerName: "Chris Park", typedName: "Chris Park" },
+        META,
+      );
+      expect(signed.status).toBe("signed");
+      const [contract] = await withTenant(web.db, owner.operatorId, (tx) =>
+        tx
+          .select({ id: issuedDocuments.id })
+          .from(issuedDocuments)
+          .where(and(eq(issuedDocuments.rentalId, rentalId), eq(issuedDocuments.kind, "contract"))),
+      );
+      sentEmails.length = 0;
+
+      const again = await emailDocumentAgain(
+        { ...linkDeps(), emailSender: recordingEmailSender(sentEmails) },
+        owner,
+        contract!.id,
+        TEST_TIME_ZONE,
+      );
+
+      expect(again).toMatchObject({ status: "sent", state: { renter: "sent", business: "sent" } });
+      const toSigner = sentEmails.find((email) => email.to === CONTACT_EMAIL);
+      const toOffice = sentEmails.find((email) => email.to === "office@contracts.example.test");
+      expect(toSigner?.text).toContain("Hi Chris Park,");
+      expect(toSigner?.text).toContain(`the rental contract for ${LEGAL_NAME}`);
+      expect(toOffice?.subject).toContain(`Contract signed: ${LEGAL_NAME}, `);
+      expect(toOffice?.text).toContain(`Chris Park signed ${LEGAL_NAME}'s contract`);
     });
 
     it("refuses as changed when the business's names or details shown change before signing", async () => {

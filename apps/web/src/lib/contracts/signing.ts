@@ -41,7 +41,7 @@ import {
 } from "../rentals/rental-changes";
 import { loadPdfBranding } from "./contract-pdf";
 import { evidenceRow, insertSigningEvidence } from "./signing-evidence";
-import { emailDocumentCopies } from "./document-copies";
+import { businessSignerCopy, emailDocumentCopies } from "./document-copies";
 import type { RenterLinkInPlay } from "../renter-links/details-links";
 import { renderDocumentPdf, type PdfSignature, type PdfSigningRecord } from "./document-pdf";
 import { fillContract, type FilledContract } from "./filled-contract";
@@ -607,10 +607,9 @@ export async function signContract(
     operatorId: visit.operatorId,
     renterEmail: link.sentToEmail,
     // A business's copy greets the person who signed for it; the business's own names both.
-    renterName: view.authority ? input.signerName : view.renterFullName,
     ...(view.authority
-      ? { forBusiness: { driverName: input.signerName, businessName: view.authority.legalName } }
-      : {}),
+      ? businessSignerCopy(input.signerName, view.authority.legalName)
+      : { renterName: view.renterFullName }),
     rentalSummary: view.rentalSummary,
     atText: signedAtText,
     fileName: `${documentTitle(view)} ${view.rentalSummary}.pdf`,

@@ -14,6 +14,7 @@ import {
   issuedDocuments,
   rentals,
   renters,
+  signingEvidence,
   vehicles,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
@@ -23,7 +24,7 @@ import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { recordUserChange, type ActingUser } from "../acting-user";
 import type { FileDependencies } from "../files/stored-files";
 import { readStoredFile } from "../files/read-stored-file";
-import { emailDocumentCopies } from "./document-copies";
+import { businessSignerCopy, emailDocumentCopies, type DocumentCopies } from "./document-copies";
 import { rentalSummaryText } from "./signing-links";
 
 /** How each copied document is named in its email's attachment. */
@@ -101,6 +102,15 @@ function documentDriverColumn(column: "full_name" | "email") {
   )`;
 }
 
+/** Who signed a business's contract or change of terms for it, as its signing evidence keeps. */
+const documentSignerName = sql<string | null>`(
+  select ${signingEvidence.details} ->> 'signerName' from ${signingEvidence}
+  where ${signingEvidence.operatorId} = ${issuedDocuments.operatorId}
+    and ${signingEvidence.issuedDocumentId} = ${issuedDocuments.id}
+    and ${signingEvidence.step} = 'signed'
+  limit 1
+)`;
+
 /**
  * The document and who it goes to now: the Renter's email as it is today,
  * the driver who signed it (their email as it is today), and its car.
@@ -118,6 +128,7 @@ async function loadResendable(database: AnyDatabase, operatorId: string, documen
         greetingName: sql<string>`coalesce(${renters.contactName}, ${renters.fullName})`,
         driverName: documentDriverColumn("full_name"),
         driverEmail: documentDriverColumn("email"),
+        signerName: documentSignerName,
         renterEmail: renters.email,
         rentalVehicleId: rentals.vehicleId,
         inspectionVehicleId: inspections.vehicleId,
@@ -179,6 +190,36 @@ function readStoredPdf(
   return readStoredFile(storage, DOCUMENT_AREA, objectKey, "a document to email again");
 }
 
+type Resendable = NonNullable<Awaited<ReturnType<typeof loadResendable>>>;
+
+/**
+ * Who each copy greets and names, worded as when it was issued: a business's
+ * car's papers name the driver who signed and the business, and its driver
+ * gets their own; a business's contract or change of terms greets who signed
+ * for it (`businessSignerCopy`, as signing does). Anything else greets the
+ * Renter, or a business's contact.
+ */
+function copyNamesOf(
+  document: Resendable,
+  kind: CopiedDocumentKind,
+): Pick<DocumentCopies, "renterName" | "forBusiness" | "driverCopy"> {
+  if (document.renterKind !== "organisation") {
+    return { renterName: document.greetingName };
+  }
+  if (isChecklistCopy(kind)) {
+    return document.driverName
+      ? {
+          renterName: document.greetingName,
+          forBusiness: { driverName: document.driverName, businessName: document.renterName },
+          driverCopy: { email: document.driverEmail },
+        }
+      : { renterName: document.greetingName };
+  }
+  return document.signerName
+    ? businessSignerCopy(document.signerName, document.renterName)
+    : { renterName: document.greetingName };
+}
+
 export type EmailAgainResult =
   { status: "sent"; state: DocumentEmailState } | { status: "not_found" };
 
@@ -196,13 +237,10 @@ export async function emailDocumentAgain(
   if (!document || !isCopiedKind(document.kind)) {
     return { status: "not_found" };
   }
-  const forBusiness =
-    document.renterKind === "organisation" && document.driverName && isChecklistCopy(document.kind)
-      ? { driverName: document.driverName, businessName: document.renterName }
-      : undefined;
+  const names = copyNamesOf(document, document.kind);
   // A driver's copy only for the papers a business's driver signed (rule 15).
   const recipients = DOCUMENT_EMAIL_RECIPIENTS.filter(
-    (recipient) => recipient !== "driver" || forBusiness,
+    (recipient) => recipient !== "driver" || names.driverCopy,
   );
   const before = (await loadDocumentEmailStates(deps.database, actor.operatorId, [documentId])).get(
     documentId,
@@ -227,8 +265,7 @@ export async function emailDocumentAgain(
     kind: document.kind,
     operatorId: actor.operatorId,
     renterEmail: document.renterEmail,
-    renterName: document.greetingName,
-    ...(forBusiness ? { forBusiness, driverCopy: { email: document.driverEmail } } : {}),
+    ...names,
     rentalSummary: carText,
     atText: formatDateTimeInTimeZone(document.issuedAt, timeZone),
     fileName: `${[COPY_TITLES[document.kind], document.car?.rego].filter(Boolean).join(" ")}.pdf`,

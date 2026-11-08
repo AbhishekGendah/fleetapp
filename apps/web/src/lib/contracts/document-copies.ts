@@ -46,6 +46,18 @@ export interface DocumentCopies {
   driverCopy?: { email: string | null };
 }
 
+/**
+ * A business's signed contract or change of terms: the copy greets the
+ * person who signed for it, and every copy names the business they signed
+ * for. The same words when it is signed and when it is emailed again.
+ */
+export function businessSignerCopy(
+  signerName: string,
+  businessName: string,
+): Required<Pick<DocumentCopies, "renterName" | "forBusiness">> {
+  return { renterName: signerName, forBusiness: { driverName: signerName, businessName } };
+}
+
 type Recipient = { recipient: DocumentEmailRecipient; to: string | null };
 
 const AUDIENCE_OF: Readonly<Record<DocumentEmailRecipient, DocumentCopyAudience>> = {
