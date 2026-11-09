@@ -946,9 +946,82 @@ unchanged and passing).
   new rental, or a draft being booked) takes the car and then the business:
   the two deadlocked (shown by tests before the fix). `lockDriverNamingParties`
   now locks the car first, so naming a driver on a draft or booking takes
-  the car too, harmlessly. Two-connection tests in `driver-changes.test.ts`
+  the car too. Two-connection tests in `driver-changes.test.ts`
   for starting and finishing, against a new rental and a draft being
-  booked, in both orders: both go ahead.
+  booked, in both orders: both go ahead. The slice 4 second review showed
+  that "harmless" was not the whole story (a swap reached the old car after
+  the business, and a checklist photo reached the car before its
+  checklist): the sweep below replaces it.
+
+  **The one order (second review of slice 4, 9 Nov 2026).** Every code
+  path and database rule that locks these tables takes them in this order,
+  skipping what it doesn't need; a row locked "shared" is taken by a
+  link (a foreign key) or a database rule, and counts where it is taken:
+
+  1. `rentals`: the rental being changed (an issued paper takes it first,
+     to number the paper; the database's start rules for a swap or a
+     driver change, and a new possession, take it again, already held).
+  2. `car_swaps` / `rental_driver_changes`: the rental's swap or driver
+     change.
+  3. `inspections`: its checklists, a pair's return before its handover
+     (an issued paper's link takes them shared first; a photo's start and
+     its confirmation take them shared).
+  4. `vehicles`: the car, or a swap's two cars in id order.
+  5. `files`: a new photo, or one being confirmed (a paper's own file row,
+     which nothing else touches, is updated with step 1).
+  6. `renters`: the Renter or business, then its driver; a driver
+     change's two drivers in id order.
+  7. `organisation_drivers`: the driver's link (shared by the database's
+     rules; locked to remove it).
+  8. `car_holds` and `possessions`: written last, under the car's lock
+     (the database's no-overlap rules make a clashing write wait for it).
+     Releasing or moving the end of a rental's own hold (a cancel, a new
+     end) is done under the rental's lock without the car's: such a write
+     can make a booking of the car wait, but takes nothing afterwards that
+     the booking holds.
+
+  | Path | Locks, in order |
+  | --- | --- |
+  | New rental (`createRental`) | car, Renter, driver, link (shared), hold |
+  | Booking a draft (`bookRental`) | rental, car, Renter, driver, link (shared), hold |
+  | Naming a driver (`nameRentalDriver`) | rental, car, business, driver, link (shared) |
+  | Cancelling a booking | rental, its holds, its checklists, its links |
+  | New end or ongoing (`changeRentalEnd`) | rental, its hold |
+  | Starting a handover or return | rental, the new checklist (its car shared) |
+  | Details, marks, cancelling one checklist | the checklist |
+  | Starting a checklist photo (fixed) | checklist (shared), car, new file |
+  | Confirming a photo | checklist (shared), the file, the photo it replaces |
+  | Handover signing | rental, checklist, car, Renter, driver, hold, possession (rental and link shared), car's status |
+  | Return signing | rental, checklist, possession, rental, hold, car's status, reading, damage (Renter shared) |
+  | Starting a swap | rental, two checklists (both cars shared), the swap |
+  | Swap signing (fixed) | rental, swap, old car's checklist, new car's checklist, both cars (id order), possession (Renter, driver and link shared), holds, cars' status, damage |
+  | Cancelling a swap or driver change | rental, swap or change, return checklist, handover checklist |
+  | Starting a driver change (fixed) | rental, car, business, both drivers (id order), two checklists, the change |
+  | Driver change signing | rental, change, check-in, handover checklist, car, business, new driver, marks, possession, rental's driver (link shared), reading, damage |
+  | Adding or removing a driver | business, person, link |
+  | A Renter's details, status or archive | the Renter (then their links) |
+  | A car's details, status, sale or papers | the car |
+  | A photo of damage found later | car, new file |
+  | A contract or change of terms signed by link | rental, link |
+  | Retirement job | the Renter, then their rentals' records: the one exception, as nothing it reaches is in use |
+
+  The database's rules: the driver change and swap start checks lock the
+  rental (already held); the rental's driver rule takes the driver and
+  link shared, after the business; a new possession takes the rental and
+  link shared; a new driver link takes the business and person shared; the
+  checklist, photo, mark and driver change guards only read.
+
+  Fixed by the sweep, each with a two-connection test that showed the
+  deadlock (40P01) before the fix: signing a swap against a booking of the
+  old car, a draft being booked or a driver named on a later booking
+  (`driver-changes.test.ts`, both orders: the swap now locks both cars
+  after its checklists and before the possession); starting a checklist
+  photo against signing a handover, return, swap or driver change
+  (`checklist-photo-lock-order.test.ts`, `driver-changes.test.ts`: the
+  upload now holds the checklist before the car, and a checklist finished
+  meanwhile refuses the photo as not found); and two driver changes
+  crossing the same two drivers of two businesses (the drivers now in id
+  order).
 - **Second review fixes (8 Nov 2026).** Booking a draft refuses a driver
   whose details wait for review, as naming one and a new rental do (one
   `lockBookingParties` for both); naming again the driver the rental already
@@ -1103,7 +1176,8 @@ Abhi's go: 9 Nov 2026. Person Renters behave as before.
     photos from those, still stored once (rule 21); no schema change.
     Changes finished before this fix (dev data only) still show those marks
     without photos. Tested through a return's comparison and a second
-    driver change.
+    driver change. (Replaced by a column of its own in 0059: see "Second
+    review fixes".)
   - *Entries sent straight to the new driver's checklist*: saving details,
     adding or removing a mark and starting a photo on a driver change's
     handover are refused as not found (it is filled from the check-in as
@@ -1136,6 +1210,55 @@ Abhi's go: 9 Nov 2026. Person Renters behave as before.
     showed" are parsed with Zod schemas (`signing-step-forms.ts`); every
     phone signature's boxes are checked with the same size limits, a
     signature too big to be one being refused as no signature.
+- **Second review fixes (slice 4, 9 Nov 2026).** Each fix has a test that
+  failed before it.
+  - *Deadlocks*: a swap signed while the old car was booked, a draft of it
+    booked or a driver named on its later booking; a checklist photo
+    started while its checklist was signed (handover, return, swap or
+    driver change); two driver changes crossing the same two drivers. See
+    "Lock order" for the whole sweep and its table, which replaces the
+    earlier "harmless" note.
+  - *Damage numbering*: a driver change's copies of the damage on the car
+    were made at one moment, so "Damage 1", "Damage 2" … could swap places.
+    Each copy is now a millisecond after the last, in the car's order, and
+    marks are listed by time then id everywhere they are numbered (the
+    checklist screens, reports and the return's comparison all read one
+    list).
+  - *`0059_driver_change_records`* (Abhi's standing go for the obvious
+    recommendation): `inspection_damage_marks.copied_from_mark_id`
+    (nullable, linked to a mark of the same business) names the mark a
+    copy shows, so its photo is found from that mark's; the phone's key
+    (`client_key`) is the phone's again. The copies made so far are moved
+    across where the key is the id of a mark of the same business. While
+    the code deployed before 0059 still runs (minutes, during the deploy)
+    it keeps copying into the key, so a database rule moves such a copy
+    across as it is added, and points every copy at the first mark (that
+    code would name a moved copy itself): chosen over a fallback in the
+    lookup, which would have kept the key's double use in the code for
+    good. The rule touches only a driver change's handover, which never
+    takes a phone's mark. Also in 0059: a cancelled driver change's reason
+    is cleared when the driver it would have handed the car to is retired,
+    as well as with the rental's parties. That driver never had the car,
+    so isn't one of the rental's parties; making them one would have kept
+    every party's records on the rental until they were retired too, so
+    the words that may name them go with them instead, and the rest of the
+    rental stays as long as its parties' records do. And a driver change is
+    completed only within ten minutes of the transaction's time, so a
+    direct write can't backdate (or forward-date) the hand-over moment that
+    fines are matched to: signing always uses the server's clock (never a
+    time queued on a phone), and the margin covers making the two reports
+    first. Tested on a database filled at 0058
+    (`driver-change-records-update.test.ts`): the copies moved and the
+    phone's keys kept; the deployed code's copies moved as they go in; a
+    copy of another business's mark refused; a change finished an hour
+    back or ahead refused; each cancelled reason cleared both ways.
+  - *An oversized signature on a driver change* is taken as no signature
+    and refused in the usual words, as at a swap, rather than failing the
+    whole form.
+  - *A photo started on a checklist finished meanwhile* is now refused as
+    not found (before, it could be recorded against the finished checklist,
+    though never confirmed onto it).
+
 - **Departures from mockup 7, and why.** Sam signs on step 3, just above
   Mia, not at the end of step 2: both signatures are sent together, so a
   drawn signature is never kept on the phone between pages, and Sam reads

@@ -1094,7 +1094,14 @@ As built slice 2).
   car swap's reason, which had the same gap since slice 7b
   (`0058_driver_change_guards`). The reports holding it are binned with the
   rental's other papers then, as before. Nothing else on a finished change
-  or swap can ever change.
+  or swap can ever change. A cancelled change's reason may name the driver
+  it would have handed the car to, who never had it and so isn't one of the
+  rental's parties: since the second review of slice 4
+  (`0059_driver_change_records`) it is also replaced with "Removed" when
+  that driver is retired, whoever else on the rental is kept.
+- **The hand-over moment (fines).** The database accepts a driver change as
+  finished only within ten minutes of the moment it is written (0059), so
+  the instant a fine is matched to can't be backdated by a direct write.
 - **Signing.** Both drivers sign on the Operator's phone (drawn, or their
   full name typed), each checked against their own name, never the
   business's; the words each accepts are shown before signing and kept
