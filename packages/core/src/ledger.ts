@@ -141,21 +141,33 @@ export interface LedgerTotals {
  */
 export function ledgerTotals(lines: readonly LedgerLineAmount[]): LedgerTotals {
   const linesById = new Map(lines.map((line) => [line.id, line]));
-  const totals = { charged: 0, paid: 0 };
+  const totals = { chargedCents: 0, paidCents: 0 };
   for (const line of lines) {
-    const counted = line.kind === "reversal" ? linesById.get(line.reversesId ?? "") : line;
-    if (!counted || counted.kind === "reversal") {
-      continue;
-    }
-    const effect = balanceEffect(line, linesById);
-    const total = TOTAL_OF_KIND[counted.kind];
-    totals[total] += total === "charged" ? effect : -effect;
+    const counted = lineTotalsOf(line, linesById);
+    totals.chargedCents += counted.chargedCents;
+    totals.paidCents += counted.paidCents;
   }
-  return {
-    chargedCents: totals.charged,
-    paidCents: totals.paid,
-    balanceCents: totals.charged - totals.paid,
-  };
+  return { ...totals, balanceCents: totals.chargedCents - totals.paidCents };
+}
+
+/**
+ * What one line adds to charged and to paid, by the kind of line it is (or,
+ * for a reversal, undoes): a credit is less charged, a refund less paid.
+ * `linesById` holds the rental's lines, so a reversal finds what it undoes.
+ * Charged less paid is always how the line moves the balance.
+ */
+export function lineTotalsOf(
+  line: LedgerLineAmount,
+  linesById: ReadonlyMap<string, LedgerLineAmount>,
+): Pick<LedgerTotals, "chargedCents" | "paidCents"> {
+  const counted = line.kind === "reversal" ? linesById.get(line.reversesId ?? "") : line;
+  if (!counted || counted.kind === "reversal") {
+    return { chargedCents: 0, paidCents: 0 };
+  }
+  const effect = balanceEffect(line, linesById);
+  return TOTAL_OF_KIND[counted.kind] === "charged"
+    ? { chargedCents: effect, paidCents: 0 }
+    : { chargedCents: 0, paidCents: -effect };
 }
 
 export interface StatementFigures<Line extends DatedLedgerLine> {

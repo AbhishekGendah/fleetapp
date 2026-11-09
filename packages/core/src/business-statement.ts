@@ -1,11 +1,16 @@
-import { statementFigures, type DatedLedgerLine } from "./ledger";
+import {
+  lineTotalsOf,
+  statementFigures,
+  type DatedLedgerLine,
+  type LedgerLineAmount,
+} from "./ledger";
 
 /**
  * A business Renter's statement across its cars (docs/plans/business-renters.md,
  * "Money correctness"): each rental's own statement figures, by the one
- * ledger rule (rule 11), set side by side. Nothing new is worked out: a
- * line's amount is how it moved its own rental's balance, shown under
- * Charged when it added to what is owed and under Paid when it took off, so
+ * ledger rule (rule 11), set side by side. Nothing new is worked out: each
+ * line counts under Charged or Paid as `ledgerTotals` counts it (a credit is
+ * less charged, a refund less paid, a reversal under what it undoes), so
  * every car's brought forward, plus charged, less paid, is its closing
  * balance, and the business's totals are the sum of its cars'. A reversal is
  * always on the rental of the line it undoes, so each rental nets on its own.
@@ -13,9 +18,9 @@ import { statementFigures, type DatedLedgerLine } from "./ledger";
 
 export interface StatementEntry<Line extends DatedLedgerLine> {
   line: Line;
-  /** What the line added to the balance; nought when it took off. */
+  /** What the line adds to charged (a credit: less); nought for a payment or refund. */
   chargedCents: number;
-  /** What the line took off the balance; nought when it added. */
+  /** What the line adds to paid (a refund: less); nought for a charge or credit. */
   paidCents: number;
 }
 
@@ -49,7 +54,7 @@ function linesByRental<Line extends DatedLedgerLine & { rentalId: string }>(
   return grouped;
 }
 
-/** One rental's part: its statement figures, each line split into charged or paid. */
+/** One rental's part: its statement figures, each line counted as charged or paid. */
 function carStatementOf<Line extends DatedLedgerLine>(
   rentalId: string,
   lines: readonly Line[],
@@ -57,16 +62,8 @@ function carStatementOf<Line extends DatedLedgerLine>(
   toDate: string,
 ): CarStatement<Line> {
   const figures = statementFigures(lines, fromDate, toDate);
-  let before = figures.openingCents;
-  const entries = figures.lines.map(({ line, balanceAfterCents }) => {
-    const movedCents = balanceAfterCents - before;
-    before = balanceAfterCents;
-    return {
-      line,
-      chargedCents: Math.max(movedCents, 0),
-      paidCents: Math.max(-movedCents, 0),
-    };
-  });
+  const linesById = new Map<string, LedgerLineAmount>(lines.map((line) => [line.id, line]));
+  const entries = figures.lines.map(({ line }) => ({ line, ...lineTotalsOf(line, linesById) }));
   return {
     rentalId,
     entries,

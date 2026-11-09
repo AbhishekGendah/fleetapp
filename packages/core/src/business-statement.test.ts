@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { businessStatementFigures } from "./business-statement";
-import { ledgerBalanceCents, statementFigures, type DatedLedgerLine } from "./ledger";
+import { ledgerBalanceCents, ledgerTotals, statementFigures, type DatedLedgerLine } from "./ledger";
 
 type Line = DatedLedgerLine & { rentalId: string };
 
@@ -75,10 +75,11 @@ describe("a business's statement across its cars", () => {
       [360_00, 0],
       [0, 360_00],
       [80_00, 0],
-      [0, 80_00],
+      // A reversal counts under what it undoes: the cleaning is no longer charged.
+      [-80_00, 0],
     ]);
     const corolla = figures.cars[2]!;
-    expect(corolla.entries.at(-1)).toMatchObject({ chargedCents: 100_00, paidCents: 0 });
+    expect(corolla.entries.at(-1)).toMatchObject({ chargedCents: 0, paidCents: -100_00 });
   });
 
   it("brings each car's balance forward into a later range, and leaves out a car with none", () => {
@@ -94,6 +95,39 @@ describe("a business's statement across its cars", () => {
       ["corolla", -(97_14 - 100_00) - 340_00, 0],
     ]);
     expect(late.closingCents).toBe(ledgerBalanceCents(LINES));
+  });
+
+  it("counts a credit as less charged and a refund as less paid, as the ledger does (review)", () => {
+    const lines: Line[] = [
+      line("car", "charge", "charge", 500_00, "2026-10-01"),
+      line("car", "credit", "credit", 100_00, "2026-10-02"),
+      line("car", "payment", "payment", 400_00, "2026-10-03"),
+      line("car", "refund", "refund", 50_00, "2026-10-04"),
+    ];
+
+    const [car] = businessStatementFigures(lines, "2026-10-01", "2026-10-31").cars;
+
+    expect(car).toMatchObject({ chargedCents: 400_00, paidCents: 350_00, closingCents: 50_00 });
+    expect(car!.entries.map((entry) => [entry.chargedCents, entry.paidCents])).toEqual([
+      [500_00, 0],
+      [-100_00, 0],
+      [0, 400_00],
+      [0, -50_00],
+    ]);
+    const totals = ledgerTotals(lines);
+    expect([car!.chargedCents, car!.paidCents]).toEqual([totals.chargedCents, totals.paidCents]);
+  });
+
+  it("puts a reversal under the total of the line it undoes, even one before the days", () => {
+    const lines: Line[] = [
+      line("car", "pay", "payment", 300_00, "2026-09-30"),
+      line("car", "undo-pay", "reversal", 300_00, "2026-10-05", "pay"),
+    ];
+
+    const [car] = businessStatementFigures(lines, "2026-10-01", "2026-10-31").cars;
+
+    expect(car).toMatchObject({ openingCents: -300_00, chargedCents: 0, paidCents: -300_00 });
+    expect(car!.openingCents + car!.chargedCents - car!.paidCents).toBe(car!.closingCents);
   });
 
   it("is empty with no lines", () => {

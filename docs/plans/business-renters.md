@@ -1447,10 +1447,14 @@ tests unchanged and passing), but for a sole trader's ABN (decision 8).
   Numbering, GST, idempotency and the ledger are untouched (no money
   calculation changed).
 - **The statement across its cars (mockup 8).** `businessStatementFigures`
-  in packages/core: each rental's own `statementFigures`, each line under
-  Charged or Paid by how it moved its rental's balance, so a car's
-  brought-forward plus charged less paid is its closing balance and the
-  business's totals are the sum of its cars'. The PDF: STATEMENT, the
+  in packages/core: each rental's own `statementFigures`, each line counted
+  under Charged or Paid as `ledgerTotals` and the Money tab count it (one
+  helper, `lineTotalsOf`): a charge is charged, a credit less charged, a
+  payment paid, a refund less paid, a reversal under the total of what it
+  undoes (review fix, 9 Nov 2026: a refund had been put under Charged and a
+  credit under Paid). A car's brought-forward plus charged less paid is
+  still its closing balance, and the business's totals are the sum of its
+  cars'. The PDF: STATEMENT, the
   Operator's details, To (as an invoice), made, days, "AUD, GST included",
   "This is a statement, not a tax invoice.", the totals across all cars,
   then a table per car headed "1BRT482 · Toyota Camry · driver Sam Lee"
