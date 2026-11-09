@@ -7,6 +7,8 @@ import { STAND_IN_CHECKOUT_PATH } from "../paths";
 import type {
   CheckoutOutcome,
   CheckoutRequest,
+  DebitRead,
+  DebitRequest,
   MoneyTakenBack,
   PaymentEventNotice,
   PaymentsProvider,
@@ -54,6 +56,28 @@ export interface StandInPayments extends PaymentsProvider {
     sessionId: string,
     change: { kind: "refund" | "dispute"; amountCents: number; status?: MoneyTakenBack["status"] },
   ): { event: SignedEvent; objectId: string };
+  /** The same for a weekly or one-off debit. */
+  takeBackDebit(
+    paymentIntentId: string,
+    change: { kind: "refund" | "dispute"; amountCents: number; status?: MoneyTakenBack["status"] },
+  ): { event: SignedEvent; objectId: string };
+  /** Every debit "Stripe" made, oldest first, for the tests to check what was asked. */
+  debitsMade(): StandInDebit[];
+  /**
+   * A debit clears or bounces at the bank (at `occurredAt`), with Stripe's
+   * fee once it clears: gives the event Stripe would send.
+   */
+  settleDebit(
+    paymentIntentId: string,
+    isPaid: boolean,
+    options?: { occurredAt?: Date; failureCode?: string; feeCents?: number },
+  ): SignedEvent;
+  /** The next debit requests are refused at once, with this code (say, over the BECS limit). */
+  refuseNextDebits(count: number, failureCode: string): void;
+  /** The next debit requests never reach "Stripe": no answer, and nothing made. */
+  failNextDebitRequests(count: number): void;
+  /** The next debits are made, but the answer is lost on its way back (a timeout). */
+  loseNextDebitAnswers(count: number): void;
   /** A refund later fails, or a dispute is won and its money returned. */
   settleTakeBack(objectId: string, status: MoneyTakenBack["status"]): SignedEvent;
   /** The name and email "Stripe" has for a customer. */
@@ -70,6 +94,17 @@ export interface SignedEvent {
   payload: string;
   signature: string;
 }
+
+/** A debit as the stand-in keeps it: what was asked and what "Stripe" says of it now. */
+export interface StandInDebit {
+  accountId: string;
+  request: DebitRequest;
+  read: DebitRead;
+  createdAt: Date;
+}
+
+/** The stand-in's fee for a debit that cleared, unless a test sets one. */
+const STAND_IN_DEBIT_FEE_CENTS = 1_50;
 
 export interface StandInCheckout {
   accountId: string;
@@ -127,6 +162,38 @@ export function createStandInPayments(webhookSecret: string): StandInPayments {
   >();
   const customerDetails = new Map<string, { name: string; email: string | null }>();
   let failingCustomerUpdates = 0;
+  const debits = new Map<string, StandInDebit>();
+  const debitByKey = new Map<string, string>();
+  let refusingDebits = { count: 0, failureCode: "" };
+  let failingDebitRequests = 0;
+  let losingDebitAnswers = 0;
+
+  function recordTakeBack(
+    accountId: string,
+    paymentIntentId: string,
+    change: { kind: "refund" | "dispute"; amountCents: number; status?: MoneyTakenBack["status"] },
+  ): { event: SignedEvent; objectId: string } {
+    const objectId = standInId(change.kind === "refund" ? "re" : "du");
+    takenBack.set(objectId, {
+      objectId,
+      paymentIntentId,
+      amountCents: change.amountCents,
+      status: change.status ?? "taken",
+      accountId,
+      kind: change.kind,
+    });
+    const type =
+      change.kind === "refund" ? "v1.refund.created" : "v1.charge.dispute.funds_withdrawn";
+    return { event: signed({ id: standInId("evt"), type, accountId, objectId }), objectId };
+  }
+
+  function debitOf(paymentIntentId: string): StandInDebit {
+    const debit = debits.get(paymentIntentId);
+    if (!debit) {
+      throw new Error("No such stand-in debit.");
+    }
+    return debit;
+  }
 
   function signed(
     event: Omit<PaymentEventNotice, "objectId" | "occurredAt"> & {
@@ -227,18 +294,98 @@ export function createStandInPayments(webhookSecret: string): StandInPayments {
       if (!checkout || !paymentIntentId) {
         throw new Error("That stand-in checkout took no payment.");
       }
-      const objectId = standInId(change.kind === "refund" ? "re" : "du");
-      takenBack.set(objectId, {
-        objectId,
-        paymentIntentId,
-        amountCents: change.amountCents,
-        status: change.status ?? "taken",
-        accountId: checkout.accountId,
-        kind: change.kind,
+      return recordTakeBack(checkout.accountId, paymentIntentId, change);
+    },
+    takeBackDebit(paymentIntentId, change) {
+      return recordTakeBack(debitOf(paymentIntentId).accountId, paymentIntentId, change);
+    },
+    async createDebit(accountId, request) {
+      if (failingDebitRequests > 0) {
+        failingDebitRequests -= 1;
+        throw new Error("The stand-in's Stripe is down.");
+      }
+      const key = `${accountId}:debit:${request.paymentId}`;
+      const madeBefore = debitByKey.get(key);
+      // The same key gives back the first answer, as Stripe's idempotency does.
+      const existing = madeBefore ? debits.get(madeBefore) : undefined;
+      if (existing) {
+        return { status: "sent", debit: existing.read };
+      }
+      if (refusingDebits.count > 0) {
+        refusingDebits = { ...refusingDebits, count: refusingDebits.count - 1 };
+        return {
+          status: "refused",
+          failureCode: refusingDebits.failureCode,
+          paymentIntentId: null,
+        };
+      }
+      const paymentIntentId = standInId("pi");
+      const debit: StandInDebit = {
+        accountId,
+        request,
+        createdAt: new Date(),
+        read: {
+          paymentIntentId,
+          status: "processing",
+          failureCode: null,
+          amountCents: request.amountCents,
+          customerId: request.customerId,
+          mandateId: request.mandateId,
+          paymentId: request.paymentId,
+          feeCents: null,
+        },
+      };
+      debits.set(paymentIntentId, debit);
+      debitByKey.set(key, paymentIntentId);
+      if (losingDebitAnswers > 0) {
+        losingDebitAnswers -= 1;
+        throw new Error("The stand-in's answer was lost on its way back.");
+      }
+      return { status: "sent", debit: debit.read };
+    },
+    async readDebit(_accountId, paymentIntentId) {
+      return debitOf(paymentIntentId).read;
+    },
+    async findDebitByReference(accountId, reference) {
+      const found = [...debits.values()].find(
+        (debit) =>
+          debit.accountId === accountId &&
+          debit.read.customerId === reference.customerId &&
+          debit.read.paymentId === reference.paymentId &&
+          debit.createdAt.getTime() >= reference.createdSince.getTime(),
+      );
+      return found?.read ?? null;
+    },
+    debitsMade() {
+      return [...debits.values()];
+    },
+    settleDebit(paymentIntentId, isPaid, options = {}) {
+      const debit = debitOf(paymentIntentId);
+      debits.set(paymentIntentId, {
+        ...debit,
+        read: {
+          ...debit.read,
+          status: isPaid ? "succeeded" : "failed",
+          failureCode: isPaid ? null : (options.failureCode ?? "insufficient_funds"),
+          feeCents: isPaid ? (options.feeCents ?? STAND_IN_DEBIT_FEE_CENTS) : null,
+        },
       });
-      const type =
-        change.kind === "refund" ? "v1.refund.created" : "v1.charge.dispute.funds_withdrawn";
-      return { event: eventFor(checkout, type, objectId), objectId };
+      return signed({
+        id: standInId("evt"),
+        type: isPaid ? "v1.payment_intent.succeeded" : "v1.payment_intent.payment_failed",
+        accountId: debit.accountId,
+        objectId: paymentIntentId,
+        ...(options.occurredAt ? { occurredAt: options.occurredAt } : {}),
+      });
+    },
+    refuseNextDebits(count, failureCode) {
+      refusingDebits = { count, failureCode };
+    },
+    failNextDebitRequests(count) {
+      failingDebitRequests = count;
+    },
+    loseNextDebitAnswers(count) {
+      losingDebitAnswers = count;
     },
     settleTakeBack(objectId, status) {
       const existing = takenBack.get(objectId);

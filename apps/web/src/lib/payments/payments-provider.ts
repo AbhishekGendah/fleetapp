@@ -102,6 +102,38 @@ export interface MoneyTakenBack {
   status: "taken" | "failed" | "returned";
 }
 
+/** A debit the business asks Stripe for, off-session, under the Renter's direct debit. */
+export interface DebitRequest {
+  /** Our payment's ID: in Stripe's metadata, and the request's idempotency key. */
+  paymentId: string;
+  customerId: string;
+  paymentMethodId: string;
+  mandateId: string;
+  amountCents: number;
+  /** The car and the week, never a person (decision 9). */
+  description: string;
+}
+
+/** A debit as Stripe has it now, read from Stripe, never from an event. */
+export interface DebitRead {
+  paymentIntentId: string;
+  /** "processing" while the bank debit is on its way; anything not done reads so. */
+  status: "processing" | "succeeded" | "failed";
+  failureCode: string | null;
+  amountCents: number;
+  customerId: string | null;
+  mandateId: string | null;
+  /** Our payment's ID from its metadata; null when it is not one we asked for. */
+  paymentId: string | null;
+  /** Stripe's fee, once Stripe has worked it out. */
+  feeCents: number | null;
+}
+
+/** What Stripe answered a debit request: made (on its way, or already settled), or refused at once. */
+export type DebitAnswer =
+  | { status: "sent"; debit: DebitRead }
+  | { status: "refused"; failureCode: string | null; paymentIntentId: string | null };
+
 /**
  * Everything the app asks of Stripe, so every test runs against a
  * stand-in and nothing but this interface knows Stripe's shapes.
@@ -146,6 +178,23 @@ export interface PaymentsProvider {
     disputeId: string,
     moneyMoved: "withdrawn" | "reinstated",
   ): Promise<MoneyTakenBack>;
+  /**
+   * Asks Stripe for a debit, with `debit:{paymentId}` as the idempotency key
+   * so a repeat is the same request. Throws when Stripe gave no answer (a
+   * timeout, Stripe down): the debit may or may not have been made.
+   */
+  createDebit(accountId: string, request: DebitRequest): Promise<DebitAnswer>;
+  /** A debit as Stripe has it now. */
+  readDebit(accountId: string, paymentIntentId: string): Promise<DebitRead>;
+  /**
+   * The debit Stripe made for our payment, found among the customer's made
+   * since then by our payment's ID in its metadata; null if there is none.
+   * Recovery's last word, once a repeat with the same key is no longer safe.
+   */
+  findDebitByReference(
+    accountId: string,
+    reference: { customerId: string; paymentId: string; createdSince: Date },
+  ): Promise<DebitRead | null>;
   /** Tells Stripe the Renter's current name and email (review A5-6). */
   updateCustomer(
     accountId: string,

@@ -9,7 +9,12 @@ import {
 import Stripe from "stripe";
 import { z } from "zod";
 
-import type { CheckoutOutcome, CheckoutReference, PaymentsProvider } from "./payments-provider";
+import type {
+  CheckoutOutcome,
+  CheckoutReference,
+  DebitRead,
+  PaymentsProvider,
+} from "./payments-provider";
 
 /**
  * The Stripe API version the app is written against, the one its library
@@ -268,6 +273,57 @@ export function checkoutOutcomeOf(raw: unknown, mandate: MandateRead | null): Ch
   };
 }
 
+/** The parts of a debit's PaymentIntent (its latest charge expanded) the app reads. */
+const debitIntentSchema = z.object({
+  id: z.string(),
+  status: z.string(),
+  amount: z.number().int(),
+  customer: z.string().nullable(),
+  metadata: z.record(z.string(), z.string()).nullable(),
+  last_payment_error: z.object({ code: z.string().optional() }).nullable().optional(),
+  latest_charge: z
+    .object({
+      payment_method_details: z
+        .object({ au_becs_debit: z.object({ mandate: z.string().nullish() }).nullish() })
+        .nullish(),
+      balance_transaction: z.object({ fee: z.number().int() }).nullish(),
+    })
+    .nullish(),
+});
+/** Where a debit's metadata carries our payment's ID. */
+const PAYMENT_ID_KEY = "payment_id";
+const DEBIT_EXPANSIONS = ["latest_charge.balance_transaction"];
+/** A PaymentIntent in these states will not take the money: the debit failed. */
+const FAILED_INTENT_STATUSES: ReadonlySet<string> = new Set([
+  "requires_payment_method",
+  "canceled",
+]);
+
+/** A debit's PaymentIntent, as Stripe returns it, in the app's words. */
+export function debitReadOf(raw: unknown): DebitRead {
+  const intent = debitIntentSchema.parse(raw);
+  const paymentId = z.uuid().safeParse(intent.metadata?.[PAYMENT_ID_KEY]).data ?? null;
+  const isFailed = FAILED_INTENT_STATUSES.has(intent.status);
+  return {
+    paymentIntentId: intent.id,
+    status: intent.status === "succeeded" ? "succeeded" : isFailed ? "failed" : "processing",
+    failureCode: isFailed ? (intent.last_payment_error?.code ?? null) : null,
+    amountCents: intent.amount,
+    customerId: intent.customer,
+    mandateId: intent.latest_charge?.payment_method_details?.au_becs_debit?.mandate ?? null,
+    paymentId,
+    feeCents: intent.latest_charge?.balance_transaction?.fee ?? null,
+  };
+}
+
+/** Stripe's errors that are its refusal of a request, not a missing answer. */
+function isRefusal(error: unknown): error is InstanceType<typeof Stripe.errors.StripeError> {
+  return (
+    error instanceof Stripe.errors.StripeCardError ||
+    error instanceof Stripe.errors.StripeInvalidRequestError
+  );
+}
+
 /** Stripe itself, through its official library, on the AGS platform account. */
 export function createStripeProvider(
   secretKey: string,
@@ -465,6 +521,66 @@ export function createStripeProvider(
         amountCents: dispute.amount,
         status: moneyMoved === "reinstated" ? "returned" : "taken",
       };
+    },
+
+    async createDebit(accountId, request) {
+      try {
+        const intent = await stripe.paymentIntents.create(
+          {
+            amount: request.amountCents,
+            currency: CURRENCY,
+            customer: request.customerId,
+            payment_method: request.paymentMethodId,
+            allowed_payment_method_types: ["au_becs_debit"],
+            mandate: request.mandateId,
+            confirm: true,
+            off_session: true,
+            description: request.description,
+            metadata: { [PAYMENT_ID_KEY]: request.paymentId },
+            expand: DEBIT_EXPANSIONS,
+          },
+          // One payment row is one request, whatever its purpose or attempt (rule 20).
+          { stripeAccount: accountId, idempotencyKey: `debit:${request.paymentId}` },
+        );
+        return { status: "sent", debit: debitReadOf(intent) };
+      } catch (error) {
+        if (!isRefusal(error)) {
+          throw error;
+        }
+        return {
+          status: "refused",
+          failureCode: error.code ?? null,
+          paymentIntentId: error.payment_intent?.id ?? null,
+        };
+      }
+    },
+
+    async readDebit(accountId, paymentIntentId) {
+      return debitReadOf(
+        await stripe.paymentIntents.retrieve(
+          paymentIntentId,
+          { expand: DEBIT_EXPANSIONS },
+          { stripeAccount: accountId },
+        ),
+      );
+    },
+
+    async findDebitByReference(accountId, reference) {
+      const intents = stripe.paymentIntents.list(
+        {
+          customer: reference.customerId,
+          created: { gte: Math.floor(reference.createdSince.getTime() / MILLISECONDS_PER_SECOND) },
+          expand: DEBIT_EXPANSIONS.map((path) => `data.${path}`),
+        },
+        { stripeAccount: accountId },
+      );
+      for await (const intent of intents) {
+        const read = debitReadOf(intent);
+        if (read.paymentId === reference.paymentId) {
+          return read;
+        }
+      }
+      return null;
     },
 
     async updateCustomer(accountId, customerId, customer) {
