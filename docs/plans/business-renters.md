@@ -937,6 +937,18 @@ unchanged and passing).
   beside Cancel swap. Two-connection tests (`swap-lock-order.test.ts`) in
   both orders: signing first, it finishes and the cancel is refused;
   cancelling first, it cancels and signing is refused as finished.
+  Driver changes (slice 4 review, 9 Nov 2026): starting one locks the
+  rental, then the car, the business and the new driver; finishing one
+  locks the rental (to number the reports), the change, its two checklists,
+  then the car, the business and the new driver. Before the fix both took
+  the business and driver first and reached the car only through its
+  checklists, possession and reading, while a booking of the same car (a
+  new rental, or a draft being booked) takes the car and then the business:
+  the two deadlocked (shown by tests before the fix). `lockDriverNamingParties`
+  now locks the car first, so naming a driver on a draft or booking takes
+  the car too, harmlessly. Two-connection tests in `driver-changes.test.ts`
+  for starting and finishing, against a new rental and a draft being
+  booked, in both orders: both go ahead.
 - **Second review fixes (8 Nov 2026).** Booking a draft refuses a driver
   whose details wait for review, as naming one and a new rental do (one
   `lockBookingParties` for both); naming again the driver the rental already
@@ -1079,6 +1091,51 @@ Abhi's go: 9 Nov 2026. Person Renters behave as before.
   person). Browser: `e2e/driver-change.e2e.ts` at phone width, keyboard
   choice of the driver, axe on each step and the rental page after, the
   pages' JavaScript under the checklist's 730 KB budget.
+- **Review fixes (slice 4 review, 9 Nov 2026).** Two independent deep
+  reviews; each fix has a test that failed before it.
+  - *Deadlock with a booking of the same car*: see "Lock order".
+  - *Damage photos after a change*: the new driver's checklist copies the
+    marks already on the car, but a mark's photo is found by the mark it
+    was taken for, so the next return or driver change showed that damage
+    without its photo. Each copy now keeps the mark whose photo it shows in
+    its existing key column (`client_key`, which a driver change's handover
+    never otherwise uses), and a driver change's handover finds its marks'
+    photos from those, still stored once (rule 21); no schema change.
+    Changes finished before this fix (dev data only) still show those marks
+    without photos. Tested through a return's comparison and a second
+    driver change.
+  - *Entries sent straight to the new driver's checklist*: saving details,
+    adding or removing a mark and starting a photo on a driver change's
+    handover are refused as not found (it is filled from the check-in as
+    the new driver signs).
+  - *Log*: each copied mark (its id, the checklist and the mark copied) and
+    the new driver's checklist finishing are logged by ids only; the
+    change's own entry also lists the warnings it went ahead with (codes
+    only), as a booking's does.
+  - *Retention*: `0058_driver_change_guards` (approved for this and the
+    next item only) lets the retention job set a finished change's or
+    swap's reason to "Removed" once every party to the rental is retired,
+    as for the rental's other free text; nothing else on one ever changes.
+  - *Database guard*: also in 0058, a change is completed only with both
+    checklists finished, the old possession ended at its check-in and the
+    new driver's started from its handover at that same moment, and the
+    rental naming the new driver; a car that is out changes driver only
+    with its change completed by the end of that transaction (a deferred
+    check); and the car can't come back (the rental leaving "active") while
+    a change is under way. Tested on a database filled at 0057
+    (`driver-change-guards-update.test.ts`): the deployed code's own way of
+    finishing still works.
+  - *A change to another driver*: starting one while a change to someone
+    else is under way is refused ("A driver change to another driver is
+    already under way. Finish or cancel it first."); the same driver picks
+    the change up as before.
+  - *The rental's end*: the new driver's licence check at signing uses the
+    rental re-read under its lock, not as first read.
+  - *Zod at the signing actions*: the driver change's signing form (what
+    it showed, the present tick, both signatures) and the swap's "what it
+    showed" are parsed with Zod schemas (`signing-step-forms.ts`); every
+    phone signature's boxes are checked with the same size limits, a
+    signature too big to be one being refused as no signature.
 - **Departures from mockup 7, and why.** Sam signs on step 3, just above
   Mia, not at the end of step 2: both signatures are sent together, so a
   drawn signature is never kept on the phone between pages, and Sam reads
