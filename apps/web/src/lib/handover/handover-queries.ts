@@ -19,7 +19,7 @@ import {
   vehicles,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 
 import {
   rentalDriverChangePath,
@@ -89,6 +89,12 @@ export interface ChecklistPhoto {
 
 export interface DamageMarkView {
   id: string;
+  /**
+   * The mark whose photo this is: the mark itself, or for a mark a driver
+   * change copied onto the new driver's checklist, the one it was copied from
+   * (kept in its key), so the photo stays stored once (rule 21).
+   */
+  photoMarkId: string;
   x: number;
   y: number;
   description: string;
@@ -150,10 +156,19 @@ type CheckedPhotoRow = {
 };
 
 /** The checklist's photos in use, and their small copies, newest first. */
-async function checklistPhotos(
+function checklistPhotos(
   tx: AnyTransaction,
   operatorId: string,
   inspectionId: string,
+): Promise<CheckedPhotoRow[]> {
+  return photosInUse(tx, operatorId, eq(files.inspectionId, inspectionId));
+}
+
+/** The photos in use that match, and their small copies, newest first. */
+async function photosInUse(
+  tx: AnyTransaction,
+  operatorId: string,
+  matching: SQL,
 ): Promise<CheckedPhotoRow[]> {
   const photos = await tx
     .select({
@@ -166,7 +181,7 @@ async function checklistPhotos(
     .where(
       and(
         eq(files.operatorId, operatorId),
-        eq(files.inspectionId, inspectionId),
+        matching,
         isNotNull(files.confirmedAt),
         isNull(files.deletedAt),
       ),
@@ -211,13 +226,19 @@ function listedPhotos(rows: readonly CheckedPhotoRow[]): Map<string, ChecklistPh
   return photos;
 }
 
-/** The damage marks still on the outline, oldest first, each with its photo if taken. */
+/**
+ * The damage marks still on the outline, oldest first, each with its photo
+ * if taken. A driver change's handover has no marks of its own: those on it
+ * were copied from the car as it was checked in, each keeping the mark it
+ * came from in its key, so its photo is found from that mark's.
+ */
 async function damageMarkViews(
   tx: AnyTransaction,
   operatorId: string,
-  inspectionId: string,
+  checklist: { inspectionId: string; isCopiedFromCheckIn: boolean },
   rows: readonly CheckedPhotoRow[],
 ): Promise<DamageMarkView[]> {
+  const { inspectionId } = checklist;
   const marks = await tx
     .select()
     .from(inspectionDamageMarks)
@@ -229,14 +250,23 @@ async function damageMarkViews(
       ),
     )
     .orderBy(asc(inspectionDamageMarks.createdAt));
+  const photoMarkIdOf = (mark: (typeof marks)[number]): string =>
+    checklist.isCopiedFromCheckIn ? (mark.clientKey ?? mark.id) : mark.id;
+  const copiedFrom = marks.map(photoMarkIdOf).filter((id) => !marks.some((mark) => mark.id === id));
+  const photoRows =
+    copiedFrom.length === 0
+      ? rows
+      : [...rows, ...(await photosInUse(tx, operatorId, inArray(files.damageMarkId, copiedFrom)))];
   return marks.map((mark) => {
-    const photo = rows.find((file) => file.damageMarkId === mark.id);
+    const photoMarkId = photoMarkIdOf(mark);
+    const photo = photoRows.find((file) => file.damageMarkId === photoMarkId);
     return {
       id: mark.id,
+      photoMarkId,
       x: mark.x,
       y: mark.y,
       description: mark.description,
-      photo: photo ? photoFor(rows, photo.id) : null,
+      photo: photo ? photoFor(photoRows, photo.id) : null,
     };
   });
 }
@@ -310,7 +340,15 @@ async function loadChecklist(
     const { inspection } = row;
     const rows = await checklistPhotos(tx, operatorId, row.photoChecklistId);
     const photos = listedPhotos(rows);
-    const damageMarks = await damageMarkViews(tx, operatorId, inspectionId, rows);
+    const damageMarks = await damageMarkViews(
+      tx,
+      operatorId,
+      {
+        inspectionId,
+        isCopiedFromCheckIn: inspection.isForDriverChange && inspection.kind === "handover",
+      },
+      rows,
+    );
     const progress = {
       photoNames: inspection.photoNames,
       photosTaken: new Set(photos.keys()),

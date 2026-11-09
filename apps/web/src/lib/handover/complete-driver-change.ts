@@ -399,8 +399,10 @@ async function lockForSigning(
 
 /**
  * Both checklists fixed with each driver's acceptance (rule 12). The new
- * driver's takes the check-in's readings and the damage already on the car
- * (marks only: each photo stays stored once, with the check-in).
+ * driver's takes the check-in's readings and the damage already on the car:
+ * marks only, each keeping in its key the mark whose photo it shows, so the
+ * photo stays stored once (rule 21) and later checklists still show it.
+ * Each copy and the checklist's finish are logged by record ids (rule 19).
  */
 async function completeChecklists(
   tx: AnyTransaction,
@@ -422,13 +424,23 @@ async function completeChecklists(
     .where(eq(inspections.id, views.returned.inspectionId));
   const { takenOver } = views;
   for (const mark of takenOver.damageMarks) {
-    await tx.insert(inspectionDamageMarks).values({
-      operatorId: actor.operatorId,
-      inspectionId: takenOver.inspectionId,
-      x: mark.x,
-      y: mark.y,
-      description: mark.description,
-      createdByUserId: actor.userId,
+    const [copied] = await tx
+      .insert(inspectionDamageMarks)
+      .values({
+        operatorId: actor.operatorId,
+        inspectionId: takenOver.inspectionId,
+        x: mark.x,
+        y: mark.y,
+        description: mark.description,
+        clientKey: mark.photoMarkId,
+        createdByUserId: actor.userId,
+      })
+      .returning({ id: inspectionDamageMarks.id });
+    await recordUserChange(tx, actor, {
+      entityType: ACTIVITY_ENTITY_TYPES.damageMark,
+      entityId: copied!.id,
+      action: ACTIVITY_ACTIONS.created,
+      valuesAfter: { inspectionId: takenOver.inspectionId, copiedFromMarkId: mark.id },
     });
   }
   await tx
@@ -446,6 +458,12 @@ async function completeChecklists(
       updatedAt: at,
     })
     .where(eq(inspections.id, takenOver.inspectionId));
+  await recordUserChange(tx, actor, {
+    entityType: ACTIVITY_ENTITY_TYPES.inspection,
+    entityId: takenOver.inspectionId,
+    action: ACTIVITY_ACTIONS.accepted,
+    valuesAfter: { status: "completed" },
+  });
 }
 
 /**

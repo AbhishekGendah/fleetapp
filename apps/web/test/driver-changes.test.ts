@@ -1,6 +1,7 @@
 import { drawnSignatureInput, type RenterSignatureInput } from "@fleetapp/core";
 import {
   activityLog,
+  inspectionDamageMarks,
   inspections,
   possessions,
   rentalDriverChanges,
@@ -23,6 +24,7 @@ import {
   shownDriverChangeOf,
 } from "../src/lib/handover/complete-driver-change";
 import { completeReturn } from "../src/lib/handover/complete-return";
+import { loadCompletedHandover } from "../src/lib/handover/handover-queries";
 import {
   addDamageMark,
   cancelHandover,
@@ -99,8 +101,11 @@ describe("changing a business's driver while the car is out", () => {
     return driverId;
   }
 
-  /** A business's car out with Sam, who signed for it; Mia also drives for the business. */
-  async function carOutWithSam() {
+  /**
+   * A business's car out with Sam, who signed for it; Mia also drives for the
+   * business. `isScratched`: the handover marked a scratch, with its photo.
+   */
+  async function carOutWithSam(options: { isScratched?: boolean } = {}) {
     const parsed = parseBusinessRenterForm({
       ...emptyBusinessRenterForm(),
       fullName: LEGAL_NAME,
@@ -122,6 +127,9 @@ describe("changing a business's driver while the car is out", () => {
     });
     await kit().signAndHoldBond(booked.rentalId);
     const handoverId = await kit().filledHandover(booked.rentalId);
+    const scratchPhotoId = options.isScratched
+      ? await addMarkWithPhoto(handoverId, "Scratch")
+      : null;
     const handedOver = await completeHandover(
       kit().handoverDeps(),
       actor,
@@ -137,7 +145,16 @@ describe("changing a business's driver while the car is out", () => {
       { timeZone: TEST_TIME_ZONE, now: new Date(Date.now() - 60 * SECOND_MS) },
     );
     expect(handedOver.status).toBe("completed");
-    return { rentalId: booked.rentalId, vehicleId, businessId, samId, miaId };
+    return { rentalId: booked.rentalId, vehicleId, businessId, samId, miaId, scratchPhotoId };
+  }
+
+  /** A damage mark on a checklist under way, with its photo taken; the photo's file id. */
+  async function addMarkWithPhoto(inspectionId: string, description: string): Promise<string> {
+    const added = await addDamageMark(web.db, actor, inspectionId, { x: 400, y: 200, description });
+    if (added.status !== "added") {
+      throw new Error("The damage mark was not added.");
+    }
+    return kit().takePhoto(inspectionId, { damageMarkId: added.markId });
   }
 
   /** The change to Mia started, its check-in filled in. */
@@ -150,10 +167,24 @@ describe("changing a business's driver while the car is out", () => {
       clock(),
     );
     expect(started.status).toBe("started");
+    const change = await driverChangeOf(out.rentalId);
+    await kit().fillChecklist(change.returnInspectionId, CHECK_IN_KM);
+    return change;
+  }
+
+  /** The rental's driver change under way. */
+  async function driverChangeOf(rentalId: string) {
     const [change] = await withTenant(web.db, actor.operatorId, (tx) =>
-      tx.select().from(rentalDriverChanges).where(eq(rentalDriverChanges.rentalId, out.rentalId)),
+      tx
+        .select()
+        .from(rentalDriverChanges)
+        .where(
+          and(
+            eq(rentalDriverChanges.rentalId, rentalId),
+            eq(rentalDriverChanges.status, "in_progress"),
+          ),
+        ),
     );
-    await kit().fillChecklist(change!.returnInspectionId, CHECK_IN_KM);
     return change!;
   }
 
@@ -509,7 +540,7 @@ describe("changing a business's driver while the car is out", () => {
       const change = await changeUnderWay(out);
       const [mia] = (
         await superuser.query<{ expiresOn: string }>(
-          "select licence_expires_on::text as \"expiresOn\" from renters where id = $1",
+          'select licence_expires_on::text as "expiresOn" from renters where id = $1',
           [out.miaId],
         )
       ).rows;
@@ -530,9 +561,7 @@ describe("changing a business's driver while the car is out", () => {
         tx
           .select({ valuesAfter: activityLog.valuesAfter })
           .from(activityLog)
-          .where(
-            and(eq(activityLog.entityId, change.id), eq(activityLog.action, "accepted")),
-          ),
+          .where(and(eq(activityLog.entityId, change.id), eq(activityLog.action, "accepted"))),
       );
       expect(logged?.valuesAfter).toMatchObject({ warnings: ["licence_expires_during"] });
     });
@@ -561,6 +590,101 @@ describe("changing a business's driver while the car is out", () => {
       expect(written).not.toContain("Sam Lee");
       expect(written).not.toContain("night shifts");
       expect(rentalLines.map((line) => line.after)).toContainEqual({ driverId: out.miaId });
+    });
+  });
+
+  describe("the damage already on the car, after a change", () => {
+    const marksOf = (
+      view: { damageMarks: { description: string; photo: { fileId: string } | null }[] } | null,
+    ) =>
+      (view?.damageMarks ?? [])
+        .map((mark) => [mark.description, mark.photo?.fileId ?? null])
+        .sort(([first], [second]) => String(first).localeCompare(String(second)));
+
+    it("keeps each mark's photo, stored once, for the next driver change and the return", async () => {
+      const out = await carOutWithSam({ isScratched: true });
+      const change = await changeUnderWay(out);
+      const dentPhotoId = await addMarkWithPhoto(change.returnInspectionId, "Dent");
+      expect((await signChange(out.rentalId, null)).status).toBe("completed");
+      const onTheCar = [
+        ["Dent", dentPhotoId],
+        ["Scratch", out.scratchPhotoId],
+      ];
+
+      // Mia's handover, as the next checklist compares with it.
+      const handover = await loadCompletedHandover(web.db, actor.operatorId, out);
+      expect(handover?.inspectionId).toBe(change.handoverInspectionId);
+      expect(marksOf(handover)).toEqual(onTheCar);
+
+      // A second change, back to Sam: the car as he takes it, and after he signs.
+      const second = await startDriverChange(
+        web.db,
+        actor,
+        out.rentalId,
+        { toDriverId: out.samId, reason: "Mia is away." },
+        clock(),
+      );
+      expect(second.status).toBe("started");
+      const secondChange = await driverChangeOf(out.rentalId);
+      await kit().fillChecklist(secondChange.returnInspectionId, CHECK_IN_KM + 100);
+      const views = await loadDriverChangeViews(
+        { database: web.db },
+        actor.operatorId,
+        out.rentalId,
+      );
+      expect(marksOf(views?.takenOver ?? null)).toEqual(onTheCar);
+      expect((await signChange(out.rentalId, typed("Mia Thompson"), typed("Sam Lee"))).status).toBe(
+        "completed",
+      );
+      expect(marksOf(await loadCompletedHandover(web.db, actor.operatorId, out))).toEqual(onTheCar);
+      // Each photo is still stored once: no file was copied.
+      const [counted] = (
+        await superuser.query<{ files: number }>(
+          `select count(*)::int as files from files where damage_mark_id is not null and inspection_id in (
+             select id from inspections where rental_id = $1)`,
+          [out.rentalId],
+        )
+      ).rows;
+      expect(counted?.files).toBe(2);
+    });
+
+    it("logs the copied marks and the new driver's checklist finishing, by record ids only", async () => {
+      const out = await carOutWithSam({ isScratched: true });
+      const change = await changeUnderWay(out);
+      await signChange(out.rentalId, null);
+
+      const lines = await withTenant(web.db, actor.operatorId, (tx) =>
+        tx
+          .select({
+            entityType: activityLog.entityType,
+            entityId: activityLog.entityId,
+            action: activityLog.action,
+            after: activityLog.valuesAfter,
+          })
+          .from(activityLog)
+          .where(eq(activityLog.operatorId, actor.operatorId)),
+      );
+      const [copied] = await withTenant(web.db, actor.operatorId, (tx) =>
+        tx
+          .select({ id: inspectionDamageMarks.id })
+          .from(inspectionDamageMarks)
+          .where(eq(inspectionDamageMarks.inspectionId, change.handoverInspectionId)),
+      );
+      expect(lines).toContainEqual(
+        expect.objectContaining({
+          entityType: "damage_mark",
+          entityId: copied!.id,
+          action: "created",
+          after: expect.objectContaining({ inspectionId: change.handoverInspectionId }),
+        }),
+      );
+      const finished = lines.filter(
+        (line) => line.entityId === change.handoverInspectionId && line.action === "accepted",
+      );
+      expect(finished).toEqual([
+        expect.objectContaining({ entityType: "inspection", after: { status: "completed" } }),
+      ]);
+      expect(JSON.stringify(finished)).not.toContain("Scratch");
     });
   });
 
