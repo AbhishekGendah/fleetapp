@@ -1158,3 +1158,50 @@ As built slice 2).
   9 Nov 2026), so the drivers' names in its statements go when the business
   is retired; the documents' rows (what was issued, its fingerprint) stay. A
   retired or archived business gets no new statement.
+
+## Weekly debits (Phase 4 slice 5, 9 Nov 2026, built)
+
+- **Direct Debit Request (BECS).** The app debits only amounts the rental
+  contract sets, under the Direct Debit Request the Renter accepted on
+  Stripe's page: each rent week's rent from the second week, and a one-off
+  charge only when the business chooses it for that charge. Never the whole
+  balance, never more than is owing on the rental. Stripe's own emails to
+  the Renter before and after each debit are the business's Stripe settings
+  (decision 1 puts the account in its hands); Settings → Payments asks the
+  business to leave them on.
+- **One-off charges are invoice only by default (decision 2, changed by Abhi
+  on 9 Nov).** Damage, excess, cleaning, towing, admin fees and anything else
+  not weekly rent start as "Invoice only, don't debit"; the business can
+  choose per charge to take it with the next weekly debit, now, or split over
+  2 to 12 weekly debits, and the default in Settings → Payments. Why: no
+  disputed charge is taken from a bank without the Renter's agreement
+  (Australian Consumer Law unfair contract terms and the Renter's fair chance
+  to dispute; BECS disputes run up to 7 years and the bank's decision is
+  final), and it matches how businesses work (extras are invoiced or taken
+  from the bond at the close). **For the lawyer:** may a business debit a
+  one-off charge such as damage or excess without the Renter agreeing to
+  that amount first, and what should the rental contract say for it? Until
+  answered, the Settings hint says invoice only is safest.
+- **Rate rises wait 30 days for a Renter paying by direct debit (decision
+  3)**, as Stripe's Direct Debit Request promises notice of a change; a fall
+  starts any week (decision 7). The change-of-terms form says the start
+  moves to the first rent week 30 days after signing if signed late, and the
+  signed PDF's record states the actual first week. Still open with Stripe:
+  whether a shorter notice is enough (one constant if so).
+- **Consumer law.** No surprise catch-up of missed weeks: only a week that
+  started in the last 7 days is debited (decision 3); the first week is
+  collected at pickup, not debited on top (decision 6); a paused rental's
+  weeks are never debited later.
+- **Spam Act.** Nothing new is sent by us: Stripe's emails are the
+  business's, and our receipt for each cleared debit is transactional.
+- **Privacy (APP 8, APP 11).** Only an amount and a description go to Stripe
+  for each debit: the car's rego and the week ("Rent 1BRT482, week from Thu
+  12 Nov 2026"), never a person's name, beside what slice 4 already sends
+  (Stripe is covered in the privacy notices). No bank details, names or
+  tokens in logs (rule 7): debits are logged by our and Stripe's ids and the
+  amount only. Admin can't see any of it (rule 5).
+- **Record keeping.** Debits, what each was planned from, the ledger lines
+  Stripe's news made and how each one-off charge was collected are tax
+  records: kept at least 5 years, only ever added to (the database refuses
+  changes and deletes), and never removed by the retention jobs.
+

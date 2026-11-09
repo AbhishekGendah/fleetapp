@@ -1017,7 +1017,14 @@ unchanged and passing).
   | A contract or change of terms signed by link | rental, link |
   | Bond by hand, or a correction of it | rental |
   | A new Stripe bond page kept (`startRenterCheckout`) | rental, the page |
-  | Stripe's news of a bond or direct debit (message, or the Renter back from Stripe's page) | rental, the page, the payment, direct debits, bond entry |
+  | Stripe's news of a bond, a direct debit or a debit (message, or the Renter back from Stripe's page) | rental, the page, the payment, direct debits, bond entry |
+  | Reserving a debit (the nightly run, "Take it now") | rental, then writes the payment and its items (Renter, direct debit and charge lines key shared) |
+  | Saving Stripe's answer, or the run's recovery of one | rental, the payment |
+  | Stripe's news of a debit (cleared or failed) | rental, the payment, the ledger line and its link |
+  | Stripe's news of a refund or dispute (bond or debit) | rental, the payment, then the bond entry or the ledger line and its link |
+  | Pausing or resuming automatic debits | rental |
+  | A one-off charge with how it is collected (charge form, damage) | rental, then writes the charge and its plan |
+  | Changing how a one-off charge is collected | rental, the plan |
   | Sending a signing link | rental, change of terms, Renter, their links |
   | Sending a payments link (also after signing) | Renter, their links |
   | Sending a details link | Renter, their links |
@@ -1077,7 +1084,12 @@ unchanged and passing).
 
   Kept as FOR UPDATE, each for a reason: a change of terms
   (`lockChange`), as signing it writes its document id, a unique key, which
-  takes that lock anyway (taken at the start, never raised halfway); the
+  takes that lock anyway (taken at the start, never raised halfway); a
+  debit (`lockDebit`, weekly debits slice 5), as saving Stripe's
+  PaymentIntent ID writes a column with a unique key, which takes it
+  anyway: always under the rental's lock, and every write that links to a
+  payment (its items, its ledger links, a bond entry, slice 6's retry) is
+  under that lock too, so nothing waits on it there; the
   retention job's
   `lock_renter_for_retirement` (the Renter, then their rentals: the
   exception above, run only for Renters long out of use, and changed only

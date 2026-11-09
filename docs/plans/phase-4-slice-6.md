@@ -53,7 +53,11 @@ which slice 5 already reverses.
 
 - Stripe's "payment failed" message (slice 5's handling in
   `handlePaymentEvent`) moves the debit to failed with Stripe's reason
-  code. After that transaction:
+  code. A debit slice 5 marked failed with reason `not_sent`
+  (`DEBIT_NOT_SENT_CODE`: reserved, never made at Stripe, found by the
+  run's recovery after 23 hours) is ours, not the Renter's: no email to
+  the Renter, no retry counted against them, and the business is told it
+  was not sent. Otherwise, after that transaction:
   - the business gets an email: Renter, rental, amount, the reason in plain
     words, and what happens next ("We'll try again on Thu 19 Nov" or "No
     more automatic tries");
@@ -95,8 +99,9 @@ which slice 5 already reverses.
 - **Once only:** the retry is a new `payments` row with attempt 2 for the
   same week, linked to the failed one; slice 5's unique rule (rental, week,
   attempt) and a unique link (one retry per failed debit) refuse a second.
-  Idempotency key `debit:{rentalId}:{weekStart}:2`, so Stripe never takes
-  it twice either.
+  Idempotency key `debit:{paymentId}` of the retry's own row (slice 5 as
+  built: one payments row is one request, whatever its purpose or attempt),
+  so Stripe never takes it twice either.
 - **Not while suspended or paused:** the same checks as the weekly debit.
   A retry whose day passed while the business was suspended is not made
   later; the money stays owing.

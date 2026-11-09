@@ -110,7 +110,10 @@ Add to this list whenever something is relaxed or put off "until launch".
       v1.checkout.session.expired, v1.refund.created, v1.refund.updated,
       v1.refund.failed, v1.charge.dispute.funds_withdrawn,
       v1.charge.dispute.funds_reinstated and v1.account.application.deauthorized;
-      the platform destination needs v2.core.account.closed.
+      the platform destination needs v2.core.account.closed. Weekly debits
+      (Phase 4 slice 5) add v1.payment_intent.processing,
+      v1.payment_intent.succeeded and v1.payment_intent.payment_failed to the
+      connected-accounts destination (sandbox first, then live).
 - [ ] The four database logins on the live Neon database made with
       docs/runbooks/database-roles.md (never Neon's "Add role" screen). The
       apps refuse to start if a login could bypass row-level security.
@@ -123,6 +126,25 @@ Add to this list whenever something is relaxed or put off "until launch".
       destination; which event a business disconnecting sends with Accounts
       v2; and that detaching a replaced direct debit's bank account sends
       "mandate updated" with it inactive (docs/plans/review-fixes-batch-2.md).
+- [ ] Weekly debits (Phase 4 slice 5): the full cycle once in Stripe's sandbox
+      on the dev site before any live business uses them: Stripe's test bank
+      accounts for a debit that clears, one that fails and one that is
+      disputed; the debit run asked twice with the same key gives one debit;
+      which code Stripe gives for a debit over the BECS limit (the app reads
+      `amount_too_large` and `payment_method_amount_too_large`,
+      `OVER_LIMIT_FAILURE_CODES` in packages/core, and the reminder in
+      Settings → Payments follows it); that a debit's PaymentIntent carries
+      its mandate on its latest charge (the app checks it before matching a
+      message that came before Stripe's answer was saved); and that Stripe's
+      fee is on the charge's balance transaction when it clears.
+- [ ] Before a live business uses weekly debits: "Debit what's owing now"
+      (slice 6), so a business that wants week 1 or an older week debited
+      can, and slice 6's failure emails and retry. Until then a failed debit
+      shows only on the rental's Stripe card.
+- [ ] Weekly debits' pause dates from the resume's own activity log entry
+      (`debitsResumedAt`): weeks begun while paused are not debited later.
+      Consider a `debits_resumed_at` column on rentals instead, so the rule
+      no longer reads the log (a schema change, so left for Abhi to approve).
 - [ ] A Renter's bond refunded by hand (cash or transfer) can't be recorded
       yet: refunds come with Phase 4 slice 7. Until then a cancelled booking
       still holding a cash bond shows "Bond to refund" and stays on the
@@ -219,9 +241,10 @@ Add to this list whenever something is relaxed or put off "until launch".
       someone reads (the nightly run's failure alert). Required: the app will
       not start without it.
 - [ ] An alert on the production web app's logs for "A Stripe refund or
-      dispute is waiting for its bond payment to be recorded", sent to the
-      same AGS inbox. Such a refund or dispute is never taken as handled
-      while a bond payment of the business could still be recorded; past
+      dispute is waiting for its payment to be recorded" (worded so since
+      weekly debits, slice 5), sent to the same AGS inbox. Such a refund or
+      dispute is never taken as handled while a bond payment or a reserved
+      debit of the business could still be recorded; past
       Stripe's three days of resending, AGS resends the event from the
       business's Stripe dashboard once the payment is in. The log line holds
       Stripe's and the app's ids only. There is no Operator-facing notice of

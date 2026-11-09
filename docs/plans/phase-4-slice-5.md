@@ -555,6 +555,72 @@ Abhi approved the plan on 9 Nov 2026. Each decision as it now stands:
 - Still open, not blocking (30 days is the safe default): Stripe's answer
   on the DDR notice for a changed amount.
 
+## As built (9 Nov 2026)
+
+Built as planned, with decision 2 as Abhi changed it: every one-off charge
+starts as "Invoice only, don't debit" (`DEFAULT_ONE_OFF_COLLECTION`, the
+settings key `oneOffChargeCollection` copied onto each rental, rule 14);
+per charge the business picks "Take it with the next weekly debit", "Take
+it now" or "Split over weekly debits" (2 to 12).
+
+- **Core** (packages/core/src/weekly-debits.ts): the scheduled amount
+  (`scheduledDebitCents`), the split (`instalmentShares`), which weeks are
+  due (`isRentWeekDebitable`), a week's rent as it stands
+  (`rentWeekCents`), the 30 days' notice (`RATE_RISE_NOTICE_DAYS`,
+  `firstWeekAfterNotice`, `signedRateChangeStartBlock`), recovery steps,
+  Stripe's reasons in words and the description by car and week.
+- **Database** (migration 0063): as in "Database changes", plus a
+  constraint trigger checking each ledger link matches its reason (a
+  cleared debit's line is a payment of exactly its amount once it
+  succeeded), and a trigger refusing a reversal by a person of a line
+  Stripe's news made (decision 8, also refused in the app). The owner gets
+  a read policy on payments for `operators_with_debits_due`, which also
+  names a business with a debit still pending (recovery and the 7-day
+  re-read finish work already started, even while it is suspended; no new
+  debit is made then).
+- **Debit run** (apps/web/src/lib/debits): `/api/cron/debits` at 18:00 UTC,
+  `runPart` and the alert shared with the rent route in
+  `lib/jobs/nightly-run.ts`. `requested_at` is set when the debit is
+  reserved; recovery waits 15 minutes from it.
+- **Stripe's news**: PaymentIntent events read back from Stripe; a bond's
+  own PaymentIntent and one made in the business's dashboard carry no
+  payment ID of ours and are ignored. The receipt follows at once
+  (`afterLedgerLines` on the payments dependencies), the nightly billing
+  catch-up issues any it missed.
+- **Screens**: Money card, Stripe card (debits listed, Pause and Resume),
+  charge form and damage's Charge the Renter, changing a charge's plan
+  (a "How it's collected" button beside it until a part is debited),
+  Record payment's warning, a business's How it pays card, Settings →
+  Payments, and the change-of-rate form.
+
+Departures, each for a reason:
+
+1. **Settings → Payments keeps the one-off default control.** Abhi said it
+   is not needed unless the plan requires it; rule 27 says every setting is
+   editable, so the key the rentals copy has its control (the existing
+   choice-setting form), starting at "Invoice only, don't debit", with a
+   hint that invoice only is safest.
+2. **"Weeks begun while paused are not debited later"** reads when the
+   debits were last resumed from the resume's own activity log entry
+   (written in the same transaction), as the plan's columns
+   (`debits_paused_at`, `debits_paused_reason`) are cleared on resume. A
+   `debits_resumed_at` column would be cleaner but is a schema change
+   beyond the plan, so it is on the launch checklist for Abhi to decide.
+3. **Pause asks for its reason in a pop-up** (the shared reason form),
+   which is itself the "are you sure"; Resume uses the shared
+   ConfirmButton.
+4. **No mockups were made**: the changed cards use only pieces already in
+   packages/ui and the approved look. Abhi to look at the rental page on
+   the dev site and say if any wording or layout should change.
+5. **A one-off debit's description** is "Charges 1BRT482, Tue 10 Nov 2026"
+   (the plan named only the weekly one). After a car swap, a debit names
+   the rental's car now.
+6. **No demo data for debits**: debits need Stripe (the demo data runs
+   without it).
+7. **The three-car test** gives one Renter three rentals on one direct
+   debit (the debit logic is per Renter and per rental, a business or a
+   person alike).
+
 ## Not in this slice
 
 - What happens after a failed debit (emails, retry, late fee, "Debit
