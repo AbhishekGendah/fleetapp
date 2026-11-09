@@ -57,7 +57,15 @@ Add to this list whenever something is relaxed or put off "until launch".
     damage mark at another of its own marks (no database check);
   - a refund made in the business's own Stripe dashboard on a charge that
     isn't ours, while one of its bond pages awaits a payment, retries for
-    up to 3 days and logs alerts (noise only);
+    up to 3 days and logs alerts (noise only). A bond page left "open"
+    because its expired message was never applied, or a finished page whose
+    payment was never recorded, keeps that true for longer: nothing sweeps
+    stale open pages yet;
+  - the Renter's "The business has just recorded your bond" message also
+    shows when nothing is payable online for another reason (their own
+    payment from another tab, or a direct debit, still on its way);
+  - a bond page refused or expired by the "still owing" check writes no
+    Log line;
   - a business trading under exactly its contact's own name can't sign
     (the signer-is-the-business check);
   - anything further the whole-app review finds of this kind (the lock
