@@ -212,4 +212,28 @@ describe("a checklist photo started while the checklist is signed", () => {
       expect(["not_found", "allowed"]).toContain(await uploaded);
     },
   );
+
+  it.each(Object.keys(checklists))(
+    "refuses a photo started while %s is signed, holding its checklist, as finished",
+    async (which) => {
+      const ready = await checklists[which]!();
+      // Holding the car: signing takes the rental and the checklist, then waits here.
+      const holder = await openTransactionAs(actor.operatorId);
+      await holder.client.query("select id from vehicles where id = $1 for update", [
+        ready.vehicleId,
+      ]);
+      const signed = outcomeOf(ready.sign());
+      await waitUntilBlockedBy(superuser, holder.pid);
+      // The upload waits for signing's hold on the checklist, before it reaches the car.
+      const uploaded = outcomeOf(kit.startListedPhoto(ready.inspectionId));
+      await waitUntilBlockedBy(superuser, holder.pid, 2);
+      await holder.client.query("commit");
+      await holder.client.end();
+
+      expect({ signed: await signed, uploaded: await uploaded }).toEqual({
+        signed: "completed",
+        uploaded: "not_found",
+      });
+    },
+  );
 });
