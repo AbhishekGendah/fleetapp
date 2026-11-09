@@ -74,6 +74,8 @@ export function startDriverChangeRefusalMessage(
       return "That is the driver who has the car now. Choose another driver.";
     case "swap_under_way":
       return "A car swap is under way. Finish or cancel it first.";
+    case "change_under_way":
+      return "A driver change to another driver is already under way. Finish or cancel it first.";
     case "checklist_under_way":
       return "A return is under way. Finish or cancel it first.";
     case "not_out":

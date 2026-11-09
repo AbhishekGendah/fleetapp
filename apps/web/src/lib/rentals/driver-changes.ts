@@ -39,6 +39,7 @@ export type StartDriverChangeResult =
         | "not_out"
         | "same_driver"
         | "swap_under_way"
+        | "change_under_way"
         | "checklist_under_way";
     };
 
@@ -76,7 +77,8 @@ async function startRefusal(
 
 /**
  * Starts changing a business's driver while its car is out (decision 4), or
- * picks up the change under way: the car is checked in from the driver who
+ * picks up the change to that same driver under way (one to another driver
+ * is refused, never resumed): the car is checked in from the driver who
  * has it (a return checklist asking for the photos its handover took), then
  * signed for by the new driver (a handover checklist showing that check-in).
  * Locked as everything else that changes a rental (docs/plans/
@@ -97,7 +99,10 @@ export async function startDriverChange(
     }
     const current = await driverChangeUnderWay(tx, actor.operatorId, rentalId);
     if (current) {
-      return { status: "resumed", changeId: current.id };
+      // Picked up only for the same driver: one to another would silently hand the car elsewhere.
+      return current.toDriverId === request.toDriverId
+        ? { status: "resumed", changeId: current.id }
+        : { status: "change_under_way" };
     }
     const refusal = await startRefusal(tx, actor.operatorId, rental, request.toDriverId);
     if (refusal) {

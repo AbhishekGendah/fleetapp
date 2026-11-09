@@ -237,6 +237,24 @@ describe("changing a business's driver while the car is out", () => {
       expect((await start(out.miaId)).status).toBe("resumed");
     });
 
+    it("refuses starting a change to another driver while one to Mia is under way, never resuming hers", async () => {
+      const out = await carOutWithSam();
+      const kimId = await addDriver(out.businessId, "Kim Nguyen", "kim.nguyen@example.test");
+      const change = await changeUnderWay(out);
+
+      expect(
+        await startDriverChange(
+          web.db,
+          actor,
+          out.rentalId,
+          { toDriverId: kimId, reason: "Kim is free" },
+          clock(),
+        ),
+      ).toEqual({ status: "change_under_way" });
+      const [still] = await listRentalDriverChanges(web.db, actor.operatorId, out.rentalId);
+      expect(still).toMatchObject({ id: change.id, toDriverId: out.miaId, status: "in_progress" });
+    });
+
     it("refuses a new driver marked Do not rent, saying why", async () => {
       const out = await carOutWithSam();
       await changeRenterStatus(web.db, actor, out.miaId, {
