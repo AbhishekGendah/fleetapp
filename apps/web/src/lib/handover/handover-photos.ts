@@ -10,13 +10,15 @@ import {
 } from "../files/car-files";
 import type { FileDependencies } from "../files/stored-files";
 import type { ActingUser } from "../acting-user";
+import { takesChecklistEntries } from "./handover-records";
 
 /** Which photo is being taken: one on the checklist's list, or a damage mark's. */
 export type ChecklistPhotoTarget = { photoName: string } | { damageMarkId: string };
 
 /**
- * The car and the file links for a photo of a checklist still under way:
- * a name on its list, or one of its damage marks still on the outline.
+ * The car and the file links for a photo of a checklist still under way
+ * that takes entries: a name on its list, or one of its damage marks still
+ * on the outline.
  */
 async function checklistPhotoLinks(
   deps: FileDependencies,
@@ -33,6 +35,7 @@ async function checklistPhotoLinks(
           eq(inspections.id, inspectionId),
           eq(inspections.operatorId, operatorId),
           eq(inspections.status, "in_progress"),
+          takesChecklistEntries,
         ),
       );
     if (!inspection) {

@@ -23,7 +23,13 @@ import {
   shownDriverChangeOf,
 } from "../src/lib/handover/complete-driver-change";
 import { completeReturn } from "../src/lib/handover/complete-return";
-import { cancelHandover, startReturn } from "../src/lib/handover/handover-records";
+import {
+  addDamageMark,
+  cancelHandover,
+  removeDamageMark,
+  saveHandoverDetails,
+  startReturn,
+} from "../src/lib/handover/handover-records";
 import { startSwap } from "../src/lib/rentals/car-swaps";
 import { bookRental } from "../src/lib/rentals/rental-records";
 import {
@@ -46,7 +52,7 @@ import {
   type MemoryFileStorage,
 } from "../src/lib/storage/memory-file-storage";
 import { addCurrentPaperwork, addTestCar, seedOperatorWithUser } from "./car-fixtures";
-import { checklistKit, HANDOVER_KM, TEST_SIGNATURE } from "./handover-fixtures";
+import { checklistKit, HANDOVER_KM, TEST_DETAILS, TEST_SIGNATURE } from "./handover-fixtures";
 import { openTransactionAs, waitUntilBlockedBy } from "./lock-fixtures";
 import {
   addRenterReadyToRent,
@@ -307,6 +313,45 @@ describe("changing a business's driver while the car is out", () => {
           clock(),
         ),
       ).toEqual({ status: "swap_under_way" });
+    });
+  });
+
+  describe("the new driver's checklist", () => {
+    it("takes no marks, details or photos of its own: it shows the check-in, and a crafted request is refused", async () => {
+      const out = await carOutWithSam();
+      const change = await changeUnderWay(out);
+      const handoverId = change.handoverInspectionId;
+      const mark = { x: 500, y: 300, description: "Scratch on bonnet" };
+      const checkInMark = await addDamageMark(web.db, actor, change.returnInspectionId, mark);
+      expect(checkInMark.status).toBe("added");
+      const [{ photoNames } = { photoNames: [] }] = (
+        await superuser.query<{ photoNames: string[] }>(
+          `select photo_names as "photoNames" from inspections where id = $1`,
+          [handoverId],
+        )
+      ).rows;
+
+      expect(await addDamageMark(web.db, actor, handoverId, mark)).toEqual({ status: "not_found" });
+      expect(
+        await saveHandoverDetails(web.db, actor, handoverId, {
+          ...TEST_DETAILS,
+          odometerKm: CHECK_IN_KM,
+        }),
+      ).toEqual({ status: "not_found" });
+      await expect(kit().takePhoto(handoverId, { photoName: photoNames[0]! })).rejects.toThrow(
+        /not_found/,
+      );
+      const markId = checkInMark.status === "added" ? checkInMark.markId : "";
+      expect(await removeDamageMark(web.db, actor, handoverId, markId)).toBe("not_found");
+      const [kept] = (
+        await superuser.query<{ marks: number; files: number; odometerKm: number | null }>(
+          `select (select count(*)::int from inspection_damage_marks where inspection_id = $1) as marks,
+             (select count(*)::int from files where inspection_id = $1) as files,
+             odometer_km as "odometerKm" from inspections where id = $1`,
+          [handoverId],
+        )
+      ).rows;
+      expect(kept).toEqual({ marks: 0, files: 0, odometerKm: null });
     });
   });
 

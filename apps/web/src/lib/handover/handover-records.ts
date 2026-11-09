@@ -15,7 +15,7 @@ import {
   type ActivityAction,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, desc, eq, inArray, isNull, or, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne, or, type SQL } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
 import { latestKilometres } from "../vehicles/odometer";
@@ -255,6 +255,29 @@ export async function lockOpenInspection(
   return inspection ?? null;
 }
 
+/**
+ * Whether a checklist under way takes the Operator's own entries (details,
+ * damage marks, photos). A driver change's handover never does: it shows the
+ * check-in a moment before and is filled from it as the new driver signs, so
+ * anything sent to it directly would be kept but never shown (slice 4 review).
+ */
+export const takesChecklistEntries: SQL = or(
+  eq(inspections.isForDriverChange, false),
+  ne(inspections.kind, "handover"),
+)!;
+
+/** The checklist under way, locked for the Operator's own entries; null as `lockOpenInspection`, or if it takes none. */
+async function lockInspectionForEntries(
+  tx: AnyTransaction,
+  operatorId: string,
+  inspectionId: string,
+): Promise<Inspection | null> {
+  const inspection = await lockOpenInspection(tx, operatorId, inspectionId);
+  return inspection && !(inspection.isForDriverChange && inspection.kind === "handover")
+    ? inspection
+    : null;
+}
+
 /** Which kind of pair a checklist belongs to: a car swap's, or a driver change's. */
 export type ChecklistPair = "swap" | "driverChange";
 
@@ -328,7 +351,7 @@ export async function saveHandoverDetails(
   input: HandoverDetailsInput & { odometerKm: number },
 ): Promise<SaveHandoverResult> {
   return withTenant(database, actor.operatorId, async (tx) => {
-    const inspection = await lockOpenInspection(tx, actor.operatorId, inspectionId);
+    const inspection = await lockInspectionForEntries(tx, actor.operatorId, inspectionId);
     if (!inspection) {
       return { status: "not_found" as const };
     }
@@ -384,7 +407,7 @@ export async function addDamageMark(
   clientKey: string | null = null,
 ): Promise<{ status: "added"; markId: string } | { status: "not_found" }> {
   return withTenant(database, actor.operatorId, async (tx) => {
-    if (!(await lockOpenInspection(tx, actor.operatorId, inspectionId))) {
+    if (!(await lockInspectionForEntries(tx, actor.operatorId, inspectionId))) {
       return { status: "not_found" as const };
     }
     const already = clientKey
@@ -421,7 +444,7 @@ export async function removeDamageMark(
   markId: string,
 ): Promise<"removed" | "not_found"> {
   return withTenant(database, actor.operatorId, async (tx) => {
-    if (!(await lockOpenInspection(tx, actor.operatorId, inspectionId))) {
+    if (!(await lockInspectionForEntries(tx, actor.operatorId, inspectionId))) {
       return "not_found";
     }
     const removed = await tx
