@@ -38,7 +38,7 @@ import {
 } from "../rentals/booking-checks";
 import { driverChangeUnderWay, type DriverChange } from "../rentals/driver-change-under-way";
 import { currentLinkOf } from "../renters/organisation-driver-records";
-import type { RentalClock } from "../rentals/rental-records";
+import { problemCodes, type RentalClock } from "../rentals/rental-records";
 import { addReading } from "../vehicles/odometer";
 import {
   assertChecklistUnchanged,
@@ -345,7 +345,7 @@ async function lockForSigning(
   operatorId: string,
   views: DriverChangeViews,
   clock: RentalClock,
-): Promise<void> {
+): Promise<BookingProblem[]> {
   const [locked] = await tx
     .select({ status: rentalDriverChanges.status })
     .from(rentalDriverChanges)
@@ -364,7 +364,8 @@ async function lockForSigning(
     throw new ChecklistChangedError();
   }
   await assertChecklistUnchanged(tx, operatorId, views.returned);
-  const { returned } = views;
+  // The rental as re-read under its lock: its end may have moved since the phone's view.
+  const { returned } = now;
   const parties = await lockDriverNamingParties(
     tx,
     operatorId,
@@ -393,6 +394,7 @@ async function lockForSigning(
   if (!isHandoverAllowed(problems)) {
     throw new DriverChangeRefusedError({ status: "refused", problems });
   }
+  return problems;
 }
 
 /**
@@ -492,20 +494,25 @@ async function logChanged(
   tx: AnyTransaction,
   actor: ActingUser,
   views: DriverChangeViews,
-  isOutgoingAbsent: boolean,
+  done: { isOutgoingAbsent: boolean; warnings: readonly BookingProblem[] },
 ): Promise<void> {
   const { change } = views;
   await recordUserChange(tx, actor, {
     entityType: ACTIVITY_ENTITY_TYPES.inspection,
     entityId: change.returnInspectionId,
     action: ACTIVITY_ACTIONS.accepted,
-    valuesAfter: { status: "completed", isRenterAbsent: isOutgoingAbsent },
+    valuesAfter: { status: "completed", isRenterAbsent: done.isOutgoingAbsent },
   });
   await recordUserChange(tx, actor, {
     entityType: ACTIVITY_ENTITY_TYPES.driverChange,
     entityId: change.id,
     action: ACTIVITY_ACTIONS.accepted,
-    valuesAfter: { status: "completed", rentalId: change.rentalId },
+    // The warnings it went ahead with, as a booking logs them (codes only).
+    valuesAfter: {
+      status: "completed",
+      rentalId: change.rentalId,
+      warnings: problemCodes(done.warnings),
+    },
   });
   // Record ids only, never names (rule 7).
   await recordUserChange(tx, actor, {
@@ -524,7 +531,10 @@ async function recordDriverChanged(
   views: DriverChangeViews,
   done: Signed & { acceptance: ChangePdfs["acceptance"] },
 ): Promise<void> {
-  await lockForSigning(tx, actor.operatorId, views, { timeZone: done.timeZone, now: done.at });
+  const warnings = await lockForSigning(tx, actor.operatorId, views, {
+    timeZone: done.timeZone,
+    now: done.at,
+  });
   await completeChecklists(tx, actor, views, done);
   await movePossession(tx, actor, views, done.at);
   const { returned } = views;
@@ -543,7 +553,7 @@ async function recordDriverChanged(
     .update(rentalDriverChanges)
     .set({ status: "completed", changedAt: done.at, updatedAt: done.at })
     .where(eq(rentalDriverChanges.id, views.change.id));
-  await logChanged(tx, actor, views, done.outgoing === null);
+  await logChanged(tx, actor, views, { isOutgoingAbsent: done.outgoing === null, warnings });
 }
 
 /** The two reports' ids, as issued. */

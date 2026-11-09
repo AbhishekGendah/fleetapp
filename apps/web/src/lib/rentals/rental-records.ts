@@ -75,8 +75,8 @@ function logRentalActivity(
   });
 }
 
-/** The codes of the warnings a booking went ahead with, for the log (rule 19). */
-function problemCodes(problems: readonly BookingProblem[]): string[] {
+/** The codes of the warnings a booking (or a driver change) went ahead with, for the log (rule 19). */
+export function problemCodes(problems: readonly BookingProblem[]): string[] {
   return problems.map((problem) => problem.code);
 }
 

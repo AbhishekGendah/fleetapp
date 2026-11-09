@@ -459,6 +459,39 @@ describe("changing a business's driver while the car is out", () => {
       expect(await possessionsOf(out.rentalId)).toHaveLength(1);
     });
 
+    it("checks the new driver against the rental's end as it is under its lock, not as first read", async () => {
+      const out = await carOutWithSam();
+      const change = await changeUnderWay(out);
+      const [mia] = (
+        await superuser.query<{ expiresOn: string }>(
+          "select licence_expires_on::text as \"expiresOn\" from renters where id = $1",
+          [out.miaId],
+        )
+      ).rows;
+      // The rental is extended past Mia's licence while the signing is on its way to the lock.
+      const holder = await openTransactionAs(actor.operatorId);
+      await holder.client.query("select id from rentals where id = $1 for update", [out.rentalId]);
+      const signed = signChange(out.rentalId, null);
+      await waitUntilBlockedBy(superuser, holder.pid);
+      await holder.client.query(
+        "update rentals set planned_end = $2::date + interval '30 days' where id = $1",
+        [out.rentalId, mia!.expiresOn],
+      );
+      await holder.client.query("commit");
+      await holder.client.end();
+
+      expect((await signed).status).toBe("completed");
+      const [logged] = await withTenant(web.db, actor.operatorId, (tx) =>
+        tx
+          .select({ valuesAfter: activityLog.valuesAfter })
+          .from(activityLog)
+          .where(
+            and(eq(activityLog.entityId, change.id), eq(activityLog.action, "accepted")),
+          ),
+      );
+      expect(logged?.valuesAfter).toMatchObject({ warnings: ["licence_expires_during"] });
+    });
+
     it("logs the change by record ids, never by a driver's name or the reason", async () => {
       const out = await carOutWithSam();
       const change = await changeUnderWay(out);
