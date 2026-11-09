@@ -70,7 +70,7 @@ export async function recordBondReceivedAction(
       const page = await stopBondPageAfterHandEntry(
         appPaymentsLinkDependencies(user.operatorTimezone),
         actor.operatorId,
-        rentalId,
+        result.openBondPageId,
       );
       return page === "just_paid"
         ? savedState(

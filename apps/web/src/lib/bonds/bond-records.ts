@@ -11,6 +11,7 @@ import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, eq } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
+import { findOpenBondCheckout } from "../payments/stripe-checkouts";
 import {
   BOND_OPEN_STATUSES,
   bondAccountIn,
@@ -21,7 +22,16 @@ import {
 import type { BondReceivedInput, BondReversalInput } from "./bond-input";
 
 export type BondReceivedResult =
-  | { status: "saved"; account: BondAccount }
+  | {
+      status: "saved";
+      account: BondAccount;
+      /**
+       * The Stripe bond page still open when this was recorded, read under
+       * the rental's lock: Stripe's news of it waits for that lock, so this
+       * is the page to stop, and to ask Stripe whether it was paid as well.
+       */
+      openBondPageId: string | null;
+    }
   | { status: "more_than_owing"; owingCents: number }
   | { status: "on_its_way"; onItsWayCents: number; toReceiveByHandCents: number }
   | { status: "not_found" | "not_open" };
@@ -30,13 +40,32 @@ export type BondReversalResult =
   | { status: "saved"; account: BondAccount }
   | { status: "not_found" | "not_reversible" | "would_go_below_nothing" };
 
+/** A rental as its bond's entries need it. */
+export interface BondRental {
+  id: string;
+  renterId: string;
+  status: string;
+  bondCents: number;
+}
+
 /**
  * The rental, locked so two entries made at once cannot both pass the
  * checks against the same balance; null if it is not this Operator's.
+ * Stripe's news about the bond takes it too, before anything else ("Lock
+ * order"), so an entry by hand and one from Stripe go one after the other.
  */
-async function lockRental(tx: AnyTransaction, operatorId: string, rentalId: string) {
+export async function lockBondRental(
+  tx: AnyTransaction,
+  operatorId: string,
+  rentalId: string,
+): Promise<BondRental | null> {
   const [rental] = await tx
-    .select({ id: rentals.id, status: rentals.status, bondCents: rentals.bondCents })
+    .select({
+      id: rentals.id,
+      renterId: rentals.renterId,
+      status: rentals.status,
+      bondCents: rentals.bondCents,
+    })
     .from(rentals)
     .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, operatorId)))
     .for(ROW_LOCK);
@@ -73,7 +102,7 @@ export async function recordBondReceived(
   input: BondReceivedInput,
 ): Promise<BondReceivedResult> {
   return withTenant(database, actor.operatorId, async (tx) => {
-    const rental = await lockRental(tx, actor.operatorId, rentalId);
+    const rental = await lockBondRental(tx, actor.operatorId, rentalId);
     if (!rental) {
       return { status: "not_found" as const };
     }
@@ -111,8 +140,15 @@ export async function recordBondReceived(
       amountCents: input.amountCents,
       method: input.method,
     });
-    const movements = await selectBondMovements(tx, actor.operatorId, rentalId);
-    return { status: "saved" as const, account: bondAccountOf(movements, rental.bondCents) };
+    const [movements, openBondPage] = await Promise.all([
+      selectBondMovements(tx, actor.operatorId, rentalId),
+      findOpenBondCheckout(tx, actor.operatorId, rentalId),
+    ]);
+    return {
+      status: "saved" as const,
+      account: bondAccountOf(movements, rental.bondCents),
+      openBondPageId: openBondPage?.sessionId ?? null,
+    };
   });
 }
 
@@ -129,7 +165,7 @@ export async function reverseBondMovement(
   today: string,
 ): Promise<BondReversalResult> {
   return withTenant(database, actor.operatorId, async (tx) => {
-    const rental = await lockRental(tx, actor.operatorId, target.rentalId);
+    const rental = await lockBondRental(tx, actor.operatorId, target.rentalId);
     if (!rental) {
       return { status: "not_found" as const };
     }

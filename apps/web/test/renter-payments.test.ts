@@ -12,16 +12,7 @@ import { eq, isNotNull } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import type { ActingUser } from "../src/lib/acting-user";
-import {
-  handlePaymentEvent,
-  refreshPaymentAccount,
-  startStripeOnboarding,
-} from "../src/lib/payments/payment-accounts";
-import {
-  continueToPayments,
-  sendPaymentsLink,
-  type PaymentsLinkDependencies,
-} from "../src/lib/payments/payments-links";
+import { continueToPayments, sendPaymentsLink } from "../src/lib/payments/payments-links";
 import { loadBondAccount } from "../src/lib/bonds/bond-account";
 import { recordBondReceived, reverseBondMovement } from "../src/lib/bonds/bond-records";
 import { loadBondsToRefund } from "../src/lib/dashboard/bonds-to-refund";
@@ -32,26 +23,16 @@ import {
 } from "../src/lib/payments/renter-checkout";
 import { runStripeTidyUp, tellStripeAboutRenter } from "../src/lib/payments/stripe-tidy-up";
 import { loadRentalPayments } from "../src/lib/payments/renter-payment-records";
-import {
-  createStandInPayments,
-  type StandInPayments,
-  type SignedEvent,
-} from "../src/lib/payments/stand-in-provider";
+import { createStandInPayments, type StandInPayments } from "../src/lib/payments/stand-in-provider";
 import { loadRentalProblems } from "../src/lib/rentals/booking-checks";
 import { cancelRental } from "../src/lib/rentals/rental-records";
 import { emptyRenterForm, parseRenterForm } from "../src/lib/renters/renter-input";
-import { createRenter, updateRenter } from "../src/lib/renters/renter-records";
-import { openLink, type LinkVisit } from "../src/lib/renter-links/link-visits";
+import { updateRenter } from "../src/lib/renters/renter-records";
+import { openLink } from "../src/lib/renter-links/link-visits";
 import { seedOperatorWithUser } from "./car-fixtures";
-import { bookTestRental, TEST_TIME_ZONE } from "./rental-fixtures";
-import { recordingEmailSender } from "./renter-link-fixtures";
+import { PAYMENTS_WEBHOOK_SECRET, paymentsTestKit } from "./payment-fixtures";
+import { TEST_TIME_ZONE } from "./rental-fixtures";
 
-const WEBHOOK_SECRET = "whsec_test_only";
-const APP_URL = "https://app.example.test";
-const URLS = {
-  returnUrl: `${APP_URL}/settings/payments`,
-  refreshUrl: `${APP_URL}/settings/payments/continue`,
-};
 /** The test rental's bond: $500 (bookTestRental). */
 const BOND_CENTS = 500_00;
 const MONDAY = new Date("2026-11-02T01:00:00Z");
@@ -71,71 +52,8 @@ describe("a Renter's direct debit and bond", () => {
   let otherBusiness: ActingUser;
   const sentEmails: EmailMessage[] = [];
 
-  function deps(changes: Partial<PaymentsLinkDependencies> = {}): PaymentsLinkDependencies {
-    return {
-      database: web.db,
-      emailSender: recordingEmailSender(sentEmails),
-      now: () => new Date(),
-      appUrl: APP_URL,
-      describeDay: (moment) => moment.toISOString().slice(0, 10),
-      describeMoment: (moment) => moment.toISOString().slice(0, 16),
-      payments: stripe,
-      canHearRenterPayments: true,
-      ...changes,
-    };
-  }
-
-  function deliver(event: SignedEvent) {
-    return handlePaymentEvent(
-      { database: web.db, payments: stripe, now: () => new Date() },
-      event.payload,
-      event.signature,
-    );
-  }
-
-  async function connectStripe(owner: ActingUser): Promise<void> {
-    await startStripeOnboarding(
-      { database: web.db, payments: stripe, now: () => new Date() },
-      owner,
-      URLS,
-    );
-    await refreshPaymentAccount(
-      { database: web.db, payments: stripe, now: () => new Date() },
-      owner.operatorId,
-    );
-  }
-
-  async function bookedRental(owner: ActingUser) {
-    const parsed = parseRenterForm(
-      {
-        ...emptyRenterForm(),
-        fullName: "Pat Payer",
-        email: "pat.payer@example.test",
-        phone: "0412345678",
-      },
-      "2026-10-30",
-    );
-    const renterId = await createRenter(web.db, owner, parsed.data!);
-    const { rentalId, vehicleId } = await bookTestRental(web, owner, renterId);
-    return { rentalId, renterId, vehicleId };
-  }
-
-  /** The Operator sends the payments link; the Renter opens it. */
-  async function openedPaymentsLink(owner: ActingUser, rentalId: string): Promise<LinkVisit> {
-    const sent = await sendPaymentsLink(deps(), owner, rentalId, "email");
-    if (sent.status !== "sent") {
-      throw new Error(sent.status);
-    }
-    return (await openLink(web.db, sent.url.split("/r/")[1]!))!;
-  }
-
-  async function visitStripe(visit: LinkVisit, purpose: "direct_debit" | "bond"): Promise<string> {
-    const started = await startRenterCheckout(deps(), visit, purpose);
-    if (started.status !== "started") {
-      throw new Error(started.status);
-    }
-    return started.url.split("/").at(-1)!;
-  }
+  const { deps, deliver, connectStripe, bookedRental, openedPaymentsLink, visitStripe } =
+    paymentsTestKit(() => ({ web, stripe }), sentEmails);
 
   function paymentsOf(owner: ActingUser, rental: { rentalId: string; renterId: string }) {
     return loadRentalPayments(web.db, owner.operatorId, {
@@ -148,7 +66,7 @@ describe("a Renter's direct debit and bond", () => {
   beforeAll(async () => {
     admin = connectAs(inject("adminAppRoleUrl"));
     web = connectAs(inject("webAppRoleUrl"));
-    stripe = createStandInPayments(WEBHOOK_SECRET);
+    stripe = createStandInPayments(PAYMENTS_WEBHOOK_SECRET);
     actor = await seedOperatorWithUser(admin, "Direct Debit Rentals Pty Ltd");
     otherBusiness = await seedOperatorWithUser(admin, "Other Direct Debit Rentals Pty Ltd");
     await connectStripe(actor);
@@ -657,11 +575,11 @@ describe("a Renter's direct debit and bond", () => {
     const rental = await bookedRental(actor);
     const visit = await openedPaymentsLink(actor, rental.rentalId);
     const sessionId = await visitStripe(visit, "bond");
-    await cashBond(actor, rental.rentalId, BOND_CENTS);
+    const cash = await cashBond(actor, rental.rentalId, BOND_CENTS);
 
-    expect(await stopBondPageAfterHandEntry(deps(), actor.operatorId, rental.rentalId)).toBe(
-      "expired",
-    );
+    expect(cash).toMatchObject({ status: "saved", openBondPageId: sessionId });
+    expect(await stopBondPageAfterHandEntry(deps(), actor.operatorId, sessionId)).toBe("expired");
+    expect(await stopBondPageAfterHandEntry(deps(), actor.operatorId, null)).toBe("none");
     expect(stripe.checkout(sessionId)?.outcome.isExpired).toBe(true);
     expect(() => stripe.finishCheckout(sessionId)).toThrow();
   });
@@ -673,9 +591,7 @@ describe("a Renter's direct debit and bond", () => {
     stripe.finishCheckout(sessionId, "card");
     await cashBond(actor, rental.rentalId, BOND_CENTS);
 
-    expect(await stopBondPageAfterHandEntry(deps(), actor.operatorId, rental.rentalId)).toBe(
-      "just_paid",
-    );
+    expect(await stopBondPageAfterHandEntry(deps(), actor.operatorId, sessionId)).toBe("just_paid");
     expect((await paymentsOf(actor, rental)).bond.heldCents).toBe(2 * BOND_CENTS);
   });
 

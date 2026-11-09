@@ -231,35 +231,47 @@ export async function retireOpenBondPage(
   const open = await withTenant(deps.database, operatorId, (tx) =>
     findOpenBondCheckout(tx, operatorId, rentalId),
   );
-  if (!open) {
-    return "none";
-  }
-  await stripe.payments.expireCheckout(stripe.accountId, open.sessionId);
-  const outcome = await recordOutcome(deps, stripe, operatorId, open.sessionId);
+  return open ? retireBondPage(deps, stripe, operatorId, open.sessionId) : "none";
+}
+
+/** Expires one bond page at Stripe and records what came of it: "just_paid" if it was paid first. */
+async function retireBondPage(
+  deps: RenterCheckoutDependencies,
+  stripe: StripeAccess,
+  operatorId: string,
+  sessionId: string,
+): Promise<"expired" | "just_paid"> {
+  await stripe.payments.expireCheckout(stripe.accountId, sessionId);
+  const outcome = await recordOutcome(deps, stripe, operatorId, sessionId);
   return outcome.isComplete ? "just_paid" : "expired";
 }
 
 /**
- * Once bond is recorded by hand: the rental's open Stripe bond page is
- * stopped, so it can't be paid as well. Gives "just_paid" if the Renter
- * had paid it meanwhile (the business then holds the bond twice). A
- * failure is logged; the page expires by itself within the hour.
+ * Once bond is recorded by hand: the Stripe bond page that was open then
+ * (`openBondPageId`, read under the rental's lock) is stopped, so it can't
+ * be paid as well. Gives "just_paid" if the Renter had paid it meanwhile
+ * (the business then holds the bond twice), even when Stripe's news of it
+ * was recorded first. A failure is logged; the page expires by itself
+ * within the hour.
  */
 export async function stopBondPageAfterHandEntry(
   deps: RenterCheckoutDependencies,
   operatorId: string,
-  rentalId: string,
+  openBondPageId: string | null,
 ): Promise<"none" | "expired" | "just_paid"> {
+  if (!openBondPageId) {
+    return "none";
+  }
   const account = await loadPaymentAccount(deps.database, operatorId);
   if (!deps.payments || !account || account.state === "disconnected") {
     return "none";
   }
   try {
-    return await retireOpenBondPage(
+    return await retireBondPage(
       deps,
       { accountId: account.stripeAccountId, payments: deps.payments },
       operatorId,
-      rentalId,
+      openBondPageId,
     );
   } catch (error) {
     console.error("Stopping a Stripe bond page failed", describeErrorForLog(error));

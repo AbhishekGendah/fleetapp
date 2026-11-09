@@ -9,6 +9,7 @@ import {
 } from "@fleetapp/db/schema";
 import { and, eq } from "drizzle-orm";
 
+import { lockBondRental } from "../bonds/bond-records";
 import { businessDayOf } from "./business-day";
 import type { MoneyTakenBack } from "./payments-provider";
 
@@ -141,7 +142,9 @@ export async function applyMoneyTakenBack(
   const payment = takenBack.paymentIntentId
     ? await bondPaymentOf(tx, operatorId, takenBack.paymentIntentId)
     : null;
-  if (!payment) {
+  // The rental first ("Lock order"), as bond entered or corrected by hand
+  // takes it: a correction then sees this entry, or this waits for it.
+  if (!payment || !(await lockBondRental(tx, operatorId, payment.rentalId))) {
     return;
   }
   const occurredOn = await businessDayOf(tx, operatorId, occurredAt);

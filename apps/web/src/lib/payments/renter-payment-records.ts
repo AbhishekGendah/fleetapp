@@ -17,13 +17,13 @@ import {
   bondMovements,
   paymentMandates,
   payments,
-  rentals,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, asc, eq, lte, ne, sql } from "drizzle-orm";
 
 import { bondAccountIn, type BondMovementRow } from "../bonds/bond-account";
+import { lockBondRental } from "../bonds/bond-records";
 import type { CheckoutOutcome } from "./payments-provider";
 import { businessDayOf } from "./business-day";
 import { settleCheckout } from "./stripe-checkouts";
@@ -424,24 +424,18 @@ export async function applyCheckoutOutcome(
   /** When Stripe says it happened, if known: a bond paid is dated by it (review A11-10). */
   occurredAt: Date = now,
 ): Promise<void> {
-  await settleCheckout(tx, operatorId, outcome, now);
   const { reference } = outcome;
-  if (!outcome.isComplete || !reference) {
-    return;
-  }
+  // The rental first, before the page's own row ("Lock order"): bond entered
+  // by hand takes it too, so the two go one after the other and each sees
+  // what the other recorded (no bond held twice, none taken below nothing).
+  const rental =
+    outcome.isComplete && reference
+      ? await lockBondRental(tx, operatorId, reference.rentalId)
+      : null;
+  await settleCheckout(tx, operatorId, outcome, now);
   // The session's account is this business's (rule 3), so its rental must be
   // too; one that is not is ignored, never recorded against anyone.
-  const [rental] = await tx
-    .select({ id: rentals.id })
-    .from(rentals)
-    .where(
-      and(
-        eq(rentals.id, reference.rentalId),
-        eq(rentals.operatorId, operatorId),
-        eq(rentals.renterId, reference.renterId),
-      ),
-    );
-  if (!rental) {
+  if (!reference || !rental || rental.renterId !== reference.renterId) {
     return;
   }
   if (reference.purpose === "direct_debit") {
