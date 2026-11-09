@@ -7,9 +7,9 @@ import {
 
 import type { BusinessRenterFormField } from "./business-renter-input";
 import type { LicenceFormField } from "./licence-input";
-import type { RenterFormField } from "./renter-input";
+import type { PersonRenterFormField } from "./renter-input";
 
-type RenterLabelledField = RenterFormField | LicenceFormField | "status" | "doNotRentReason";
+type RenterLabelledField = PersonRenterFormField | LicenceFormField | "status" | "doNotRentReason";
 
 /** What each Renter field is called, on the forms, the Details tab and in the Log. */
 export const RENTER_FIELD_LABELS: Readonly<Record<RenterLabelledField, string>> = {
@@ -24,6 +24,7 @@ export const RENTER_FIELD_LABELS: Readonly<Record<RenterLabelledField, string>> 
   emergencyContactName: "Emergency contact's name",
   emergencyContactPhone: "Emergency contact's phone",
   emergencyContactRelationship: "Relationship to the Renter",
+  abn: "ABN",
   status: "Status",
   doNotRentReason: "Why not rent to them",
   licenceIssuedIn: "Issued in",

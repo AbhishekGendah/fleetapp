@@ -3,6 +3,8 @@ import {
   emptyForm,
   INVALID_EMAIL_MESSAGE,
   MINIMUM_DRIVER_AGE_YEARS,
+  formatAbn,
+  optionalAbn,
   optionalLine,
   optionalPhone,
   RENTER_STATUSES,
@@ -115,6 +117,38 @@ export function renterFormValues(renter: {
     emergencyContactPhone: renter.emergencyContactPhone ?? "",
     emergencyContactRelationship: renter.emergencyContactRelationship ?? "",
   };
+}
+
+/**
+ * The Operator's person form adds one box the Renter's own details link
+ * doesn't have: a sole trader's ABN (decision 8 of
+ * docs/plans/business-renters.md), printed on their invoices. Kept apart so
+ * approving what a Renter sends never touches it.
+ */
+export const PERSON_RENTER_FORM_FIELDS = [...RENTER_FORM_FIELDS, "abn"] as const;
+export type PersonRenterFormField = (typeof PERSON_RENTER_FORM_FIELDS)[number];
+export type PersonRenterFormValues = Record<PersonRenterFormField, string>;
+export type PersonRenterInput = RenterInput & { abn: string | null };
+
+const soleTraderSchema = z.object({ abn: optionalAbn });
+
+export function emptyPersonRenterForm(): PersonRenterFormValues {
+  return { ...emptyRenterForm(), abn: "" };
+}
+
+/** The Operator's person form: the Renter's details and their ABN, if a sole trader. */
+export function parsePersonRenterForm(
+  values: PersonRenterFormValues,
+  today: string,
+): z.ZodSafeParseResult<PersonRenterInput> {
+  return z.intersection(renterInputSchema(today), soleTraderSchema).safeParse(values);
+}
+
+/** The Operator's edit form, filled in from what is saved, the ABN grouped as written. */
+export function personRenterFormValues(
+  renter: Parameters<typeof renterFormValues>[0] & { abn: string | null },
+): PersonRenterFormValues {
+  return { ...renterFormValues(renter), abn: renter.abn ? formatAbn(renter.abn) : "" };
 }
 
 const DO_NOT_RENT_REASON_MESSAGE = "Say why, so the next person to look knows. Facts only.";

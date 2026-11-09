@@ -6,7 +6,7 @@ import { Building, UserRound } from "lucide-react";
 import { useState } from "react";
 
 import { emptyBusinessRenterForm } from "../../../lib/renters/business-renter-input";
-import { emptyRenterForm } from "../../../lib/renters/renter-input";
+import { emptyPersonRenterForm } from "../../../lib/renters/renter-input";
 import { addBusinessRenterAction, addRenterAction } from "../actions";
 import { BusinessRenterForm } from "../business-renter-form";
 import { RenterForm } from "../renter-form";
@@ -64,7 +64,7 @@ export function NewRenterForms(props: {
     />
   ) : (
     <RenterForm
-      initialValues={emptyRenterForm()}
+      initialValues={emptyPersonRenterForm()}
       today={props.today}
       action={addRenterAction}
       submitLabel="Add Renter"

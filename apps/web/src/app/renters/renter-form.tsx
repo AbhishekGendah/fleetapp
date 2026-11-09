@@ -1,8 +1,11 @@
 "use client";
 
-import { fieldErrorsOf } from "@fleetapp/core";
+import { fieldErrorsOf, formatAbn } from "@fleetapp/core";
 import { Button } from "@fleetapp/ui/button";
+import { FormField } from "@fleetapp/ui/form-field";
 import { FormError } from "@fleetapp/ui/form-message";
+import { FormattedInput } from "@fleetapp/ui/formatted-input";
+import { FormSection } from "@fleetapp/ui/form-section";
 import { RequiredFieldsNote } from "@fleetapp/ui/input";
 import { useFormFields } from "@fleetapp/ui/use-form-fields";
 import Link from "next/link";
@@ -10,17 +13,22 @@ import { useActionState, type ReactNode } from "react";
 
 import {
   isRequiredRenterField,
-  parseRenterForm,
-  RENTER_FORM_FIELDS,
-  type RenterFormValues,
+  parsePersonRenterForm,
+  PERSON_RENTER_FORM_FIELDS,
+  type PersonRenterFormField,
+  type PersonRenterFormValues,
 } from "../../lib/renters/renter-input";
+import { RENTER_FIELD_LABELS } from "../../lib/renters/renter-labels";
 import { RenterDetailsFields } from "./renter-details-fields";
 import type { RenterFormState } from "./renter-form-state";
 
 const INITIAL_STATE: RenterFormState = { status: "editing" };
+/** Decision 8 of docs/plans/business-renters.md: most rideshare drivers have an ABN. */
+const SOLE_TRADER_ABN_HINT =
+  "If they rent as a sole trader. 11 digits, checked; printed on their invoices.";
 
 interface RenterFormProps {
-  initialValues: RenterFormValues;
+  initialValues: PersonRenterFormValues;
   /** The Operator's today, for the date-of-birth check. */
   today: string;
   action: (state: RenterFormState, formData: FormData) => Promise<RenterFormState>;
@@ -37,10 +45,10 @@ interface RenterFormProps {
 export function RenterForm(props: RenterFormProps) {
   const [state, formAction, isPending] = useActionState(props.action, INITIAL_STATE);
   const form = useFormFields({
-    fields: RENTER_FORM_FIELDS,
+    fields: PERSON_RENTER_FORM_FIELDS,
     initialValues: props.initialValues,
-    validate: (values) => fieldErrorsOf(parseRenterForm(values, props.today)),
-    isRequired: isRequiredRenterField,
+    validate: (values) => fieldErrorsOf(parsePersonRenterForm(values, props.today)),
+    isRequired: (field: PersonRenterFormField) => field !== "abn" && isRequiredRenterField(field),
   });
   const shownState = form.isResultShown && !isPending ? state : INITIAL_STATE;
 
@@ -63,6 +71,21 @@ export function RenterForm(props: RenterFormProps) {
           preferredName: "What they like to be called.",
         }}
       />
+      <FormSection title="Sole trader">
+        <FormField
+          htmlFor="abn"
+          label={RENTER_FIELD_LABELS.abn}
+          hint={SOLE_TRADER_ABN_HINT}
+          error={form.errorFor("abn")}
+        >
+          <FormattedInput
+            {...form.formattedBoxProps("abn", formatAbn)}
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="51 824 753 556"
+          />
+        </FormField>
+      </FormSection>
 
       <RenterFormFooter
         state={shownState}

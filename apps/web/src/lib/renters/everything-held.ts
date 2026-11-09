@@ -87,6 +87,7 @@ function detailsSheet(renter: RenterDetail, timeZone: string): WorkbookSheet {
       [labels.emergencyContactName, renter.emergencyContactName],
       [labels.emergencyContactPhone, renter.emergencyContactPhone],
       [labels.emergencyContactRelationship, renter.emergencyContactRelationship],
+      [labels.abn, renter.abn && formatAbn(renter.abn)],
       ...standingLines(renter, labels, timeZone),
     ]),
   };

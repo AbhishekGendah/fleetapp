@@ -65,6 +65,11 @@ export const requiredAbn = requiredLine
   .refine(isValidAbn, INVALID_ABN_MESSAGE)
   .transform(normaliseAbn);
 
+/** As `requiredAbn`, but blank is allowed and becomes null: a sole trader's (decision 8 of docs/plans/business-renters.md). */
+export const optionalAbn = singleLineText
+  .transform((value) => (value === "" ? null : value))
+  .pipe(requiredAbn.nullable());
+
 /** An Australian phone number, saved in its tidy written form. */
 export const requiredPhone = requiredLine
   .refine(isValidAustralianPhone, INVALID_PHONE_MESSAGE)

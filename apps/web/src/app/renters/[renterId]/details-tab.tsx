@@ -1,5 +1,6 @@
 import {
   ageOn,
+  formatAbn,
   formatCalendarDate,
   formatDateTimeInTimeZone,
   todayInTimeZone,
@@ -49,6 +50,8 @@ function DetailsCard({ renter, today }: { renter: RenterDetail; today: string })
         .filter(Boolean)
         .join(" ") || NOT_GIVEN,
     ],
+    // A sole trader's, printed on their invoices (decision 8).
+    [RENTER_FIELD_LABELS.abn, renter.abn ? formatAbn(renter.abn) : NOT_GIVEN],
   ];
   return <DetailsCardFrame renter={renter} lines={lines} />;
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   formTextValues,
+  optionalAbn,
   optionalLine,
   optionalWebAddress,
   requiredEmail,
@@ -14,6 +15,12 @@ describe("form text rules", () => {
     expect(requiredLine.safeParse("   ").success).toBe(false);
     expect(requiredLine.safeParse("Test\nFleet").success).toBe(false);
     expect(optionalLine.parse("")).toBeNull();
+  });
+
+  it("keeps a sole trader's ABN as its 11 digits, blank as none, and refuses a wrong one", () => {
+    expect(optionalAbn.parse(" 51 824 753 556 ")).toBe("51824753556");
+    expect(optionalAbn.parse("")).toBeNull();
+    expect(optionalAbn.safeParse("51 824 753 557").success).toBe(false);
   });
 
   it("lower-cases an email address", () => {

@@ -13,9 +13,9 @@ import { tellStripeAboutRenter } from "../../lib/payments/stripe-tidy-up";
 import { renterPath, RENTERS_PATH } from "../../lib/paths";
 import { requireUser } from "../../lib/require-user";
 import {
-  parseRenterForm,
-  RENTER_FORM_FIELDS,
-  type RenterInput,
+  parsePersonRenterForm,
+  PERSON_RENTER_FORM_FIELDS,
+  type PersonRenterInput,
 } from "../../lib/renters/renter-input";
 import {
   BUSINESS_RENTER_FORM_FIELDS,
@@ -43,8 +43,8 @@ type FormReader<Input> = (
   today: string,
 ) => { success: true; data: Input } | { success: false };
 
-const readPersonForm: FormReader<RenterInput> = (formData, today) =>
-  parseRenterForm(formTextValues(formData, RENTER_FORM_FIELDS), today);
+const readPersonForm: FormReader<PersonRenterInput> = (formData, today) =>
+  parsePersonRenterForm(formTextValues(formData, PERSON_RENTER_FORM_FIELDS), today);
 
 const readBusinessForm: FormReader<BusinessRenterInput> = (formData) =>
   parseBusinessRenterForm(formTextValues(formData, BUSINESS_RENTER_FORM_FIELDS));

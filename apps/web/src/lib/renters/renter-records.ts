@@ -23,7 +23,7 @@ import { recordUserChange, type ActingUser, type UserChange } from "../acting-us
 import { cancelLiveLinks } from "../renter-links/cancel-links";
 import { countCurrentDriverLinks } from "./organisation-driver-queries";
 import { BUSINESS_RENTER_FIELDS, type BusinessRenterInput } from "./business-renter-input";
-import type { RenterInput, RenterStatusInput } from "./renter-input";
+import type { PersonRenterInput, RenterInput, RenterStatusInput } from "./renter-input";
 
 /** Every detail the form sets. All personal, so the log only says which changed. */
 const RENTER_FIELDS = [
@@ -38,6 +38,12 @@ const RENTER_FIELDS = [
   "emergencyContactPhone",
   "emergencyContactRelationship",
 ] as const satisfies readonly (keyof RenterInput)[];
+/** The Operator's own person form also keeps a sole trader's ABN; a Renter's link never sends it. */
+type SoleTraderInput = RenterInput & Partial<Pick<PersonRenterInput, "abn">>;
+const PERSON_FIELDS = [
+  ...RENTER_FIELDS,
+  "abn",
+] as const satisfies readonly (keyof PersonRenterInput)[];
 
 const STATUS_FIELDS = ["status", "doNotRentReason"] as const;
 /** The status itself is logged; the reason is the Operator's private note. */
@@ -123,7 +129,7 @@ export async function lockLinkRecipient(
 export async function insertRenter(
   tx: AnyTransaction,
   actor: ActingUser,
-  input: RenterInput | (BusinessRenterInput & { kind: "organisation" }),
+  input: SoleTraderInput | (BusinessRenterInput & { kind: "organisation" }),
 ): Promise<string> {
   const [created] = await tx
     .insert(renters)
@@ -136,16 +142,16 @@ export async function insertRenter(
   await logRenterActivity(tx, actor, created.id, ACTIVITY_ACTIONS.created, {
     valuesAfter: isBusiness
       ? { kind: input.kind, ...withholdFields(input, BUSINESS_RENTER_FIELDS) }
-      : withholdFields(input, RENTER_FIELDS),
+      : withholdFields(input, PERSON_FIELDS),
   });
   return created.id;
 }
 
-/** Adds a person Renter. */
+/** Adds a person Renter; their ABN only when the Operator's form gave one (a sole trader). */
 export async function createRenter(
   database: AnyDatabase,
   actor: ActingUser,
-  input: RenterInput,
+  input: SoleTraderInput,
 ): Promise<string> {
   return withTenant(database, actor.operatorId, (tx) => insertRenter(tx, actor, input));
 }
@@ -228,12 +234,17 @@ export async function updateRenter(
   database: AnyDatabase,
   actor: ActingUser,
   renterId: string,
-  input: RenterInput,
+  input: SoleTraderInput,
 ): Promise<ChangeRenterResult> {
   return withTenant(database, actor.operatorId, async (tx) => {
     const before = await lockCurrentRenter(tx, actor.operatorId, renterId);
     // A person's form never writes over a business, nor the other way.
-    return before?.kind === "person" ? applyRenterDetails(tx, actor, before, input) : "not_found";
+    if (before?.kind !== "person") {
+      return "not_found";
+    }
+    return input.abn === undefined
+      ? applyRenterDetails(tx, actor, before, input)
+      : applyRenterFields(tx, actor, before, { ...input, abn: input.abn }, PERSON_FIELDS);
   });
 }
 

@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 
 import { renterPath } from "../../../../lib/paths";
 import { requireUser } from "../../../../lib/require-user";
-import { renterFormValues } from "../../../../lib/renters/renter-input";
+import { personRenterFormValues } from "../../../../lib/renters/renter-input";
 import { AppShell } from "../../../app-shell";
 import { businessRenterFormValues } from "../../../../lib/renters/business-renter-input";
 import { editBusinessRenterAction, editRenterAction } from "../../actions";
@@ -46,7 +46,7 @@ export default async function EditRenterPage(props: { params: Promise<{ renterId
             />
           ) : (
             <RenterForm
-              initialValues={renterFormValues(renter)}
+              initialValues={personRenterFormValues(renter)}
               today={todayInTimeZone(new Date(), user.operatorTimezone)}
               action={editRenterAction.bind(null, renter.id)}
               submitLabel="Save changes"
