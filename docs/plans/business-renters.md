@@ -1518,6 +1518,24 @@ tests unchanged and passing), but for a sole trader's ABN (decision 8).
     finished one; each car's own rental page has its bond's full account.
   - The Log doesn't list statements (a rental's Log doesn't list its papers
     either); the send is in the activity log, by ids.
-- **Not built here, for Abhi:** retention of a business's statements across
-  its cars (launch checklist): `app.retire_renter` bins a rental's papers
-  only, so these are kept until a migration adds them.
+- **Review fixes (9 Nov 2026, two independent reviews).** Each has a test
+  that failed before it.
+  - *Charged and Paid* count each line as the ledger does (above).
+  - *Car headings* name only the cars and drivers of the lines in the days
+    asked (a swap or driver change before them no longer shows the old car
+    or driver); with only a balance brought forward, the car and driver now.
+  - *Retention*: `0062_business_statement_retention` replaces
+    `app.is_retired_renter_file` and `app.retire_renter` (from 0047 and 0059,
+    one line added to each) so retiring a business bins its own statements'
+    PDFs, as a rental's papers are binned; the rows stay. Tested on a
+    database filled at 0061 (`business-statement-retention-update.test.ts`):
+    before it the PDF stayed; after it a retired business's goes, another
+    Operator's stays until its own retirement, a person's rental papers go
+    as before, and the app still can't bin a current business's.
+  - *Emailing as it is made*: once the statement is issued, an error
+    emailing it or recording the send is logged by ids only and the answer
+    says it wasn't emailed (use Email again), so trying again never issues a
+    second version.
+  - *Archived or retired business*: refused a new statement, read under the
+    lock that numbers it (two-connection test: an archive while the
+    statement waits is seen); the Money tab says to restore it first.

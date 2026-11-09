@@ -1151,10 +1151,10 @@ As built slice 2).
   the same email provider as every other copy, so overseas disclosure is
   unchanged. Each try at emailing a statement is kept (sent, failed, no
   address) and the send is logged by ids only (rule 7).
-- **Retention (APP 11.2), to do.** The retention job bins a rental's papers
-  once all its parties are past seven years. A business's statement across
-  its cars belongs to the business, not to one rental, so the job doesn't
-  reach it yet: it is kept as a tax record and holds its drivers' names.
-  Binning it with the business's other records when the business is retired
-  needs a change to the retention function (a migration): on the launch
-  checklist, for Abhi's go.
+- **Retention (APP 11.2).** A business's statements across its cars belong
+  to the business, not to one rental. When the business is retired (seven
+  years after its last records, with no current drivers), the retention job
+  bins their PDFs with its other records (`0062_business_statement_retention`,
+  9 Nov 2026), so the drivers' names in its statements go when the business
+  is retired; the documents' rows (what was issued, its fingerprint) stay. A
+  retired or archived business gets no new statement.

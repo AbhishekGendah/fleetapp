@@ -252,12 +252,6 @@ Add to this list whenever something is relaxed or put off "until launch".
       their details link); the lawyer checks it, and the PPS lease question
       (long hires to a company), before the first business Renter is added
       on a live site.
-- [ ] **A business's statements across its cars aren't binned by the
-      retention job yet** (business Renters slice 5, Migration B): they
-      belong to the business, not one rental, so `app.retire_renter` doesn't
-      reach them; they are kept as tax records and hold the drivers' names.
-      A small migration to bin them with the business's other records when
-      it is retired, for Abhi's go (docs/legal-notes.md, slice 5).
 - [ ] **The accountant on a business's tax invoices** (business Renters
       slice 5): legal name or trading name as the buyer, and whether naming
       the driver on each line matters (docs/legal-notes.md).

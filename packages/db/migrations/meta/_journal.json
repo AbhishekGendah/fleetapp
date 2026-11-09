@@ -435,6 +435,13 @@
       "when": 1794221906567,
       "tag": "0061_renter_statements",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1794226393163,
+      "tag": "0062_business_statement_retention",
+      "breakpoints": true
     }
   ]
 }
