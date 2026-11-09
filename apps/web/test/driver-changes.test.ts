@@ -909,6 +909,47 @@ describe("changing a business's driver while the car is out", () => {
       });
     });
 
+    /** Starting a swap or a driver change, while a link to the rental is being added. */
+    const starts = {
+      "a swap": async (rentalId: string) =>
+        startSwap(
+          web.db,
+          actor,
+          rentalId,
+          { toVehicleId: await addTestCar(web, actor), reason: "Engine light" },
+          clock(),
+        ),
+      "a driver change": async (rentalId: string, miaId: string) =>
+        startDriverChange(
+          web.db,
+          actor,
+          rentalId,
+          { toDriverId: miaId, reason: "Sam has moved to night shifts." },
+          clock(),
+        ),
+    };
+
+    it.each(Object.keys(starts))(
+      "starts %s without waiting for a damage record or charge pointing at the rental",
+      async (which) => {
+        const out = await carOutWithSam();
+        // A new row linking to the rental holds it "key shared" until it is saved.
+        const holder = await openTransactionAs(actor.operatorId);
+        await holder.client.query("select id from rentals where id = $1 for key share", [
+          out.rentalId,
+        ]);
+        const started = outcomeOf(starts[which as keyof typeof starts](out.rentalId, out.miaId));
+        const whileHeld = await outcomeWhileHeld(started, superuser, holder.pid, 1);
+        await holder.client.query("commit");
+        await holder.client.end();
+
+        expect({ whileHeld, started: await started }).toEqual({
+          whileHeld: "started",
+          started: "started",
+        });
+      },
+    );
+
     it("cancels the change that reached the rental first; signing is then refused as finished", async () => {
       const out = await carOutWithSam();
       const change = await changeUnderWay(out);
