@@ -423,7 +423,7 @@ async function completeChecklists(
     })
     .where(eq(inspections.id, views.returned.inspectionId));
   const { takenOver } = views;
-  for (const mark of takenOver.damageMarks) {
+  for (const [index, mark] of takenOver.damageMarks.entries()) {
     const [copied] = await tx
       .insert(inspectionDamageMarks)
       .values({
@@ -434,6 +434,8 @@ async function completeChecklists(
         description: mark.description,
         clientKey: mark.photoMarkId,
         createdByUserId: actor.userId,
+        // A moment apart, in the order the car showed them, so "Damage 1", "Damage 2" … stay put.
+        createdAt: new Date(at.getTime() + index),
       })
       .returning({ id: inspectionDamageMarks.id });
     await recordUserChange(tx, actor, {

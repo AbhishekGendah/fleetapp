@@ -693,6 +693,32 @@ describe("changing a business's driver while the car is out", () => {
       expect(counted?.files).toBe(2);
     });
 
+    it("numbers the copied marks as the car showed them, each copy a moment after the last", async () => {
+      const out = await carOutWithSam({ isScratched: true });
+      const change = await changeUnderWay(out);
+      await addMarkWithPhoto(change.returnInspectionId, "Dent");
+      await addMarkWithPhoto(change.returnInspectionId, "Chip");
+      expect((await signChange(out.rentalId, null)).status).toBe("completed");
+
+      const copies = (
+        await superuser.query<{ description: string; createdAt: Date }>(
+          `select description, created_at as "createdAt" from inspection_damage_marks
+           where inspection_id = $1 order by created_at, id`,
+          [change.handoverInspectionId],
+        )
+      ).rows;
+      expect(copies.map((mark) => mark.description)).toEqual(["Scratch", "Dent", "Chip"]);
+      // Never two copies at one moment, so "Damage 1", "Damage 2" … can't swap places.
+      const moments = copies.map((mark) => mark.createdAt.getTime());
+      expect(new Set(moments).size).toBe(moments.length);
+      const handover = await loadCompletedHandover(web.db, actor.operatorId, out);
+      expect(handover?.damageMarks.map((mark) => mark.description)).toEqual([
+        "Scratch",
+        "Dent",
+        "Chip",
+      ]);
+    });
+
     it("logs the copied marks and the new driver's checklist finishing, by record ids only", async () => {
       const out = await carOutWithSam({ isScratched: true });
       const change = await changeUnderWay(out);

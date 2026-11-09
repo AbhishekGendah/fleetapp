@@ -11,7 +11,7 @@ import {
   type ActivityAction,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
 import { isRentalOfCar } from "../rentals/rental-of-car";
@@ -58,7 +58,9 @@ export async function recordDamageFromReturn(
         eq(inspectionDamageMarks.inspectionId, checklist.inspectionId),
         isNull(inspectionDamageMarks.removedAt),
       ),
-    );
+    )
+    // Recorded in the order the checklist numbers them.
+    .orderBy(asc(inspectionDamageMarks.createdAt), asc(inspectionDamageMarks.id));
   for (const mark of marks) {
     const [created] = await tx
       .insert(damageRecords)

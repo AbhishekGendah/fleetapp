@@ -249,7 +249,9 @@ async function damageMarkViews(
         isNull(inspectionDamageMarks.removedAt),
       ),
     )
-    .orderBy(asc(inspectionDamageMarks.createdAt));
+    // Numbered in this order ("Damage 1", …) on screens, reports and comparisons: the id
+    // keeps it the same each time should two marks ever share a moment.
+    .orderBy(asc(inspectionDamageMarks.createdAt), asc(inspectionDamageMarks.id));
   const photoMarkIdOf = (mark: (typeof marks)[number]): string =>
     checklist.isCopiedFromCheckIn ? (mark.clientKey ?? mark.id) : mark.id;
   const copiedFrom = marks.map(photoMarkIdOf).filter((id) => !marks.some((mark) => mark.id === id));
