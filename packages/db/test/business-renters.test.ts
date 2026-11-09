@@ -653,11 +653,58 @@ describe("business Renters and their drivers", () => {
       expect([whileOut, withoutPossession]).toEqual([CHECK_VIOLATION, CHECK_VIOLATION]);
       expect(await rentalDriverOf(out.rentalId)).toBe(firstId);
 
-      // The driver change (plan slice 4): the old possession ends, the driver
-      // changes, and the new driver's possession starts at the same instant.
+      // Not even with the new driver's possession in the same step, without a driver change under way (0057).
+      const beforeChange = await postgresErrorCodeOf(
+        withTenant(web.db, operatorAId, async (tx) => {
+          await tx
+            .update(schema.possessions)
+            .set({ endedAt: new Date() })
+            .where(eq(schema.possessions.id, out.possession.id));
+          await tx
+            .update(schema.rentals)
+            .set({ driverId: secondId })
+            .where(eq(schema.rentals.id, out.rentalId));
+          await handOver(tx, out, out.inspectionId, { startedAt: new Date() });
+        }),
+      );
+      expect(beforeChange).toBe(CHECK_VIOLATION);
+
+      // The driver change (slice 4): under way with its own two checklists, the
+      // old possession ends, the driver changes, and the new driver's starts at the same instant.
+      const inspectionId = await withTenant(web.db, operatorAId, async (tx) => {
+        // The car's own handover checklist, left open by this test's handover, out of the way.
+        await tx
+          .update(schema.inspections)
+          .set({ status: "cancelled", cancelledAt: new Date() })
+          .where(eq(schema.inspections.id, out.inspectionId));
+        const pair = await tx
+          .insert(schema.inspections)
+          .values(
+            (["return", "handover"] as const).map((kind) => ({
+              operatorId: operatorAId,
+              rentalId: out.rentalId,
+              vehicleId: out.vehicleId,
+              kind,
+              photoNames: [],
+              isForDriverChange: true,
+              startedByUserId: userAId,
+            })),
+          )
+          .returning({ id: schema.inspections.id, kind: schema.inspections.kind });
+        const handoverId = pair.find((row) => row.kind === "handover")!.id;
+        await tx.insert(schema.rentalDriverChanges).values({
+          operatorId: operatorAId,
+          rentalId: out.rentalId,
+          fromDriverId: firstId,
+          toDriverId: secondId,
+          reason: "Night shifts",
+          returnInspectionId: pair.find((row) => row.kind === "return")!.id,
+          handoverInspectionId: handoverId,
+          startedByUserId: userAId,
+        });
+        return handoverId;
+      });
       const changedAt = new Date();
-      // The new driver's handover checklist comes with slice 4; any checklist of the rental's will do here.
-      const { inspectionId } = out;
       await withTenant(web.db, operatorAId, async (tx) => {
         await tx
           .update(schema.possessions)
