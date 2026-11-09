@@ -51,13 +51,24 @@ describe("what a signing step sends back", () => {
     expect(parseCompleteDriverChange(driverChangeForm({ changeId: "change-1" }))).toBeNull();
     expect(parseCompleteDriverChange(driverChangeForm({ returnFingerprint: "x" }))).toBeNull();
     expect(parseCompleteDriverChange(driverChangeForm({ isOutgoingPresent: "yes" }))).toBeNull();
-    expect(
-      parseCompleteDriverChange(
-        driverChangeForm({
-          "incoming-drawnSignature": "x".repeat(MAXIMUM_DRAWN_SIGNATURE_BYTES * 2),
-        }),
-      ),
-    ).toBeNull();
+  });
+
+  it("takes a driver's signature too big to be one as no signature, as a swap does (second review)", () => {
+    const huge = "x".repeat(MAXIMUM_DRAWN_SIGNATURE_BYTES * 2);
+    const noSignature = { method: "", typedName: "", drawnSignature: "" };
+    const incoming = parseCompleteDriverChange(
+      driverChangeForm({ "incoming-method": "drawn", "incoming-drawnSignature": huge }),
+    );
+    expect(incoming?.incomingSignature).toEqual(noSignature);
+    expect(incoming?.outgoingSignature).toEqual({
+      method: "typed",
+      typedName: "Sam Lee",
+      drawnSignature: "",
+    });
+    const outgoing = parseCompleteDriverChange(
+      driverChangeForm({ "outgoing-method": "drawn", "outgoing-drawnSignature": huge }),
+    );
+    expect(outgoing?.outgoingSignature).toEqual(noSignature);
   });
 
   it("reads a swap's form, and refuses one that isn't one", () => {

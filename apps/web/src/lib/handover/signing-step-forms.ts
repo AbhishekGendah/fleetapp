@@ -5,7 +5,7 @@ import { INCOMING_PREFIX, OUTGOING_PREFIX, OUTGOING_PRESENT } from "../rentals/d
 import { isChecklistFingerprint } from "./checklist-fingerprint";
 import type { CompleteDriverChangeInput } from "./complete-driver-change";
 import type { ShownSwap } from "./complete-swap";
-import { renterSignatureInputSchema, renterSignatureValues } from "./renter-signature-form";
+import { renterSignatureFrom, renterSignatureInputSchema } from "./renter-signature-form";
 
 /**
  * What a signing step sends back of what it showed (a record's id and the
@@ -65,15 +65,20 @@ export function parseShownSwap(formData: FormData): ShownSwap | null {
   return parsed.success ? parsed.data : null;
 }
 
-/** The driver change's signing form: what it showed and both signatures; null if it isn't that. */
+/**
+ * The driver change's signing form: what it showed and both signatures;
+ * null if it isn't that. A signature too big to be one is no signature, as
+ * at a swap or handover (`renterSignatureFrom`), so it is refused in the
+ * usual words where it is signed rather than failing the whole form.
+ */
 export function parseCompleteDriverChange(formData: FormData): CompleteDriverChangeInput | null {
   const parsed = completeDriverChangeSchema.safeParse({
     changeId: textOf(formData, "changeId"),
     returnFingerprint: textOf(formData, "returnFingerprint"),
     handoverFingerprint: textOf(formData, "handoverFingerprint"),
     isOutgoingPresent: textOf(formData, "isOutgoingPresent"),
-    outgoing: renterSignatureValues(formData, OUTGOING_PREFIX),
-    incoming: renterSignatureValues(formData, INCOMING_PREFIX),
+    outgoing: renterSignatureFrom(formData, OUTGOING_PREFIX),
+    incoming: renterSignatureFrom(formData, INCOMING_PREFIX),
   });
   return parsed.success ? parsed.data : null;
 }

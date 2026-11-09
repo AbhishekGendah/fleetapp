@@ -30,7 +30,7 @@ export const renterSignatureInputSchema = z.object({
 const NO_SIGNATURE: RenterSignatureInput = { method: "", typedName: "", drawnSignature: "" };
 
 /** A signature's boxes as posted, each as text (empty when missing). */
-export function renterSignatureValues(formData: FormData, prefix = ""): RenterSignatureInput {
+function renterSignatureValues(formData: FormData, prefix = ""): RenterSignatureInput {
   const [method, typedName, drawnSignature] = RENTER_SIGNATURE_FIELDS.map((field) => {
     const value = formData.get(`${prefix}${field}`);
     return typeof value === "string" ? value : "";
