@@ -250,6 +250,21 @@ Add to this list whenever something is relaxed or put off "until launch".
       Stripe's and the app's ids only. There is no Operator-facing notice of
       it yet (no record to hang one on without a new table).
 
+## Weekly debits leftovers
+
+From the weekly debits review (Phase 4 slice 5, 9 Nov 2026), not blocking:
+
+- [ ] A one-off charge or instalment in a debit that the cap made smaller counts as fully collected; check the rest really was paid another way, or plan it again.
+- [ ] A failed debit's items count as debited: slice 6 must handle its retry, as the debit_items unique rule (charge line, instalment) blocks putting them in a second debit.
+- [ ] Confirm in the sandbox whether a BECS PaymentIntent can go succeeded → failed (the app expects a later bounce as a dispute).
+- [ ] Pending debits on a disconnected Stripe account are never resolved or alerted.
+- [ ] One Stripe read error in finishEarlierDebits skips that business's whole night of debits.
+- [ ] Pause then resume skips a week that began before the pause but was not yet debited.
+- [ ] operators.archived_at is not checked by the debit run (only suspended_at).
+- [ ] debitOfRead's metadata fallback needs the mandate on the PaymentIntent's latest charge: confirm in the sandbox.
+- [ ] A PaymentIntent recovery found but could not match to our debit (amount, customer or mandate differ) can leave the debit pending for ever.
+- [x] Take it now was logged with actor system instead of the User: fixed in the review (now the User's).
+
 ## Documents
 
 - [ ] The lawyer confirms 7 years: a Renter's personal details, signed PDFs
