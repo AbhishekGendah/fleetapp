@@ -1016,6 +1016,7 @@ unchanged and passing).
   | A photo of damage found later | car, new file |
   | A contract or change of terms signed by link | rental, link |
   | Bond by hand, or a correction of it | rental |
+  | A new Stripe bond page kept (`startRenterCheckout`) | rental, the page |
   | Stripe's news of a bond or direct debit (message, or the Renter back from Stripe's page) | rental, the page, the payment, direct debits, bond entry |
   | Sending a signing link | rental, change of terms, Renter, their links |
   | Sending a payments link (also after signing) | Renter, their links |
@@ -1113,9 +1114,20 @@ unchanged and passing).
   payment: the hand entry keeps the page that was open under the rental's
   lock (`openBondPageId`) and asks Stripe about that page, so the Operator
   is told it was paid too ("held twice, refund one") even when Stripe's
-  message was recorded first. Two-connection tests in both orders
-  (`bond-lock-order.test.ts`): cash against a bond paid on Stripe's page,
-  and a correction of cash against a refund and against a dispute.
+  message was recorded first. That covers only a page already saved when
+  the cash was: a page Stripe was still opening (the Renter pressed to pay
+  as the cash went in) was saved afterwards, unseen by the hand entry,
+  and handed out (review of the fourth review's fixes). So a new bond page
+  is now kept only under the rental's lock too, after the bond still owing
+  is worked out again: if the cash came first and nothing is owing, or
+  less than the page is for, the page is expired at Stripe and not handed
+  out (the Renter is told the bond was just received, or has changed).
+  One or the other always sees the other: the page saved first is stopped
+  by the cash entry; the cash saved first stops the page. Two-connection
+  tests in both orders (`bond-lock-order.test.ts`): cash against a bond
+  paid on Stripe's page, cash recorded while the page was opened (whole
+  and part), and a correction of cash against a refund and against a
+  dispute.
 
   Links sent to a Renter (fourth review of slice 4): sending a signing link
   or a payments link read the Renter unlocked, so one sent as the Operator

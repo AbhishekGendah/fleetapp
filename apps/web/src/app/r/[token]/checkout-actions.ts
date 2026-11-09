@@ -27,6 +27,9 @@ const NOT_STARTED_MESSAGES: Readonly<
   too_many: TOO_MANY_TRIES_MESSAGE,
   just_paid:
     "A bond payment you started has just gone through. Reload this page to see what is left.",
+  bond_received:
+    "The business has just recorded your bond as received, so there is nothing to pay here now.",
+  bond_changed: "The bond owing has just changed. Reload this page to see what is left to pay.",
 };
 const FAILED_MESSAGE = "Stripe's page could not be opened. Try again in a moment.";
 

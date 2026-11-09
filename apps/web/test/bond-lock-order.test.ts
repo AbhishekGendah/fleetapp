@@ -1,3 +1,4 @@
+import { withTenant } from "@fleetapp/db/tenant-context";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
@@ -5,7 +6,11 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import type { ActingUser } from "../src/lib/acting-user";
 import { loadBondAccount } from "../src/lib/bonds/bond-account";
 import { recordBondReceived, reverseBondMovement } from "../src/lib/bonds/bond-records";
-import { stopBondPageAfterHandEntry } from "../src/lib/payments/renter-checkout";
+import {
+  startRenterCheckout,
+  stopBondPageAfterHandEntry,
+} from "../src/lib/payments/renter-checkout";
+import { findOpenBondCheckout } from "../src/lib/payments/stripe-checkouts";
 import {
   createStandInPayments,
   type SignedEvent,
@@ -129,6 +134,72 @@ describe("bond by hand and Stripe's news about the bond, at the same moment", ()
     );
     expect(await delivered(paid)).toBe("repeat");
     expect(await heldOf(rental.rentalId)).toBe(2 * BOND_CENTS);
+  });
+
+  /**
+   * The Renter presses to pay the bond, and the Operator records cash while
+   * Stripe is opening the page: the stand-in's Stripe records the cash
+   * before it answers. Before, the page was kept and handed out, and no
+   * hand entry knew to stop it, so the bond could be paid twice.
+   */
+  async function pageOpenedWhileCashEntered(cashCents: number) {
+    const rental = await kit.bookedRental(actor);
+    const visit = await kit.openedPaymentsLink(actor, rental.rentalId);
+    const openedIds: string[] = [];
+    const cashResults: unknown[] = [];
+    const slowStripe: StandInPayments = {
+      ...stripe,
+      startCheckout: async (accountId, request) => {
+        const opened = await stripe.startCheckout(accountId, request);
+        openedIds.push(opened.sessionId);
+        cashResults.push(await cashBond(rental.rentalId, cashCents));
+        return opened;
+      },
+    };
+    const started = await startRenterCheckout(kit.deps({ payments: slowStripe }), visit, "bond");
+    return { rental, started, sessionId: openedIds[0]!, cash: cashResults[0] };
+  }
+
+  async function openBondPageOf(rentalId: string) {
+    return withTenant(web.db, actor.operatorId, (tx) =>
+      findOpenBondCheckout(tx, actor.operatorId, rentalId),
+    );
+  }
+
+  it("expires a bond page opened while the whole bond was recorded as cash", async () => {
+    const { rental, started, sessionId, cash } = await pageOpenedWhileCashEntered(BOND_CENTS);
+
+    expect(cash).toMatchObject({ status: "saved", openBondPageId: null });
+    expect(started).toEqual({ status: "bond_received" });
+    expect(stripe.checkout(sessionId)?.outcome.isExpired).toBe(true);
+    expect(() => stripe.finishCheckout(sessionId, "card")).toThrow();
+    expect(await openBondPageOf(rental.rentalId)).toBeNull();
+    expect(await heldOf(rental.rentalId)).toBe(BOND_CENTS);
+  });
+
+  it("expires a bond page opened for more than is left once part was recorded as cash", async () => {
+    const { rental, started, sessionId } = await pageOpenedWhileCashEntered(CASH_CENTS);
+
+    expect(started).toEqual({ status: "bond_changed" });
+    expect(stripe.checkout(sessionId)?.outcome.isExpired).toBe(true);
+    expect(await openBondPageOf(rental.rentalId)).toBeNull();
+    expect(await heldOf(rental.rentalId)).toBe(CASH_CENTS);
+  });
+
+  it("stops a bond page kept before the cash was recorded", async () => {
+    const rental = await kit.bookedRental(actor);
+    const visit = await kit.openedPaymentsLink(actor, rental.rentalId);
+    const sessionId = await kit.visitStripe(visit, "bond");
+
+    const cash = await cashBond(rental.rentalId, BOND_CENTS);
+
+    expect(cash).toMatchObject({ status: "saved", openBondPageId: sessionId });
+    const openBondPageId = cash.status === "saved" ? cash.openBondPageId : null;
+    expect(await stopBondPageAfterHandEntry(kit.deps(), actor.operatorId, openBondPageId)).toBe(
+      "expired",
+    );
+    expect(stripe.checkout(sessionId)?.outcome.isExpired).toBe(true);
+    expect(await heldOf(rental.rentalId)).toBe(BOND_CENTS);
   });
 
   /** $300 cash and the $200 rest paid by card on Stripe's page: the bond held in full. */

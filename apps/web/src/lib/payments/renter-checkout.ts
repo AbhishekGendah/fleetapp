@@ -19,6 +19,7 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, sql, isNull } from "drizzle-orm";
 
 import { BOND_OPEN_STATUSES } from "../bonds/bond-account";
+import { lockBondRental } from "../bonds/bond-records";
 import { STRIPE_RETURN_PATH } from "../paths";
 import { isWithinLinkLimit } from "../renter-links/link-limits";
 import type { LinkVisit } from "../renter-links/link-visits";
@@ -190,7 +191,18 @@ async function customerFor(
 
 export type StartCheckoutResult =
   | { status: "started"; url: string }
-  | { status: "not_offered" | "not_found" | "nothing_owing" | "just_paid" | "too_many" };
+  | {
+      status:
+        | "not_offered"
+        | "not_found"
+        | "nothing_owing"
+        | "just_paid"
+        | "too_many"
+        /** Recorded as received (by hand) while Stripe's page was being opened: none handed out. */
+        | "bond_received"
+        /** Part of it recorded meanwhile, so the page opened was for the wrong amount. */
+        | "bond_changed";
+    };
 
 /** A bond page this close to expiring isn't handed out again: a fresh one is opened instead. */
 const REUSE_MARGIN_MS = 5 * 60 * 1000;
@@ -300,17 +312,72 @@ function backUrl(appUrl: string, step: string): string {
   return url.toString();
 }
 
+/** What keeping a page just opened at Stripe came to: handed out, or why not. */
+type KeptPage =
+  | { status: "kept" }
+  | { status: "other_page"; url: string }
+  | { status: "not_found" | "bond_received" | "bond_changed" };
+
+/**
+ * A bond page is kept only while that bond is still owing, checked under
+ * the rental's lock (`lockBondRental`, as bond by hand takes): cash
+ * recorded while Stripe opened the page would otherwise leave a page no
+ * hand entry knew to stop, and the Renter could pay the bond twice.
+ */
+async function bondStillOwing(
+  tx: AnyTransaction,
+  operatorId: string,
+  page: { rentalId: string; amountCents: number | null },
+): Promise<KeptPage | null> {
+  const rental = await lockBondRental(tx, operatorId, page.rentalId);
+  if (!rental || !BOND_OPEN_STATUSES.has(rental.status)) {
+    return { status: "not_found" };
+  }
+  const { bond } = await rentalPaymentsIn(tx, operatorId, rental);
+  const payableCents = bondPayableOnlineCents(bond.toCollectCents);
+  if (payableCents === 0) {
+    return { status: "bond_received" };
+  }
+  return payableCents === page.amountCents ? null : { status: "bond_changed" };
+}
+
+/** Keeps a page just opened at Stripe, unless the bond was received meanwhile or another page won. */
+async function keepNewPage(
+  deps: RenterCheckoutDependencies,
+  visit: LinkVisit,
+  page: { rentalId: string; purpose: CheckoutPurpose; amountCents: number | null },
+  opened: { sessionId: string; url: string; expiresAt: Date },
+): Promise<KeptPage> {
+  return withTenant(deps.database, visit.operatorId, async (tx) => {
+    const refused =
+      page.purpose === "bond" ? await bondStillOwing(tx, visit.operatorId, page) : null;
+    if (refused) {
+      return refused;
+    }
+    const isSaved = await saveCheckout(tx, {
+      operatorId: visit.operatorId,
+      linkId: visit.linkId,
+      ...page,
+      ...opened,
+      now: deps.now(),
+    });
+    const winner = isSaved ? null : await findOpenBondCheckout(tx, visit.operatorId, page.rentalId);
+    return winner ? { status: "other_page", url: winner.url } : { status: "kept" };
+  });
+}
+
 /**
  * Opens a new Stripe page and keeps it. If another press opened the
  * rental's bond page in the meantime, the new one is expired at Stripe and
- * the other handed out, so only one can ever be paid.
+ * the other handed out, so only one can ever be paid; the same if the bond
+ * was received while Stripe opened it, and nothing is handed out.
  */
 async function openNewPage(
   deps: RenterCheckoutDependencies,
   stripe: StripeAccess,
   visit: LinkVisit,
   page: { rental: PaymentsRental; purpose: CheckoutPurpose; amountCents: number | null },
-): Promise<string> {
+): Promise<StartCheckoutResult> {
   const customerId = await customerFor(deps, stripe, visit, {
     name: page.rental.renterName,
     email: page.rental.renterEmail,
@@ -332,25 +399,17 @@ async function openNewPage(
         ? null
         : { amountCents: page.amountCents, description: `Bond for ${page.rental.carRego}` },
   });
-  const winner = await withTenant(deps.database, visit.operatorId, async (tx) => {
-    const isSaved = await saveCheckout(tx, {
-      operatorId: visit.operatorId,
-      rentalId: page.rental.id,
-      linkId: visit.linkId,
-      purpose: page.purpose,
-      amountCents: page.amountCents,
-      sessionId: opened.sessionId,
-      url: opened.url,
-      expiresAt,
-      now: deps.now(),
-    });
-    return isSaved ? null : findOpenBondCheckout(tx, visit.operatorId, page.rental.id);
-  });
-  if (!winner) {
-    return opened.url;
+  const kept = await keepNewPage(
+    deps,
+    visit,
+    { rentalId: page.rental.id, purpose: page.purpose, amountCents: page.amountCents },
+    { ...opened, expiresAt },
+  );
+  if (kept.status === "kept") {
+    return { status: "started", url: opened.url };
   }
   await stripe.payments.expireCheckout(stripe.accountId, opened.sessionId);
-  return winner.url;
+  return kept.status === "other_page" ? { status: "started", url: kept.url } : kept;
 }
 
 /**
@@ -403,11 +462,14 @@ export async function startRenterCheckout(
     return { status: "just_paid" };
   }
   const amountCents = purpose === "bond" ? payableCents : null;
-  const url = await openNewPage(deps, stripe, visit, {
+  const started = await openNewPage(deps, stripe, visit, {
     rental: found.rental,
     purpose,
     amountCents,
   });
+  if (started.status !== "started") {
+    return started;
+  }
   await withTenant(deps.database, visit.operatorId, (tx) =>
     recordActivity(tx, {
       operatorId: visit.operatorId,
@@ -418,7 +480,7 @@ export async function startRenterCheckout(
       valuesAfter: { purpose, ...(amountCents === null ? {} : { amountCents }) },
     }),
   );
-  return { status: "started", url };
+  return started;
 }
 
 /**
