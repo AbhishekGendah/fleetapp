@@ -1328,6 +1328,22 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
   only clashes that lose or change money or data are fixed at once; the rest
   wait for the pre-launch whole-app review (docs/launch-checklist.md). Test
   sheet rows O-529 to O-538.
+- **Business Renters slice 5 (9 Nov, Abhi's go).** Business money documents:
+  invoices, receipts and credit notes addressed to the business (legal name,
+  trading name, ABN, attention of the contact, address) with each line
+  naming the car and the driver who had it; a statement for the whole
+  business across its cars (Money tab, emailed to the contact, kept with its
+  fingerprint, not a tax invoice); the business Money tab (how it pays,
+  bonds, latest invoices); Owing across cars on the strip and "across N cars"
+  on the Renters list; a sole trader's ABN on a person. Migrations 0061
+  (statements belong to a business) and 0062 (a retired business's
+  statements are binned with it). Two review rounds, two checkers each.
+  Fixed: statement Charged/Paid now match the Money tab (a refund had been
+  counted as a charge); car headings name only that period's cars and
+  drivers; a failed email no longer makes a second statement; no statement
+  for an archived business. Choice made for Abhi: statements go at
+  retirement with the business. Test sheet rows O-540 to O-555 (O-333,
+  O-337, O-496 updated).
 
 ## Next
 
@@ -1341,9 +1357,9 @@ reports they sign (pulls the `driver` email recipient forward from slice 5).
 (dates first, free cars as photo cards, filters, showroom photos; also
 fixes a car late back being bookable) and docs/plans/condition-photos.md
 (free photo gallery at pickup/return, Optional/Required, albums). Mockups on
-the design canvas (8 Nov). The late-car booking fix is live (8 Nov). Business Renters slices 2, 3 and 4
-are live (8-9 Nov); next: business Renters slice 5 (business invoices) with
-his go, then Find a car, then condition photos. Decided 8 Nov: an
+the design canvas (8 Nov). The late-car booking fix is live (8 Nov). Business Renters slices 2 to 5
+are live (8-9 Nov), so business Renters is finished; next: Find a car with
+his go, then condition photos. Decided 8 Nov: an
 existing person added as a driver is emailed the privacy notice each time
 (Abhi: yes). Also decided 8 Nov (Abhi: yes): a phone-only new
 driver gets no details link until texting is built; the app asks for an
