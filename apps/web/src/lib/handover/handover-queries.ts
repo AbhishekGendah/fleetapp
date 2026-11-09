@@ -91,8 +91,8 @@ export interface DamageMarkView {
   id: string;
   /**
    * The mark whose photo this is: the mark itself, or for a mark a driver
-   * change copied onto the new driver's checklist, the one it was copied from
-   * (kept in its key), so the photo stays stored once (rule 21).
+   * change copied onto the new driver's checklist, the first mark it was
+   * copied from (`copiedFromMarkId`), so the photo stays stored once (rule 21).
    */
   photoMarkId: string;
   x: number;
@@ -229,16 +229,15 @@ function listedPhotos(rows: readonly CheckedPhotoRow[]): Map<string, ChecklistPh
 /**
  * The damage marks still on the outline, oldest first, each with its photo
  * if taken. A driver change's handover has no marks of its own: those on it
- * were copied from the car as it was checked in, each keeping the mark it
- * came from in its key, so its photo is found from that mark's.
+ * were copied from the car as it was checked in, each naming the mark it
+ * shows (`copied_from_mark_id`, 0059), so its photo is found from that mark's.
  */
 async function damageMarkViews(
   tx: AnyTransaction,
   operatorId: string,
-  checklist: { inspectionId: string; isCopiedFromCheckIn: boolean },
+  inspectionId: string,
   rows: readonly CheckedPhotoRow[],
 ): Promise<DamageMarkView[]> {
-  const { inspectionId } = checklist;
   const marks = await tx
     .select()
     .from(inspectionDamageMarks)
@@ -252,8 +251,7 @@ async function damageMarkViews(
     // Numbered in this order ("Damage 1", …) on screens, reports and comparisons: the id
     // keeps it the same each time should two marks ever share a moment.
     .orderBy(asc(inspectionDamageMarks.createdAt), asc(inspectionDamageMarks.id));
-  const photoMarkIdOf = (mark: (typeof marks)[number]): string =>
-    checklist.isCopiedFromCheckIn ? (mark.clientKey ?? mark.id) : mark.id;
+  const photoMarkIdOf = (mark: (typeof marks)[number]): string => mark.copiedFromMarkId ?? mark.id;
   const copiedFrom = marks.map(photoMarkIdOf).filter((id) => !marks.some((mark) => mark.id === id));
   const photoRows =
     copiedFrom.length === 0
@@ -342,15 +340,7 @@ async function loadChecklist(
     const { inspection } = row;
     const rows = await checklistPhotos(tx, operatorId, row.photoChecklistId);
     const photos = listedPhotos(rows);
-    const damageMarks = await damageMarkViews(
-      tx,
-      operatorId,
-      {
-        inspectionId,
-        isCopiedFromCheckIn: inspection.isForDriverChange && inspection.kind === "handover",
-      },
-      rows,
-    );
+    const damageMarks = await damageMarkViews(tx, operatorId, inspectionId, rows);
     const progress = {
       photoNames: inspection.photoNames,
       photosTaken: new Set(photos.keys()),

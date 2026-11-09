@@ -400,8 +400,8 @@ async function lockForSigning(
 /**
  * Both checklists fixed with each driver's acceptance (rule 12). The new
  * driver's takes the check-in's readings and the damage already on the car:
- * marks only, each keeping in its key the mark whose photo it shows, so the
- * photo stays stored once (rule 21) and later checklists still show it.
+ * marks only, each naming the mark whose photo it shows (copiedFromMarkId),
+ * so the photo stays stored once (rule 21) and later checklists still show it.
  * Each copy and the checklist's finish are logged by record ids (rule 19).
  */
 async function completeChecklists(
@@ -432,7 +432,7 @@ async function completeChecklists(
         x: mark.x,
         y: mark.y,
         description: mark.description,
-        clientKey: mark.photoMarkId,
+        copiedFromMarkId: mark.photoMarkId,
         createdByUserId: actor.userId,
         // A moment apart, in the order the car showed them, so "Damage 1", "Damage 2" … stay put.
         createdAt: new Date(at.getTime() + index),

@@ -172,12 +172,25 @@ export const inspectionDamageMarks = pgTable(
     /**
      * The phone's own key for the mark: sending it again on patchy signal
      * finds the mark already saved instead of adding a second (review A6-5).
+     * Only ever the phone's: a driver change's copies use copiedFromMarkId.
      */
     clientKey: uuid("client_key"),
+    /**
+     * For a mark a driver change copied onto the new driver's checklist (the
+     * damage already on the car): the mark it shows, whose photo is its photo,
+     * so each photo is stored once (rule 21). Always the first mark, never
+     * another copy. Null for a mark made on the checklist itself.
+     */
+    copiedFromMarkId: uuid("copied_from_mark_id"),
     ...timestampColumns,
   },
   (table) => [
     inspectionLink("inspection_damage_marks", table),
+    foreignKey({
+      name: "inspection_damage_marks_copied_from_fk",
+      columns: [table.copiedFromMarkId, table.operatorId],
+      foreignColumns: [table.id, table.operatorId],
+    }),
     uniqueIndex(DAMAGE_MARK_CLIENT_KEY_INDEX)
       .on(table.operatorId, table.inspectionId, table.clientKey)
       .where(sql`${table.clientKey} is not null`),
