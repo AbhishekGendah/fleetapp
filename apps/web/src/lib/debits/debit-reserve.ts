@@ -19,7 +19,12 @@ import {
 } from "@fleetapp/db/schema";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 
-import { debitsResumedAt, pendingDebitCents, usableMandateOf } from "./debit-queries";
+import {
+  debitsResumedAt,
+  pendingDebitCents,
+  stripeCustomerOf,
+  usableMandateOf,
+} from "./debit-queries";
 
 const SYSTEM_ACTOR = { type: "system", id: null } as const;
 
@@ -113,6 +118,19 @@ async function cappedCents(
   });
 }
 
+/** The Renter's working direct debit, only if they are a customer on the business's Stripe account too. */
+async function debitableMandateOf(
+  tx: AnyTransaction,
+  operatorId: string,
+  renterId: string,
+): Promise<{ id: string } | null> {
+  const [mandate, customerId] = await Promise.all([
+    usableMandateOf(tx, operatorId, renterId),
+    stripeCustomerOf(tx, operatorId, renterId),
+  ]);
+  return mandate && customerId ? mandate : null;
+}
+
 /** A debit reserved before Stripe is asked, ready to send. */
 export interface ReservedDebit {
   id: string;
@@ -204,7 +222,7 @@ export async function reserveWeeklyDebit(
   now: Date,
 ): Promise<ReservedDebit | null> {
   const rental = await debitableRental(tx, operatorId, rentalId);
-  const mandate = rental ? await usableMandateOf(tx, operatorId, rental.renterId) : null;
+  const mandate = rental ? await debitableMandateOf(tx, operatorId, rental.renterId) : null;
   if (!rental || !mandate) {
     return null;
   }
@@ -265,7 +283,7 @@ export async function reserveOwnDebit(
   ledgerLineId: string,
   now: Date,
 ): Promise<ReservedDebit | null> {
-  const mandate = await usableMandateOf(tx, operatorId, rental.renterId);
+  const mandate = await debitableMandateOf(tx, operatorId, rental.renterId);
   const lines = await rentalLines(tx, operatorId, rental.id);
   const charge = lines.find((line) => line.id === ledgerLineId && line.kind === "charge");
   const isDebited = (await partsDebited(tx, operatorId, rental.id)).has(ledgerLineId);
