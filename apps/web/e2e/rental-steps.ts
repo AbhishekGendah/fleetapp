@@ -52,6 +52,11 @@ export async function fillRental(
   await page.goto("/rentals/new", { waitUntil: "networkidle" });
   await pickRecord(page, /^Renter/, parties.renterName);
   await pickRecord(page, /^Car/, parties.carRego);
+  await fillDatesAndRates(page, start, end);
+}
+
+/** The New rental form's dates, $70 a day or $350 a week, and a $500 bond. */
+async function fillDatesAndRates(page: Page, start: TypedMoment, end: TypedMoment): Promise<void> {
   await typeMoment(page, /^Starts/, start);
   await typeMoment(page, /^Ends/, end);
   await page.getByRole("textbox", { name: /^Daily rate/ }).fill("70");
@@ -215,4 +220,53 @@ export async function openBusinessPage(
     .first()
     .click();
   await expect(page.getByRole("heading", { level: 1, name: business.tradingName })).toBeVisible();
+}
+
+/** A business Renter as the e2e tests add one. */
+export interface NewBusiness {
+  legalName: string;
+  tradingName: string;
+  abnDigits: string;
+  contactName: string;
+  email: string;
+}
+
+/** Adds a business Renter from Add a Renter's business form; its page opens. */
+export async function addBusiness(page: Page, business: NewBusiness): Promise<void> {
+  await page.goto("/renters/new?kind=business", { waitUntil: "networkidle" });
+  await page.getByRole("textbox", { name: /^Legal name/ }).fill(business.legalName);
+  await page.getByRole("textbox", { name: /^Trading name/ }).fill(business.tradingName);
+  await page.getByRole("textbox", { name: /^ABN/ }).pressSequentially(business.abnDigits);
+  await page.getByRole("textbox", { name: /^Contact's name/ }).fill(business.contactName);
+  await page.getByRole("textbox", { name: /^Contact's email/ }).fill(business.email);
+  await page.getByRole("button", { name: "Add business" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: business.tradingName })).toBeVisible();
+}
+
+/** A business's rental of a car, from the Rentals list; gives back its id. */
+export async function openBusinessRentalOf(
+  page: Page,
+  rental: { carRego: string; tradingName: string },
+): Promise<string> {
+  await page.goto(`/rentals?q=${rental.carRego}`, { waitUntil: "networkidle" });
+  await page
+    .getByRole("link", { name: new RegExp(`^${rental.tradingName}'s rental, `) })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("heading", { level: 1, name: new RegExp(rental.carRego) }),
+  ).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  return /\/rentals\/([0-9a-f-]+)/.exec(page.url())?.[1] ?? "";
+}
+
+/** The New rental form's car, dates, rates and bond, for a test booking at $350 a week. */
+export async function fillCarDatesAndRates(
+  page: Page,
+  booking: { carRego: string; start: TypedMoment; end: TypedMoment },
+): Promise<void> {
+  await page.getByRole("combobox", { name: /^Car/ }).fill(booking.carRego);
+  await expect(page.getByRole("option").first()).toBeVisible();
+  await page.keyboard.press("Enter");
+  await fillDatesAndRates(page, booking.start, booking.end);
 }

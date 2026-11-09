@@ -5,11 +5,13 @@ import { expect, test, type Page } from "@playwright/test";
 import { PHONE_VIEWPORT } from "./e2e-settings";
 import { expectNoSidewaysScroll } from "./phone-checks";
 import {
+  addBusiness,
   addCarToBook,
   addRenterReadyToRent,
+  fillCarDatesAndRates,
   openBusinessPage,
+  openBusinessRentalOf,
   openRentalTab,
-  typeMoment,
   type TypedMoment,
 } from "./rental-steps";
 import { openLinkOnPhone, writeShortTemplate } from "./signing-steps";
@@ -64,13 +66,7 @@ async function openBusiness(page: Page): Promise<void> {
 
 /** The business's rental of the test car, from the Rentals list. */
 async function openBusinessRental(page: Page): Promise<void> {
-  await page.goto(`/rentals?q=${CAR_REGO}`, { waitUntil: "networkidle" });
-  await page
-    .getByRole("link", { name: new RegExp(`^${BUSINESS.tradingName}'s rental, `) })
-    .first()
-    .click();
-  await expect(page.getByRole("heading", { level: 1, name: new RegExp(CAR_REGO) })).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await openBusinessRentalOf(page, { carRego: CAR_REGO, tradingName: BUSINESS.tradingName });
 }
 
 test.describe.serial("renting to a business", () => {
@@ -78,14 +74,7 @@ test.describe.serial("renting to a business", () => {
 
   test("sets up a business with a driver ready to rent, and a car", async ({ page }) => {
     await addRenterReadyToRent(page, DRIVER);
-    await page.goto("/renters/new?kind=business", { waitUntil: "networkidle" });
-    await page.getByRole("textbox", { name: /^Legal name/ }).fill(BUSINESS.legalName);
-    await page.getByRole("textbox", { name: /^Trading name/ }).fill(BUSINESS.tradingName);
-    await page.getByRole("textbox", { name: /^ABN/ }).pressSequentially(BUSINESS.abnDigits);
-    await page.getByRole("textbox", { name: /^Contact's name/ }).fill(BUSINESS.contactName);
-    await page.getByRole("textbox", { name: /^Contact's email/ }).fill(BUSINESS.email);
-    await page.getByRole("button", { name: "Add business" }).click();
-    await expect(page.getByRole("heading", { level: 1, name: BUSINESS.tradingName })).toBeVisible();
+    await addBusiness(page, BUSINESS);
     const driversTab = page
       .getByRole("navigation", { name: "Business sections" })
       .getByRole("link", { name: "Drivers", exact: true });
@@ -129,15 +118,7 @@ test.describe.serial("renting to a business", () => {
     await expectAccessible(page);
     expect(await scriptKilobytes(page)).toBeLessThanOrEqual(NEW_RENTAL_BUDGET_KB);
 
-    const car = page.getByRole("combobox", { name: /^Car/ });
-    await car.fill(CAR_REGO);
-    await expect(page.getByRole("option").first()).toBeVisible();
-    await page.keyboard.press("Enter");
-    await typeMoment(page, /^Starts/, START);
-    await typeMoment(page, /^Ends/, END);
-    await page.getByRole("textbox", { name: /^Daily rate/ }).fill("70");
-    await page.getByRole("textbox", { name: /^Long-term price per week/ }).fill("350");
-    await page.getByRole("textbox", { name: /^Bond/ }).pressSequentially("500");
+    await fillCarDatesAndRates(page, { carRego: CAR_REGO, start: START, end: END });
     await page.getByRole("button", { name: "Book", exact: true }).click();
 
     const heading = page.getByRole("heading", { level: 1 });
