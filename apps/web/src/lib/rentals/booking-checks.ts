@@ -110,6 +110,12 @@ interface PartyIds {
   renterId: string;
   driverId?: string | null;
   vehicleId: string;
+  /**
+   * In a driver change, the driver handing the car over: their row is taken
+   * shared as the change names them, so it is locked here with the new
+   * driver's, the two in id order ("Lock order").
+   */
+  outgoingDriverId?: string;
 }
 
 /** One of the Operator's Renters, locked when asked; a current one only, unless an archived one is allowed. */
@@ -168,7 +174,26 @@ async function findDriver(
     : "driver_not_current";
 }
 
-/** The Operator's current Renter and their driver, locked when asked (Renter, then driver). */
+/** Holds the driver handing a car over (shared: their row only must not go), as their change names them. */
+async function holdOutgoingDriver(
+  tx: AnyTransaction,
+  operatorId: string,
+  driverId: string,
+): Promise<void> {
+  await tx
+    .select({ id: renters.id })
+    .from(renters)
+    .where(and(eq(renters.id, driverId), eq(renters.operatorId, operatorId)))
+    .for("key share");
+}
+
+/**
+ * The Operator's current Renter and their driver, locked when asked
+ * (Renter, then driver). A driver change's two drivers are locked in id
+ * order: two changes crossing the same two drivers (each driving for two
+ * businesses) would otherwise each hold one and wait for the other
+ * (second review of slice 4).
+ */
 async function findRenterAndDriver(
   tx: AnyTransaction,
   operatorId: string,
@@ -182,7 +207,15 @@ async function findRenterAndDriver(
   if (!renter) {
     return "renter_not_found";
   }
+  const outgoingId = shouldLock ? ids.outgoingDriverId : undefined;
+  const isOutgoingFirst = outgoingId !== undefined && outgoingId < (ids.driverId ?? "");
+  if (outgoingId && isOutgoingFirst) {
+    await holdOutgoingDriver(tx, operatorId, outgoingId);
+  }
   const driver = await findDriver(tx, operatorId, renter, ids, shouldLock);
+  if (outgoingId && !isOutgoingFirst) {
+    await holdOutgoingDriver(tx, operatorId, outgoingId);
+  }
   return typeof driver === "string" ? driver : { renter, driver };
 }
 

@@ -111,7 +111,12 @@ export async function startDriverChange(
     const parties = await lockDriverNamingParties(
       tx,
       actor.operatorId,
-      { renterId: rental.renterId, vehicleId: rental.vehicleId, driverId: request.toDriverId },
+      {
+        renterId: rental.renterId,
+        vehicleId: rental.vehicleId,
+        driverId: request.toDriverId,
+        outgoingDriverId: rental.driverId ?? undefined,
+      },
       null,
     );
     if (typeof parties === "string") {

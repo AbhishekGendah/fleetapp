@@ -110,11 +110,20 @@ describe("changing a business's driver while the car is out", () => {
   /**
    * A business's car out with Sam, who signed for it; Mia also drives for the
    * business. `isScratched`: the handover marked a scratch, with its photo.
+   * `drivers`: Sam and Mia already drive for another business, and this one
+   * (`legalName`) adds them; `isMiaDriving`: the car went out with Mia.
    */
-  async function carOutWithSam(options: { isScratched?: boolean } = {}) {
+  async function carOutWithSam(
+    options: {
+      isScratched?: boolean;
+      drivers?: { samId: string; miaId: string };
+      legalName?: string;
+      isMiaDriving?: boolean;
+    } = {},
+  ) {
     const parsed = parseBusinessRenterForm({
       ...emptyBusinessRenterForm(),
-      fullName: LEGAL_NAME,
+      fullName: options.legalName ?? LEGAL_NAME,
       tradingName: "Acme Rides",
       abn: "51 824 753 556",
       contactName: "Dana Wells",
@@ -122,14 +131,18 @@ describe("changing a business's driver while the car is out", () => {
       businessAddress: "Unit 4, 12 Example Road, Osborne Park WA 6017",
     });
     const businessId = await createBusinessRenter(web.db, actor, parsed.data!);
-    const samId = await addDriver(businessId, "Sam Lee", SAM_EMAIL);
-    const miaId = await addDriver(businessId, "Mia Thompson", MIA_EMAIL);
+    const { drivers } = options;
+    for (const driverId of drivers ? [drivers.samId, drivers.miaId] : []) {
+      expect((await addExistingDriver(web.db, actor, businessId, driverId)).status).toBe("added");
+    }
+    const samId = drivers?.samId ?? (await addDriver(businessId, "Sam Lee", SAM_EMAIL));
+    const miaId = drivers?.miaId ?? (await addDriver(businessId, "Mia Thompson", MIA_EMAIL));
     const vehicleId = await addTestCar(web, actor);
     await addCurrentPaperwork(web, actor, vehicleId);
     const booked = await bookTestRentalOn(web, actor, {
       renterId: businessId,
       vehicleId,
-      driverId: samId,
+      driverId: options.isMiaDriving ? miaId : samId,
     });
     await kit().signAndHoldBond(booked.rentalId);
     const handoverId = await kit().filledHandover(booked.rentalId);
@@ -142,7 +155,7 @@ describe("changing a business's driver while the car is out", () => {
       handoverId,
       {
         shownFingerprint: await kit().shown(handoverId),
-        signature: typed("Sam Lee"),
+        signature: typed(options.isMiaDriving ? "Mia Thompson" : "Sam Lee"),
         bondOverrideReason: null,
         directDebitOverrideReason: null,
         insuranceOverrideReason: null,
@@ -1100,6 +1113,32 @@ describe("changing a business's driver while the car is out", () => {
       expect(await signed).toBe("completed");
       // Refused once the check-in is finished; recorded (never confirmed) if it got in just before.
       expect(["not_found", "allowed"]).toContain(await uploaded);
+    });
+
+    // The two drivers are locked in id order, so crossed changes wait (second review of slice 4).
+    it("starts two changes crossing the same two drivers of two businesses, one after the other", async () => {
+      const first = await carOutWithSam();
+      const drivers = { samId: first.samId, miaId: first.miaId };
+      const second = await carOutWithSam({
+        drivers,
+        legalName: "Other Rideshare Pty Ltd",
+        isMiaDriving: true,
+      });
+      // Holding the User's row, which each takes (shared) once it has its two drivers.
+      const holder = await openTransactionAs(actor.operatorId);
+      await holder.client.query("select id from users where id = $1 for update", [actor.userId]);
+      const start = (rentalId: string, toDriverId: string) =>
+        outcomeOf(
+          startDriverChange(web.db, actor, rentalId, { toDriverId, reason: "Shifts" }, clock()),
+        );
+      const toMia = start(first.rentalId, drivers.miaId);
+      await waitUntilBlockedBy(superuser, holder.pid);
+      const toSam = start(second.rentalId, drivers.samId);
+      await waitUntilBlockedBy(superuser, holder.pid, 2);
+      await holder.client.query("commit");
+      await holder.client.end();
+
+      expect([await toMia, await toSam]).toEqual(["started", "started"]);
     });
 
     it("lets one of a swap and a driver change start when both are asked at once", async () => {
