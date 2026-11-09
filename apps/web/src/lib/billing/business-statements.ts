@@ -9,9 +9,7 @@ import {
   ACTIVITY_ENTITY_TYPES,
   documentEmails,
   issuedDocuments,
-  rentals,
   renters,
-  vehicles,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, desc, eq, inArray } from "drizzle-orm";
@@ -33,7 +31,11 @@ import {
 } from "./billing-context";
 import { loadLineDriverNames } from "./billing-documents";
 import { readIssuedPdf } from "./billing-queries";
-import { selectBondsHeld } from "../renters/business-money-cards";
+import {
+  selectBondsHeld,
+  selectRenterRentalCars,
+  type RenterRentalCar,
+} from "../renters/business-money-cards";
 import { emailBillingDocument } from "./billing-run";
 import {
   BUSINESS_STATEMENT_TITLE,
@@ -81,30 +83,13 @@ async function selectStatementBusiness(
   return { billedTo: billedToOf(columns), email };
 }
 
-/** Each of the business's rentals as its statement heads it: its car and its driver now. */
-async function selectRentalCars(tx: AnyTransaction, operatorId: string, renterId: string) {
-  return tx
-    .select({
-      id: rentals.id,
-      driverId: rentals.driverId,
-      make: vehicles.make,
-      model: vehicles.model,
-    })
-    .from(rentals)
-    .innerJoin(
-      vehicles,
-      and(eq(vehicles.id, rentals.vehicleId), eq(vehicles.operatorId, rentals.operatorId)),
-    )
-    .where(and(eq(rentals.operatorId, operatorId), eq(rentals.renterId, renterId)));
-}
-
 /**
  * Each car's heading: the car its lines were for, and the drivers who had
  * it on those lines in turn (from the possession records), else its driver
  * now. Names only: never a licence or date of birth.
  */
 function statementCars(
-  rentalRows: Awaited<ReturnType<typeof selectRentalCars>>,
+  rentalRows: readonly RenterRentalCar[],
   lines: readonly LedgerLineView[],
   driverNames: ReadonlyMap<string, string>,
 ): Map<string, StatementCar> {
@@ -137,12 +122,12 @@ async function loadStatementData(tx: AnyTransaction, operatorId: string, renterI
   }
   // One read of every line, so the cars and the totals come from the same lines (rule 11).
   const lines = await selectRenterLedger(tx, operatorId, renterId);
-  const rentalRows = await selectRentalCars(tx, operatorId, renterId);
+  const rentalRows = await selectRenterRentalCars(tx, operatorId, renterId);
   const driverNames = await loadLineDriverNames(tx, operatorId, business.billedTo, [
     ...lines,
     ...rentalRows,
   ]);
-  const bonds = await selectBondsHeld(tx, operatorId, renterId);
+  const bonds = await selectBondsHeld(tx, operatorId, rentalRows);
   return {
     business,
     lines,

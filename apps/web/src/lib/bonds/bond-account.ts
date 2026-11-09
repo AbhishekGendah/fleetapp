@@ -8,7 +8,7 @@ import {
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { bondMovements } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 import { bondOnItsWayCents } from "./bond-on-its-way";
 
@@ -51,6 +51,41 @@ export interface BondAccount {
   /** What can still be recorded by hand: owing, less what is on its way (review A5-2). */
   toReceiveByHandCents: number;
   reversibleIds: ReadonlySet<string>;
+}
+
+/** Each bond entry of these rentals, just what adding up what is held needs, oldest first. */
+export async function selectBondAmounts(
+  tx: AnyTransaction,
+  operatorId: string,
+  rentalIds: readonly string[],
+): Promise<
+  {
+    id: string;
+    rentalId: string;
+    kind: BondMovementKind;
+    amountCents: number;
+    reversesId: string | null;
+  }[]
+> {
+  if (rentalIds.length === 0) {
+    return [];
+  }
+  return tx
+    .select({
+      id: bondMovements.id,
+      rentalId: bondMovements.rentalId,
+      kind: bondMovements.kind,
+      amountCents: bondMovements.amountCents,
+      reversesId: bondMovements.reversesId,
+    })
+    .from(bondMovements)
+    .where(
+      and(
+        eq(bondMovements.operatorId, operatorId),
+        inArray(bondMovements.rentalId, [...rentalIds]),
+      ),
+    )
+    .orderBy(asc(bondMovements.createdAt));
 }
 
 export async function selectBondMovements(

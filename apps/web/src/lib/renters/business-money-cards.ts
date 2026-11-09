@@ -5,10 +5,11 @@ import {
   type DirectDebitState,
 } from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
-import { billingDocuments, bondMovements, rentals, vehicles } from "@fleetapp/db/schema";
+import { billingDocuments, rentals, vehicles } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 
+import { selectBondAmounts } from "../bonds/bond-account";
 import { selectMandates } from "../payments/renter-payment-records";
 
 /** How many of a business's latest invoices its Money tab lists; each rental lists all of its own. */
@@ -21,6 +22,38 @@ export interface RentalBondHeld {
   heldCents: number;
 }
 
+/** One of the Renter's rentals with its car and its driver now. */
+export interface RenterRentalCar {
+  id: string;
+  driverId: string | null;
+  rego: string;
+  make: string;
+  model: string;
+}
+
+/** Each of the Renter's rentals with its car and its driver now, oldest first. */
+export function selectRenterRentalCars(
+  tx: AnyTransaction,
+  operatorId: string,
+  renterId: string,
+): Promise<RenterRentalCar[]> {
+  return tx
+    .select({
+      id: rentals.id,
+      driverId: rentals.driverId,
+      rego: vehicles.rego,
+      make: vehicles.make,
+      model: vehicles.model,
+    })
+    .from(rentals)
+    .innerJoin(
+      vehicles,
+      and(eq(vehicles.id, rentals.vehicleId), eq(vehicles.operatorId, rentals.operatorId)),
+    )
+    .where(and(eq(rentals.operatorId, operatorId), eq(rentals.renterId, renterId)))
+    .orderBy(asc(rentals.plannedStart));
+}
+
 /**
  * The bond held on each of the Renter's rentals that holds any, each added
  * up from its own bond account (bonds are per car: decision 6), kept apart
@@ -29,40 +62,14 @@ export interface RentalBondHeld {
 export async function selectBondsHeld(
   tx: AnyTransaction,
   operatorId: string,
-  renterId: string,
+  rentalRows: readonly { id: string; rego: string }[],
 ): Promise<RentalBondHeld[]> {
-  const theirRentals = await tx
-    .select({ id: rentals.id, rego: vehicles.rego })
-    .from(rentals)
-    .innerJoin(
-      vehicles,
-      and(eq(vehicles.id, rentals.vehicleId), eq(vehicles.operatorId, rentals.operatorId)),
-    )
-    .where(and(eq(rentals.operatorId, operatorId), eq(rentals.renterId, renterId)))
-    .orderBy(asc(rentals.plannedStart));
-  const movements =
-    theirRentals.length === 0
-      ? []
-      : await tx
-          .select({
-            id: bondMovements.id,
-            rentalId: bondMovements.rentalId,
-            kind: bondMovements.kind,
-            amountCents: bondMovements.amountCents,
-            reversesId: bondMovements.reversesId,
-          })
-          .from(bondMovements)
-          .where(
-            and(
-              eq(bondMovements.operatorId, operatorId),
-              inArray(
-                bondMovements.rentalId,
-                theirRentals.map((rental) => rental.id),
-              ),
-            ),
-          )
-          .orderBy(asc(bondMovements.createdAt));
-  return theirRentals
+  const movements = await selectBondAmounts(
+    tx,
+    operatorId,
+    rentalRows.map((rental) => rental.id),
+  );
+  return rentalRows
     .map((rental) => ({
       rentalId: rental.id,
       rego: rental.rego,
@@ -137,11 +144,12 @@ export async function loadBusinessMoneyCards(
   renterId: string,
 ): Promise<BusinessMoneyCards> {
   return withTenant(database, operatorId, async (tx) => {
-    const [mandates, bonds, latestInvoices] = await Promise.all([
+    const [mandates, rentalRows, latestInvoices] = await Promise.all([
       selectMandates(tx, operatorId, renterId),
-      selectBondsHeld(tx, operatorId, renterId),
+      selectRenterRentalCars(tx, operatorId, renterId),
       selectLatestInvoices(tx, operatorId, renterId),
     ]);
+    const bonds = await selectBondsHeld(tx, operatorId, rentalRows);
     return { directDebit: directDebitState(mandates), bonds, latestInvoices };
   });
 }

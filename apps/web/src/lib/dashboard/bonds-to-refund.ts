@@ -2,8 +2,9 @@ import { bondHeldCents } from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { bondMovements, rentals, renters, vehicles } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, asc, eq, exists, inArray } from "drizzle-orm";
+import { and, asc, eq, exists } from "drizzle-orm";
 
+import { selectBondAmounts } from "../bonds/bond-account";
 import { DASHBOARD_LIST_LENGTH, type FewOfMany } from "./fleet-overview";
 
 /** A cancelled booking still holding bond: money owed back to the Renter. */
@@ -62,24 +63,11 @@ export async function loadBondsToRefund(
     if (cancelled.length === 0) {
       return { total: 0, items: [] };
     }
-    const movements = await tx
-      .select({
-        id: bondMovements.id,
-        rentalId: bondMovements.rentalId,
-        kind: bondMovements.kind,
-        amountCents: bondMovements.amountCents,
-        reversesId: bondMovements.reversesId,
-      })
-      .from(bondMovements)
-      .where(
-        and(
-          eq(bondMovements.operatorId, operatorId),
-          inArray(
-            bondMovements.rentalId,
-            cancelled.map((rental) => rental.rentalId),
-          ),
-        ),
-      );
+    const movements = await selectBondAmounts(
+      tx,
+      operatorId,
+      cancelled.map((rental) => rental.rentalId),
+    );
     const owed = cancelled
       // A cancelled booking always has its cancelled time (the rentals_cancelled check).
       .flatMap((rental) =>
