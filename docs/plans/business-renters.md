@@ -1015,6 +1015,11 @@ unchanged and passing).
   | A car's details, status, sale or papers | the car |
   | A photo of damage found later | car, new file |
   | A contract or change of terms signed by link | rental, link |
+  | Bond by hand, or a correction of it | rental |
+  | Stripe's news of a bond or direct debit (message, or the Renter back from Stripe's page) | rental, the page, the payment, direct debits, bond entry |
+  | Sending a signing link | rental, change of terms, Renter, their links |
+  | Sending a payments link (also after signing) | Renter, their links |
+  | Sending a details link | Renter, their links |
   | Retirement job | the Renter, then their rentals' records: the one exception, as nothing it reaches is in use |
 
   The database's rules: the driver change and swap start checks lock the
@@ -1087,11 +1092,42 @@ unchanged and passing).
   (the business and person), a removal of a driver (the business, person
   and link), a checklist against its marks and photos (the checklist,
   shared for a photo), a submission against a link photo's confirmation
-  (the link), and a ledger or bond line by hand (the rental). A bond paid
-  on Stripe's page while bond is entered by hand was never fully kept apart
-  by the link's wait (only when Stripe's payment row was already being
-  written), and stays handled as it was: the hand entry stops Stripe's page
-  and says when the Renter had just paid there (review KS-1).
+  (the link), and a ledger or bond line by hand (the rental).
+
+  The one that did (fourth review of slice 4, 9 Nov 2026): Stripe's news
+  about a bond (a bond paid on Stripe's page, a refund made in Stripe, a
+  dispute) added its payment and bond entry without locking the rental, and
+  had been kept apart from bond entered or corrected by hand only by the
+  link's wait, and only partly. With that wait gone, cash recorded as
+  Stripe's payment was being saved could hold the bond twice, and a
+  correction could miss a refund. Now Stripe's side locks the rental first,
+  before the page's row, the payment, a direct debit or the bond entry
+  (`lockBondRental`, shared with the hand entries), whether it comes by
+  Stripe's message or as the Renter comes back from Stripe's page; nothing
+  in that transaction is locked before it but its own new record of the
+  message. Whichever comes second sees what the first recorded: cash after
+  Stripe's payment is refused as already held; a correction after a refund
+  or dispute counts it; Stripe's news is always recorded, once per Stripe
+  id (rule 20), since the money really moved. Cash recorded first, with
+  the Renter paying Stripe's page in the same moment, is a real double
+  payment: the hand entry keeps the page that was open under the rental's
+  lock (`openBondPageId`) and asks Stripe about that page, so the Operator
+  is told it was paid too ("held twice, refund one") even when Stripe's
+  message was recorded first. Two-connection tests in both orders
+  (`bond-lock-order.test.ts`): cash against a bond paid on Stripe's page,
+  and a correction of cash against a refund and against a dispute.
+
+  Links sent to a Renter (fourth review of slice 4): sending a signing link
+  or a payments link read the Renter unlocked, so one sent as the Operator
+  archived the Renter or changed their email was missed by the change's
+  cancelling of live links and stayed live (rule 26). Each now locks the
+  Renter for no key update (`lockCurrentRenter`, as the details link
+  already did) after the rental, and uses the email read under that lock;
+  an archived Renter is refused with the usual words. The payments link the
+  Renter goes on to after signing does the same. Two-connection tests
+  (`renter-link-lock-order.test.ts`) in both orders against an archive and
+  an email change: sent first, the change cancels it; changed first, the
+  sending is refused or goes to the new email.
 
   Two-connection tests, each showing 40P01 before the fix and both going
   ahead after (`damage-lock-order.test.ts`: damage found while a handover
