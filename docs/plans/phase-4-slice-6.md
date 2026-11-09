@@ -57,7 +57,12 @@ which slice 5 already reverses.
   (`DEBIT_NOT_SENT_CODE`: reserved, never made at Stripe, found by the
   run's recovery after 23 hours) is ours, not the Renter's: no email to
   the Renter, no retry counted against them, and the business is told it
-  was not sent. Otherwise, after that transaction:
+  was not sent. Since the slice 5 review, a `not_sent` debit that Stripe
+  later reports as succeeded becomes succeeded with its payment line, so
+  neither the attempt-2 retry nor "Debit what's owing now" may cover a
+  `not_sent` debit's amount until its lookup is final (or a late success
+  must be treated as a credit to refund). Otherwise, after that
+  transaction:
   - the business gets an email: Renter, rental, amount, the reason in plain
     words, and what happens next ("We'll try again on Thu 19 Nov" or "No
     more automatic tries");
