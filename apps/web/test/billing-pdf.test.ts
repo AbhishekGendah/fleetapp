@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { billedToBlocks, billedToOf, type BilledTo } from "../src/lib/billing/billed-to";
 import { itemDocumentPdfInput, type BillingPdfParties } from "../src/lib/billing/billing-pdf";
 import { businessStatementPdfInput } from "../src/lib/billing/business-statement-pdf";
+import { statementCarsOf } from "../src/lib/billing/business-statements";
 import type { DocumentPdfInput } from "../src/lib/contracts/document-pdf";
 import type { LedgerLineView } from "../src/lib/ledger/ledger-queries";
 import type { BusinessDetails } from "../src/lib/settings/business-details";
@@ -222,5 +223,51 @@ describe("a business's statement across its cars", () => {
       ["Paid on 1BRT482", "$200.00"],
       ["Balance on 1BRT482", "Owing $180.00"],
     ]);
+  });
+});
+
+describe("a statement's car headings (review)", () => {
+  const MIA_ID = "22222222-2222-4222-8222-222222222222";
+  const names = new Map([
+    [SAM_ID, "Sam Lee"],
+    [MIA_ID, "Mia Thompson"],
+  ]);
+  const rental = {
+    id: "rental-1",
+    driverId: MIA_ID,
+    rego: "2NEW222",
+    make: "Kia",
+    model: "Cerato",
+  };
+  // Sam had 1BRT482 in October; after a swap and a driver change, Mia has 2NEW222.
+  const lines = [
+    ledgerLine({ id: "old", effectiveOn: "2026-10-05", rego: "1BRT482", driverId: SAM_ID }),
+    ledgerLine({ id: "new", effectiveOn: "2026-11-02", rego: "2NEW222", driverId: MIA_ID }),
+  ];
+
+  function headingFor(fromDate: string): unknown {
+    const figures = businessStatementFigures(lines, fromDate, "2026-11-30");
+    return statementCarsOf([rental], figures, names).get("rental-1");
+  }
+
+  it("names only the car and driver of the lines in the days asked", () => {
+    expect(headingFor("2026-11-01")).toEqual({
+      rentalId: "rental-1",
+      carText: "2NEW222 · Kia Cerato",
+      driverNames: ["Mia Thompson"],
+    });
+    expect(headingFor("2026-10-01")).toMatchObject({
+      carText: "1BRT482 then 2NEW222 · Kia Cerato",
+      driverNames: ["Sam Lee", "Mia Thompson"],
+    });
+  });
+
+  it("names the car and driver now when only a balance is brought forward", () => {
+    const figures = businessStatementFigures(lines, "2026-11-10", "2026-11-30");
+
+    expect(statementCarsOf([rental], figures, names).get("rental-1")).toMatchObject({
+      carText: "2NEW222 · Kia Cerato",
+      driverNames: ["Mia Thompson"],
+    });
   });
 });

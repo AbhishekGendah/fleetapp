@@ -1,6 +1,7 @@
 import {
   businessStatementFigures,
   describeErrorForLog,
+  type BusinessStatementFigures,
   type DocumentEmailOutcome,
 } from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
@@ -84,27 +85,31 @@ async function selectStatementBusiness(
 }
 
 /**
- * Each car's heading: the car its lines were for, and the drivers who had
- * it on those lines in turn (from the possession records), else its driver
- * now. Names only: never a licence or date of birth.
+ * Each car's heading: the cars its lines in the days asked were for, and the
+ * drivers who had it on those lines in turn (from the possession records);
+ * with only a balance brought forward, its car and driver now (review). Names
+ * only: never a licence or date of birth. Pure.
  */
-function statementCars(
+export function statementCarsOf(
   rentalRows: readonly RenterRentalCar[],
-  lines: readonly LedgerLineView[],
+  figures: BusinessStatementFigures<LedgerLineView>,
   driverNames: ReadonlyMap<string, string>,
 ): Map<string, StatementCar> {
   return new Map(
     rentalRows.map((rental) => {
-      const ofRental = lines.filter((item) => item.rentalId === rental.id);
-      const regos = [...new Set(ofRental.map((item) => item.rego))];
-      const driverIds = [
-        ...new Set(ofRental.flatMap((item) => (item.driverId ? [item.driverId] : []))),
-      ];
-      const shownIds = driverIds.length > 0 ? driverIds : rental.driverId ? [rental.driverId] : [];
+      const inDays = (figures.cars.find((car) => car.rentalId === rental.id)?.entries ?? []).map(
+        (entry) => entry.line,
+      );
+      const regos =
+        inDays.length > 0 ? [...new Set(inDays.map((item) => item.rego))] : [rental.rego];
+      const driverIds =
+        inDays.length > 0
+          ? [...new Set(inDays.flatMap((item) => (item.driverId ? [item.driverId] : [])))]
+          : [rental.driverId].filter((id) => id !== null);
       const car: StatementCar = {
         rentalId: rental.id,
         carText: `${regos.join(" then ")} · ${rental.make} ${rental.model}`,
-        driverNames: shownIds.flatMap((id) => {
+        driverNames: driverIds.flatMap((id) => {
           const name = driverNames.get(id);
           return name ? [name] : [];
         }),
@@ -131,7 +136,8 @@ async function loadStatementData(tx: AnyTransaction, operatorId: string, renterI
   return {
     business,
     lines,
-    cars: statementCars(rentalRows, lines, driverNames),
+    rentalRows,
+    driverNames,
     bonds: {
       heldCents: bonds.reduce((total, bond) => total + bond.heldCents, 0),
       rentalCount: bonds.length,
@@ -220,6 +226,7 @@ export async function prepareBusinessStatement(
   if (!loaded) {
     return null;
   }
+  const figures = businessStatementFigures(loaded.lines, range.fromDate, range.toDate);
   return {
     context,
     business: loaded.business,
@@ -232,8 +239,8 @@ export async function prepareBusinessStatement(
       issuedOn: context.today,
       fromDate: range.fromDate,
       toDate: range.toDate,
-      figures: businessStatementFigures(loaded.lines, range.fromDate, range.toDate),
-      cars: loaded.cars,
+      figures,
+      cars: statementCarsOf(loaded.rentalRows, figures, loaded.driverNames),
       bonds: loaded.bonds,
       howToPay: context.howToPay,
     },
