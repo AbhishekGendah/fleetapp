@@ -105,6 +105,7 @@ const styles = StyleSheet.create({
     borderBottomColor: BRAND.colours.border,
   },
   tableHeader: { fontFamily: FONTS.bold, color: BRAND.colours.primary },
+  tableHeading: { fontFamily: FONTS.bold, color: BRAND.colours.primary, marginBottom: 2 },
   tableCell: { paddingRight: 6 },
   amountCell: { textAlign: "right", paddingRight: 0 },
   totalRow: { flexDirection: "row", justifyContent: "flex-end", paddingVertical: 2 },
@@ -296,6 +297,8 @@ function SigningRecordPage({ record }: { record: PdfSigningRecord }): ReactEleme
 
 /** A table of items, e.g. an invoice's lines, with its totals under it. */
 export interface PdfTable {
+  /** Above the table, for one of several, e.g. a statement's car. */
+  heading?: string;
   /** Each column's heading and its share of the width; amounts are set right. */
   columns: readonly { label: string; widthPercent: number; isAmount?: boolean }[];
   rows: readonly (readonly string[])[];
@@ -321,6 +324,11 @@ function TableCells({ table, cells }: { table: PdfTable; cells: readonly string[
 function ItemTable({ table }: { table: PdfTable }): ReactElement {
   return (
     <View style={styles.table}>
+      {table.heading ? (
+        <Text style={styles.tableHeading} minPresenceAhead={40}>
+          {table.heading}
+        </Text>
+      ) : null}
       <View style={[styles.tableRow, styles.tableHeader]} fixed>
         <TableCells table={table} cells={table.columns.map((column) => column.label)} />
       </View>
@@ -358,6 +366,8 @@ export interface DocumentPdfInput {
   signingRecord?: PdfSigningRecord | undefined;
   /** Items after the text, e.g. an invoice's lines and totals. */
   table?: PdfTable | undefined;
+  /** Several tables after the text, each with its heading, e.g. a statement's cars. */
+  tables?: readonly PdfTable[] | undefined;
   /** Text after the table, e.g. how to pay. */
   closing?: TemplateDocument | undefined;
   /** Photos after the text, e.g. a handover's. */
@@ -376,6 +386,9 @@ export async function renderDocumentPdf(input: DocumentPdfInput): Promise<Uint8A
         ) : null}
         {input.document.content.map(blockElement)}
         {input.table ? <ItemTable table={input.table} /> : null}
+        {input.tables?.map((table, index) => (
+          <ItemTable key={index} table={table} />
+        ))}
         {input.closing ? input.closing.content.map(blockElement) : null}
         {input.photos && input.photos.photos.length > 0 ? (
           <PhotoGrid heading={input.photos.heading} photos={input.photos.photos} />

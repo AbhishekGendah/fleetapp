@@ -14,6 +14,7 @@ import {
   files,
   issuedDocuments,
   rentals,
+  renters,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, desc, eq, isNotNull } from "drizzle-orm";
@@ -23,6 +24,8 @@ import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import type { FileDependencies } from "../files/stored-files";
 
 const PURPOSE = "issued_document";
+/** The one kind of document a Renter can have of their own (Migration B). */
+const RENTER_DOCUMENT_KIND = "statement";
 const AREA = FILE_PURPOSE_RULES[PURPOSE].area;
 
 /** Who issued it: a User, a Renter's link (they signed), or the app on its own. */
@@ -31,14 +34,18 @@ export type IssuingActor =
   | { operatorId: string; linkId: string }
   | { operatorId: string };
 
-export interface IssueRequest {
-  rentalId: string;
+/** What a document is, whoever it belongs to. */
+export interface DocumentContent {
   kind: IssuedDocumentKind;
   /** The template version it was made from; none for a report. */
   templateVersionId: string | null;
   /** The handover or return checklist a report was made from. */
   inspectionId?: string;
   pdf: Uint8Array;
+}
+
+export interface IssueRequest extends DocumentContent {
+  rentalId: string;
   /**
    * Runs in the same transaction that records the document, e.g. to keep the
    * signing evidence with it: neither is ever kept without the other.
@@ -88,10 +95,10 @@ async function nextVersion(
 }
 
 /** A document's PDF stored and its file recorded, waiting to be issued in a transaction. */
-export interface StoredDocument {
+export interface StoredDocument<Request extends DocumentContent = Omit<IssueRequest, "onIssued">> {
   fileId: string;
   sha256: string;
-  request: Omit<IssueRequest, "onIssued">;
+  request: Request;
 }
 
 /** A document's file, recorded before its PDF is stored, so a failed save is cleaned up. */
@@ -111,14 +118,42 @@ export async function reserveDocumentFile(
   rentalId: string,
   sizeBytes: number,
 ): Promise<ReservedDocumentFile | null> {
-  const fileId = randomUUID();
-  const objectKey = buildFileKey(actor.operatorId, PURPOSE, fileId);
-  const isRental = await withTenant(deps.database, actor.operatorId, async (tx) => {
+  return reserveFileFor(deps, actor, sizeBytes, async (tx) => {
     const [rental] = await tx
       .select({ id: rentals.id })
       .from(rentals)
       .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, actor.operatorId)));
-    if (!rental) {
+    return rental !== undefined;
+  });
+}
+
+/** As `reserveDocumentFile`, for a document of the Renter's own: null if not the business's Renter. */
+export async function reserveRenterDocumentFile(
+  deps: FileDependencies,
+  actor: IssuingActor,
+  renterId: string,
+  sizeBytes: number,
+): Promise<ReservedDocumentFile | null> {
+  return reserveFileFor(deps, actor, sizeBytes, async (tx) => {
+    const [renter] = await tx
+      .select({ id: renters.id })
+      .from(renters)
+      .where(and(eq(renters.id, renterId), eq(renters.operatorId, actor.operatorId)));
+    return renter !== undefined;
+  });
+}
+
+/** Records the unconfirmed file once `isOwnerFound` says its rental or Renter is the business's. */
+async function reserveFileFor(
+  deps: FileDependencies,
+  actor: IssuingActor,
+  sizeBytes: number,
+  isOwnerFound: (tx: AnyTransaction) => Promise<boolean>,
+): Promise<ReservedDocumentFile | null> {
+  const fileId = randomUUID();
+  const objectKey = buildFileKey(actor.operatorId, PURPOSE, fileId);
+  const isReserved = await withTenant(deps.database, actor.operatorId, async (tx) => {
+    if (!(await isOwnerFound(tx))) {
       return false;
     }
     await tx.insert(files).values({
@@ -132,15 +167,15 @@ export async function reserveDocumentFile(
     });
     return true;
   });
-  return isRental ? { fileId, objectKey } : null;
+  return isReserved ? { fileId, objectKey } : null;
 }
 
 /** Stores the PDF, never to be changed, under its reserved file. */
-export async function saveReservedPdf(
+export async function saveReservedPdf<Request extends DocumentContent>(
   deps: Pick<FileDependencies, "storage">,
   reserved: ReservedDocumentFile,
-  request: Omit<IssueRequest, "onIssued">,
-): Promise<StoredDocument | { status: "too_big" }> {
+  request: Request,
+): Promise<StoredDocument<Request> | { status: "too_big" }> {
   if (request.pdf.byteLength > FILE_PURPOSE_RULES[PURPOSE].maxBytes) {
     return { status: "too_big" };
   }
@@ -185,6 +220,65 @@ export async function recordIssuedDocument(
     .where(eq(rentals.id, request.rentalId))
     .for(ROW_LOCK);
   const version = await nextVersion(tx, actor.operatorId, request.rentalId, request.kind);
+  return insertIssuedDocument(tx, deps, actor, stored, {
+    owner: { rentalId: request.rentalId },
+    version,
+  });
+}
+
+/** The Renter's latest statement version, under their lock. */
+async function nextRenterStatementVersion(
+  tx: AnyTransaction,
+  operatorId: string,
+  renterId: string,
+): Promise<number> {
+  const [latest] = await tx
+    .select({ version: issuedDocuments.version })
+    .from(issuedDocuments)
+    .where(
+      and(
+        eq(issuedDocuments.operatorId, operatorId),
+        eq(issuedDocuments.renterId, renterId),
+        eq(issuedDocuments.kind, RENTER_DOCUMENT_KIND),
+      ),
+    )
+    .orderBy(desc(issuedDocuments.version))
+    .limit(1);
+  return (latest?.version ?? 0) + 1;
+}
+
+/**
+ * A business Renter's statement across its cars (Migration B), recorded as
+ * the Renter's next one inside the caller's transaction. The Renter is
+ * locked so two statements at once take versions in turn (step 6 of the
+ * lock order; nothing else is locked here).
+ */
+export async function recordRenterStatement(
+  tx: AnyTransaction,
+  deps: Pick<FileDependencies, "now">,
+  actor: IssuingActor,
+  stored: StoredDocument<DocumentContent>,
+  renterId: string,
+): Promise<{ documentId: string; version: number; sha256: string }> {
+  await tx
+    .select({ id: renters.id })
+    .from(renters)
+    .where(and(eq(renters.id, renterId), eq(renters.operatorId, actor.operatorId)))
+    .for(ROW_LOCK);
+  const version = await nextRenterStatementVersion(tx, actor.operatorId, renterId);
+  return insertIssuedDocument(tx, deps, actor, stored, { owner: { renterId }, version });
+}
+
+/** Confirms the stored file and records the document with its fingerprint, logged (rule 19). */
+async function insertIssuedDocument(
+  tx: AnyTransaction,
+  deps: Pick<FileDependencies, "now">,
+  actor: IssuingActor,
+  stored: StoredDocument<DocumentContent>,
+  values: { owner: { rentalId: string } | { renterId: string }; version: number },
+): Promise<{ documentId: string; version: number; sha256: string }> {
+  const { request } = stored;
+  const { owner, version } = values;
   await tx
     .update(files)
     .set({ confirmedAt: deps.now(), sizeBytes: request.pdf.byteLength })
@@ -193,7 +287,7 @@ export async function recordIssuedDocument(
     .insert(issuedDocuments)
     .values({
       operatorId: actor.operatorId,
-      rentalId: request.rentalId,
+      ...owner,
       kind: request.kind,
       version,
       templateVersionId: request.templateVersionId,
@@ -213,7 +307,7 @@ export async function recordIssuedDocument(
     entityType: ACTIVITY_ENTITY_TYPES.issuedDocument,
     entityId: document.id,
     action: ACTIVITY_ACTIONS.created,
-    valuesAfter: { kind: request.kind, version, rentalId: request.rentalId, sha256: stored.sha256 },
+    valuesAfter: { kind: request.kind, version, ...owner, sha256: stored.sha256 },
   });
   return { documentId: document.id, version, sha256: stored.sha256 };
 }

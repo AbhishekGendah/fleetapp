@@ -129,6 +129,21 @@ export function renterOverdueOf(
   today: string,
   graceDays: number,
 ): Overdue | null {
+  return longestLateRental(lines, today, graceDays)?.overdue ?? null;
+}
+
+/** A rental of the Renter's that is overdue, and by how much. */
+export interface LateRental {
+  rentalId: string;
+  overdue: Overdue;
+}
+
+/** The same, with which rental it is: a business's strip names its car. */
+export function longestLateRental(
+  lines: readonly (DatedLedgerLine & { rentalId: string })[],
+  today: string,
+  graceDays: number,
+): LateRental | null {
   const byRental = new Map<string, DatedLedgerLine[]>();
   for (const line of lines) {
     // Added to in place: copying the list for every line grows with the square of the lines.
@@ -139,11 +154,15 @@ export function renterOverdueOf(
       byRental.set(line.rentalId, [line]);
     }
   }
-  return [...byRental.values()]
-    .map((rentalLines) => overdueOf(rentalLines, today, graceDays))
-    .filter((overdue) => overdue !== null)
-    .reduce<Overdue | null>(
-      (longest, overdue) => (!longest || overdue.daysLate > longest.daysLate ? overdue : longest),
+  return [...byRental]
+    .map(([rentalId, rentalLines]) => ({
+      rentalId,
+      overdue: overdueOf(rentalLines, today, graceDays),
+    }))
+    .filter((late): late is LateRental => late.overdue !== null)
+    .reduce<LateRental | null>(
+      (longest, late) =>
+        !longest || late.overdue.daysLate > longest.overdue.daysLate ? late : longest,
       null,
     );
 }

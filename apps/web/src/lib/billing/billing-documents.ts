@@ -23,7 +23,7 @@ import {
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { ROW_LOCK } from "@fleetapp/db/row-lock";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 import {
   logActorOf,
@@ -33,6 +33,7 @@ import {
   type IssuingActor,
 } from "../contracts/issued-documents";
 import { selectRentalLedger, type LedgerLineView } from "../ledger/ledger-queries";
+import { billedToOf, type BilledTo } from "./billed-to";
 import type { BillingContext, BillingDependencies } from "./billing-context";
 import { renderItemDocumentPdf, renderReceiptPdf, type BillingPdfParties } from "./billing-pdf";
 import { takeDocumentNumber } from "./numbering";
@@ -45,7 +46,8 @@ export interface BillingRental {
   id: string;
   status: RentalStatus;
   settingsSnapshot: Record<string, unknown>;
-  renterName: string;
+  billedTo: BilledTo;
+  /** The Renter's email: for a business, its contact's. */
   renterEmail: string | null;
   rentalSummary: string;
 }
@@ -66,7 +68,15 @@ export async function loadBillingRental(
       id: rentals.id,
       status: rentals.status,
       settingsSnapshot: rentals.settingsSnapshot,
-      renterName: renters.fullName,
+      renter: {
+        kind: renters.kind,
+        fullName: renters.fullName,
+        tradingName: renters.tradingName,
+        abn: renters.abn,
+        contactName: renters.contactName,
+        businessAddress: renters.businessAddress,
+        postalAddress: renters.postalAddress,
+      },
       renterEmail: renters.email,
       rego: vehicles.rego,
       make: vehicles.make,
@@ -85,8 +95,30 @@ export async function loadBillingRental(
   if (!row) {
     return null;
   }
-  const { rego, make, model, ...rental } = row;
-  return { ...rental, rentalSummary: `${rego} ${make} ${model}` };
+  const { rego, make, model, renter, ...rental } = row;
+  return { ...rental, billedTo: billedToOf(renter), rentalSummary: `${rego} ${make} ${model}` };
+}
+
+/**
+ * A business's drivers on these lines, by id, to name on its documents
+ * (names only: never a licence or date of birth). None for a person, whose
+ * documents name no driver.
+ */
+export async function loadLineDriverNames(
+  tx: AnyTransaction,
+  operatorId: string,
+  billedTo: BilledTo,
+  lines: readonly Pick<LedgerLineView, "driverId">[],
+): Promise<ReadonlyMap<string, string>> {
+  const driverIds = [...new Set(lines.flatMap((item) => (item.driverId ? [item.driverId] : [])))];
+  if (billedTo.kind !== "organisation" || driverIds.length === 0) {
+    return new Map();
+  }
+  const rows = await tx
+    .select({ id: renters.id, fullName: renters.fullName })
+    .from(renters)
+    .where(and(eq(renters.operatorId, operatorId), inArray(renters.id, driverIds)));
+  return new Map(rows.map((row) => [row.id, row.fullName]));
 }
 
 /** One document still needed: its kind, its lines, and the invoice a credit note corrects. */
@@ -146,12 +178,14 @@ function renderDrafted(
   rental: BillingRental,
   drafted: Drafted,
   allLines: readonly LedgerLineView[],
+  driverNames: ReadonlyMap<string, string>,
 ): Promise<Uint8Array> {
   const parties: BillingPdfParties = {
     business: context.business,
     branding: context.branding,
-    renterName: rental.renterName,
+    billedTo: rental.billedTo,
     rentalSummary: rental.rentalSummary,
+    driverNames,
   };
   const corrected = allLines.find((item) => item.documentId === drafted.planned.relatesToId);
   const header = {
@@ -326,7 +360,8 @@ export async function issueNextDocument(
       return null;
     }
     const drafted = await draftDocument(tx, actor.operatorId, context, planned, lines);
-    const pdf = await renderDrafted(context, locked, drafted, lines);
+    const driverNames = await loadLineDriverNames(tx, actor.operatorId, locked.billedTo, lines);
+    const pdf = await renderDrafted(context, locked, drafted, lines, driverNames);
     const request = { rentalId: rental.id, kind: planned.kind, templateVersionId: null, pdf };
     const stored = await saveReservedPdf(deps, reserved, request);
     if ("status" in stored) {

@@ -4,7 +4,7 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { issueDocument } from "../contracts/issued-documents";
 import { selectRentalLedger } from "../ledger/ledger-queries";
 import { loadBillingContext, type BillingDependencies } from "./billing-context";
-import { loadBillingRental } from "./billing-documents";
+import { loadBillingRental, loadLineDriverNames } from "./billing-documents";
 import { renderStatementPdf } from "./billing-pdf";
 import { loadBillingDocumentPdf } from "./billing-queries";
 import { amountLineOf, emailBillingDocument } from "./billing-run";
@@ -31,9 +31,12 @@ export async function issueStatement(
   const context = await loadBillingContext(deps, actor.operatorId);
   const loaded = await withTenant(deps.database, actor.operatorId, async (tx) => {
     const rental = await loadBillingRental(tx, actor.operatorId, rentalId, false);
-    return rental
-      ? { rental, lines: await selectRentalLedger(tx, actor.operatorId, rentalId) }
-      : null;
+    if (!rental) {
+      return null;
+    }
+    const lines = await selectRentalLedger(tx, actor.operatorId, rentalId);
+    const driverNames = await loadLineDriverNames(tx, actor.operatorId, rental.billedTo, lines);
+    return { rental, lines, driverNames };
   });
   if (!loaded) {
     return { status: "not_found" };
@@ -43,8 +46,9 @@ export async function issueStatement(
     parties: {
       business: context.business,
       branding: context.branding,
-      renterName: loaded.rental.renterName,
+      billedTo: loaded.rental.billedTo,
       rentalSummary: loaded.rental.rentalSummary,
+      driverNames: loaded.driverNames,
     },
     header: { title: STATEMENT_TITLE, numberText: null, issuedOn: context.today },
     ...range,

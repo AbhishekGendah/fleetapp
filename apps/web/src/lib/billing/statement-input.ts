@@ -11,3 +11,15 @@ export const statementRangeSchema = z
   });
 export type StatementRange = z.infer<typeof statementRangeSchema>;
 export const STATEMENT_FIELDS = ["fromDate", "toDate"] as const;
+
+/** The tick box sends this when ticked; nothing at all when not. */
+const TICKED_VALUE = "on";
+
+/** A business's statement across its cars: the days, and whether it goes to its contact by email. */
+export const businessStatementSchema = z.intersection(
+  statementRangeSchema,
+  z.object({ isEmailed: z.string().transform((value) => value === TICKED_VALUE) }),
+);
+export type BusinessStatementRequest = z.infer<typeof businessStatementSchema>;
+export const BUSINESS_STATEMENT_FIELDS = [...STATEMENT_FIELDS, "isEmailed"] as const;
+export const BUSINESS_STATEMENT_TICKED = TICKED_VALUE;

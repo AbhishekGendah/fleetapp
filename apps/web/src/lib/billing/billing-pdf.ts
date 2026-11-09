@@ -13,6 +13,7 @@ import { heading, line, paragraph } from "../handover/handover-report";
 import { balanceText } from "../ledger/balance-text";
 import type { LedgerLineView } from "../ledger/ledger-queries";
 import type { BusinessDetails } from "../settings/business-details";
+import { billedToBlocks, type BilledTo } from "./billed-to";
 
 /** Column widths, as shares of the page: date, what for, GST, amount. */
 const WIDTHS = { date: 18, description: 47, gst: 18, amount: 17 } as const;
@@ -22,9 +23,11 @@ const HOW_TO_PAY_HEADING = "How to pay";
 export interface BillingPdfParties {
   business: BusinessDetails;
   branding: Pick<DocumentPdfInput, "businessName" | "logo">;
-  renterName: string;
+  billedTo: BilledTo;
   /** e.g. "1ABC234 Toyota Corolla". */
   rentalSummary: string;
+  /** A business's drivers by id, to name who had the car on each line. */
+  driverNames: ReadonlyMap<string, string>;
 }
 
 export interface BillingPdfHeader {
@@ -38,7 +41,7 @@ export interface BillingPdfHeader {
 }
 
 /** The business as the ATO asks a tax invoice to show it: its name, ABN and address. */
-function businessBlocks(business: BusinessDetails): TemplateBlock[] {
+export function businessBlocks(business: BusinessDetails): TemplateBlock[] {
   const name = business.tradingName
     ? `${business.tradingName} (${business.legalName})`
     : business.legalName;
@@ -64,7 +67,7 @@ function headerDocument(parties: BillingPdfParties, header: BillingPdfHeader): T
       heading(1, header.numberText ? `${header.title} ${header.numberText}` : header.title),
       ...businessBlocks(parties.business),
       heading(2, "To"),
-      paragraph(parties.renterName),
+      ...billedToBlocks(parties.billedTo),
       line("Date", formatCalendarDate(header.issuedOn)),
       line("Rental", parties.rentalSummary),
       ...(header.note ? [paragraph(header.note)] : []),
@@ -72,7 +75,7 @@ function headerDocument(parties: BillingPdfParties, header: BillingPdfHeader): T
   };
 }
 
-function howToPayDocument(howToPay: string): TemplateDocument | undefined {
+export function howToPayDocument(howToPay: string): TemplateDocument | undefined {
   if (howToPay.trim().length === 0) {
     return undefined;
   }
@@ -86,12 +89,29 @@ function howToPayDocument(howToPay: string): TemplateDocument | undefined {
 }
 
 /**
+ * A business's line names its car and who drove it then
+ * (docs/plans/business-renters.md, decision 7): "1BRT482, driver Sam Lee".
+ */
+export function carAndDriverText(
+  item: Pick<LedgerLineView, "rego" | "driverId">,
+  driverNames: ReadonlyMap<string, string>,
+): string {
+  const driverName = item.driverId ? driverNames.get(item.driverId) : undefined;
+  return driverName ? `${item.rego}, driver ${driverName}` : item.rego;
+}
+
+/**
  * What a line says on a document. A reversal names what it takes back, and
  * the document that was on, so the Renter can see what is corrected. Once a
  * rental has had more than one car (a swap), each line names its car
- * (review G4-3, batch 7 decision 7).
+ * (review G4-3, batch 7 decision 7); a business's lines always name the car
+ * and its driver.
  */
-function lineText(item: LedgerLineView, allLines: readonly LedgerLineView[]): string {
+function lineText(
+  item: LedgerLineView,
+  allLines: readonly LedgerLineView[],
+  parties: BillingPdfParties,
+): string {
   const text = item.chargeTypeLabel
     ? `${item.chargeTypeLabel}: ${item.description}`
     : item.description;
@@ -99,7 +119,12 @@ function lineText(item: LedgerLineView, allLines: readonly LedgerLineView[]): st
     ? allLines.find((line) => line.id === item.reversesId)
     : undefined;
   const isSwapped = new Set(allLines.map((line) => line.rego)).size > 1;
-  const car = isSwapped ? ` (${(reversed ?? item).rego})` : "";
+  const car =
+    parties.billedTo.kind === "organisation"
+      ? ` (${carAndDriverText(reversed ?? item, parties.driverNames)})`
+      : isSwapped
+        ? ` (${(reversed ?? item).rego})`
+        : "";
   if (!reversed) {
     return `${text}${car}`;
   }
@@ -132,7 +157,7 @@ function itemTable(input: ItemDocumentPdf): PdfTable {
     ],
     rows: lines.map((item) => [
       formatCalendarDate(item.effectiveOn),
-      lineText(item, input.allLines),
+      lineText(item, input.allLines, input.parties),
       ...(isTaxDocument
         ? [item.gstCents > 0 ? shown(item.gstCents) : gstMarking(0, item.gstTreatment ?? "no_gst")]
         : []),
@@ -158,15 +183,20 @@ export interface ItemDocumentPdf {
   howToPay: string;
 }
 
-/** An invoice or credit note, as its fixed PDF. */
-export function renderItemDocumentPdf(input: ItemDocumentPdf): Promise<Uint8Array> {
-  return renderDocumentPdf({
+/** What an invoice or credit note prints: its header, lines and how to pay. Pure. */
+export function itemDocumentPdfInput(input: ItemDocumentPdf): DocumentPdfInput {
+  return {
     ...input.parties.branding,
     title: `${input.header.title} ${input.header.numberText ?? ""}`.trim(),
     document: headerDocument(input.parties, input.header),
     table: itemTable(input),
     closing: howToPayDocument(input.howToPay),
-  });
+  };
+}
+
+/** An invoice or credit note, as its fixed PDF. */
+export function renderItemDocumentPdf(input: ItemDocumentPdf): Promise<Uint8Array> {
+  return renderDocumentPdf(itemDocumentPdfInput(input));
 }
 
 export interface ReceiptPdf {
@@ -242,7 +272,15 @@ export function renderStatementPdf(input: StatementPdf): Promise<Uint8Array> {
       ],
       rows: input.rows.map(({ line: item, signedCents, balanceAfterCents }) => [
         formatCalendarDate(item.effectiveOn),
-        [item.documentNumberText, item.description].filter(Boolean).join(" · "),
+        [
+          item.documentNumberText,
+          item.description,
+          input.parties.billedTo.kind === "organisation"
+            ? carAndDriverText(item, input.parties.driverNames)
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" · "),
         formatCents(signedCents),
         formatCents(balanceAfterCents),
       ]),

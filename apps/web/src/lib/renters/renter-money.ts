@@ -12,6 +12,8 @@ export interface RenterMoney {
   balanceCents: number;
   /** Their longest-late rental's overdue money, if any is past its grace days. */
   overdue: Overdue | null;
+  /** How many of their rentals the balance adds up: those with a line on them. */
+  rentalCount: number;
 }
 
 /**
@@ -52,6 +54,7 @@ export async function loadRenterMoney(
       {
         balanceCents: ledgerBalanceCents(lines),
         overdue: renterOverdueOf(lines, overdueRule.today, overdueRule.graceDays),
+        rentalCount: new Set(lines.map((line) => line.rentalId)).size,
       },
     ]),
   );

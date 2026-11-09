@@ -86,6 +86,19 @@ export async function loadBillingDocumentPdf(
   if (!summary) {
     return null;
   }
+  const pdf = await readIssuedPdf(deps, operatorId, summary.issuedDocumentId);
+  if (!pdf) {
+    return null;
+  }
+  return { ...summary, pdf };
+}
+
+/** An issued document's PDF, exactly as stored; null if it is not the business's or can't be read. */
+export async function readIssuedPdf(
+  deps: { database: AnyDatabase; storage: FileStorage },
+  operatorId: string,
+  issuedDocumentId: string,
+): Promise<Uint8Array | null> {
   const [file] = await withTenant(deps.database, operatorId, (tx) =>
     tx
       .select({ storageArea: files.storageArea, objectKey: files.objectKey })
@@ -94,17 +107,13 @@ export async function loadBillingDocumentPdf(
         files,
         and(eq(files.id, issuedDocuments.fileId), eq(files.operatorId, issuedDocuments.operatorId)),
       )
-      .where(eq(issuedDocuments.id, summary.issuedDocumentId)),
+      .where(
+        and(eq(issuedDocuments.id, issuedDocumentId), eq(issuedDocuments.operatorId, operatorId)),
+      ),
   );
   const stored = file ? await deps.storage.inspect(file.storageArea, file.objectKey) : null;
   if (!file || !stored) {
     return null;
   }
-  const pdf = await deps.storage.readStart(
-    file.storageArea,
-    file.objectKey,
-    stored.sizeBytes,
-    stored.version,
-  );
-  return { ...summary, pdf };
+  return deps.storage.readStart(file.storageArea, file.objectKey, stored.sizeBytes, stored.version);
 }

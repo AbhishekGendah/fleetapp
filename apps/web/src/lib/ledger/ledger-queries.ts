@@ -26,6 +26,11 @@ export interface LedgerLineView {
   rentalId: string;
   /** The car the Renter had for this line: after a swap, not always the rental's car now (review G4-3). */
   rego: string;
+  /**
+   * Who drove that car then, by the same rule (for a person, themselves):
+   * named on a business's documents beside the rego.
+   */
+  driverId: string | null;
   kind: LedgerLineKind;
   /** What a charge or credit was for, e.g. "Weekly rent". */
   chargeTypeLabel: string | null;
@@ -69,18 +74,33 @@ const POSSESSED_REGO = sql`select ${qualified(vehicles.rego)} from ${possessions
   where ${qualified(possessions.rentalId)} = ${qualified(ledgerLines.rentalId)}
     and ${qualified(possessions.operatorId)} = ${qualified(ledgerLines.operatorId)}`;
 
+/** Who had the car in a possession of this rental: its driver. */
+const POSSESSED_DRIVER = sql`select ${qualified(possessions.driverId)} from ${possessions}
+  where ${qualified(possessions.rentalId)} = ${qualified(ledgerLines.rentalId)}
+    and ${qualified(possessions.operatorId)} = ${qualified(ledgerLines.operatorId)}`;
+
 /**
- * Which car a line was for: the one the Renter had when its period began
- * (or when it was entered), else the first they had, else the rental's car.
- * Display only: no amount depends on it.
+ * What a possession of the line's rental says about the line: from the one
+ * the Renter had when its period began (or when it was entered), else the
+ * first they had, else the rental's own. Display only: no amount depends on it.
  */
-const lineRego = sql<string>`coalesce(
-  (${POSSESSED_REGO}
+function fromLinePossession<Value>(possessed: SQL, ofRental: SQL): SQL<Value> {
+  return sql<Value>`coalesce(
+  (${possessed}
     and ${qualified(possessions.startedAt)} <= coalesce(${qualified(ledgerLines.periodStartsAt)}, ${qualified(ledgerLines.periodStart)}::timestamptz, ${qualified(ledgerLines.createdAt)})
     order by ${qualified(possessions.startedAt)} desc limit 1),
-  (${POSSESSED_REGO} order by ${qualified(possessions.startedAt)} asc limit 1),
-  ${qualified(vehicles.rego)}
+  (${possessed} order by ${qualified(possessions.startedAt)} asc limit 1),
+  ${ofRental}
 )`;
+}
+
+/** Which car a line was for. */
+const lineRego = fromLinePossession<string>(POSSESSED_REGO, qualified(vehicles.rego));
+/** Who drove the car a line was for; none while a business's driver is still to be named. */
+const lineDriverId = fromLinePossession<string | null>(
+  POSSESSED_DRIVER,
+  qualified(rentals.driverId),
+);
 
 async function selectLedgerLines(
   tx: AnyTransaction,
@@ -91,6 +111,7 @@ async function selectLedgerLines(
     .select({
       line: ledgerLines,
       rego: lineRego,
+      driverId: lineDriverId,
       builtIn: chargeTypes.builtIn,
       typeName: chargeTypes.name,
       gstTreatment: chargeTypes.gstTreatment,
@@ -129,10 +150,11 @@ async function selectLedgerLines(
     )
     .where(and(eq(ledgerLines.operatorId, operatorId), where))
     .orderBy(asc(ledgerLines.effectiveOn), asc(ledgerLines.createdAt));
-  return rows.map(({ line, rego, builtIn, typeName, ...billing }) => ({
+  return rows.map(({ line, rego, driverId, builtIn, typeName, ...billing }) => ({
     id: line.id,
     rentalId: line.rentalId,
     rego,
+    driverId,
     kind: line.kind,
     chargeTypeLabel: builtIn ? BUILT_IN_CHARGE_TYPE_LABELS[builtIn] : typeName,
     amountCents: line.amountCents,
@@ -187,8 +209,17 @@ export async function loadRenterLedger(
   renterId: string,
 ): Promise<LedgerView> {
   return withTenant(database, operatorId, async (tx) =>
-    ledgerViewOf(await selectLedgerLines(tx, operatorId, eq(rentals.renterId, renterId))),
+    ledgerViewOf(await selectRenterLedger(tx, operatorId, renterId)),
   );
+}
+
+/** Every line of every rental the Renter pays for, in one read, inside the caller's transaction. */
+export function selectRenterLedger(
+  tx: AnyTransaction,
+  operatorId: string,
+  renterId: string,
+): Promise<LedgerLineView[]> {
+  return selectLedgerLines(tx, operatorId, eq(rentals.renterId, renterId));
 }
 
 /** The lines that charge for one piece of damage (and their reversals' targets), to show beside it. */

@@ -7,6 +7,7 @@ import { and, eq, gte, isNull, sql } from "drizzle-orm";
 import type { IssuingActor } from "../contracts/issued-documents";
 import { findDueOperators, forEachOperator, type OperatorRun } from "../jobs/due-operators";
 import { balanceText } from "../ledger/balance-text";
+import { greetingNameOf } from "./billed-to";
 import {
   loadBillingContext,
   type BillingContext,
@@ -47,11 +48,11 @@ export function amountLineOf(issued: {
     : `Total ${formatCents(issued.totalCents)}${gst}.`;
 }
 
-/** Emails a document to the Renter from the business. It is kept either way, so a failure is logged, never raised. */
+/** Emails a document to the Renter (a business's contact) from the business. It is kept either way, so a failure is logged, never raised. */
 export async function emailBillingDocument(
   deps: BillingDependencies,
   context: Pick<BillingContext, "business" | "operatorName">,
-  rental: Pick<BillingRental, "renterEmail" | "renterName" | "rentalSummary">,
+  rental: Pick<BillingRental, "renterEmail" | "billedTo" | "rentalSummary">,
   document: { title: string; numberText: string | null; amountLine: string; pdf: Uint8Array },
 ): Promise<boolean> {
   if (!rental.renterEmail) {
@@ -64,7 +65,8 @@ export async function emailBillingDocument(
         replyTo: context.business.email ?? undefined,
         title: document.title,
         numberText: document.numberText,
-        renterName: rental.renterName,
+        renterName: greetingNameOf(rental.billedTo),
+        businessName: rental.billedTo.kind === "organisation" ? rental.billedTo.name : undefined,
         operatorName: context.operatorName,
         rentalSummary: rental.rentalSummary,
         amountLine: document.amountLine,
