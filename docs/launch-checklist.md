@@ -68,6 +68,14 @@ Add to this list whenever something is relaxed or put off "until launch".
     Log line;
   - a business trading under exactly its contact's own name can't sign
     (the signer-is-the-business check);
+  - slice 5 statements: if the statement email goes out but recording the
+    send fails, the screen says "not emailed" and Email again sends a
+    second copy to the same contact;
+  - slice 5 statements: the 7-year "records kept until" date ignores a
+    business's own statements, so one made for a long-idle business could
+    be binned at the next retention run; while the 0061 code was still
+    running, a statement for a retired business was not refused (its PDF
+    would never be binned);
   - anything further the whole-app review finds of this kind (the lock
     order and lock modes are in docs/plans/business-renters.md).
 
