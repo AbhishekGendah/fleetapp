@@ -8,8 +8,9 @@ import { redirect } from "next/navigation";
 import { appDb } from "../../../../lib/app-db";
 import { appEmailSender } from "../../../../lib/email-sender";
 import { fileDependencies } from "../../../../lib/files/file-action-support";
-import { completeSwap, type ShownSwap } from "../../../../lib/handover/complete-swap";
+import { completeSwap } from "../../../../lib/handover/complete-swap";
 import { renterSignatureFrom } from "../../../../lib/handover/renter-signature-form";
+import { parseShownSwap } from "../../../../lib/handover/signing-step-forms";
 import { rentalPath, rentalSwapPath } from "../../../../lib/paths";
 import { cancelSwap, startSwap } from "../../../../lib/rentals/car-swaps";
 import {
@@ -84,18 +85,6 @@ export async function cancelSwapAction(
   return state;
 }
 
-/** What the signing step showed, as it sent it back: checked against the swap as it stands. */
-function shownSwapFrom(formData: FormData): ShownSwap {
-  const text = (name: keyof ShownSwap): string => String(formData.get(name) ?? "");
-  return {
-    swapId: text("swapId"),
-    returnFingerprint: text("returnFingerprint"),
-    handoverFingerprint: text("handoverFingerprint"),
-    swapTemplateVersionId: text("swapTemplateVersionId"),
-    swapFormFingerprint: text("swapFormFingerprint"),
-  };
-}
-
 /** The Renter signs the swap on this phone: both cars and the rental move, three documents are issued. */
 export async function completeSwapAction(
   rentalId: string,
@@ -104,7 +93,8 @@ export async function completeSwapAction(
 ): Promise<CompleteSwapState> {
   const user = await requireUser();
   const parsed = finishSwapFormSchema.safeParse(formTextValues(formData, FINISH_SWAP_FIELDS));
-  if (!isRecordId(rentalId) || !parsed.success) {
+  const shown = parseShownSwap(formData);
+  if (!isRecordId(rentalId) || !parsed.success || !shown) {
     return { status: "problem", message: INVALID_MESSAGE };
   }
   try {
@@ -113,7 +103,7 @@ export async function completeSwapAction(
       { userId: user.id, operatorId: user.operatorId },
       rentalId,
       {
-        shown: shownSwapFrom(formData),
+        shown,
         signature: renterSignatureFrom(formData),
         oldCarAfter: parsed.data,
       },

@@ -8,16 +8,10 @@ import { failedState, savedState, type ChangeFormState } from "@fleetapp/ui/chan
 import { appDb } from "../../../../lib/app-db";
 import { appEmailSender } from "../../../../lib/email-sender";
 import { fileDependencies } from "../../../../lib/files/file-action-support";
-import {
-  completeDriverChange,
-  type ShownDriverChange,
-} from "../../../../lib/handover/complete-driver-change";
-import { renterSignatureFrom } from "../../../../lib/handover/renter-signature-form";
+import { completeDriverChange } from "../../../../lib/handover/complete-driver-change";
+import { parseCompleteDriverChange } from "../../../../lib/handover/signing-step-forms";
 import { rentalDriverChangePath, rentalPath } from "../../../../lib/paths";
 import {
-  INCOMING_PREFIX,
-  OUTGOING_PREFIX,
-  OUTGOING_PRESENT,
   START_DRIVER_CHANGE_FIELDS,
   startDriverChangeFormSchema,
 } from "../../../../lib/rentals/driver-change-input";
@@ -89,16 +83,6 @@ export async function cancelDriverChangeAction(
   return state;
 }
 
-/** What the signing step showed, as it sent it back: checked against the change as it stands. */
-function shownChangeFrom(formData: FormData): ShownDriverChange {
-  const text = (name: keyof ShownDriverChange): string => String(formData.get(name) ?? "");
-  return {
-    changeId: text("changeId"),
-    returnFingerprint: text("returnFingerprint"),
-    handoverFingerprint: text("handoverFingerprint"),
-  };
-}
-
 /** Both drivers sign on this phone: possession moves to the new driver, two reports are issued. */
 export async function completeDriverChangeAction(
   rentalId: string,
@@ -106,22 +90,16 @@ export async function completeDriverChangeAction(
   formData: FormData,
 ): Promise<CompleteDriverChangeState> {
   const user = await requireUser();
-  if (!isRecordId(rentalId)) {
+  const input = parseCompleteDriverChange(formData);
+  if (!isRecordId(rentalId) || !input) {
     return { status: "problem", message: INVALID_MESSAGE };
   }
-  const isOutgoingPresent = formData.get("isOutgoingPresent") === OUTGOING_PRESENT;
   try {
     const result = await completeDriverChange(
       { ...fileDependencies(), emailSender: appEmailSender },
       { userId: user.id, operatorId: user.operatorId },
       rentalId,
-      {
-        shown: shownChangeFrom(formData),
-        outgoingSignature: isOutgoingPresent
-          ? renterSignatureFrom(formData, OUTGOING_PREFIX)
-          : null,
-        incomingSignature: renterSignatureFrom(formData, INCOMING_PREFIX),
-      },
+      input,
       { timeZone: user.operatorTimezone, now: new Date() },
     );
     revalidatePath(rentalPath(rentalId));
