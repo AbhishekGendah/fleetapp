@@ -83,6 +83,13 @@ export const rentals = pgTable(
     bookedBlocks: integer("booked_blocks"),
     /** Why the business waived the daily-rate re-pricing at the return, if it did. */
     dailyRateWaivedReason: text("daily_rate_waived_reason"),
+    /**
+     * The business paused this rental's automatic debits (a payment
+     * arrangement, a dispute), and why. Set and cleared together, by Pause
+     * and Resume only (docs/plans/phase-4-slice-5.md).
+     */
+    debitsPausedAt: timestamp("debits_paused_at", { withTimezone: true }),
+    debitsPausedReason: text("debits_paused_reason"),
 
     /** The Operator's settings when this rental was made, and the version they came from. */
     settingsSnapshot: jsonb("settings_snapshot").$type<Record<string, unknown>>().notNull(),
@@ -128,6 +135,11 @@ export const rentals = pgTable(
         and (${table.rentModel} = 'weekday' or ${table.isLongTerm} or ${table.bookedBlocks} is not null)
         and (${table.dailyRateWaivedReason} is null
           or (${table.isLongTerm} and length(trim(${table.dailyRateWaivedReason})) > 0))`,
+    ),
+    check(
+      "rentals_debits_paused",
+      sql`(${table.debitsPausedAt} is null) = (${table.debitsPausedReason} is null)
+        and (${table.debitsPausedReason} is null or length(trim(${table.debitsPausedReason})) > 0)`,
     ),
     check(
       "rentals_cancelled",

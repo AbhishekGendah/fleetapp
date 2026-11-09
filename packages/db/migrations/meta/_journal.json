@@ -442,6 +442,13 @@
       "when": 1794226393163,
       "tag": "0062_business_statement_retention",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1794236776465,
+      "tag": "0063_weekly_debits",
+      "breakpoints": true
     }
   ]
 }

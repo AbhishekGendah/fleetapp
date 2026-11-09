@@ -111,6 +111,8 @@ export const paymentMandates = pgTable(
       .on(table.operatorId, table.renterId)
       .where(sql`${table.status} = 'active'`),
     index("payment_mandates_renter_idx").on(table.operatorId, table.renterId),
+    // Lets a debit name the direct debit it used and its Renter together, so it is always their own.
+    unique("payment_mandates_id_renter_unique").on(table.id, table.renterId, table.operatorId),
     check("payment_mandates_method", sql`${table.method} = 'becs_debit'`),
     check(
       "payment_mandates_ended",
@@ -127,10 +129,17 @@ export const paymentMandates = pgTable(
 );
 
 /**
- * A payment the Renter made through Stripe (docs/design/06): recorded when
- * Stripe says it was made, and counted only once Stripe says it succeeded
- * (decision 2). The amount and method never change; only its status moves,
- * forward, as Stripe reports it.
+ * A payment the Renter made through Stripe (docs/design/06): a bond paid on
+ * Stripe's page, or a debit the business asked Stripe for under the
+ * Renter's direct debit (a rent week, or a one-off charge). Counted only
+ * once Stripe says it succeeded (decision 2). The amount, method and what
+ * it is for never change; Stripe's IDs and fee are filled once; its status
+ * only moves forward, as Stripe reports it.
+ *
+ * A debit is reserved here before Stripe is asked (no Stripe ID yet), so a
+ * second run can't ask again for the same week (rule 20). New purposes are
+ * compared as text in checks: a new enum value can't be used in the
+ * transaction that adds it (migration 0063).
  */
 export const payments = pgTable(
   "payments",
@@ -143,12 +152,24 @@ export const payments = pgTable(
     method: paymentMethodEnum("method").notNull(),
     amountCents: integer("amount_cents").notNull(),
     status: paymentStatusEnum("status").notNull(),
-    stripeCheckoutSessionId: text("stripe_checkout_session_id").notNull().unique(),
-    stripePaymentIntentId: text("stripe_payment_intent_id").notNull().unique(),
+    /** A bond's Stripe page; none for a debit. */
+    stripeCheckoutSessionId: text("stripe_checkout_session_id").unique(),
+    /** Set once Stripe answers a debit; a debit reserved, or never sent, has none yet. */
+    stripePaymentIntentId: text("stripe_payment_intent_id").unique(),
     /** Stripe's reason code for a failure; never the bank's or card's details. */
     failureCode: text("failure_code"),
     /** When it succeeded or failed. */
     settledAt: timestamp("settled_at", { withTimezone: true }),
+    /** The direct debit a debit used: the Renter's own. */
+    mandateId: uuid("mandate_id"),
+    /** The rent week a weekly debit is for (its first block's start). */
+    periodStartsAt: timestamp("period_starts_at", { withTimezone: true }),
+    /** 1 for the first try; slice 6's retry of a failed one is 2. */
+    attempt: integer("attempt").notNull().default(1),
+    /** Stripe's fee, once Stripe says it (kept for profit per car, slice 8). */
+    stripeFeeCents: integer("stripe_fee_cents"),
+    /** When a debit was reserved to be asked for: recovery waits on it. */
+    requestedAt: timestamp("requested_at", { withTimezone: true }),
     ...timestampColumns,
   },
   (table) => [
@@ -162,6 +183,19 @@ export const payments = pgTable(
       columns: [table.renterId, table.operatorId],
       foreignColumns: [renters.id, renters.operatorId],
     }),
+    foreignKey({
+      name: "payments_mandate_fk",
+      columns: [table.mandateId, table.renterId, table.operatorId],
+      foreignColumns: [paymentMandates.id, paymentMandates.renterId, paymentMandates.operatorId],
+    }),
+    // One weekly debit per rental per week per attempt (rule 20). Keyed on the week, not the
+    // purpose: a partial index may not compare the new purpose as text.
+    uniqueIndex("payments_one_debit_per_week")
+      .on(table.operatorId, table.rentalId, table.periodStartsAt, table.attempt)
+      .where(sql`${table.periodStartsAt} is not null`),
+    index("payments_reserved_idx")
+      .on(table.operatorId, table.requestedAt)
+      .where(sql`${table.stripePaymentIntentId} is null and ${table.status} = 'pending'`),
     // Lets a bond entry name its payment and its rental together, so the two always match.
     unique("payments_id_rental_unique").on(table.id, table.operatorId, table.rentalId),
     index("payments_rental_idx").on(table.operatorId, table.rentalId),
@@ -170,9 +204,24 @@ export const payments = pgTable(
     check("payments_settled", sql`(${table.status} = 'pending') = (${table.settledAt} is null)`),
     check(
       "payments_id_shapes",
-      sql`${table.stripeCheckoutSessionId} ~ '^cs_[A-Za-z0-9_]+$'
-        and ${table.stripePaymentIntentId} ~ '^pi_[A-Za-z0-9]+$'`,
+      sql`(${table.stripeCheckoutSessionId} is null or ${table.stripeCheckoutSessionId} ~ '^cs_[A-Za-z0-9_]+$')
+        and (${table.stripePaymentIntentId} is null or ${table.stripePaymentIntentId} ~ '^pi_[A-Za-z0-9]+$')`,
     ),
+    check(
+      "payments_purpose_details",
+      sql`(${table.purpose}::text = 'bond') = (${table.stripeCheckoutSessionId} is not null)
+        and (${table.purpose}::text = 'bond') = (${table.mandateId} is null)
+        and (${table.purpose}::text = 'bond') = (${table.requestedAt} is null)
+        and (${table.purpose}::text = 'scheduled_debit') = (${table.periodStartsAt} is not null)
+        and (${table.purpose}::text = 'bond' or ${table.method} = 'becs_debit')`,
+    ),
+    check(
+      "payments_intent_known",
+      sql`${table.stripePaymentIntentId} is not null
+        or (${table.purpose}::text <> 'bond' and ${table.status} in ('pending', 'failed'))`,
+    ),
+    check("payments_attempt", sql`${table.attempt} >= 1`),
+    check("payments_fee", sql`${table.stripeFeeCents} is null or ${table.stripeFeeCents} >= 0`),
   ],
 );
 

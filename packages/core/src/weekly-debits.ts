@@ -183,6 +183,19 @@ export function debitDescription(
     : `Charges ${rego}, ${debitDayText(debit.requestedAt, timeZone)}`;
 }
 
+/**
+ * Why a ledger line came from a Stripe payment: the payment cleared, a
+ * refund (or one that failed), or a dispute lost or won.
+ */
+export const PAYMENT_LINE_REASONS = [
+  "settled",
+  "refund",
+  "refund_failed",
+  "dispute_lost",
+  "dispute_won",
+] as const;
+export type PaymentLineReason = (typeof PAYMENT_LINE_REASONS)[number];
+
 /** A request still under way may not have had Stripe's answer yet: recovery leaves it this long. */
 export const DEBIT_RECOVERY_WAIT_MS = 15 * MILLISECONDS_PER_MINUTE;
 /** Stripe keeps a request's key for at least 24 hours; within this, the same request is asked again. */
