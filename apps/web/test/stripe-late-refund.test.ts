@@ -83,7 +83,7 @@ describe("a refund that comes long before its bond payment is recorded", () => {
 
     expect(await deliverAfter(refund, 2 * HOUR_MS)).toBe("not_ready");
     expect(alert).toHaveBeenCalledWith(
-      expect.stringContaining("waiting for its bond payment"),
+      expect.stringContaining("waiting for its payment"),
       expect.objectContaining({ hasStripeStopped: false }),
     );
     expect(await kit.deliver(paid)).toBe("handled");
@@ -98,7 +98,7 @@ describe("a refund that comes long before its bond payment is recorded", () => {
 
     expect(await deliverAfter(refund, 4 * DAY_MS)).toBe("not_ready");
     expect(alert).toHaveBeenCalledWith(
-      expect.stringContaining("waiting for its bond payment"),
+      expect.stringContaining("waiting for its payment"),
       expect.objectContaining({ hasStripeStopped: true }),
     );
     // Resent from Stripe's dashboard once the payment is recorded: it counts then.

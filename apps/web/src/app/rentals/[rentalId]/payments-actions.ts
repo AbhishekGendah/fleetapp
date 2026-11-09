@@ -1,10 +1,12 @@
 "use server";
 
-import { describeErrorForLog, isRecordId } from "@fleetapp/core";
+import { describeErrorForLog, formTextValues, isRecordId } from "@fleetapp/core";
 import { failedState, savedState, type ChangeFormState } from "@fleetapp/ui/change-form-state";
 import { revalidatePath } from "next/cache";
 
 import { appDb } from "../../../lib/app-db";
+import { setDebitsPaused } from "../../../lib/debits/debit-pause";
+import { REVERSAL_FIELDS, reversalInputSchema } from "../../../lib/ledger/ledger-input";
 import { appPaymentsLinkDependencies } from "../../../lib/payments/app-payments-links";
 import {
   sendPaymentsLink,
@@ -92,4 +94,35 @@ export async function cancelPaymentsLinkAction(
         ? savedState("Link cancelled.")
         : failedState("There is no link to cancel."),
   });
+}
+
+/** Bound to one rental: pauses its automatic debits, with why (kept for the business). */
+export async function pauseDebitsAction(
+  rentalId: string,
+  _previous: ChangeFormState,
+  formData: FormData,
+): Promise<ChangeFormState> {
+  const parsed = reversalInputSchema.safeParse(formTextValues(formData, REVERSAL_FIELDS));
+  if (!isRecordId(rentalId) || !parsed.success) {
+    return failedState("Say why automatic debits are paused, then try again.");
+  }
+  return runUserChange({
+    description: "Pausing automatic debits",
+    pagesToRefresh: [rentalPath(rentalId)],
+    change: async (actor) => {
+      const result = await setDebitsPaused(appDb, actor, rentalId, { reason: parsed.data.note });
+      return result === "not_found"
+        ? failedState(NOT_SENT_MESSAGES.not_found)
+        : savedState("Automatic debits paused. Charges and invoices carry on as usual.");
+    },
+  });
+}
+
+/** Bound to one rental: resumes its automatic debits, from the next rent week. */
+export async function resumeDebitsAction(rentalId: string): Promise<void> {
+  const user = await requireUser();
+  if (isRecordId(rentalId)) {
+    await setDebitsPaused(appDb, { userId: user.id, operatorId: user.operatorId }, rentalId, null);
+  }
+  revalidatePath(rentalPath(rentalId));
 }

@@ -18,9 +18,12 @@ import { z } from "zod";
 import type { ActingUser } from "../acting-user";
 import { loadBusinessDetails } from "../settings/business-details";
 import { detachReplacedMandates } from "./stripe-tidy-up";
-import { applyMoneyTakenBack, bondPaymentOf } from "./stripe-money-back";
+import { applyDebitRead } from "../debits/debit-outcome";
+import { isDebitAwaited } from "../debits/debit-queries";
+import { applyMoneyTakenBack, stripePaymentOf } from "./stripe-money-back";
 import type {
   CheckoutOutcome,
+  DebitRead,
   MoneyTakenBack,
   OnboardingUrls,
   PaymentEventNotice,
@@ -34,6 +37,12 @@ export interface PaymentDependencies {
   database: AnyDatabase;
   payments: PaymentsProvider;
   now: () => Date;
+  /**
+   * After Stripe's news put lines on a rental's ledger (a debit cleared, a
+   * refund): its receipt or other documents, issued at once. The nightly
+   * billing catch-up issues any this missed.
+   */
+  afterLedgerLines?: (operatorId: string, rentalId: string) => Promise<void>;
 }
 
 export interface PaymentAccountView {
@@ -202,6 +211,12 @@ const CHECKOUT_EVENTS: ReadonlySet<string> = new Set([
   "v1.checkout.session.async_payment_failed",
 ]);
 const MANDATE_EVENT = "v1.mandate.updated";
+/** A debit we asked for is on its way, cleared or bounced (docs/plans/phase-4-slice-5.md). */
+const DEBIT_EVENTS: ReadonlySet<string> = new Set([
+  "v1.payment_intent.processing",
+  "v1.payment_intent.succeeded",
+  "v1.payment_intent.payment_failed",
+]);
 /** A refund the business made in Stripe was made, moved on or failed (review A5-4). */
 const REFUND_EVENTS: ReadonlySet<string> = new Set([
   "v1.refund.created",
@@ -231,6 +246,7 @@ type EventDetails =
   | { kind: "mandate"; mandateId: string; stripeStatus: string }
   | { kind: "disconnected" }
   | { kind: "taken_back"; takenBack: MoneyTakenBack }
+  | { kind: "debit"; debit: DebitRead }
   | { kind: "other" };
 
 async function readEventDetails(
@@ -257,6 +273,11 @@ async function readEventDetails(
       takenBack: await payments.readDispute(accountId, notice.objectId, disputeMoney),
     };
   }
+  if (DEBIT_EVENTS.has(notice.type) && notice.objectId) {
+    const debit = await payments.readDebit(accountId, notice.objectId);
+    // A bond's own PaymentIntent, or one made in the business's own dashboard: not ours to apply.
+    return debit.paymentId ? { kind: "debit", debit } : { kind: "other" };
+  }
   if (notice.type === MANDATE_EVENT && notice.objectId) {
     return {
       kind: "mandate",
@@ -267,13 +288,20 @@ async function readEventDetails(
   return { kind: "other" };
 }
 
+/** Applies what Stripe says; gives back a rental whose ledger it added lines to, for its receipt. */
 async function applyEventDetails(
   tx: AnyTransaction,
   operatorId: string,
   details: EventDetails,
   times: { now: Date; occurredAt: Date },
-): Promise<void> {
+): Promise<string | null> {
   const { now } = times;
+  if (details.kind === "debit") {
+    return applyDebitRead(tx, operatorId, details.debit, times);
+  }
+  if (details.kind === "taken_back") {
+    return applyMoneyTakenBack(tx, operatorId, details.takenBack, times.occurredAt);
+  }
   if (details.kind === "account") {
     await saveStatus(tx, operatorId, details.status, now);
   } else if (details.kind === "checkout") {
@@ -282,9 +310,8 @@ async function applyEventDetails(
     await applyMandateStatus(tx, operatorId, details, now);
   } else if (details.kind === "disconnected") {
     await markDisconnected(tx, operatorId, now);
-  } else if (details.kind === "taken_back") {
-    await applyMoneyTakenBack(tx, operatorId, details.takenBack, times.occurredAt);
   }
+  return null;
 }
 
 /** The account can no longer take payments: Renters stop being offered Stripe's page. */
@@ -321,9 +348,10 @@ const STRIPE_RETRY_WINDOW_MS = 3 * MILLISECONDS_PER_DAY;
 /**
  * Whether an event is about something of ours whose own record is still
  * on its way: "soon" within the hour, "late" for a refund or dispute still
- * waiting after it. A refund or dispute is never left while a bond payment
- * of the business could still be recorded (its Checkout message delayed or
- * failing), since taking it as handled would lose it for good.
+ * waiting after it. A refund or dispute is never left while a payment of
+ * the business could still be recorded (a bond's Checkout message delayed
+ * or failing, or a debit reserved before it whose Stripe ID isn't saved
+ * yet), since taking it as handled would lose it for good.
  */
 async function awaitedOwnRecord(
   tx: AnyTransaction,
@@ -337,13 +365,16 @@ async function awaitedOwnRecord(
     return isWithinHour && !(await isMandateKnown(tx, details.mandateId)) ? "soon" : "no";
   }
   const paymentIntentId = details.kind === "taken_back" ? details.takenBack.paymentIntentId : null;
-  if (!paymentIntentId || (await bondPaymentOf(tx, operatorId, paymentIntentId))) {
+  if (!paymentIntentId || (await stripePaymentOf(tx, operatorId, paymentIntentId))) {
     return "no";
   }
   if (isWithinHour) {
     return "soon";
   }
-  return (await isBondPaymentAwaited(tx, operatorId, notice.occurredAt)) ? "late" : "no";
+  const isAwaited =
+    (await isBondPaymentAwaited(tx, operatorId, notice.occurredAt)) ||
+    (await isDebitAwaited(tx, operatorId, notice.occurredAt));
+  return isAwaited ? "late" : "no";
 }
 
 /**
@@ -358,7 +389,7 @@ function alertTakenBackWaiting(
   now: Date,
 ): void {
   const hasStripeStopped = now.getTime() - notice.occurredAt.getTime() > STRIPE_RETRY_WINDOW_MS;
-  console.error("A Stripe refund or dispute is waiting for its bond payment to be recorded", {
+  console.error("A Stripe refund or dispute is waiting for its payment to be recorded", {
     operatorId,
     eventId: notice.id,
     objectId: details.kind === "taken_back" ? details.takenBack.objectId : null,
@@ -415,13 +446,19 @@ export async function handlePaymentEvent(
     if (!isNew) {
       return "repeat";
     }
-    await applyEventDetails(tx, operatorId, details, {
+    const rentalWithLines = await applyEventDetails(tx, operatorId, details, {
       now: deps.now(),
       occurredAt: notice.occurredAt,
     });
-    return "handled" as const;
+    return { status: "handled" as const, rentalWithLines };
   });
-  if (result === "handled" && (details.kind === "checkout" || details.kind === "mandate")) {
+  if (typeof result === "string") {
+    return result;
+  }
+  if (result.rentalWithLines) {
+    await deps.afterLedgerLines?.(operatorId, result.rentalWithLines);
+  }
+  if (details.kind === "checkout" || details.kind === "mandate") {
     // A newer direct debit may have replaced one: cancel it at Stripe now, not only overnight.
     try {
       await detachReplacedMandates(deps, operatorId);
@@ -430,5 +467,5 @@ export async function handlePaymentEvent(
       console.error("Detaching after a Stripe event failed", describeErrorForLog(error));
     }
   }
-  return result;
+  return result.status;
 }

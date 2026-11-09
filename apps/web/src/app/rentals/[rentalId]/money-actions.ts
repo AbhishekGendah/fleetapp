@@ -11,8 +11,20 @@ import {
 } from "../../../lib/billing/billing-run";
 import type { IssuingActor } from "../../../lib/contracts/issued-documents";
 import {
+  changeDebitPlan,
+  collectChargeNow,
+  isStripeReadyFor,
+  type DebitPlanChange,
+} from "../../../lib/debits/debit-plans";
+import {
+  chargeWithCollectionSchema,
+  COLLECTION_FIELDS,
+  collectionInputSchema,
+  collectionOf,
+} from "../../../lib/debits/debit-plan-input";
+import { appPaymentDependencies } from "../../../lib/payments/app-payments";
+import {
   CHARGE_FIELDS,
-  chargeInputSchema,
   REVERSAL_FIELDS,
   reversalInputSchema,
 } from "../../../lib/ledger/ledger-input";
@@ -38,7 +50,10 @@ const REFUSED_MESSAGES: Readonly<Record<Exclude<LedgerChangeResult["status"], "s
   not_found: NOT_FOUND_MESSAGE,
   not_open: "This rental is a draft, cancelled or closed, so nothing can be added to it.",
   no_charge_type: "That charge type is no longer in use. Choose another.",
-  not_reversible: "That line has already been reversed, or is itself a reversal.",
+  not_reversible:
+    "That line can't be reversed: it was reversed already, is a reversal, or came from Stripe (change it in Stripe).",
+  collection_not_offered:
+    "That way of collecting it isn't available for this rental now. Choose another, then try again.",
 };
 
 /**
@@ -68,7 +83,9 @@ export async function addChargeAction(
   _previous: ChangeFormState,
   formData: FormData,
 ): Promise<ChangeFormState> {
-  const parsed = chargeInputSchema.safeParse(formTextValues(formData, CHARGE_FIELDS));
+  const parsed = chargeWithCollectionSchema.safeParse(
+    formTextValues(formData, [...CHARGE_FIELDS, ...COLLECTION_FIELDS]),
+  );
   const isDamageValid =
     damage === null || (isRecordId(damage.recordId) && isRecordId(damage.vehicleId));
   if (!isRecordId(rentalId) || !isDamageValid) {
@@ -83,17 +100,37 @@ export async function addChargeAction(
       rentalPath(rentalId),
       ...(damage ? [carDamagePath(damage.vehicleId, damage.recordId)] : []),
     ],
-    change: async (actor) =>
-      answerFor(
-        actor,
-        rentalId,
-        await addCharge(appDb, actor, rentalId, {
-          ...parsed.data,
-          ...(damage ? { damageRecordId: damage.recordId } : {}),
-        }),
-        "Charge added.",
-      ),
+    change: async (actor) => {
+      const collection = collectionOf(parsed.data);
+      const result = await addCharge(appDb, actor, rentalId, {
+        ...parsed.data,
+        ...(damage ? { damageRecordId: damage.recordId } : {}),
+        collection: collection
+          ? { ...collection, isStripeReady: await isStripeReadyFor(appDb, actor.operatorId) }
+          : null,
+      });
+      const debitText =
+        result.status === "saved" && collection?.plan === "own_debit"
+          ? await takeChargeNow(actor.operatorId, rentalId, result.lineId)
+          : "";
+      return answerFor(actor, rentalId, result, `Charge added.${debitText}`);
+    },
   });
+}
+
+/** "Take it now": the charge debited on its own, after it is saved. */
+async function takeChargeNow(
+  operatorId: string,
+  rentalId: string,
+  ledgerLineId: string,
+): Promise<string> {
+  const deps = appPaymentDependencies();
+  const isAsked = deps
+    ? await collectChargeNow(deps, operatorId, { rentalId, ledgerLineId })
+    : false;
+  return isAsked
+    ? " Its debit is on its way: it counts as paid once the bank clears it."
+    : " It could not be debited now (nothing owing, or no working direct debit), so it stays on the invoice.";
 }
 
 /** Bound to one rental: a payment received by bank transfer or cash. */
@@ -184,6 +221,45 @@ export async function waiveDailyRateAction(
       }
       await chargeRentNow(billingDependencies(), actor.operatorId, rentalId);
       return savedState("Daily rate waived: the difference is credited.");
+    },
+  });
+}
+
+const PLAN_CHANGE_MESSAGES: Readonly<Record<Exclude<DebitPlanChange, "changed">, string>> = {
+  not_found: NOT_FOUND_MESSAGE,
+  already_debited:
+    "Part of this charge is already in a debit, so how it is collected stays as it is.",
+  not_offered: REFUSED_MESSAGES.collection_not_offered,
+};
+
+/** Bound to one charge: changes how it is collected, until any part of it is debited. */
+export async function changeDebitPlanAction(
+  rentalId: string,
+  ledgerLineId: string,
+  _previous: ChangeFormState,
+  formData: FormData,
+): Promise<ChangeFormState> {
+  const parsed = collectionInputSchema.safeParse(formTextValues(formData, COLLECTION_FIELDS));
+  const collection = parsed.success ? collectionOf(parsed.data) : null;
+  if (!isRecordId(rentalId) || !isRecordId(ledgerLineId)) {
+    return failedState(NOT_FOUND_MESSAGE);
+  }
+  if (!collection) {
+    return failedState(CHECK_MESSAGE);
+  }
+  return runUserChange({
+    description: "Changing how a charge is collected",
+    pagesToRefresh: [rentalPath(rentalId)],
+    change: async (actor) => {
+      const result = await changeDebitPlan(appDb, actor, { rentalId, ledgerLineId }, collection);
+      if (result !== "changed") {
+        return failedState(PLAN_CHANGE_MESSAGES[result]);
+      }
+      const debitText =
+        collection.plan === "own_debit"
+          ? await takeChargeNow(actor.operatorId, rentalId, ledgerLineId)
+          : "";
+      return savedState(`How it is collected is changed.${debitText}`);
     },
   });
 }

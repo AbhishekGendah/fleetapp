@@ -23,7 +23,7 @@ import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, asc, eq, lte, ne, sql } from "drizzle-orm";
 
 import { bondAccountIn, type BondMovementRow } from "../bonds/bond-account";
-import { lockBondRental } from "../bonds/bond-records";
+import { lockPaymentRental } from "../bonds/bond-records";
 import type { CheckoutOutcome } from "./payments-provider";
 import { businessDayOf } from "./business-day";
 import { settleCheckout } from "./stripe-checkouts";
@@ -430,7 +430,7 @@ export async function applyCheckoutOutcome(
   // what the other recorded (no bond held twice, none taken below nothing).
   const rental =
     outcome.isComplete && reference
-      ? await lockBondRental(tx, operatorId, reference.rentalId)
+      ? await lockPaymentRental(tx, operatorId, reference.rentalId)
       : null;
   await settleCheckout(tx, operatorId, outcome, now);
   // The session's account is this business's (rule 3), so its rental must be

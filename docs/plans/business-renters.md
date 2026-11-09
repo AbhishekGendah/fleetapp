@@ -1104,7 +1104,7 @@ unchanged and passing).
   Stripe's payment was being saved could hold the bond twice, and a
   correction could miss a refund. Now Stripe's side locks the rental first,
   before the page's row, the payment, a direct debit or the bond entry
-  (`lockBondRental`, shared with the hand entries), whether it comes by
+  (`lockBondRental`, now `lockPaymentRental`, shared with the hand entries), whether it comes by
   Stripe's message or as the Renter comes back from Stripe's page; nothing
   in that transaction is locked before it but its own new record of the
   message. Whichever comes second sees what the first recorded: cash after

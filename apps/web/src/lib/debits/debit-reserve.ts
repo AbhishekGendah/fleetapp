@@ -1,0 +1,292 @@
+import {
+  instalmentShares,
+  isRentWeekDebitable,
+  ledgerBalanceCents,
+  rentWeekCents,
+  scheduledDebitCents,
+  type PeriodLedgerLine,
+} from "@fleetapp/core";
+import { recordActivity } from "@fleetapp/db/activity";
+import type { AnyTransaction } from "@fleetapp/db/client";
+import {
+  ACTIVITY_ACTIONS,
+  ACTIVITY_ENTITY_TYPES,
+  debitItems,
+  debitPlans,
+  ledgerLines,
+  payments,
+  rentals,
+} from "@fleetapp/db/schema";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
+
+import { debitsResumedAt, pendingDebitCents, usableMandateOf } from "./debit-queries";
+
+const SYSTEM_ACTOR = { type: "system", id: null } as const;
+
+/** One part of what a debit takes: a charge line (or one instalment of a split). */
+interface PlannedItem {
+  ledgerLineId: string;
+  instalment: number;
+  amountCents: number;
+}
+
+type RentalLine = PeriodLedgerLine & { isCorrection: boolean };
+
+async function rentalLines(
+  tx: AnyTransaction,
+  operatorId: string,
+  rentalId: string,
+): Promise<RentalLine[]> {
+  return tx
+    .select({
+      id: ledgerLines.id,
+      kind: ledgerLines.kind,
+      amountCents: ledgerLines.amountCents,
+      reversesId: ledgerLines.reversesId,
+      periodStartsAt: ledgerLines.periodStartsAt,
+      isCorrection: ledgerLines.isCorrection,
+    })
+    .from(ledgerLines)
+    .where(and(eq(ledgerLines.operatorId, operatorId), eq(ledgerLines.rentalId, rentalId)));
+}
+
+/** How many parts of each of the rental's charges are already in a debit. */
+async function partsDebited(
+  tx: AnyTransaction,
+  operatorId: string,
+  rentalId: string,
+): Promise<Map<string, number>> {
+  const rows = await tx
+    .select({ lineId: debitItems.ledgerLineId, parts: sql<number>`count(*)`.mapWith(Number) })
+    .from(debitItems)
+    .where(and(eq(debitItems.operatorId, operatorId), eq(debitItems.rentalId, rentalId)))
+    .groupBy(debitItems.ledgerLineId);
+  return new Map(rows.map((row) => [row.lineId, row.parts]));
+}
+
+/**
+ * The one-off charges planned for the next weekly debit, and the next
+ * instalment of each split: a charge reversed before it is debited drops
+ * out (its reversal stands on the ledger).
+ */
+async function oneOffItemsDue(
+  tx: AnyTransaction,
+  operatorId: string,
+  rentalId: string,
+  lines: readonly RentalLine[],
+): Promise<PlannedItem[]> {
+  const plans = await tx
+    .select({ lineId: debitPlans.ledgerLineId, plan: debitPlans.plan, weeks: debitPlans.weeks })
+    .from(debitPlans)
+    .where(and(eq(debitPlans.operatorId, operatorId), eq(debitPlans.rentalId, rentalId)));
+  const debited = await partsDebited(tx, operatorId, rentalId);
+  const reversed = new Set(lines.flatMap((line) => (line.reversesId ? [line.reversesId] : [])));
+  const amounts = new Map(lines.map((line) => [line.id, line.amountCents]));
+  return plans.flatMap((plan): PlannedItem[] => {
+    const amountCents = amounts.get(plan.lineId);
+    const done = debited.get(plan.lineId) ?? 0;
+    if (amountCents === undefined || reversed.has(plan.lineId)) {
+      return [];
+    }
+    if (plan.plan === "next_debit" && done === 0) {
+      return [{ ledgerLineId: plan.lineId, instalment: 1, amountCents }];
+    }
+    const shares =
+      plan.plan === "split" && plan.weeks ? instalmentShares(amountCents, plan.weeks) : [];
+    const next = shares[done];
+    return next ? [{ ledgerLineId: plan.lineId, instalment: done + 1, amountCents: next }] : [];
+  });
+}
+
+/** What the debit can take: what is planned, capped at what is owing on the rental less what is pending. */
+async function cappedCents(
+  tx: AnyTransaction,
+  operatorId: string,
+  rentalId: string,
+  plannedCents: number,
+  lines: readonly RentalLine[],
+): Promise<number> {
+  return scheduledDebitCents({
+    plannedCents,
+    owingCents: ledgerBalanceCents(lines),
+    pendingCents: await pendingDebitCents(tx, operatorId, rentalId),
+  });
+}
+
+/** A debit reserved before Stripe is asked, ready to send. */
+export interface ReservedDebit {
+  id: string;
+  rentalId: string;
+}
+
+/**
+ * Reserves the debit with its items: the payments row (pending, no Stripe
+ * ID yet, the direct debit it will use) and what it was planned from. The
+ * one-per-week rule refuses a second for the same week, so two runs can't
+ * both reserve it (rule 20): then nothing is reserved here.
+ */
+async function insertDebit(
+  tx: AnyTransaction,
+  operatorId: string,
+  debit: Omit<typeof payments.$inferInsert, "operatorId" | "method" | "status">,
+  items: readonly PlannedItem[],
+): Promise<ReservedDebit | null> {
+  const [reserved] = await tx
+    .insert(payments)
+    .values({ ...debit, operatorId, method: "becs_debit", status: "pending" })
+    .onConflictDoNothing()
+    .returning({ id: payments.id, rentalId: payments.rentalId });
+  if (!reserved) {
+    return null;
+  }
+  const parts = items.filter((item) => item.amountCents > 0);
+  if (parts.length > 0) {
+    await tx.insert(debitItems).values(
+      parts.map((item) => ({
+        ...item,
+        operatorId,
+        rentalId: reserved.rentalId,
+        paymentId: reserved.id,
+      })),
+    );
+  }
+  await recordActivity(tx, {
+    operatorId,
+    actor: SYSTEM_ACTOR,
+    entityType: ACTIVITY_ENTITY_TYPES.payment,
+    entityId: reserved.id,
+    action: ACTIVITY_ACTIONS.created,
+    valuesAfter: {
+      rentalId: reserved.rentalId,
+      purpose: debit.purpose,
+      amountCents: debit.amountCents,
+    },
+  });
+  return reserved;
+}
+
+/** The rental as the weekly debit reads it, under the lock the caller already holds. */
+async function debitableRental(tx: AnyTransaction, operatorId: string, rentalId: string) {
+  const [rental] = await tx
+    .select({
+      renterId: rentals.renterId,
+      handedOverAt: rentals.handedOverAt,
+      debitsPausedAt: rentals.debitsPausedAt,
+    })
+    .from(rentals)
+    .where(
+      and(
+        eq(rentals.id, rentalId),
+        eq(rentals.operatorId, operatorId),
+        eq(rentals.status, "active"),
+        eq(rentals.rentModel, "blocks"),
+        eq(rentals.isLongTerm, true),
+        isNotNull(rentals.handedOverAt),
+      ),
+    );
+  return rental?.handedOverAt && !rental.debitsPausedAt
+    ? { renterId: rental.renterId, handedOverAt: rental.handedOverAt }
+    : null;
+}
+
+/**
+ * The week's debit for one long-term rental that is out, with the rental
+ * already locked by the caller: the rent week that started in the last 7
+ * days (not the first, not one begun while paused) and has no debit yet,
+ * plus the one-off charges due with it, capped at what is owing less what
+ * is pending, skipped under 50c. Only the scheduled amount, never the whole
+ * balance (design 06). Null when there is nothing to debit.
+ */
+export async function reserveWeeklyDebit(
+  tx: AnyTransaction,
+  operatorId: string,
+  rentalId: string,
+  now: Date,
+): Promise<ReservedDebit | null> {
+  const rental = await debitableRental(tx, operatorId, rentalId);
+  const mandate = rental ? await usableMandateOf(tx, operatorId, rental.renterId) : null;
+  if (!rental || !mandate) {
+    return null;
+  }
+  const lines = await rentalLines(tx, operatorId, rentalId);
+  const resumedAt = await debitsResumedAt(tx, operatorId, rentalId);
+  const week = lines.find(
+    (line) =>
+      line.kind === "charge" &&
+      !line.isCorrection &&
+      line.periodStartsAt !== null &&
+      isRentWeekDebitable({
+        weekStartsAt: line.periodStartsAt,
+        handedOverAt: rental.handedOverAt,
+        now,
+        resumedAt,
+      }),
+  );
+  if (!week?.periodStartsAt) {
+    return null;
+  }
+  const rentItem = {
+    ledgerLineId: week.id,
+    instalment: 1,
+    amountCents: rentWeekCents(lines, week.periodStartsAt),
+  };
+  const items = [rentItem, ...(await oneOffItemsDue(tx, operatorId, rentalId, lines))];
+  const plannedCents = items.reduce((total, item) => total + item.amountCents, 0);
+  const amountCents = await cappedCents(tx, operatorId, rentalId, plannedCents, lines);
+  if (amountCents === 0) {
+    return null;
+  }
+  return insertDebit(
+    tx,
+    operatorId,
+    {
+      renterId: rental.renterId,
+      rentalId,
+      purpose: "scheduled_debit",
+      amountCents,
+      mandateId: mandate.id,
+      periodStartsAt: week.periodStartsAt,
+      requestedAt: now,
+    },
+    items,
+  );
+}
+
+/**
+ * A one-off charge debited on its own now ("Take it now"), with the rental
+ * already locked by the caller: its amount, capped at what is owing less
+ * what is pending. Null when the Renter has no usable direct debit, the
+ * charge is already in a debit, or nothing is left to take.
+ */
+export async function reserveOwnDebit(
+  tx: AnyTransaction,
+  operatorId: string,
+  rental: { id: string; renterId: string },
+  ledgerLineId: string,
+  now: Date,
+): Promise<ReservedDebit | null> {
+  const mandate = await usableMandateOf(tx, operatorId, rental.renterId);
+  const lines = await rentalLines(tx, operatorId, rental.id);
+  const charge = lines.find((line) => line.id === ledgerLineId && line.kind === "charge");
+  const isDebited = (await partsDebited(tx, operatorId, rental.id)).has(ledgerLineId);
+  if (!mandate || !charge || isDebited) {
+    return null;
+  }
+  const amountCents = await cappedCents(tx, operatorId, rental.id, charge.amountCents, lines);
+  if (amountCents === 0) {
+    return null;
+  }
+  return insertDebit(
+    tx,
+    operatorId,
+    {
+      renterId: rental.renterId,
+      rentalId: rental.id,
+      purpose: "one_off_debit",
+      amountCents,
+      mandateId: mandate.id,
+      requestedAt: now,
+    },
+    [{ ledgerLineId, instalment: 1, amountCents: charge.amountCents }],
+  );
+}

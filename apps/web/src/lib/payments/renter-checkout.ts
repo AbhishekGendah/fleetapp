@@ -19,7 +19,7 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, sql, isNull } from "drizzle-orm";
 
 import { BOND_OPEN_STATUSES } from "../bonds/bond-account";
-import { lockBondRental } from "../bonds/bond-records";
+import { lockPaymentRental } from "../bonds/bond-records";
 import { STRIPE_RETURN_PATH } from "../paths";
 import { isWithinLinkLimit } from "../renter-links/link-limits";
 import type { LinkVisit } from "../renter-links/link-visits";
@@ -320,7 +320,7 @@ type KeptPage =
 
 /**
  * A bond page is kept only while that bond is still owing, checked under
- * the rental's lock (`lockBondRental`, as bond by hand takes): cash
+ * the rental's lock (`lockPaymentRental`, as bond by hand takes): cash
  * recorded while Stripe opened the page would otherwise leave a page no
  * hand entry knew to stop, and the Renter could pay the bond twice.
  */
@@ -329,7 +329,7 @@ async function bondStillOwing(
   operatorId: string,
   page: { rentalId: string; amountCents: number | null },
 ): Promise<KeptPage | null> {
-  const rental = await lockBondRental(tx, operatorId, page.rentalId);
+  const rental = await lockPaymentRental(tx, operatorId, page.rentalId);
   if (!rental || !BOND_OPEN_STATUSES.has(rental.status)) {
     return { status: "not_found" };
   }

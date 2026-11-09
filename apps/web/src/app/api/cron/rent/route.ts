@@ -1,5 +1,3 @@
-import { describeErrorForLog, formatDateTimeInTimeZone } from "@fleetapp/core";
-import { renderNightlyRunAlertEmail, type NightlyRunProblem } from "@fleetapp/email";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { env } from "../../../../env";
@@ -7,7 +5,7 @@ import { appDb } from "../../../../lib/app-db";
 import { runBillingCatchUp } from "../../../../lib/billing/billing-run";
 import { appEmailSender } from "../../../../lib/email-sender";
 import { isScheduledJobRequest } from "../../../../lib/cron-auth";
-import type { OperatorRun } from "../../../../lib/jobs/due-operators";
+import { reportProblems, runPart } from "../../../../lib/jobs/nightly-run";
 import { runRentJob } from "../../../../lib/ledger/rent-job";
 import { appPaymentDependencies } from "../../../../lib/payments/app-payments";
 import { runStripeTidyUp } from "../../../../lib/payments/stripe-tidy-up";
@@ -26,54 +24,6 @@ export const maxDuration = 300;
  * (review G3-7). The next night carries on: nothing is done twice (rule 20).
  */
 const RUN_BUDGET_MS = 240_000;
-/** AGS's own clock, for the alert email only. */
-const AGS_TIME_ZONE = "Australia/Perth";
-
-type PartResult = { run: OperatorRun } | { error: true };
-
-/** Runs one part of the night; a part that throws is logged and reported, never stops the next. */
-async function runPart(
-  part: string,
-  work: () => Promise<OperatorRun>,
-): Promise<{ part: string; result: PartResult }> {
-  try {
-    return { part, result: { run: await work() } };
-  } catch (error) {
-    console.error(`The nightly run's ${part} part stopped`, describeErrorForLog(error));
-    return { part, result: { error: true } };
-  }
-}
-
-function problemOf(outcome: { part: string; result: PartResult }): NightlyRunProblem | null {
-  if ("error" in outcome.result) {
-    return { part: outcome.part, failedBusinesses: 0, unreachedBusinesses: 0, didStop: true };
-  }
-  const { failedOperators, unreachedOperators } = outcome.result.run;
-  return failedOperators > 0 || unreachedOperators > 0
-    ? {
-        part: outcome.part,
-        failedBusinesses: failedOperators,
-        unreachedBusinesses: unreachedOperators,
-        didStop: false,
-      }
-    : null;
-}
-
-/** Tells AGS the run did not finish cleanly (review G3-4). A failed alert is logged, never thrown. */
-async function sendAlert(startedAt: Date, problems: readonly NightlyRunProblem[]): Promise<void> {
-  try {
-    await appEmailSender.send(
-      await renderNightlyRunAlertEmail({
-        to: env.OPS_ALERT_EMAIL,
-        ranAt: formatDateTimeInTimeZone(startedAt, AGS_TIME_ZONE),
-        problems,
-      }),
-    );
-  } catch (error) {
-    console.error("Sending the nightly run alert failed", describeErrorForLog(error));
-  }
-}
-
 /**
  * The daily rent run, called by Vercel's scheduler (vercel.json) just after
  * midnight in every Australian timezone: rent is charged, then every line
@@ -101,12 +51,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     ? await runPart("Stripe tidy-up", () => runStripeTidyUp(paymentDeps, isOutOfTime))
     : null;
   const outcomes = stripe ? [rent, documents, stripe] : [rent, documents];
-  const problems = outcomes.flatMap((outcome) => problemOf(outcome) ?? []);
-  if (problems.length > 0) {
-    await sendAlert(now, problems);
-  }
+  const hasProblems = await reportProblems(now, outcomes);
   return NextResponse.json(
     { rent: rent.result, documents: documents.result, stripe: stripe?.result ?? null },
-    { status: problems.length > 0 ? FAILED_STATUS : undefined },
+    { status: hasProblems ? FAILED_STATUS : undefined },
   );
 }

@@ -54,7 +54,7 @@ export interface BondRental {
  * Stripe's news about the bond takes it too, before anything else ("Lock
  * order"), so an entry by hand and one from Stripe go one after the other.
  */
-export async function lockBondRental(
+export async function lockPaymentRental(
   tx: AnyTransaction,
   operatorId: string,
   rentalId: string,
@@ -102,7 +102,7 @@ export async function recordBondReceived(
   input: BondReceivedInput,
 ): Promise<BondReceivedResult> {
   return withTenant(database, actor.operatorId, async (tx) => {
-    const rental = await lockBondRental(tx, actor.operatorId, rentalId);
+    const rental = await lockPaymentRental(tx, actor.operatorId, rentalId);
     if (!rental) {
       return { status: "not_found" as const };
     }
@@ -165,7 +165,7 @@ export async function reverseBondMovement(
   today: string,
 ): Promise<BondReversalResult> {
   return withTenant(database, actor.operatorId, async (tx) => {
-    const rental = await lockBondRental(tx, actor.operatorId, target.rentalId);
+    const rental = await lockPaymentRental(tx, actor.operatorId, target.rentalId);
     if (!rental) {
       return { status: "not_found" as const };
     }

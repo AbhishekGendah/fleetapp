@@ -13,6 +13,7 @@ import {
   billingDocuments,
   chargeTypes,
   ledgerLines,
+  paymentLedgerLines,
   possessions,
   rentals,
   vehicles,
@@ -55,6 +56,8 @@ export interface LedgerLineView {
   documentId: string | null;
   /** That document's number as printed, e.g. "INV-1001". */
   documentNumberText: string | null;
+  /** Made by Stripe's news about a debit: changed only in Stripe, never reversed by hand (decision 8). */
+  isFromStripe: boolean;
   createdAt: Date;
 }
 
@@ -117,6 +120,8 @@ async function selectLedgerLines(
       gstTreatment: chargeTypes.gstTreatment,
       documentId: billingDocuments.id,
       documentNumberText: billingDocuments.numberText,
+      isFromStripe: sql<boolean>`exists (select 1 from ${paymentLedgerLines}
+        where ${qualified(paymentLedgerLines.ledgerLineId)} = ${qualified(ledgerLines.id)})`,
     })
     .from(ledgerLines)
     .innerJoin(
@@ -169,17 +174,28 @@ async function selectLedgerLines(
     gstTreatment: billing.gstTreatment,
     documentId: billing.documentId,
     documentNumberText: billing.documentNumberText,
+    isFromStripe: billing.isFromStripe,
     createdAt: line.createdAt,
   }));
 }
 
-/** A ledger with its balance, always added up from the lines (rule 11). */
+/**
+ * A ledger with its balance, always added up from the lines (rule 11). A
+ * line Stripe's news made is never offered for reversal by hand: a dispute
+ * later would take it back twice (decision 8); the database refuses it too.
+ */
 export function ledgerViewOf(lines: LedgerLineView[]): LedgerView {
+  const reversible = reversibleLineIds(lines);
+  for (const line of lines) {
+    if (line.isFromStripe) {
+      reversible.delete(line.id);
+    }
+  }
   return {
     lines,
     balanceCents: ledgerBalanceCents(lines),
     oldestOwingOn: owingCharges(lines)[0]?.effectiveOn ?? null,
-    reversibleIds: reversibleLineIds(lines),
+    reversibleIds: reversible,
   };
 }
 

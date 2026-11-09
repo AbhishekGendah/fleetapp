@@ -95,6 +95,8 @@ export const ACTIVITY_ENTITY_TYPES = {
   stripeAccount: "stripe_account",
   paymentMandate: "payment_mandate",
   payment: "payment",
+  /** How a one-off charge is collected when the Renter pays by direct debit. */
+  debitPlan: "debit_plan",
   /** The Renter as a customer on the business's own Stripe account (review KL-7). */
   stripeCustomer: "stripe_customer",
 } as const;
@@ -136,6 +138,9 @@ export const ACTIVITY_ACTIONS = {
   exportedAll: "exported_all",
   /** A Renter sent to Stripe's own page, to set up a direct debit or pay. */
   checkoutStarted: "checkout_started",
+  /** A rental's automatic debits paused, or resumed (docs/plans/phase-4-slice-5.md). */
+  debitsPaused: "debits_paused",
+  debitsResumed: "debits_resumed",
   /** A one-time code emailed for a Renter link. */
   codeSent: "code_sent",
   /** A right code typed on a phone the link had not seen, which is now remembered. */

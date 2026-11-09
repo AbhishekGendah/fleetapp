@@ -61,6 +61,7 @@ function ledgerLine(changes: Partial<LedgerLineView>): LedgerLineView {
     gstTreatment: "taxable",
     documentId: null,
     documentNumberText: null,
+    isFromStripe: false,
     createdAt: new Date("2026-11-02T00:00:00Z"),
     ...changes,
   };

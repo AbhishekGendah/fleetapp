@@ -1,8 +1,7 @@
 import { describeErrorForLog } from "@fleetapp/core";
 import { NextResponse, type NextRequest } from "next/server";
 
-import { appDb } from "../../../../lib/app-db";
-import { appPayments } from "../../../../lib/payments/app-payments";
+import { appPaymentDependencies } from "../../../../lib/payments/app-payments";
 import { handlePaymentEvent } from "../../../../lib/payments/payment-accounts";
 
 export const runtime = "nodejs";
@@ -20,7 +19,8 @@ const SIGNATURE_HEADER = "stripe-signature";
  * signature can be checked; a failure answers 500 and Stripe sends it again.
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  if (!appPayments) {
+  const deps = appPaymentDependencies();
+  if (!deps) {
     return NextResponse.json({ error: "not_set_up" }, { status: NOT_FOUND_STATUS });
   }
   const signature = request.headers.get(SIGNATURE_HEADER);
@@ -28,11 +28,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "unsigned" }, { status: BAD_REQUEST_STATUS });
   }
   try {
-    const result = await handlePaymentEvent(
-      { database: appDb, payments: appPayments, now: () => new Date() },
-      await request.text(),
-      signature,
-    );
+    const result = await handlePaymentEvent(deps, await request.text(), signature);
     if (result === "refused") {
       return NextResponse.json({ error: "bad_signature" }, { status: BAD_REQUEST_STATUS });
     }

@@ -1,4 +1,4 @@
-import type { BondMovementKind } from "@fleetapp/core";
+import type { BondMovementKind, PaymentPurpose } from "@fleetapp/core";
 import { recordActivity } from "@fleetapp/db/activity";
 import type { AnyTransaction } from "@fleetapp/db/client";
 import {
@@ -9,7 +9,8 @@ import {
 } from "@fleetapp/db/schema";
 import { and, eq } from "drizzle-orm";
 
-import { lockBondRental } from "../bonds/bond-records";
+import { lockPaymentRental } from "../bonds/bond-records";
+import { applyDebitMoneyBack } from "../debits/debit-money-back";
 import { businessDayOf } from "./business-day";
 import type { MoneyTakenBack } from "./payments-provider";
 
@@ -22,20 +23,20 @@ const NOTES = {
   disputeWon: "Dispute won: the bank gave it back.",
 } as const;
 
-/** The bond payment a refund or dispute is about, or null if it is not one of this business's bonds. */
-/** A bond payment through Stripe, as a refund or dispute needs it. */
-export interface BondPaymentRef {
+/** A payment through Stripe (a bond or a debit), as a refund or dispute needs it. */
+export interface StripePaymentRef {
   id: string;
   rentalId: string;
   method: string;
-  purpose: string;
+  purpose: PaymentPurpose;
 }
 
-export async function bondPaymentOf(
+/** The payment a refund or dispute is about, or null if it is not one of this business's. */
+export async function stripePaymentOf(
   tx: AnyTransaction,
   operatorId: string,
   paymentIntentId: string,
-): Promise<BondPaymentRef | null> {
+): Promise<StripePaymentRef | null> {
   const [payment] = await tx
     .select({
       id: payments.id,
@@ -47,7 +48,7 @@ export async function bondPaymentOf(
     .where(
       and(eq(payments.operatorId, operatorId), eq(payments.stripePaymentIntentId, paymentIntentId)),
     );
-  return payment?.purpose === "bond" ? payment : null;
+  return payment ?? null;
 }
 
 type BondEntry = {
@@ -128,26 +129,42 @@ async function undoFailedRefund(
 }
 
 /**
- * Money a bond payment through Stripe lost or got back, as Stripe says
- * (review A5-4): a refund made in the business's Stripe dashboard, a
- * dispute with the Renter's bank, a refund that failed, or a dispute won.
- * Each is a new bond entry, never a change (rule 11), added once.
+ * Money a payment through Stripe lost or got back, as Stripe says (review
+ * A5-4): a refund made in the business's Stripe dashboard, a dispute with
+ * the Renter's bank, a refund that failed, or a dispute won. For a bond,
+ * each is a new bond entry; for a debit, a new ledger line. Never a change
+ * (rule 11), added once. Gives back the rental if ledger lines were added.
  */
 export async function applyMoneyTakenBack(
   tx: AnyTransaction,
   operatorId: string,
   takenBack: MoneyTakenBack,
   occurredAt: Date,
-): Promise<void> {
+): Promise<string | null> {
   const payment = takenBack.paymentIntentId
-    ? await bondPaymentOf(tx, operatorId, takenBack.paymentIntentId)
+    ? await stripePaymentOf(tx, operatorId, takenBack.paymentIntentId)
     : null;
   // The rental first ("Lock order"), as bond entered or corrected by hand
   // takes it: a correction then sees this entry, or this waits for it.
-  if (!payment || !(await lockBondRental(tx, operatorId, payment.rentalId))) {
-    return;
+  if (!payment || !(await lockPaymentRental(tx, operatorId, payment.rentalId))) {
+    return null;
   }
   const occurredOn = await businessDayOf(tx, operatorId, occurredAt);
+  if (payment.purpose !== "bond") {
+    return applyDebitMoneyBack(tx, operatorId, { ...payment, takenBack, occurredOn });
+  }
+  await applyBondMoneyBack(tx, operatorId, payment, takenBack, occurredOn);
+  return null;
+}
+
+/** A bond payment's money back: a bond entry once per Stripe object. */
+async function applyBondMoneyBack(
+  tx: AnyTransaction,
+  operatorId: string,
+  payment: StripePaymentRef,
+  takenBack: MoneyTakenBack,
+  occurredOn: string,
+): Promise<void> {
   if (takenBack.status === "failed") {
     await undoFailedRefund(tx, operatorId, takenBack, occurredOn);
     return;

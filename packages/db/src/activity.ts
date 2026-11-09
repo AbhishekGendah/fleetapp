@@ -80,6 +80,7 @@ const ACTIVITY_ENTITY_LABELS = {
   [ACTIVITY_ENTITY_TYPES.stripeAccount]: "Stripe account",
   [ACTIVITY_ENTITY_TYPES.paymentMandate]: "Direct debit",
   [ACTIVITY_ENTITY_TYPES.payment]: "Payment",
+  [ACTIVITY_ENTITY_TYPES.debitPlan]: "How a charge is collected",
   [ACTIVITY_ENTITY_TYPES.stripeCustomer]: "Renter at Stripe",
 } satisfies Record<ActivityEntityType, string>;
 
@@ -116,6 +117,8 @@ const ACTIVITY_ACTION_LABELS = {
   [ACTIVITY_ACTIONS.exported]: "list downloaded",
   [ACTIVITY_ACTIONS.exportedAll]: "everything held downloaded",
   [ACTIVITY_ACTIONS.checkoutStarted]: "opened on Stripe's page",
+  [ACTIVITY_ACTIONS.debitsPaused]: "automatic debits paused",
+  [ACTIVITY_ACTIONS.debitsResumed]: "automatic debits resumed",
   [ACTIVITY_ACTIONS.codeSent]: "code emailed",
   [ACTIVITY_ACTIONS.phoneVerified]: "opened on a new phone",
   [ACTIVITY_ACTIONS.locked]: "locked after too many wrong codes",
