@@ -94,8 +94,7 @@ export async function lockCurrentRenter(
 
 /** Who a new link to a Renter goes to, read with the Renter locked. */
 export type LinkRecipient =
-  | { status: "found"; renter: Renter; email: string }
-  | { status: "renter_archived" | "no_email" };
+  { status: "found"; renter: Renter; email: string } | { status: "renter_archived" | "no_email" };
 
 /**
  * The Renter a new link is sent to (rule 26), locked after the rental
