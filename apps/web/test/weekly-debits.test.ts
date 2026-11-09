@@ -329,6 +329,26 @@ describe("weekly debits", () => {
       expect(await debitsOf(rentalId)).toEqual([]);
     });
 
+    it("reserves nothing for a direct debit whose Renter is not a Stripe customer", async () => {
+      const renterId = await addTestRenter(web, actor);
+      await withTenant(web.db, actor.operatorId, (tx) =>
+        tx.insert(paymentMandates).values({
+          operatorId: actor.operatorId,
+          renterId,
+          method: "becs_debit",
+          status: "active",
+          stripeSetupIntentId: stripeId("seti"),
+          stripePaymentMethodId: stripeId("pm"),
+          stripeMandateId: stripeId("mandate"),
+          setUpAt: new Date(),
+          activatedAt: new Date(),
+        }),
+      );
+      const { rentalId } = await rentalOut(actor, { renterId });
+      await runAt(new Date());
+      expect(await debitsOf(rentalId)).toEqual([]);
+    });
+
     it("skips a suspended business, and one whose Stripe can't take debits", async () => {
       const business = await seedOperatorWithUser(admin, "Suspended Debits Pty Ltd");
       await kit.connectStripe(business);
