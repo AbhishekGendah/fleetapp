@@ -9,14 +9,13 @@ import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import {
   ACTIVITY_ACTIONS,
   ACTIVITY_ENTITY_TYPES,
-  carSwaps,
   inspectionDamageMarks,
   inspections,
   rentals,
   type ActivityAction,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, desc, eq, isNull, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or, type SQL } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
 import { latestKilometres } from "../vehicles/odometer";
@@ -67,6 +66,7 @@ async function checklistUnderWay(
         eq(inspections.kind, kind),
         eq(inspections.status, "in_progress"),
         eq(inspections.isForSwap, false),
+        eq(inspections.isForDriverChange, false),
       ),
     );
   return current?.id ?? null;
@@ -126,18 +126,21 @@ export async function isChecklistUnderWay(
   return open !== undefined;
 }
 
-async function isSwapUnderWay(tx: AnyTransaction, operatorId: string, rentalId: string) {
-  const [swap] = await tx
-    .select({ id: carSwaps.id })
-    .from(carSwaps)
+/** Whether a car swap or a driver change is under way: each has its own return of this car. */
+async function isPairUnderWay(tx: AnyTransaction, operatorId: string, rentalId: string) {
+  const [pair] = await tx
+    .select({ id: inspections.id })
+    .from(inspections)
     .where(
       and(
-        eq(carSwaps.operatorId, operatorId),
-        eq(carSwaps.rentalId, rentalId),
-        eq(carSwaps.status, "in_progress"),
+        eq(inspections.operatorId, operatorId),
+        eq(inspections.rentalId, rentalId),
+        eq(inspections.status, "in_progress"),
+        or(eq(inspections.isForSwap, true), eq(inspections.isForDriverChange, true)),
       ),
-    );
-  return swap !== undefined;
+    )
+    .limit(1);
+  return pair !== undefined;
 }
 
 /** What each kind needs of the rental: booked for a handover, out (active) for a return. */
@@ -185,8 +188,8 @@ async function startChecklist(
     if (kind === "handover" && rental.driverId === null) {
       return { status: "driver_not_named" as const };
     }
-    // A swap under way has its own return of this car: the rental's waits for it.
-    if (await isSwapUnderWay(tx, actor.operatorId, rentalId)) {
+    // A swap or driver change under way has its own return of this car: the rental's waits for it.
+    if (await isPairUnderWay(tx, actor.operatorId, rentalId)) {
       return { status: "not_booked" as const };
     }
     const photoNames =
@@ -250,6 +253,67 @@ export async function lockOpenInspection(
     )
     .for("update");
   return inspection ?? null;
+}
+
+/** Which kind of pair a checklist belongs to: a car swap's, or a driver change's. */
+export type ChecklistPair = "swap" | "driverChange";
+
+/** Adds one of a swap's or a driver change's two checklists, marked as that pair's. */
+export async function addPairChecklist(
+  tx: AnyTransaction,
+  actor: ActingUser,
+  checklist: {
+    rentalId: string;
+    vehicleId: string;
+    kind: "handover" | "return";
+    photoNames: string[];
+  },
+  pair: ChecklistPair,
+): Promise<string> {
+  const flag = pair === "swap" ? { isForSwap: true } : { isForDriverChange: true };
+  const [started] = await tx
+    .insert(inspections)
+    .values({
+      operatorId: actor.operatorId,
+      ...checklist,
+      ...flag,
+      startedByUserId: actor.userId,
+    })
+    .returning({ id: inspections.id });
+  await recordUserChange(tx, actor, {
+    entityType: ACTIVITY_ENTITY_TYPES.inspection,
+    entityId: started!.id,
+    action: ACTIVITY_ACTIONS.created,
+    valuesAfter: { kind: checklist.kind, vehicleId: checklist.vehicleId, ...flag },
+  });
+  return started!.id;
+}
+
+/**
+ * Cancels a swap's or driver change's two checklists, locked in the order
+ * signing takes them (the return's, then the handover's), so a signature at
+ * the same moment waits or is waited for, never both ("Lock order").
+ */
+export async function cancelChecklistPair(
+  tx: AnyTransaction,
+  operatorId: string,
+  pair: { returnInspectionId: string; handoverInspectionId: string },
+  now: Date,
+): Promise<void> {
+  const ids = [pair.returnInspectionId, pair.handoverInspectionId];
+  for (const inspectionId of ids) {
+    await lockOpenInspection(tx, operatorId, inspectionId);
+  }
+  await tx
+    .update(inspections)
+    .set({ status: "cancelled", cancelledAt: now, updatedAt: now })
+    .where(
+      and(
+        eq(inspections.operatorId, operatorId),
+        inArray(inspections.id, ids),
+        eq(inspections.status, "in_progress"),
+      ),
+    );
 }
 
 /**
@@ -419,8 +483,8 @@ export async function cancelHandover(
 ): Promise<"cancelled" | "not_found"> {
   return withTenant(database, actor.operatorId, async (tx) => {
     const open = await lockOpenInspection(tx, actor.operatorId, inspectionId);
-    // A swap's checklists are cancelled with the swap, never one alone.
-    if (!open || open.isForSwap) {
+    // A swap's or driver change's checklists are cancelled with it, never one alone.
+    if (!open || open.isForSwap || open.isForDriverChange) {
       return "not_found";
     }
     await tx

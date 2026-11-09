@@ -14,12 +14,14 @@ import type { HandoverView } from "./handover-queries";
 import { phoneSignature } from "./phone-signature";
 import {
   damagePhotos,
+  driverChangeLines,
   heading,
   line,
   paragraph,
   partyLines,
   printablePhotos,
   signedByText,
+  type DriverChangeLine,
   type WantedPhoto,
 } from "./handover-report";
 
@@ -36,6 +38,8 @@ export interface ReturnReportFacts {
   signature: RenterSignature | null;
   /** When the Renter signed, which can differ from when the car came back (review G9-4). */
   signedAtText: string;
+  /** The driver change this check-in was for, if any. */
+  driverChange?: DriverChangeLine;
 }
 
 function fuelText(view: HandoverView): string {
@@ -58,6 +62,7 @@ function returnDocument(view: HandoverView, facts: ReturnReportFacts): TemplateD
       ...partyLines(view),
       line("Car", `${view.carRego} · ${view.carMakeModel}`),
       line("Returned", facts.returnedAtText),
+      ...driverChangeLines(facts.driverChange),
       heading(2, "Condition"),
       line(
         "Odometer",

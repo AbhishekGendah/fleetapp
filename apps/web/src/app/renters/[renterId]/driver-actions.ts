@@ -42,7 +42,7 @@ const PROBLEM_MESSAGES: Readonly<Record<DriverToAddProblem, string>> = {
 };
 
 const NAMED_ON_RENTAL_MESSAGE =
-  "They are named on a draft, booking or car out of this business. Name someone else on it, or finish or cancel it, first.";
+  "They are named on a draft, booking or car out of this business, or are taking a car over in a driver change. Name someone else on it, or finish or cancel it, first.";
 
 function refusalOf(result: AddDriverResult): ChangeFormState | null {
   switch (result.status) {

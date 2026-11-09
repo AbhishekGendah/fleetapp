@@ -21,17 +21,65 @@ import {
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 
-import { rentalHandoverPath, rentalReturnPath, rentalSwapPath } from "../paths";
+import {
+  rentalDriverChangePath,
+  rentalHandoverPath,
+  rentalReturnPath,
+  rentalSwapPath,
+} from "../paths";
 import { latestKilometres } from "../vehicles/odometer";
 import { latestHandoverOf } from "./handover-records";
 
-/** One of the rental's driver's columns (the Renter for a person); none while a business's is to be named. */
+/**
+ * Who signs a checklist for the car (rule 15), from the possession records
+ * rather than the rental's driver now (slice 4: the driver can change while
+ * the car is out): the driver whose possession it started or ended; for a
+ * driver change's handover still under way, the new driver; for any other
+ * checklist under way while the car is out (a return, a swap's pair, a
+ * driver change's check-in), the driver who has it; otherwise (a first
+ * handover) the rental's driver, the Renter for a person, none while a
+ * business's is to be named.
+ */
+const checklistDriverId = sql<string | null>`coalesce(
+  (select "held"."driver_id" from "possessions" "held"
+    where "held"."operator_id" = "inspections"."operator_id"
+      and "held"."handover_inspection_id" = "inspections"."id"),
+  (select "held"."driver_id" from "possessions" "held"
+    where "held"."operator_id" = "inspections"."operator_id"
+      and "held"."return_inspection_id" = "inspections"."id"),
+  (select "change"."to_driver_id" from "rental_driver_changes" "change"
+    where "change"."operator_id" = "inspections"."operator_id"
+      and "change"."handover_inspection_id" = "inspections"."id"
+      and "change"."status" = 'in_progress'),
+  (select "held"."driver_id" from "possessions" "held"
+    where "held"."operator_id" = "inspections"."operator_id"
+      and "held"."rental_id" = "inspections"."rental_id" and "held"."ended_at" is null
+      and "inspections"."status" = 'in_progress' and "inspections"."kind" = 'return'),
+  (select "held"."driver_id" from "possessions" "held"
+    where "held"."operator_id" = "inspections"."operator_id"
+      and "held"."rental_id" = "inspections"."rental_id" and "held"."ended_at" is null
+      and "inspections"."status" = 'in_progress' and "inspections"."is_for_swap"),
+  "rentals"."driver_id"
+)`;
+
+/** One of the checklist's driver's columns; none while a business's is to be named. */
 function driverColumn(column: "full_name" | "email") {
   return sql<string | null>`(
     select "driver".${sql.identifier(column)} from "renters" "driver"
-    where "driver"."id" = "rentals"."driver_id" and "driver"."operator_id" = "rentals"."operator_id"
+    where "driver"."id" = ${checklistDriverId} and "driver"."operator_id" = "inspections"."operator_id"
   )`;
 }
+
+/**
+ * Where a checklist's photos are: its own, but a driver change's handover
+ * shows the car as it was checked in a moment before (rule 21: each photo
+ * stored once), so it has the check-in's.
+ */
+const photoChecklistId = sql<string>`coalesce((
+  select "change"."return_inspection_id" from "rental_driver_changes" "change"
+  where "change"."operator_id" = "inspections"."operator_id"
+    and "change"."handover_inspection_id" = "inspections"."id"
+), "inspections"."id")`;
 
 /** A photo on the checklist, and its small copy for showing it. */
 export interface ChecklistPhoto {
@@ -51,6 +99,8 @@ export interface DamageMarkView {
 export interface HandoverView {
   /** One of a car swap's pair: finished only with the swap. */
   isForSwap: boolean;
+  /** One of a driver change's pair: finished only with the change. */
+  isForDriverChange: boolean;
   inspectionId: string;
   kind: InspectionKind;
   status: InspectionStatus;
@@ -221,7 +271,8 @@ async function loadChecklist(
       .select({
         inspection: inspections,
         renterId: rentals.renterId,
-        driverId: rentals.driverId,
+        driverId: checklistDriverId,
+        photoChecklistId,
         bondCents: rentals.bondCents,
         plannedStart: rentals.plannedStart,
         plannedEnd: rentals.plannedEnd,
@@ -257,7 +308,7 @@ async function loadChecklist(
       return null;
     }
     const { inspection } = row;
-    const rows = await checklistPhotos(tx, operatorId, inspectionId);
+    const rows = await checklistPhotos(tx, operatorId, row.photoChecklistId);
     const photos = listedPhotos(rows);
     const damageMarks = await damageMarkViews(tx, operatorId, inspectionId, rows);
     const progress = {
@@ -273,6 +324,7 @@ async function loadChecklist(
       kind: inspection.kind,
       status: inspection.status,
       isForSwap: inspection.isForSwap,
+      isForDriverChange: inspection.isForDriverChange,
       rentalId: inspection.rentalId,
       vehicleId: inspection.vehicleId,
       renterId: row.renterId,
@@ -336,8 +388,9 @@ export async function loadRentalHandoverStatus(
           eq(inspections.rentalId, rentalId),
           eq(inspections.kind, kind),
           inArray(inspections.status, ["in_progress", "completed"]),
-          // The rental's own handover and return; a swap's pair shows with the swap.
+          // The rental's own handover and return; a swap's or driver change's pair shows with it.
           eq(inspections.isForSwap, false),
+          eq(inspections.isForDriverChange, false),
         ),
       ),
   );
@@ -357,9 +410,16 @@ export interface ChecklistsOnPhone {
   openPagePaths: string[];
 }
 
-function checklistPagePaths(rentalId: string, kind: InspectionKind, isForSwap: boolean): string[] {
-  if (isForSwap) {
+function checklistPagePaths(
+  rentalId: string,
+  checklist: { kind: InspectionKind; isForSwap: boolean; isForDriverChange: boolean },
+): string[] {
+  const { kind } = checklist;
+  if (checklist.isForSwap) {
     return [rentalSwapPath(rentalId, "old"), rentalSwapPath(rentalId, "new")];
+  }
+  if (checklist.isForDriverChange) {
+    return [rentalDriverChangePath(rentalId, "check-in"), rentalDriverChangePath(rentalId, "sign")];
   }
   return [kind === "handover" ? rentalHandoverPath(rentalId) : rentalReturnPath(rentalId)];
 }
@@ -376,6 +436,7 @@ export async function loadChecklistsOnPhone(
         status: inspections.status,
         kind: inspections.kind,
         isForSwap: inspections.isForSwap,
+        isForDriverChange: inspections.isForDriverChange,
       })
       .from(inspections)
       .where(and(eq(inspections.operatorId, operatorId), eq(inspections.rentalId, rentalId))),
@@ -383,7 +444,7 @@ export async function loadChecklistsOnPhone(
   const open = rows.filter((row) => row.status === "in_progress");
   return {
     endedInspectionIds: rows.filter((row) => row.status !== "in_progress").map((row) => row.id),
-    openPagePaths: open.flatMap((row) => checklistPagePaths(rentalId, row.kind, row.isForSwap)),
+    openPagePaths: open.flatMap((row) => checklistPagePaths(rentalId, row)),
   };
 }
 

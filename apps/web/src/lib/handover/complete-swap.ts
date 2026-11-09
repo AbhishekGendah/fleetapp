@@ -326,7 +326,7 @@ async function renderSwapDocuments(
     timeZone: moment.timeZone,
     odometerKm: view.odometerKm ?? 0,
     fuelLevel: view.fuelLevel ?? "empty",
-    // The driver can't change during a swap: the same one hands back and receives.
+    // No driver change during a swap: the one who has the car hands it back and receives the next.
     forBusiness: businessAcceptanceOf(view),
   });
   const acceptance = {
@@ -386,24 +386,27 @@ async function completeChecklists(
   }
 }
 
-/** Possession moves from one car to the other at the same moment, with the same driver (rule 15). */
+/**
+ * Possession moves from one car to the other at the same moment, with the
+ * same driver (rule 15): the one whose possession ends, read under its lock
+ * (slice 4), who must be the one who signed.
+ */
 async function movePossession(
   tx: AnyTransaction,
   actor: ActingUser,
   views: SwapViews,
   at: Date,
 ): Promise<void> {
-  const { driverId } = views.new;
-  if (driverId === null) {
-    // The database holds a car that is out to its named driver.
-    throw new Error("A rental with its car out has no driver.");
-  }
-  await endPossession(tx, actor, {
+  const driverId = await endPossession(tx, actor, {
     rentalId: views.swap.rentalId,
     endedAt: at,
     returnInspectionId: views.old.inspectionId,
     carRego: views.old.carRego,
   });
+  if (driverId === null || driverId !== views.new.driverId) {
+    // The car's record now names someone other than the driver who signed.
+    throw new ChecklistChangedError();
+  }
   await startPossession(
     tx,
     actor,

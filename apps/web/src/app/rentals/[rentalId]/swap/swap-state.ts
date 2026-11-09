@@ -17,6 +17,8 @@ export const INITIAL_SWAP_STATE: CompleteSwapState = { status: "idle" };
 
 const CAR_WORDS = { old: "the car handed back", new: "the new car" } as const;
 const SWAP_FORM_SETUP = "Set up your car swap form first, in Settings → Contracts.";
+/** Why a swap or a return waits: the driver change has its own check-in of this car. */
+export const DRIVER_CHANGE_FIRST = "A driver change is under way. Finish or cancel it first.";
 
 /** Why the swap cannot be finished yet, in plain words. */
 export function swapRefusalMessage(
@@ -65,6 +67,8 @@ export function startSwapRefusalMessage(
       return "That car is not Available. Choose an available car.";
     case "return_under_way":
       return "A return is under way. Finish or cancel it first.";
+    case "driver_change_under_way":
+      return DRIVER_CHANGE_FIRST;
     case "not_out":
       return "Only a rental whose car is out can swap it.";
     case "no_template":

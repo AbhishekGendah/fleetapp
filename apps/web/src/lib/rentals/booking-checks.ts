@@ -1,7 +1,9 @@
 import {
   bookingProblems,
   businessDetailsStillNeeded,
+  driverProblems,
   type BookingCheckInput,
+  type DriverCheckFacts,
   areRenterPaymentsOffered,
   isBondShortForHandover,
   isDirectDebitMissingForHandover,
@@ -375,6 +377,48 @@ async function otherCarsOutWith(
   return rows.map((row) => row.rego);
 }
 
+/** What a driver's checks read: their standing, details, licence and its scans. */
+async function driverCheckFacts(tx: AnyTransaction, driver: RenterRow): Promise<DriverCheckFacts> {
+  return {
+    status: driver.status,
+    dateOfBirth: driver.dateOfBirth,
+    residentialAddress: driver.residentialAddress,
+    licenceType: driver.licenceType,
+    licenceExpiresOn: driver.licenceExpiresOn,
+    hasBothLicenceScans: await hasBothLicenceScans(tx, driver.operatorId, driver.id),
+  };
+}
+
+/**
+ * What stands between a new driver and a business's car that is already out
+ * (a driver change, slice 4): only the driver's own checks, from today to
+ * the rental's end under its own rules (rule 14), and other cars they have
+ * out (a notice). The car and the business carry on as they are: the car is
+ * already out, and a business marked Do not rent keeps its cars out.
+ */
+export async function findDriverChangeProblems(
+  tx: AnyTransaction,
+  driver: RenterRow,
+  rental: { id: string; plannedEnd: Date | null; settingsSnapshot: Record<string, unknown> },
+  clock: { timeZone: string; now: Date },
+): Promise<BookingProblem[]> {
+  const today = todayInTimeZone(clock.now, clock.timeZone);
+  const rules = readSettings(operatorSettingsSchema, rental.settingsSnapshot);
+  const otherCars = await otherCarsOutWith(tx, driver, rental.id);
+  return [
+    ...driverProblems(await driverCheckFacts(tx, driver), {
+      startDate: today,
+      endDate:
+        rental.plannedEnd === null ? null : todayInTimeZone(rental.plannedEnd, clock.timeZone),
+      today,
+      rules,
+    }),
+    ...(otherCars.length > 0
+      ? [{ code: "driver_has_other_car" as const, level: "notice" as const, regos: otherCars }]
+      : []),
+  ];
+}
+
 /** What stands between this Renter, their driver and this car for these dates, on the Operator's clock. */
 export async function findBookingProblems(
   tx: AnyTransaction,
@@ -401,16 +445,7 @@ export async function findBookingProblems(
         renter.kind === "organisation" ? businessDetailsStillNeeded(renter) : [],
     },
     // The licence and its scans are the driver's.
-    driver: driver
-      ? {
-          status: driver.status,
-          dateOfBirth: driver.dateOfBirth,
-          residentialAddress: driver.residentialAddress,
-          licenceType: driver.licenceType,
-          licenceExpiresOn: driver.licenceExpiresOn,
-          hasBothLicenceScans: await hasBothLicenceScans(tx, driver.operatorId, driver.id),
-        }
-      : null,
+    driver: driver ? await driverCheckFacts(tx, driver) : null,
     driverOtherCarsOut:
       driver && renter.kind === "organisation"
         ? await otherCarsOutWith(tx, driver, check.rentalId)

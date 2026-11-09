@@ -229,8 +229,8 @@ export async function completeReturn(
   clock: RentalClock,
 ): Promise<CompleteReturnResult> {
   const view = await loadReturn(deps.database, actor.operatorId, inspectionId);
-  // A swap's checklists are finished only with the swap.
-  if (!view || view.isForSwap) {
+  // A swap's or driver change's checklists are finished only with it.
+  if (!view || view.isForSwap || view.isForDriverChange) {
     return { status: "not_found" };
   }
   if (view.status !== "in_progress") {

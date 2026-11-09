@@ -4,6 +4,7 @@ import {
   ACTIVITY_ACTIONS,
   ACTIVITY_ENTITY_TYPES,
   organisationDrivers,
+  rentalDriverChanges,
   rentals,
   renters,
   type ActivityAction,
@@ -187,10 +188,37 @@ export async function addNewDriver(
   });
 }
 
+/** Whether a driver change under way for one of the business's cars hands it to this driver (slice 4). */
+async function isNewDriverOfChangeUnderWay(
+  tx: AnyTransaction,
+  operatorId: string,
+  organisationId: string,
+  driverId: string,
+): Promise<boolean> {
+  const [change] = await tx
+    .select({ id: rentalDriverChanges.id })
+    .from(rentalDriverChanges)
+    .innerJoin(
+      rentals,
+      and(eq(rentals.id, rentalDriverChanges.rentalId), eq(rentals.operatorId, operatorId)),
+    )
+    .where(
+      and(
+        eq(rentalDriverChanges.operatorId, operatorId),
+        eq(rentalDriverChanges.toDriverId, driverId),
+        eq(rentalDriverChanges.status, "in_progress"),
+        eq(rentals.renterId, organisationId),
+      ),
+    )
+    .limit(1);
+  return change !== undefined;
+}
+
 /**
  * Ends a driver's link to the business, keeping it as history (rule 13).
- * Refused while a draft, booking or car out of the business names them: the
- * car would go, or stay, with someone who no longer drives for it.
+ * Refused while a draft, booking or car out of the business names them, or a
+ * driver change under way hands one of its cars to them: the car would go,
+ * or stay, with someone who no longer drives for it.
  */
 export async function removeDriver(
   database: AnyDatabase,
@@ -222,7 +250,10 @@ export async function removeDriver(
         ),
       )
       .limit(1);
-    if (named) {
+    if (
+      named ||
+      (await isNewDriverOfChangeUnderWay(tx, actor.operatorId, organisationId, driverId))
+    ) {
       return "named_on_rental";
     }
     // The database stamps its own time on it: the end starts the seven-year clock.

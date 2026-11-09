@@ -41,12 +41,18 @@ export async function startPossession(
   });
 }
 
-/** The rental's open possession ends: at the recorded return, or the old car at a swap. */
+/**
+ * The rental's open possession ends: at the recorded return, the old car at
+ * a swap, or the driver who had it at a driver change. Gives back who had
+ * it, read from the possession itself under the lock this takes (none if
+ * none was open), so whatever starts next follows the record, never the
+ * rental's driver as some screen showed it (slice 4).
+ */
 export async function endPossession(
   tx: AnyTransaction,
   actor: ActingUser,
   ending: { rentalId: string; endedAt: Date; returnInspectionId: string; carRego: string },
-): Promise<void> {
+): Promise<string | null> {
   const ended = await tx
     .update(possessions)
     .set({
@@ -61,7 +67,7 @@ export async function endPossession(
         isNull(possessions.endedAt),
       ),
     )
-    .returning({ id: possessions.id });
+    .returning({ id: possessions.id, driverId: possessions.driverId });
   for (const possession of ended) {
     await recordUserChange(tx, actor, {
       entityType: ACTIVITY_ENTITY_TYPES.possession,
@@ -70,6 +76,7 @@ export async function endPossession(
       valuesAfter: { carRego: ending.carRego, endedAt: ending.endedAt.toISOString() },
     });
   }
+  return ended[0]?.driverId ?? null;
 }
 
 /** A rental's possessions and car holds, for its Log. */

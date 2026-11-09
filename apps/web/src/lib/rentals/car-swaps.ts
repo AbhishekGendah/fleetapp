@@ -4,7 +4,6 @@ import {
   ACTIVITY_ACTIONS,
   ACTIVITY_ENTITY_TYPES,
   carSwaps,
-  inspections,
   rentals,
   vehicles,
 } from "@fleetapp/db/schema";
@@ -14,11 +13,13 @@ import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { recordUserChange, type ActingUser } from "../acting-user";
 import { loadDefaultTemplate } from "../contracts/templates";
 import {
+  addPairChecklist,
+  cancelChecklistPair,
   handoverPhotoNames,
   isChecklistUnderWay,
-  lockOpenInspection,
 } from "../handover/handover-records";
 import { findNewHoldClash, type NewHoldClash } from "./car-holds";
+import { driverChangeUnderWay } from "./driver-change-under-way";
 import type { RentalClock } from "./rental-records";
 
 export type CarSwap = typeof carSwaps.$inferSelect;
@@ -33,6 +34,7 @@ export type StartSwapResult =
         | "same_car"
         | "car_not_available"
         | "return_under_way"
+        | "driver_change_under_way"
         | "no_template";
     };
 
@@ -73,35 +75,6 @@ async function isCarAvailable(tx: AnyTransaction, operatorId: string, vehicleId:
   return car !== undefined;
 }
 
-/** Adds one of the swap's two checklists. */
-async function addSwapChecklist(
-  tx: AnyTransaction,
-  actor: ActingUser,
-  checklist: {
-    rentalId: string;
-    vehicleId: string;
-    kind: "handover" | "return";
-    photoNames: string[];
-  },
-): Promise<string> {
-  const [started] = await tx
-    .insert(inspections)
-    .values({
-      operatorId: actor.operatorId,
-      ...checklist,
-      isForSwap: true,
-      startedByUserId: actor.userId,
-    })
-    .returning({ id: inspections.id });
-  await recordUserChange(tx, actor, {
-    entityType: ACTIVITY_ENTITY_TYPES.inspection,
-    entityId: started!.id,
-    action: ACTIVITY_ACTIONS.created,
-    valuesAfter: { kind: checklist.kind, vehicleId: checklist.vehicleId, isForSwap: true },
-  });
-  return started!.id;
-}
-
 /**
  * Starts a swap into another car (or picks up the one under way): the old
  * car's return checklist (the photos its handover took, to compare) and the
@@ -139,6 +112,9 @@ export async function startSwap(
     if (request.toVehicleId === rental.vehicleId) {
       return { status: "same_car" };
     }
+    if (await driverChangeUnderWay(tx, actor.operatorId, rentalId)) {
+      return { status: "driver_change_under_way" };
+    }
     if (await isChecklistUnderWay(tx, actor.operatorId, rentalId)) {
       return { status: "return_under_way" };
     }
@@ -160,17 +136,27 @@ export async function startSwap(
       return { status: "clash", clash };
     }
     const oldCar = { rentalId, vehicleId: rental.vehicleId };
-    const returnInspectionId = await addSwapChecklist(tx, actor, {
-      ...oldCar,
-      kind: "return",
-      photoNames: (await handoverPhotoNames(tx, actor.operatorId, oldCar)) ?? [],
-    });
-    const handoverInspectionId = await addSwapChecklist(tx, actor, {
-      rentalId,
-      vehicleId: request.toVehicleId,
-      kind: "handover",
-      photoNames: readSettings(operatorSettingsSchema, rental.settingsSnapshot).handoverPhotos,
-    });
+    const returnInspectionId = await addPairChecklist(
+      tx,
+      actor,
+      {
+        ...oldCar,
+        kind: "return",
+        photoNames: (await handoverPhotoNames(tx, actor.operatorId, oldCar)) ?? [],
+      },
+      "swap",
+    );
+    const handoverInspectionId = await addPairChecklist(
+      tx,
+      actor,
+      {
+        rentalId,
+        vehicleId: request.toVehicleId,
+        kind: "handover",
+        photoNames: readSettings(operatorSettingsSchema, rental.settingsSnapshot).handoverPhotos,
+      },
+      "swap",
+    );
     const [swap] = await tx
       .insert(carSwaps)
       .values({
@@ -223,21 +209,8 @@ export async function cancelSwap(
     if (!swap) {
       return "finished_already";
     }
-    // The return's checklist, then the handover's: as signing locks them.
-    for (const inspectionId of [swap.returnInspectionId, swap.handoverInspectionId]) {
-      await lockOpenInspection(tx, actor.operatorId, inspectionId);
-    }
     const now = new Date();
-    await tx
-      .update(inspections)
-      .set({ status: "cancelled", cancelledAt: now, updatedAt: now })
-      .where(
-        and(
-          eq(inspections.operatorId, actor.operatorId),
-          inArray(inspections.id, [swap.returnInspectionId, swap.handoverInspectionId]),
-          eq(inspections.status, "in_progress"),
-        ),
-      );
+    await cancelChecklistPair(tx, actor.operatorId, swap, now);
     await tx
       .update(carSwaps)
       .set({ status: "cancelled", cancelledAt: now, updatedAt: now })

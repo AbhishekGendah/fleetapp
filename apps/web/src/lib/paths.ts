@@ -188,6 +188,15 @@ export function rentalMoneyPath(rentalId: string): string {
   return `${rentalPath(rentalId)}?tab=money`;
 }
 
+/** A driver change on the phone (mockup 7): who and why, the check-in, then the new driver signs. */
+export function rentalDriverChangePath(
+  rentalId: string,
+  step: "start" | "check-in" | "sign" = "start",
+): string {
+  const base = `${rentalPath(rentalId)}/driver-change`;
+  return step === "start" ? base : `${base}/${step}`;
+}
+
 /** A car swap's checklist on the phone: the old car's return, or the new car's handover. */
 export function rentalSwapPath(rentalId: string, car: "old" | "new"): string {
   return `${rentalPath(rentalId)}/swap/${car}`;

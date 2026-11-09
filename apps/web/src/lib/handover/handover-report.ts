@@ -45,6 +45,20 @@ export function partyLines(
   ];
 }
 
+/** A driver change the report was made for: who had the car, who has it now, and why. */
+export interface DriverChangeLine {
+  fromName: string;
+  toName: string;
+  reason: string;
+}
+
+/** The report's line naming the driver change it records, if it records one. */
+export function driverChangeLines(change: DriverChangeLine | undefined): TemplateBlock[] {
+  return change
+    ? [line("Driver change", `${change.fromName} to ${change.toName}. Why: ${change.reason}`)]
+    : [];
+}
+
 /** "Accepted by Sam Lee", or for a business's car, "Accepted by Sam Lee for Acme Rideshare Pty Ltd". */
 export function signedByText(
   verb: "Accepted" | "Signed",
@@ -59,7 +73,7 @@ export function signedByText(
 /** The report's text: who, which car, its condition, the damage already on it, and the words accepted. */
 function reportDocument(
   view: HandoverView,
-  accepted: { atText: string; acceptanceText: string },
+  accepted: { atText: string; acceptanceText: string; driverChange?: DriverChangeLine },
 ): TemplateDocument {
   const damage: TemplateBlock[] =
     view.damageMarks.length === 0
@@ -72,6 +86,7 @@ function reportDocument(
       ...partyLines(view),
       line("Car", `${view.carRego} · ${view.carMakeModel}`),
       line("Handed over", accepted.atText),
+      ...driverChangeLines(accepted.driverChange),
       heading(2, "Condition"),
       line("Odometer", formatKilometres(view.odometerKm ?? 0)),
       line("Fuel", view.fuelLevel ? FUEL_LEVEL_LABELS[view.fuelLevel] : ""),
@@ -209,7 +224,12 @@ export async function renderHandoverReport(
   deps: Pick<FileDependencies, "database" | "storage">,
   operatorId: string,
   view: HandoverView,
-  accepted: { atText: string; acceptanceText: string; signature: RenterSignature },
+  accepted: {
+    atText: string;
+    acceptanceText: string;
+    signature: RenterSignature;
+    driverChange?: DriverChangeLine;
+  },
 ): Promise<Uint8Array> {
   const [branding, photos] = await Promise.all([
     loadPdfBranding(deps, operatorId),
