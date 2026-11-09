@@ -73,8 +73,9 @@ export function checklistKit(
     }
   }
 
-  async function takePhoto(inspectionId: string, target: ChecklistPhotoTarget): Promise<string> {
-    const start = await startChecklistPhotoUpload(
+  /** The phone starting to send a checklist photo: step one of `takePhoto`. */
+  function startPhoto(inspectionId: string, target: ChecklistPhotoTarget) {
+    return startChecklistPhotoUpload(
       deps(),
       actor,
       inspectionId,
@@ -82,6 +83,18 @@ export function checklistKit(
       { photo: PHOTO_SIZES, thumbnail: { ...PHOTO_SIZES, sizeBytes: 30_000 } },
       TEST_TIME_ZONE,
     );
+  }
+
+  /** The phone starting to send the checklist's first listed photo again. */
+  async function startListedPhoto(inspectionId: string) {
+    const view =
+      (await loadHandover(web.db, actor.operatorId, inspectionId)) ??
+      (await loadReturn(web.db, actor.operatorId, inspectionId));
+    return startPhoto(inspectionId, { photoName: view?.photoNames[0] ?? "" });
+  }
+
+  async function takePhoto(inspectionId: string, target: ChecklistPhotoTarget): Promise<string> {
+    const start = await startPhoto(inspectionId, target);
     if (start.status !== "allowed") {
       throw new Error(`The photo was not allowed: ${start.status}`);
     }
@@ -152,6 +165,7 @@ export function checklistKit(
     readyRental,
     signAndHoldBond,
     takePhoto,
+    startListedPhoto,
     fillChecklist,
     filledHandover,
     rentalOut,

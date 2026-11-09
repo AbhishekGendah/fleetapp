@@ -1,3 +1,4 @@
+import { photoName, photoNamePrefix, todayInTimeZone } from "@fleetapp/core";
 import { Client } from "pg";
 import { inject } from "vitest";
 import { z } from "zod";
@@ -45,6 +46,48 @@ export async function waitUntilBlockedBy(
     await new Promise((resolve) => setTimeout(resolve, LOCK_WAIT_STEP_MS));
   }
   throw new Error("Nothing waited for the lock.");
+}
+
+/**
+ * Holds the name the car's next photo will take, in a transaction of the
+ * superuser's own that takes no lock on the car (its links' checks are off
+ * for it): a photo upload then locks the car for its name and waits on this
+ * name, holding the car, until `release` gives the name up. So a test can
+ * have an upload hold the car while something else asks for it.
+ */
+export async function holdNextPhotoName(car: {
+  operatorId: string;
+  vehicleId: string;
+  timeZone: string;
+}): Promise<{ pid: number; release: () => Promise<void> }> {
+  const client = new Client({ connectionString: inject("superuserUrl") });
+  await client.connect();
+  const pid = (await client.query<{ pid: number }>("select pg_backend_pid() as pid")).rows[0]!.pid;
+  const today = todayInTimeZone(new Date(), car.timeZone);
+  const { rego } = (
+    await client.query<{ rego: string }>("select rego from vehicles where id = $1", [car.vehicleId])
+  ).rows[0]!;
+  const { taken } = (
+    await client.query<{ taken: number }>(
+      `select count(*)::int as taken from files
+       where operator_id = $1 and vehicle_id = $2 and purpose = 'vehicle_photo' and label like $3`,
+      [car.operatorId, car.vehicleId, `${photoNamePrefix(rego, today)}%`],
+    )
+  ).rows[0]!;
+  await client.query("begin");
+  await client.query("set local session_replication_role = replica");
+  await client.query(
+    `insert into files (operator_id, purpose, storage_area, object_key, content_type, size_bytes, vehicle_id, label)
+     values ($1, 'vehicle_photo', 'general', gen_random_uuid()::text, 'image/jpeg', 1, $2, $3)`,
+    [car.operatorId, car.vehicleId, photoName(rego, today, taken + 1)],
+  );
+  return {
+    pid,
+    release: async () => {
+      await client.query("rollback");
+      await client.end();
+    },
+  };
 }
 
 const errorCodeSchema = z.object({ code: z.string() });

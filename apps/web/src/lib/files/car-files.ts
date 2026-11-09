@@ -25,6 +25,7 @@ import {
 import { isDamageEvidenceHeld } from "../damage/damage-evidence";
 import { findCurrentVehicle, isOfCurrentCar } from "../vehicles/current-vehicle";
 import {
+  isChecklistOpenFor,
   listLoggedFileIds,
   logFile,
   requestUpload,
@@ -56,8 +57,8 @@ async function isCurrentCar(deps: FileDependencies, actor: FileActor, vehicleId:
 
 /**
  * The photo's name: the car's rego, today on the Operator's clock, and the
- * next number that day. The car is locked first, so photos sent at the same
- * moment still get a number each.
+ * next number that day. The car is locked (after its checklist, if any:
+ * `photoLinks`), so photos sent at the same moment still get a number each.
  */
 async function nextPhotoName(
   tx: AnyTransaction,
@@ -95,10 +96,45 @@ export type ChecklistPhotoLinks = Pick<
   "inspectionId" | "inspectionPhotoName" | "damageMarkId" | "damageRecordId"
 >;
 
+/** Thrown inside the upload's transaction when its checklist is no longer under way: nothing is recorded. */
+class ChecklistClosedError extends Error {
+  constructor() {
+    super("The checklist was finished or cancelled before the photo was recorded.");
+    this.name = "ChecklistClosedError";
+  }
+}
+
+/**
+ * The photo's links and name. A checklist's photo holds its checklist
+ * (shared) before the car is locked for the name, in the order signing takes
+ * them (the checklist, then the car: docs/plans/business-renters.md, "Lock
+ * order"): locking the car first and then reaching the checklist through the
+ * new file's link deadlocked with a signature (second review of slice 4).
+ */
+async function photoLinks(
+  tx: AnyTransaction,
+  operatorId: string,
+  photo: { vehicleId: string; today: string; checklist?: ChecklistPhotoLinks },
+): Promise<FileLinks> {
+  const { vehicleId, checklist } = photo;
+  if (
+    checklist?.inspectionId &&
+    !(await isChecklistOpenFor(tx, operatorId, checklist.inspectionId))
+  ) {
+    throw new ChecklistClosedError();
+  }
+  return {
+    vehicleId,
+    label: await nextPhotoName(tx, operatorId, vehicleId, photo.today),
+    ...checklist,
+  };
+}
+
 /**
  * Starts sending a photo and its small copy, both shrunk on the phone. The
  * photo is recorded first, as its small copy points at it, and named
- * "1ABC234 2026-10-30 001". Archived cars take no new files.
+ * "1ABC234 2026-10-30 001". Archived cars take no new files, nor a checklist
+ * finished or cancelled meanwhile.
  */
 export async function startCarPhotoUpload(
   deps: FileDependencies,
@@ -115,12 +151,16 @@ export async function startCarPhotoUpload(
   const photo = await requestUpload(deps, actor, {
     purpose: "vehicle_photo",
     ...planned.photo,
-    links: async (tx) => ({
-      vehicleId,
-      label: await nextPhotoName(tx, actor.operatorId, vehicleId, today),
-      ...checklist,
-    }),
+    links: (tx) => photoLinks(tx, actor.operatorId, { vehicleId, today, checklist }),
+  }).catch((error: unknown) => {
+    if (error instanceof ChecklistClosedError) {
+      return { status: "not_found" as const };
+    }
+    throw error;
   });
+  if (photo.status === "not_found") {
+    return photo;
+  }
   if (photo.status === "refused") {
     return photo;
   }

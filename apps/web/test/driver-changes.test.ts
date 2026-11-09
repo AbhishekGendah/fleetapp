@@ -56,7 +56,12 @@ import {
 } from "../src/lib/storage/memory-file-storage";
 import { addCurrentPaperwork, addTestCar, seedOperatorWithUser } from "./car-fixtures";
 import { checklistKit, HANDOVER_KM, TEST_DETAILS, TEST_SIGNATURE } from "./handover-fixtures";
-import { openTransactionAs, outcomeOf, waitUntilBlockedBy } from "./lock-fixtures";
+import {
+  holdNextPhotoName,
+  openTransactionAs,
+  outcomeOf,
+  waitUntilBlockedBy,
+} from "./lock-fixtures";
 import {
   addRenterReadyToRent,
   attemptTestBooking,
@@ -1032,6 +1037,44 @@ describe("changing a business's driver while the car is out", () => {
         expect(booked).toBe("saved");
       },
     );
+
+    // The upload holds the check-in before the car, as signing takes them (second review of slice 4).
+    it("finishes the change while a check-in photo holds the car; the photo is recorded first", async () => {
+      const out = await carOutWithSam();
+      const change = await changeUnderWay(out);
+      const name = await holdNextPhotoName({
+        operatorId: actor.operatorId,
+        vehicleId: out.vehicleId,
+        timeZone: TEST_TIME_ZONE,
+      });
+      const uploaded = outcomeOf(kit().startListedPhoto(change.returnInspectionId));
+      await waitUntilBlockedBy(superuser, name.pid);
+      const signed = outcomeOf(signChange(out.rentalId, null));
+      await waitUntilBlockedBy(superuser, name.pid, 2);
+      await name.release();
+
+      expect(await uploaded).toBe("allowed");
+      expect(await signed).toBe("completed");
+    });
+
+    it("finishes the change that reached the check-in first; the photo then waits", async () => {
+      const out = await carOutWithSam();
+      const change = await changeUnderWay(out);
+      const holder = await openTransactionAs(actor.operatorId);
+      await holder.client.query("select id from inspections where id = $1 for update", [
+        change.returnInspectionId,
+      ]);
+      const signed = outcomeOf(signChange(out.rentalId, null));
+      await waitUntilBlockedBy(superuser, holder.pid);
+      const uploaded = outcomeOf(kit().startListedPhoto(change.returnInspectionId));
+      await waitUntilBlockedBy(superuser, holder.pid, 2);
+      await holder.client.query("commit");
+      await holder.client.end();
+
+      expect(await signed).toBe("completed");
+      // Refused once the check-in is finished; recorded (never confirmed) if it got in just before.
+      expect(["not_found", "allowed"]).toContain(await uploaded);
+    });
 
     it("lets one of a swap and a driver change start when both are asked at once", async () => {
       const out = await carOutWithSam();

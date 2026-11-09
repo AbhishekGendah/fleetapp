@@ -279,8 +279,13 @@ async function retirePredecessors(
  * act, after retiring what it replaces. "not_found" if it was
  * already claimed, or is a link photo arriving after the details were sent.
  */
-/** Holds a checklist open while a photo joins it: its signing waits for this, or this for it. */
-async function isChecklistOpenFor(
+/**
+ * Holds a checklist open while a photo joins it (shared, so photos taken
+ * together don't wait for each other): its signing waits for this, or this
+ * for it. Taken before the car whenever both are, as signing takes them
+ * ("Lock order").
+ */
+export async function isChecklistOpenFor(
   tx: AnyTransaction,
   operatorId: string,
   inspectionId: string,
