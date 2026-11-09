@@ -109,7 +109,10 @@ ALTER TABLE "payments" ADD CONSTRAINT "payments_id_shapes" CHECK (("payments"."s
 -- A payment's amount, method, purpose, rental, Renter, direct debit, week
 -- and attempt never change; Stripe's IDs and fee are filled once and never
 -- changed; its status only moves forward, as Stripe reports it: pending to
--- succeeded or failed, and succeeded to refunded (as in 0041).
+-- succeeded or failed, and succeeded to refunded (as in 0041). The one way
+-- back: a debit we marked "not sent" (recovery found none at Stripe) that
+-- Stripe then says was made and succeeded, so money taken is never left
+-- unrecorded.
 CREATE OR REPLACE FUNCTION "app"."check_payment_change"() RETURNS trigger
   LANGUAGE plpgsql
   SET search_path = pg_catalog, public, pg_temp
@@ -142,6 +145,7 @@ BEGIN
   IF NOT (
     (OLD.status = 'pending' AND NEW.status IN ('succeeded', 'failed'))
     OR (OLD.status = 'succeeded' AND NEW.status = 'refunded')
+    OR (OLD.status = 'failed' AND OLD.failure_code = 'not_sent' AND NEW.status = 'succeeded')
   ) THEN
     RAISE EXCEPTION 'a payment cannot go from % to %', OLD.status, NEW.status
       USING ERRCODE = 'check_violation';

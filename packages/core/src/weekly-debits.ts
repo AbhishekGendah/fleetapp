@@ -200,6 +200,11 @@ export type PaymentLineReason = (typeof PAYMENT_LINE_REASONS)[number];
 export const DEBIT_RECOVERY_WAIT_MS = 15 * MILLISECONDS_PER_MINUTE;
 /** Stripe keeps a request's key for at least 24 hours; within this, the same request is asked again. */
 export const DEBIT_KEY_REUSE_MS = 23 * 60 * MILLISECONDS_PER_MINUTE;
+/**
+ * Recovery looks for a debit Stripe made from this long before we reserved
+ * it, so a small difference between Stripe's clock and ours never hides one.
+ */
+export const DEBIT_LOOKUP_CLOCK_MARGIN_MS = 10 * MILLISECONDS_PER_MINUTE;
 /** A debit pending this long is read again from Stripe, in case its message was lost. */
 export const DEBIT_REREAD_AFTER_MS = 7 * MILLISECONDS_PER_DAY;
 /** Our reason for a debit never sent to Stripe: ours, not the Renter's (slice 6 sends no email). */

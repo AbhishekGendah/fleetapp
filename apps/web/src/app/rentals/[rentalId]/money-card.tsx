@@ -86,9 +86,11 @@ function DebitSummary(props: {
   timeZone: string;
 }) {
   const { state, timeZone } = props;
+  const reversed = new Set(props.lines.flatMap((line) => line.reversesId ?? []));
   const waiting = state.plans.filter(
     (plan) =>
       WEEKLY_DEBIT_PLANS.has(plan.plan) &&
+      !reversed.has(plan.ledgerLineId) &&
       plan.partsDebited < (plan.plan === "split" ? (plan.weeks ?? 0) : 1),
   );
   const descriptions = new Map(props.lines.map((line) => [line.id, line.description]));
@@ -151,8 +153,12 @@ export async function MoneyCard(props: {
     listChargeTypes(appDb, user.operatorId),
     loadRentalDebitState(appDb, user.operatorId, rental),
   ]);
+  // A reversed charge is no longer owed, so how it is collected can't change.
+  const reversedIds = new Set(ledger.lines.flatMap((line) => line.reversesId ?? []));
   const changeablePlans = new Map(
-    debits.plans.filter((plan) => plan.partsDebited === 0).map((plan) => [plan.ledgerLineId, plan]),
+    debits.plans
+      .filter((plan) => plan.partsDebited === 0 && !reversedIds.has(plan.ledgerLineId))
+      .map((plan) => [plan.ledgerLineId, plan]),
   );
   if (!hasMoneyToShow(rental.status, ledger.lines.length)) {
     return null;

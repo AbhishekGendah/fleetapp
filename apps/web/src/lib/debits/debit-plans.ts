@@ -5,6 +5,7 @@ import {
   ACTIVITY_ENTITY_TYPES,
   debitItems,
   debitPlans,
+  ledgerLines,
 } from "@fleetapp/db/schema";
 import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { withTenant } from "@fleetapp/db/tenant-context";
@@ -88,7 +89,22 @@ export async function recordDebitPlan(
   return true;
 }
 
-export type DebitPlanChange = "changed" | "not_found" | "already_debited" | "not_offered";
+export type DebitPlanChange =
+  "changed" | "not_found" | "already_debited" | "not_offered" | "reversed";
+
+/** Whether a charge was reversed: it is no longer owed, so never collected. */
+async function isLineReversed(
+  tx: AnyTransaction,
+  operatorId: string,
+  ledgerLineId: string,
+): Promise<boolean> {
+  const [reversal] = await tx
+    .select({ id: ledgerLines.id })
+    .from(ledgerLines)
+    .where(and(eq(ledgerLines.operatorId, operatorId), eq(ledgerLines.reversesId, ledgerLineId)))
+    .limit(1);
+  return reversal !== undefined;
+}
 
 /**
  * Changes how a one-off charge is collected, until any part of it is in a
@@ -131,6 +147,9 @@ export async function changeDebitPlan(
     if (debited) {
       return "already_debited";
     }
+    if (await isLineReversed(tx, actor.operatorId, target.ledgerLineId)) {
+      return "reversed";
+    }
     const offered = await collectionChoicesFor(
       tx,
       actor.operatorId,
@@ -168,15 +187,16 @@ export async function changeDebitPlan(
  */
 export async function collectChargeNow(
   deps: PaymentDependencies,
-  operatorId: string,
+  actor: ActingUser,
   target: { rentalId: string; ledgerLineId: string },
 ): Promise<boolean> {
+  const { operatorId } = actor;
   const reserved = await withTenant(deps.database, operatorId, async (tx) => {
     const rental = await lockPaymentRental(tx, operatorId, target.rentalId);
     return rental
       ? reserveOwnDebit(
           tx,
-          operatorId,
+          actor,
           { id: rental.id, renterId: rental.renterId },
           target.ledgerLineId,
           deps.now(),

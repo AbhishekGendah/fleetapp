@@ -1,4 +1,9 @@
-import { DEBIT_REREAD_AFTER_MS, debitRecoveryStep, describeErrorForLog } from "@fleetapp/core";
+import {
+  DEBIT_LOOKUP_CLOCK_MARGIN_MS,
+  DEBIT_REREAD_AFTER_MS,
+  debitRecoveryStep,
+  describeErrorForLog,
+} from "@fleetapp/core";
 import { operators, payments, rentals } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
@@ -50,9 +55,11 @@ async function pendingDebits(
  * A reserved debit whose answer was never saved (a crash, a timeout), once
  * over 15 minutes old so it never races a request still under way: within
  * 23 hours asked again with the same key (Stripe gives back its first
- * answer); after that, looked up among the Renter's Stripe debits since it
- * was reserved, by our ID in the metadata, and if none is found marked
- * "not sent" and never sent again (never sent blind once the key may be gone).
+ * answer), but only while it could still be made now (the rental not
+ * paused, the business not suspended, its Stripe account ready). Otherwise,
+ * or after that, looked up among the Renter's Stripe debits since it was
+ * reserved, by our ID in the metadata, and if none is found marked "not
+ * sent" and never sent again (never sent blind once the key may be gone).
  */
 async function recoverReserved(
   deps: PaymentDependencies,
@@ -64,7 +71,7 @@ async function recoverReserved(
   if (step === "wait") {
     return;
   }
-  if (step === "ask_again") {
+  if (step === "ask_again" && (await canStillBeMade(deps, operatorId, debit.rentalId))) {
     await sendReservedDebit(deps, operatorId, debit);
     return;
   }
@@ -75,10 +82,25 @@ async function recoverReserved(
     ? await deps.payments.findDebitByReference(accountId, {
         customerId,
         paymentId: debit.id,
-        createdSince: debit.requestedAt,
+        createdSince: new Date(debit.requestedAt.getTime() - DEBIT_LOOKUP_CLOCK_MARGIN_MS),
       })
     : null;
   await applyRead(deps, operatorId, debit, found);
+}
+
+/** Whether a debit could still be asked for now: its business can debit and its rental isn't paused. */
+async function canStillBeMade(
+  deps: PaymentDependencies,
+  operatorId: string,
+  rentalId: string,
+): Promise<boolean> {
+  const [rental] = await withTenant(deps.database, operatorId, (tx) =>
+    tx
+      .select({ pausedAt: rentals.debitsPausedAt })
+      .from(rentals)
+      .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, operatorId))),
+  );
+  return rental !== undefined && rental.pausedAt === null && (await canDebitNow(deps, operatorId));
 }
 
 /** Stripe's read applied as its event would be, or the debit marked not sent when there is none. */

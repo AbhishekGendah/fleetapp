@@ -28,6 +28,9 @@ import {
 
 const SYSTEM_ACTOR = { type: "system", id: null } as const;
 
+/** Who asked for a debit: the nightly run (the system), or a User pressing "Take it now". */
+type DebitActor = typeof SYSTEM_ACTOR | { type: "user"; id: string };
+
 /** One part of what a debit takes: a charge line (or one instalment of a split). */
 interface PlannedItem {
   ledgerLineId: string;
@@ -148,6 +151,7 @@ async function insertDebit(
   operatorId: string,
   debit: Omit<typeof payments.$inferInsert, "operatorId" | "method" | "status">,
   items: readonly PlannedItem[],
+  actor: DebitActor = SYSTEM_ACTOR,
 ): Promise<ReservedDebit | null> {
   const [reserved] = await tx
     .insert(payments)
@@ -170,7 +174,7 @@ async function insertDebit(
   }
   await recordActivity(tx, {
     operatorId,
-    actor: SYSTEM_ACTOR,
+    actor,
     entityType: ACTIVITY_ENTITY_TYPES.payment,
     entityId: reserved.id,
     action: ACTIVITY_ACTIONS.created,
@@ -273,21 +277,24 @@ export async function reserveWeeklyDebit(
 /**
  * A one-off charge debited on its own now ("Take it now"), with the rental
  * already locked by the caller: its amount, capped at what is owing less
- * what is pending. Null when the Renter has no usable direct debit, the
- * charge is already in a debit, or nothing is left to take.
+ * what is pending, logged as the User's. Null when the Renter has no usable
+ * direct debit, the charge was reversed or is already in a debit, or
+ * nothing is left to take.
  */
 export async function reserveOwnDebit(
   tx: AnyTransaction,
-  operatorId: string,
+  actor: { operatorId: string; userId: string },
   rental: { id: string; renterId: string },
   ledgerLineId: string,
   now: Date,
 ): Promise<ReservedDebit | null> {
+  const { operatorId } = actor;
   const mandate = await debitableMandateOf(tx, operatorId, rental.renterId);
   const lines = await rentalLines(tx, operatorId, rental.id);
   const charge = lines.find((line) => line.id === ledgerLineId && line.kind === "charge");
+  const isReversed = lines.some((line) => line.reversesId === ledgerLineId);
   const isDebited = (await partsDebited(tx, operatorId, rental.id)).has(ledgerLineId);
-  if (!mandate || !charge || isDebited) {
+  if (!mandate || !charge || isReversed || isDebited) {
     return null;
   }
   const amountCents = await cappedCents(tx, operatorId, rental.id, charge.amountCents, lines);
@@ -306,5 +313,6 @@ export async function reserveOwnDebit(
       requestedAt: now,
     },
     [{ ledgerLineId, instalment: 1, amountCents: charge.amountCents }],
+    { type: "user", id: actor.userId },
   );
 }

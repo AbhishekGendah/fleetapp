@@ -251,14 +251,31 @@ describe("weekly debits", () => {
     );
   });
 
-  it("can mark a debit never sent as failed, with no Stripe ID", async () => {
-    const paymentId = await reserveDebit({ periodStartsAt: new Date("2026-12-13T01:00:00Z") });
-    await asA((tx) =>
-      tx
-        .update(schema.payments)
-        .set({ status: "failed", failureCode: "not_sent", settledAt: new Date() })
-        .where(eq(schema.payments.id, paymentId)),
-    );
+  it("can mark a debit never sent as failed, and only that one succeeded once Stripe says so", async () => {
+    const set = (paymentId: string, values: Partial<typeof schema.payments.$inferInsert>) =>
+      asA((tx) => tx.update(schema.payments).set(values).where(eq(schema.payments.id, paymentId)));
+    const unsent = await reserveDebit({ periodStartsAt: new Date("2026-12-13T01:00:00Z") });
+    await set(unsent, { status: "failed", failureCode: "not_sent", settledAt: new Date() });
+    await set(unsent, {
+      status: "succeeded",
+      failureCode: null,
+      stripePaymentIntentId: stripeId("pi"),
+    });
+    const refused = await reserveDebit({ periodStartsAt: new Date("2026-12-14T01:00:00Z") });
+    await set(refused, {
+      status: "failed",
+      failureCode: "insufficient_funds",
+      settledAt: new Date(),
+    });
+    expect(
+      await postgresErrorCodeOf(
+        set(refused, {
+          status: "succeeded",
+          failureCode: null,
+          stripePaymentIntentId: stripeId("pi"),
+        }),
+      ),
+    ).toBe(CHECK_VIOLATION);
   });
 
   it("plans a one-off charge, split over 2 to 12 weeks, and keeps it once it is debited", async () => {

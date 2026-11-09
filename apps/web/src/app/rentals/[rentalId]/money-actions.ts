@@ -3,6 +3,7 @@
 import { formTextValues, isRecordId, todayInTimeZone } from "@fleetapp/core";
 import { failedState, savedState, type ChangeFormState } from "@fleetapp/ui/change-form-state";
 
+import type { ActingUser } from "../../../lib/acting-user";
 import { appDb } from "../../../lib/app-db";
 import { billingDependencies } from "../../../lib/billing/billing-dependencies";
 import {
@@ -111,7 +112,7 @@ export async function addChargeAction(
       });
       const debitText =
         result.status === "saved" && collection?.plan === "own_debit"
-          ? await takeChargeNow(actor.operatorId, rentalId, result.lineId)
+          ? await takeChargeNow(actor, rentalId, result.lineId)
           : "";
       return answerFor(actor, rentalId, result, `Charge added.${debitText}`);
     },
@@ -120,14 +121,12 @@ export async function addChargeAction(
 
 /** "Take it now": the charge debited on its own, after it is saved. */
 async function takeChargeNow(
-  operatorId: string,
+  actor: ActingUser,
   rentalId: string,
   ledgerLineId: string,
 ): Promise<string> {
   const deps = appPaymentDependencies();
-  const isAsked = deps
-    ? await collectChargeNow(deps, operatorId, { rentalId, ledgerLineId })
-    : false;
+  const isAsked = deps ? await collectChargeNow(deps, actor, { rentalId, ledgerLineId }) : false;
   return isAsked
     ? " Its debit is on its way: it counts as paid once the bank clears it."
     : " It could not be debited now (nothing owing, or no working direct debit), so it stays on the invoice.";
@@ -230,6 +229,7 @@ const PLAN_CHANGE_MESSAGES: Readonly<Record<Exclude<DebitPlanChange, "changed">,
   already_debited:
     "Part of this charge is already in a debit, so how it is collected stays as it is.",
   not_offered: REFUSED_MESSAGES.collection_not_offered,
+  reversed: "This charge was reversed, so it is not collected.",
 };
 
 /** Bound to one charge: changes how it is collected, until any part of it is debited. */
@@ -256,9 +256,7 @@ export async function changeDebitPlanAction(
         return failedState(PLAN_CHANGE_MESSAGES[result]);
       }
       const debitText =
-        collection.plan === "own_debit"
-          ? await takeChargeNow(actor.operatorId, rentalId, ledgerLineId)
-          : "";
+        collection.plan === "own_debit" ? await takeChargeNow(actor, rentalId, ledgerLineId) : "";
       return savedState(`How it is collected is changed.${debitText}`);
     },
   });

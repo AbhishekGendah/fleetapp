@@ -26,6 +26,7 @@ interface LockedDebit {
   status: "pending" | "succeeded" | "failed" | "refunded";
   stripePaymentIntentId: string | null;
   stripeFeeCents: number | null;
+  failureCode: string | null;
 }
 
 /**
@@ -102,6 +103,7 @@ async function lockDebit(tx: AnyTransaction, paymentId: string): Promise<LockedD
       status: payments.status,
       stripePaymentIntentId: payments.stripePaymentIntentId,
       stripeFeeCents: payments.stripeFeeCents,
+      failureCode: payments.failureCode,
     })
     .from(payments)
     .where(eq(payments.id, paymentId))
@@ -112,7 +114,8 @@ async function lockDebit(tx: AnyTransaction, paymentId: string): Promise<LockedD
 
 /** Stripe's ID and fee, each written once; the status moved on if Stripe says it settled. */
 function changesFor(debit: LockedDebit, read: DebitRead, now: Date) {
-  const isSettling = debit.status === "pending" && read.status !== "processing";
+  const isSettling =
+    (debit.status === "pending" && read.status !== "processing") || isNotSentButPaid(debit, read);
   return {
     ...(debit.stripePaymentIntentId === null
       ? { stripePaymentIntentId: read.paymentIntentId }
@@ -128,6 +131,32 @@ function changesFor(debit: LockedDebit, read: DebitRead, now: Date) {
         }
       : {}),
   };
+}
+
+/**
+ * A debit we marked "not sent" (recovery found none at Stripe) that Stripe
+ * now says was made and succeeded: the money was taken, so it becomes
+ * succeeded with its payment line, never left owing to be taken again.
+ */
+function isNotSentButPaid(debit: LockedDebit, read: DebitRead): boolean {
+  return (
+    debit.status === "failed" &&
+    debit.failureCode === DEBIT_NOT_SENT_CODE &&
+    read.status === "succeeded"
+  );
+}
+
+/**
+ * A debit Stripe refused at once that Stripe now says succeeded: the
+ * records can't follow (a refused debit stays failed), so AGS is told at
+ * once, by ids only (rule 7), to check it in the business's Stripe dashboard.
+ */
+function alertRefusedButPaid(operatorId: string, debit: LockedDebit, read: DebitRead): void {
+  console.error("A debit marked failed has succeeded at Stripe: check it by hand", {
+    operatorId,
+    paymentId: debit.id,
+    paymentIntentId: read.paymentIntentId,
+  });
 }
 
 /**
@@ -152,6 +181,12 @@ export async function applyDebitRead(
   if (!debit || (debit.stripePaymentIntentId ?? read.paymentIntentId) !== read.paymentIntentId) {
     return null;
   }
+  if (debit.status === "failed" && !isNotSentButPaid(debit, read)) {
+    if (read.status === "succeeded") {
+      alertRefusedButPaid(operatorId, debit, read);
+    }
+    return null;
+  }
   const changes = changesFor(debit, read, times.now);
   if (Object.keys(changes).length > 0) {
     await tx
@@ -169,7 +204,7 @@ export async function applyDebitRead(
       valuesAfter: { status: changes.status, amountCents: debit.amountCents },
     });
   }
-  const hasCleared = read.status === "succeeded" && debit.status !== "failed";
+  const hasCleared = read.status === "succeeded";
   if (!hasCleared) {
     return null;
   }

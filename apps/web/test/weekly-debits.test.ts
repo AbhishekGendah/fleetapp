@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { debitDescription, todayInTimeZone } from "@fleetapp/core";
 import {
+  activityLog,
   debitItems,
   operators,
   paymentLedgerLines,
@@ -13,7 +14,7 @@ import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, sql } from "drizzle-orm";
 import { Client } from "pg";
-import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, inject, it, vi } from "vitest";
 
 import type { ActingUser } from "../src/lib/acting-user";
 import { setDebitsPaused } from "../src/lib/debits/debit-pause";
@@ -442,6 +443,91 @@ describe("weekly debits", () => {
       expect(await debitsOf(never.rentalId)).toHaveLength(1);
     });
 
+    /** What Stripe would have been asked for this debit, made at the stand-in only now. */
+    async function makeAtStripeLate(paymentId: string) {
+      const [row] = (
+        await superuser.db.execute<{
+          account: string;
+          customer: string;
+          method: string;
+          mandate: string;
+          amount: number;
+        }>(sql`select a.stripe_account_id as account, c.stripe_customer_id as customer,
+            m.stripe_payment_method_id as method, m.stripe_mandate_id as mandate,
+            p.amount_cents as amount
+          from payments p
+          join stripe_accounts a on a.operator_id = p.operator_id
+          join renter_stripe_customers c on c.renter_id = p.renter_id
+          join payment_mandates m on m.id = p.mandate_id
+          where p.id = ${paymentId}`)
+      ).rows;
+      const answer = await stripe.createDebit(row!.account, {
+        paymentId,
+        customerId: row!.customer,
+        paymentMethodId: row!.method,
+        mandateId: row!.mandate,
+        amountCents: row!.amount,
+        description: "Made late",
+      });
+      if (answer.status !== "sent") {
+        throw new Error("The stand-in refused it.");
+      }
+      return answer.debit.paymentIntentId;
+    }
+
+    it("records a debit marked not sent that Stripe says succeeded, with its payment line", async () => {
+      const { rentalId } = await rentalOut();
+      const now = new Date();
+      stripe.failNextDebitRequests(1);
+      await runAt(now);
+      await runAt(new Date(now.getTime() + 24 * HOUR_MS));
+      const unsent = await onlyDebit(rentalId);
+      expect(unsent).toMatchObject({ status: "failed", failureCode: "not_sent" });
+      const paymentIntentId = await makeAtStripeLate(unsent.id);
+
+      expect(await deliver(stripe.settleDebit(paymentIntentId, true))).toBe("handled");
+      expect(await onlyDebit(rentalId)).toMatchObject({
+        status: "succeeded",
+        failureCode: null,
+        stripePaymentIntentId: paymentIntentId,
+      });
+      expect((await ledgerOf(rentalId)).balanceCents).toBe(RENT_CENTS);
+    });
+
+    it("alerts AGS when a debit Stripe refused later says it succeeded", async () => {
+      const { rentalId } = await rentalOut();
+      stripe.refuseNextDebits(1, "insufficient_funds");
+      await runAt(new Date());
+      const refused = await onlyDebit(rentalId);
+      const paymentIntentId = await makeAtStripeLate(refused.id);
+      const alert = vi.spyOn(console, "error").mockImplementation(() => undefined);
+      try {
+        await deliver(stripe.settleDebit(paymentIntentId, true));
+        expect(alert).toHaveBeenCalledWith(
+          expect.stringContaining("marked failed has succeeded at Stripe"),
+          expect.objectContaining({ paymentId: refused.id, paymentIntentId }),
+        );
+      } finally {
+        alert.mockRestore();
+      }
+      expect((await onlyDebit(rentalId)).status).toBe("failed");
+    });
+
+    it("looks a reserved debit up instead of asking again once its rental is paused", async () => {
+      const { rentalId } = await rentalOut();
+      const now = new Date();
+      stripe.failNextDebitRequests(1);
+      await runAt(now);
+      const reserved = await onlyDebit(rentalId);
+      await setDebitsPaused(web.db, actor, rentalId, { reason: "Arrangement" });
+      await runAt(new Date(now.getTime() + 20 * MINUTE_MS));
+      expect(madeFor(reserved.id)).toEqual([]);
+      expect(await onlyDebit(rentalId)).toMatchObject({
+        status: "failed",
+        failureCode: "not_sent",
+      });
+    });
+
     it("matches Stripe's message before its ID was saved, by our ID, amount, customer and mandate", async () => {
       const { rentalId } = await rentalOut();
       stripe.loseNextDebitAnswers(1);
@@ -579,11 +665,45 @@ describe("weekly debits", () => {
         isStripeReady: true,
       });
       const target = { rentalId, ledgerLineId: lineId };
-      expect(await collectChargeNow(depsAt(new Date()), actor.operatorId, target)).toBe(true);
-      expect(await collectChargeNow(depsAt(new Date()), actor.operatorId, target)).toBe(false);
+      expect(await collectChargeNow(depsAt(new Date()), actor, target)).toBe(true);
+      expect(await collectChargeNow(depsAt(new Date()), actor, target)).toBe(false);
       expect(
         (await debitsOf(rentalId)).filter((debit) => debit.purpose === "one_off_debit"),
       ).toEqual([expect.objectContaining({ amountCents: 120_00, periodStartsAt: null })]);
+    });
+
+    it("never takes now, nor changes the plan of, a charge that was reversed", async () => {
+      const { rentalId } = await rentalOut();
+      const lineId = await addCleaning(rentalId, {
+        plan: "not_debited",
+        weeks: null,
+        isStripeReady: true,
+      });
+      await reverseLine(web.db, actor, { rentalId, lineId }, { note: "Not owed" }, "2026-11-10");
+      const target = { rentalId, ledgerLineId: lineId };
+      expect(await collectChargeNow(depsAt(new Date()), actor, target)).toBe(false);
+      expect(
+        await changeDebitPlan(web.db, actor, target, { plan: "next_debit", weeks: null }),
+      ).toBe("reversed");
+      expect(await debitsOf(rentalId)).toEqual([]);
+    });
+
+    it("logs Take it now as the User's", async () => {
+      const { rentalId } = await rentalOut();
+      const lineId = await addCleaning(rentalId, {
+        plan: "own_debit",
+        weeks: null,
+        isStripeReady: true,
+      });
+      await collectChargeNow(depsAt(new Date()), actor, { rentalId, ledgerLineId: lineId });
+      const [debit] = await debitsOf(rentalId);
+      const [entry] = await withTenant(web.db, actor.operatorId, (tx) =>
+        tx
+          .select({ actorType: activityLog.actorType, actorId: activityLog.actorId })
+          .from(activityLog)
+          .where(and(eq(activityLog.entityId, debit!.id), eq(activityLog.action, "created"))),
+      );
+      expect(entry).toEqual({ actorType: "user", actorId: actor.userId });
     });
 
     it("offers no weekly plan once the car is back, and none without a direct debit", async () => {
