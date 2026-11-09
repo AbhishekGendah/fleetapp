@@ -70,6 +70,7 @@ const ACTIVITY_ENTITY_LABELS = {
   [ACTIVITY_ENTITY_TYPES.insuranceClaim]: "Insurance claim",
   [ACTIVITY_ENTITY_TYPES.rentalChange]: "Change of terms",
   [ACTIVITY_ENTITY_TYPES.carSwap]: "Car swap",
+  [ACTIVITY_ENTITY_TYPES.driverChange]: "Driver change",
   [ACTIVITY_ENTITY_TYPES.possession]: "Renter's time with the car",
   [ACTIVITY_ENTITY_TYPES.carHold]: "Car kept for the rental",
   [ACTIVITY_ENTITY_TYPES.chargeType]: "Charge type",

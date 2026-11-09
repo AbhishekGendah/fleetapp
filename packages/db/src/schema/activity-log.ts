@@ -82,6 +82,8 @@ export const ACTIVITY_ENTITY_TYPES = {
   insuranceClaim: "insurance_claim",
   rentalChange: "rental_change",
   carSwap: "car_swap",
+  /** A business's driver changed while its car is out (rule 15). */
+  driverChange: "driver_change",
   /** Who had the car, and when: what fines are matched to (rule 15, review A6-12). */
   possession: "possession",
   /** A car kept for a rental's time, so it can't be booked twice (rule 18). */

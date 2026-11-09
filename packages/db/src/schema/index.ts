@@ -27,6 +27,7 @@ export * from "./inspections";
 export * from "./damage";
 export * from "./rental-changes";
 export * from "./car-swaps";
+export * from "./driver-changes";
 export * from "./billing";
 export * from "./ledger";
 export * from "./payments";

@@ -84,6 +84,11 @@ export const inspections = pgTable(
      * handover): the rental's own first handover and final return are not.
      */
     isForSwap: boolean("is_for_swap").notNull().default(false),
+    /**
+     * One of a driver change's pair (the car checked in from the driver who
+     * had it, then signed for by the new one): finished only with the change.
+     */
+    isForDriverChange: boolean("is_for_driver_change").notNull().default(false),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     ...timestampColumns,
@@ -94,13 +99,16 @@ export const inspections = pgTable(
     unique("inspections_id_operator_unique").on(table.id, table.operatorId),
     index("inspections_rental_idx").on(table.operatorId, table.rentalId),
     // One checklist of each kind under way per rental, and one finished handover
-    // and return outside car swaps (each swap adds its own pair).
+    // and return outside car swaps and driver changes (each adds its own pair).
     uniqueIndex("inspections_one_in_progress")
       .on(table.operatorId, table.rentalId, table.kind)
       .where(sql`${table.status} = 'in_progress'`),
     uniqueIndex("inspections_one_completed")
       .on(table.operatorId, table.rentalId, table.kind)
-      .where(sql`${table.status} = 'completed' and not ${table.isForSwap}`),
+      .where(
+        sql`${table.status} = 'completed' and not ${table.isForSwap} and not ${table.isForDriverChange}`,
+      ),
+    check("inspections_one_pair", sql`not (${table.isForSwap} and ${table.isForDriverChange})`),
     check("inspections_odometer", sql`${table.odometerKm} is null or ${table.odometerKm} >= 0`),
     check(
       "inspections_keys",

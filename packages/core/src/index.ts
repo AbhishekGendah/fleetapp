@@ -61,6 +61,7 @@ export * from "./bonds";
 export * from "./handover";
 export * from "./rental-changes";
 export * from "./car-swaps";
+export * from "./driver-changes";
 export * from "./direct-debits";
 export * from "./picture-size";
 export * from "./privacy-notice";
