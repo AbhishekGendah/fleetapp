@@ -12,7 +12,7 @@ import {
   type StandInPayments,
 } from "../src/lib/payments/stand-in-provider";
 import { seedOperatorWithUser } from "./car-fixtures";
-import { openTransactionAs, outcomeOf, waitUntilBlockedBy } from "./lock-fixtures";
+import { oneAfterTheOther, outcomeOf } from "./lock-fixtures";
 import { PAYMENTS_WEBHOOK_SECRET, paymentsTestKit } from "./payment-fixtures";
 
 /** The test rental's bond: $500 (bookTestRental). */
@@ -50,24 +50,14 @@ describe("bond by hand and Stripe's news about the bond, at the same moment", ()
   });
 
   /** Runs the two in this order, each waiting for the rental another connection holds. */
-  async function oneAfterTheOther<First, Second>(
+  function inOrder<First, Second>(
     rentalId: string,
     first: () => Promise<First>,
     second: () => Promise<Second>,
   ): Promise<{ first: First; second: Second }> {
-    const holder = await openTransactionAs(actor.operatorId);
-    await holder.client.query("select id from rentals where id = $1 for no key update", [rentalId]);
-    try {
-      const firstDone = first();
-      await waitUntilBlockedBy(superuser, holder.pid);
-      const secondDone = second();
-      await waitUntilBlockedBy(superuser, holder.pid, 2);
-      await holder.client.query("commit");
-      return { first: await firstDone, second: await secondDone };
-    } finally {
-      // Ended either way, so a failure here never leaves the rental held.
-      await holder.client.end();
-    }
+    const lockQuery = "select id from rentals where id = $1 for no key update";
+    const held = { operatorId: actor.operatorId, lockQuery, id: rentalId };
+    return oneAfterTheOther(superuser, held, first, second);
   }
 
   function cashBond(rentalId: string, amountCents: number) {
@@ -110,7 +100,7 @@ describe("bond by hand and Stripe's news about the bond, at the same moment", ()
   it("records Stripe's bond first, then refuses the cash as already held", async () => {
     const { rental, paid } = await bondPagePaid();
 
-    const { first, second } = await oneAfterTheOther(
+    const { first, second } = await inOrder(
       rental.rentalId,
       () => delivered(paid),
       () => cashBond(rental.rentalId, BOND_CENTS),
@@ -124,7 +114,7 @@ describe("bond by hand and Stripe's news about the bond, at the same moment", ()
   it("records the cash first, then Stripe's bond once, and says it is held twice", async () => {
     const { rental, sessionId, paid } = await bondPagePaid();
 
-    const { first, second } = await oneAfterTheOther(
+    const { first, second } = await inOrder(
       rental.rentalId,
       () => cashBond(rental.rentalId, BOND_CENTS),
       () => delivered(paid),
@@ -163,7 +153,7 @@ describe("bond by hand and Stripe's news about the bond, at the same moment", ()
       const { rental, sessionId, cashEntryId } = await cashAndCard();
       const { event } = stripe.takeBack(sessionId, { kind, amountCents: STRIPE_CENTS });
 
-      const { first, second } = await oneAfterTheOther(
+      const { first, second } = await inOrder(
         rental.rentalId,
         () => delivered(event),
         () => correctEntry(rental.rentalId, cashEntryId),
@@ -179,7 +169,7 @@ describe("bond by hand and Stripe's news about the bond, at the same moment", ()
       const { rental, sessionId, cashEntryId } = await cashAndCard();
       const { event } = stripe.takeBack(sessionId, { kind, amountCents: STRIPE_CENTS });
 
-      const { first, second } = await oneAfterTheOther(
+      const { first, second } = await inOrder(
         rental.rentalId,
         () => correctEntry(rental.rentalId, cashEntryId),
         () => delivered(event),

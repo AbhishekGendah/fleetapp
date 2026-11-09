@@ -16,7 +16,6 @@ import {
   issuedDocuments,
   renterLinks,
   rentals,
-  renters,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { ROW_LOCK } from "@fleetapp/db/row-lock";
@@ -33,6 +32,7 @@ import {
 import type { RentalClock } from "../rentals/rental-records";
 import { cancelLiveLinks, cancelRentalLink } from "../renter-links/cancel-links";
 import { rentalRenterStanding } from "../renters/renter-archived";
+import { lockLinkRecipient } from "../renters/renter-records";
 import {
   LINK_IN_PLAY_COLUMNS,
   linkInPlay,
@@ -118,22 +118,11 @@ async function sendLinkFor(
     if (refusal) {
       return { status: refusal };
     }
-    const [renter] = await tx
-      .select({
-        email: renters.email,
-        fullName: renters.fullName,
-        preferredName: renters.preferredName,
-        contactName: renters.contactName,
-        archivedAt: renters.archivedAt,
-      })
-      .from(renters)
-      .where(and(eq(renters.id, rental.renterId), eq(renters.operatorId, actor.operatorId)));
-    if (renter?.archivedAt) {
-      return { status: "renter_archived" as const };
+    const recipient = await lockLinkRecipient(tx, actor.operatorId, rental.renterId);
+    if (recipient.status !== "found") {
+      return { status: recipient.status };
     }
-    if (!renter?.email) {
-      return { status: "no_email" as const };
-    }
+    const { renter, email } = recipient;
     // Only this paper's own link: another change's form keeps working (review A3-2).
     await cancelLiveLinks(tx, actor, rental.renterId, clock.now, {
       rentalId,
@@ -147,7 +136,7 @@ async function sendLinkFor(
         renterId: rental.renterId,
         purpose: subject.purpose,
         tokenHash: hashSecretToken(token),
-        sentToEmail: renter.email,
+        sentToEmail: email,
         expiresAt,
         createdByUserId: actor.userId,
         rentalId,
@@ -176,7 +165,7 @@ async function sendLinkFor(
     });
     return {
       status: "ready" as const,
-      email: renter.email,
+      email,
       // A business's link greets its contact, who signs for it.
       name: renter.contactName ?? renter.preferredName ?? renter.fullName,
       sender: await loadLinkSender(tx, actor.operatorId),

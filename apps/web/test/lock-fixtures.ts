@@ -52,6 +52,40 @@ export async function waitUntilBlockedBy(
   throw new Error("Nothing waited for the lock.");
 }
 
+/** The row a third connection holds while two calls queue behind it. */
+export interface HeldRow {
+  operatorId: string;
+  /** Locks the row named by $1, as the app does (for no key update). */
+  lockQuery: string;
+  id: string;
+}
+
+/**
+ * Runs two calls in a set order: another connection holds the row, the
+ * first call queues behind it, then the second, and then it lets go, so the
+ * first gets the row first. Ended either way, so a failing test never
+ * leaves the row held.
+ */
+export async function oneAfterTheOther<First, Second>(
+  superuser: Client,
+  held: HeldRow,
+  first: () => Promise<First>,
+  second: () => Promise<Second>,
+): Promise<{ first: First; second: Second }> {
+  const holder = await openTransactionAs(held.operatorId);
+  try {
+    await holder.client.query(held.lockQuery, [held.id]);
+    const firstDone = first();
+    await waitUntilBlockedBy(superuser, holder.pid);
+    const secondDone = second();
+    await waitUntilBlockedBy(superuser, holder.pid, 2);
+    await holder.client.query("commit");
+    return { first: await firstDone, second: await secondDone };
+  } finally {
+    await holder.client.end();
+  }
+}
+
 /**
  * What a call came to while the given backend still holds its locks, or
  * "waited" once this many connections wait behind that backend instead: a

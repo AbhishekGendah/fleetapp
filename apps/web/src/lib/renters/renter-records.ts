@@ -92,6 +92,29 @@ export async function lockCurrentRenter(
   return renter;
 }
 
+/** Who a new link to a Renter goes to, read with the Renter locked. */
+export type LinkRecipient =
+  | { status: "found"; renter: Renter; email: string }
+  | { status: "renter_archived" | "no_email" };
+
+/**
+ * The Renter a new link is sent to (rule 26), locked after the rental
+ * ("Lock order"), so an archive or a new email at the same moment either
+ * waits and then cancels the link, or is seen here: an archived Renter is
+ * refused, and the link goes to the email read under the lock.
+ */
+export async function lockLinkRecipient(
+  tx: AnyTransaction,
+  operatorId: string,
+  renterId: string,
+): Promise<LinkRecipient> {
+  const renter = await lockCurrentRenter(tx, operatorId, renterId);
+  if (!renter) {
+    return { status: "renter_archived" };
+  }
+  return renter.email ? { status: "found", renter, email: renter.email } : { status: "no_email" };
+}
+
 /**
  * Adds a person or a business to the signed-in User's Operator (never one
  * named by the form: rule 1), inside the caller's transaction. The log says

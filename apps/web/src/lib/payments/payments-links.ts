@@ -9,6 +9,7 @@ import { eq } from "drizzle-orm";
 
 import { isRentalRenterArchived } from "../renters/renter-archived";
 import type { ActingUser } from "../acting-user";
+import { lockLinkRecipient } from "../renters/renter-records";
 import { cancelLinksAs } from "../renter-links/cancel-links";
 import {
   loadLinkInPlay,
@@ -173,8 +174,9 @@ export async function sendPaymentsLink(
         ? { status: "renter_archived" as const }
         : { status: "not_found" as const };
     }
-    if (!rental.renterEmail) {
-      return { status: "no_email" as const };
+    const recipient = await lockLinkRecipient(tx, actor.operatorId, rental.renterId);
+    if (recipient.status !== "found") {
+      return { status: recipient.status };
     }
     const issued = await issuePaymentsLink(
       tx,
@@ -182,7 +184,7 @@ export async function sendPaymentsLink(
       {
         renterId: rental.renterId,
         rentalId,
-        email: rental.renterEmail,
+        email: recipient.email,
         createdByUserId: actor.userId,
         now,
       },
@@ -194,7 +196,7 @@ export async function sendPaymentsLink(
             tx,
             {
               operatorId: actor.operatorId,
-              email: rental.renterEmail,
+              email: recipient.email,
               renterName: rental.greetingName,
               rental,
             },
@@ -247,10 +249,14 @@ export async function continueToPayments(
       renterId: signing.renterId,
     });
     const [link] = await tx
-      .select({ createdByUserId: renterLinks.createdByUserId, email: renterLinks.sentToEmail })
+      .select({ createdByUserId: renterLinks.createdByUserId })
       .from(renterLinks)
       .where(eq(renterLinks.id, signing.linkId));
     if (!rental || !link) {
+      return null;
+    }
+    const recipient = await lockLinkRecipient(tx, signing.operatorId, signing.renterId);
+    if (recipient.status !== "found") {
       return null;
     }
     const due = await rentalPaymentsIn(tx, signing.operatorId, rental);
@@ -263,7 +269,7 @@ export async function continueToPayments(
       {
         renterId: signing.renterId,
         rentalId: rental.id,
-        email: link.email,
+        email: recipient.email,
         createdByUserId: link.createdByUserId,
         now,
       },
@@ -286,7 +292,7 @@ export async function continueToPayments(
       tx,
       {
         operatorId: signing.operatorId,
-        email: link.email,
+        email: recipient.email,
         renterName: rental.greetingName,
         rental,
       },
