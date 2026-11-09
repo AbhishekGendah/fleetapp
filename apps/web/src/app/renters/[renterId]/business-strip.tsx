@@ -46,6 +46,17 @@ function ContactLinks({ renter }: { renter: RenterDetail }) {
   );
 }
 
+/** Owing across its cars, and when one is late, how late and which car: "5 days late · 1BRT482". */
+function businessOwingFact(data: RenterPageData) {
+  const fact = renterOwingFact(data.ledger, data.overdue, data.today);
+  const isLateShown = data.overdue !== null && data.ledger.balanceCents > 0 && data.lateRego;
+  return {
+    ...fact,
+    label: "Owing across cars",
+    ...(isLateShown ? { note: `${fact.note} · ${data.lateRego}` } : {}),
+  };
+}
+
 /**
  * The navy strip at the top of a business Renter's page (7 Nov 2026
  * mockups): its trading name, legal name and ABN, its contact with Call,
@@ -78,7 +89,7 @@ export function BusinessStrip(props: {
         </>
       }
       facts={[
-        { ...renterOwingFact(data.ledger, data.overdue, data.today), label: "Owing across cars" },
+        businessOwingFact(data),
         carsOutFact(data.rentalsUnderWay, props.clock),
         businessSinceFact(
           renter.createdAt,

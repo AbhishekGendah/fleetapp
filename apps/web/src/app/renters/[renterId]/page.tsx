@@ -22,6 +22,7 @@ import type { RenterDetail } from "../../../lib/renters/renter-queries";
 import { AppShell } from "../../app-shell";
 import { RecordRentalsCard } from "../../rentals/record-rentals-card";
 import { BusinessDetailsTab } from "./business-details-tab";
+import { BusinessMoneyTab } from "./business-money-tab";
 import { BusinessOverviewTab } from "./business-overview-tab";
 import { loadBusinessPageData, type BusinessPageData } from "./business-page-data";
 import { BusinessStrip } from "./business-strip";
@@ -150,12 +151,7 @@ async function ChosenBusinessTab(props: {
       );
     case "money":
       return (
-        <MoneyTab
-          renterId={renter.id}
-          user={user}
-          moneyByCar={business.moneyByCar}
-          isMoneyByCarCut={business.isMoneyByCarCut}
-        />
+        <BusinessMoneyTab renter={renter} user={user} business={business} clock={props.clock} />
       );
     case "details":
       return <BusinessDetailsTab renter={renter} user={user} />;

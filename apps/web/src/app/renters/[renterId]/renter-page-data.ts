@@ -11,7 +11,7 @@ import {
   rentingOf,
   type RenterRenting,
 } from "../../../lib/renters/renter-list-rows";
-import { renterOverdueOf, type RenterBadge } from "../../../lib/renters/renter-list-status";
+import { longestLateRental, type RenterBadge } from "../../../lib/renters/renter-list-status";
 import {
   countRenterRentals,
   loadRenterSummary,
@@ -29,6 +29,8 @@ export interface RenterPageData {
   /** Every line of every rental of theirs, and the balance added up from them (rule 11). */
   ledger: LedgerView;
   overdue: Overdue | null;
+  /** The car of their longest-late rental: a business's strip names it. */
+  lateRego: string | null;
   /** Their rentals out or booked, soonest first. */
   rentalsUnderWay: RentalSummary[];
   renting: RenterRenting;
@@ -64,7 +66,10 @@ export async function loadRenterPageData(
     throw new Error("The Renter went missing while their page loaded.");
   }
   const rentalsUnderWay = underWay.get(renter.id) ?? [];
-  const overdue = renterOverdueOf(ledger.lines, today, settings.paymentGraceDays);
+  const late = longestLateRental(ledger.lines, today, settings.paymentGraceDays);
+  const overdue = late?.overdue ?? null;
+  const lateRego =
+    ledger.lines.filter((line) => line.rentalId === late?.rentalId).at(-1)?.rego ?? null;
   // The same words and labels as their row on the Renters list.
   const [row] = renterListRows(
     [summary],
@@ -73,7 +78,16 @@ export async function loadRenterPageData(
       // No lines of their own reads as no money of their own, as on the list.
       money:
         ledger.lines.length > 0
-          ? new Map([[renter.id, { balanceCents: ledger.balanceCents, overdue }]])
+          ? new Map([
+              [
+                renter.id,
+                {
+                  balanceCents: ledger.balanceCents,
+                  overdue,
+                  rentalCount: new Set(ledger.lines.map((line) => line.rentalId)).size,
+                },
+              ],
+            ])
           : new Map(),
       bondToRefundRenterIds: new Set(bonds.items.map((bond) => bond.renterId)),
       businessesOf,
@@ -84,6 +98,7 @@ export async function loadRenterPageData(
   return {
     ledger,
     overdue,
+    lateRego,
     rentalsUnderWay,
     renting: row?.renting ?? rentingOf(summary, rentalsUnderWay, clock),
     rentalCount,

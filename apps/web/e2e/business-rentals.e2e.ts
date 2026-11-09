@@ -14,8 +14,10 @@ import {
   openRentalTab,
   type TypedMoment,
 } from "./rental-steps";
+import { runNightly } from "./money-steps";
 import { openLinkOnPhone, writeShortTemplate } from "./signing-steps";
 import { latestEmailTo } from "./test-inbox";
+import { recordHandover } from "./test-records";
 
 /**
  * Renting to a business (docs/plans/business-renters.md slice 3, mockups 5
@@ -48,6 +50,12 @@ const LINK_PATTERN = /https?:\/\/\S+\/r\/[A-Za-z0-9_-]+/;
  * chosen, so the plain form keeps its 510 KB budget (download-size.e2e.ts).
  */
 const NEW_RENTAL_BUDGET_KB = 595;
+/**
+ * A business's Money tab's JavaScript budget at phone width (rule 33): 417 KB
+ * measured on 9 Nov 2026 with its statement form, within the 445 KB budget
+ * of a business's page (business-renters.e2e.ts), so not raised.
+ */
+const BUSINESS_MONEY_BUDGET_KB = 445;
 
 const START: TypedMoment = {
   day: "07",
@@ -64,9 +72,9 @@ async function openBusiness(page: Page): Promise<void> {
   await page.waitForLoadState("networkidle");
 }
 
-/** The business's rental of the test car, from the Rentals list. */
-async function openBusinessRental(page: Page): Promise<void> {
-  await openBusinessRentalOf(page, { carRego: CAR_REGO, tradingName: BUSINESS.tradingName });
+/** The business's rental of the test car, from the Rentals list; gives back its id. */
+async function openBusinessRental(page: Page): Promise<string> {
+  return openBusinessRentalOf(page, { carRego: CAR_REGO, tradingName: BUSINESS.tradingName });
 }
 
 test.describe.serial("renting to a business", () => {
@@ -221,5 +229,80 @@ test.describe.serial("renting to a business", () => {
 
     await page.reload({ waitUntil: "networkidle" });
     await expect(page.getByText("Business rental contract").first()).toBeVisible();
+  });
+
+  test("invoices the business's car to the business, and adds its money up across cars", async ({
+    page,
+  }) => {
+    const rentalId = await openBusinessRental(page);
+    await recordHandover(rentalId);
+    await runNightly(page);
+
+    // "Tax invoice" once the Operator is GST-registered; the test business isn't.
+    const invoice = await latestEmailTo(BUSINESS.email);
+    expect(invoice.subject).toMatch(/^(Tax invoice|Invoice) /);
+    expect(invoice.text).toContain(`Hi ${BUSINESS.contactName},`);
+    expect(invoice.text).toContain(`to ${BUSINESS.legalName} for ${CAR_REGO}`);
+
+    await openBusiness(page);
+    const strip = page.getByRole("region", { name: BUSINESS.tradingName });
+    await expect(strip.getByText("Owing across cars", { exact: true })).toBeVisible();
+    await page.getByRole("link", { name: "Send a statement" }).click();
+    await expect(
+      page
+        .getByRole("navigation", { name: "Business sections" })
+        .getByRole("link", { name: "Money", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
+    await page.waitForLoadState("networkidle");
+    for (const card of [
+      "Car by car",
+      "Statement",
+      `How ${BUSINESS.tradingName} pays`,
+      "Bonds",
+      "Latest invoices",
+    ]) {
+      await expect(page.getByRole("region", { name: card, exact: true })).toBeVisible();
+    }
+    const invoices = page.getByRole("list", { name: "Latest invoices" });
+    await expect(invoices.getByRole("listitem").first()).toContainText(`· ${CAR_REGO}`);
+    await expectNoSidewaysScroll(page);
+    await expectAccessible(page);
+    expect(await scriptKilobytes(page)).toBeLessThanOrEqual(BUSINESS_MONEY_BUDGET_KB);
+  });
+
+  test("makes a statement across its cars by keyboard, emailed to the contact", async ({
+    page,
+  }) => {
+    await openBusiness(page);
+    await page
+      .getByRole("navigation", { name: "Business sections" })
+      .getByRole("link", { name: "Money", exact: true })
+      .click();
+    await page.waitForLoadState("networkidle");
+    const card = page.getByRole("region", { name: "Statement", exact: true });
+    await expect(card.getByLabel(/^First day/)).not.toHaveValue("");
+    await expect(
+      card.getByRole("checkbox", { name: `Email it to ${BUSINESS.contactName}` }),
+    ).toBeChecked();
+    await card.getByRole("button", { name: "Make statement" }).focus();
+    await page.keyboard.press("Enter");
+    await expect(card.getByText(/^Statement made\. Open it from the list\. Emailed/)).toBeVisible();
+
+    const made = card.getByRole("list", { name: "Statements made" }).getByRole("listitem").first();
+    await expect(made).toContainText("Statement 1");
+    await expect(made).toContainText(`Emailed to ${BUSINESS.contactName}`);
+    const email = await latestEmailTo(BUSINESS.email, "Statement");
+    expect(email.text).toContain(`to ${BUSINESS.legalName} for all its cars`);
+    const href = await made.getByRole("link", { name: /^Open/ }).getAttribute("href");
+    const opened = await page.request.get(href ?? "");
+    expect(opened.ok()).toBe(true);
+    expect(opened.headers()["content-type"]).toContain("application/pdf");
+    await expectAccessible(page);
+
+    // The Renters list says how many cars its Owing adds up.
+    await page.goto("/renters?q=osprey&status=businesses", { waitUntil: "networkidle" });
+    await expect(
+      page.getByText("1 car", { exact: true }).filter({ visible: true }).first(),
+    ).toBeVisible();
   });
 });

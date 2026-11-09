@@ -417,4 +417,27 @@ describe("the contract emails", () => {
     });
     expect(message.text).toContain("Total $350.00, including GST of $31.82");
   });
+
+  it("greets a business's contact and names the business the invoice is to", async () => {
+    const message = await renderBillingDocumentEmail({
+      to: "dana@acme.test",
+      title: "Tax invoice",
+      numberText: "INV-1067",
+      renterName: "Dana Wells",
+      businessName: "Acme Rideshare Pty Ltd",
+      operatorName: "Sam's Cars Pty Ltd",
+      rentalSummary: "1BRT482 Toyota Camry",
+      amountLine: "Total $380.00, including GST of $34.55",
+      attachment: {
+        fileName: "INV-1067.pdf",
+        contentType: "application/pdf",
+        content: new Uint8Array([1]),
+      },
+    });
+
+    expect(message.text).toContain("Hi Dana Wells,");
+    expect(message.text).toContain(
+      "The tax invoice from Sam's Cars Pty Ltd to Acme Rideshare Pty Ltd for 1BRT482 Toyota Camry is attached.",
+    );
+  });
 });

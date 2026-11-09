@@ -5,14 +5,20 @@ import type { ChangeFormState } from "@fleetapp/ui/change-form-state";
 import { FormField } from "@fleetapp/ui/form-field";
 import { Input } from "@fleetapp/ui/input";
 
-import { ChangeFormShell, useChangeForm } from "../../../components/change-form-shell";
-import { STATEMENT_FIELDS, statementRangeSchema } from "../../../lib/billing/statement-input";
+import { STATEMENT_FIELDS, statementRangeSchema } from "../lib/billing/statement-input";
+import { ChangeFormShell, useChangeForm } from "./change-form-shell";
 
-/** The days a statement covers: from the rental's first day to today, unless changed. */
+/**
+ * The days a statement covers: from the first day given to today, unless
+ * changed. A rental's statement, or a business's across its cars, whose tick
+ * to email it comes in `children`.
+ */
 export function StatementForm(props: {
   action: (state: ChangeFormState, formData: FormData) => Promise<ChangeFormState>;
   fromDate: string;
   today: string;
+  submitLabel?: string;
+  children?: React.ReactNode;
 }) {
   const form = useChangeForm({
     action: props.action,
@@ -23,7 +29,7 @@ export function StatementForm(props: {
   });
   const { fields } = form;
   return (
-    <ChangeFormShell form={form} submitLabel="Make statement">
+    <ChangeFormShell form={form} submitLabel={props.submitLabel ?? "Make statement"}>
       <FormField
         htmlFor={fields.idFor("fromDate")}
         label="First day"
@@ -40,6 +46,7 @@ export function StatementForm(props: {
       >
         <Input {...fields.textBoxProps("toDate")} type="date" />
       </FormField>
+      {props.children}
     </ChangeFormShell>
   );
 }

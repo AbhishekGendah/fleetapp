@@ -40,6 +40,8 @@ export type RenterListRow = RenterSummary & {
   paidByName: string | null;
   /** The same, in words: "Acme Rides pays". */
   paidByText: string | null;
+  /** Under a business's Owing: how many cars it adds up, "across 3 cars" or "1 car". */
+  owingNote: string | null;
   /** "Mar 2026": when they were added. */
   sinceText: string;
 };
@@ -136,6 +138,14 @@ function kindLabelsOf(renter: RenterSummary, extras: RenterListExtras): string[]
   );
 }
 
+/**
+ * How many cars a business's Owing adds up (each car is a rental with its
+ * own money): "across 3 cars", or "1 car" (7 Nov 2026 mockup 1).
+ */
+export function carsCountedText(rentalCount: number): string {
+  return rentalCount === 1 ? "1 car" : `across ${rentalCount} cars`;
+}
+
 /** The Renters list's rows as the screen and the exports show them, on the Operator's clock. */
 export function renterListRows(
   renters: readonly RenterSummary[],
@@ -175,6 +185,8 @@ export function renterListRows(
       balanceCents: money?.balanceCents ?? null,
       paidByName,
       paidByText: paidByName ? `${paidByName} pays` : null,
+      owingNote:
+        renter.kind === "organisation" && money ? carsCountedText(money.rentalCount) : null,
       sinceText: formatMonthYearInTimeZone(renter.createdAt, clock.timeZone),
     };
   });

@@ -119,6 +119,11 @@ export function renterEverythingHeldPath(renterId: string): string {
   return `${renterPath(renterId)}/everything-held`;
 }
 
+/** One of a business Renter's statements across its cars, as its PDF. */
+export function renterStatementPath(renterId: string, documentId: string): string {
+  return `${renterPath(renterId)}/statements/${documentId}`;
+}
+
 /** Where a Renter's link opens, before its secret: `/r/<secret>`. */
 /** The business's privacy notice for its Renters, to show or print for one added at the counter. */
 export const PRIVACY_NOTICE_PATH = "/privacy-notice";

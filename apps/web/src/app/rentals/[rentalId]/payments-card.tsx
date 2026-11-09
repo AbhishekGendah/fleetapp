@@ -37,13 +37,14 @@ import {
   showPaymentsLinkAction,
 } from "./payments-actions";
 
-const STATE_TONES: Readonly<Record<DirectDebitState, "good" | "attention" | "danger" | undefined>> =
-  {
-    active: "good",
-    waiting: "attention",
-    cancelled: "danger",
-    not_set_up: undefined,
-  };
+export const DIRECT_DEBIT_TONES: Readonly<
+  Record<DirectDebitState, "good" | "attention" | "danger" | undefined>
+> = {
+  active: "good",
+  waiting: "attention",
+  cancelled: "danger",
+  not_set_up: undefined,
+};
 
 function NotOfferedCard(props: { isSiteReady: boolean; heading: string }) {
   return (
@@ -76,7 +77,7 @@ function PaymentRecords(props: { payments: RentalPayments; timeZone: string }) {
     <>
       <p className="flex flex-wrap items-center gap-2 text-sm">
         Direct debit:
-        <Badge tone={STATE_TONES[payments.directDebit]}>
+        <Badge tone={DIRECT_DEBIT_TONES[payments.directDebit]}>
           {DIRECT_DEBIT_STATE_LABELS[payments.directDebit]}
         </Badge>
       </p>

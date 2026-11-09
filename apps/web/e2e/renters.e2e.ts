@@ -2,6 +2,8 @@ import { FAKE_ADDRESS } from "@fleetapp/e2e/fake-places";
 import { expectAccessible } from "@fleetapp/e2e/accessibility";
 import { expect, test } from "@playwright/test";
 
+import { PHONE_VIEWPORT } from "./e2e-settings";
+import { expectNoSidewaysScroll } from "./phone-checks";
 import { latestEmailTo } from "./test-inbox";
 
 /**
@@ -12,6 +14,13 @@ import { latestEmailTo } from "./test-inbox";
 const RENTER = { name: "Sam Example", phone: "0412345678", email: "sam.e2e@example.test" };
 const LINK_PATTERN = /https?:\/\/\S+\/r\/[A-Za-z0-9_-]+/;
 const CODE_PATTERN = /\b(\d{6})\b/;
+/** A person renting as a sole trader, with their own ABN (no other test uses it). */
+const SOLE_TRADER = {
+  name: "Toni Soletrader",
+  phone: "0412000731",
+  abnDigits: "53004085616",
+  abnShown: "53 004 085 616",
+};
 
 test("adds a Renter, sends the details form, and the Renter opens it", async ({
   page,
@@ -65,4 +74,33 @@ test("adds a Renter, sends the details form, and the Renter opens it", async ({
     .click();
   await expect(home).toHaveValue(new RegExp(FAKE_ADDRESS.street));
   await renterContext.close();
+});
+
+test.describe("a sole trader's ABN (business Renters decision 8)", () => {
+  test.use({ viewport: PHONE_VIEWPORT });
+
+  test("groups the ABN as typed, checks it, and shows it on the Details tab", async ({ page }) => {
+    await page.goto("/renters/new", { waitUntil: "networkidle" });
+    await page.getByRole("textbox", { name: /^Full name/ }).fill(SOLE_TRADER.name);
+    await page.getByRole("textbox", { name: /^Phone/ }).pressSequentially(SOLE_TRADER.phone);
+    const abn = page.getByRole("textbox", { name: /^ABN/ });
+    await abn.pressSequentially("53004085617");
+    await expect(abn).toHaveValue("53 004 085 617");
+    await page.keyboard.press("Tab");
+    await expect(page.getByText("That is not a valid ABN. Check the 11 digits.")).toBeVisible();
+    await expectAccessible(page);
+    await expectNoSidewaysScroll(page);
+    await abn.fill("");
+    await abn.pressSequentially(SOLE_TRADER.abnDigits);
+    await expect(page.getByText("That is not a valid ABN. Check the 11 digits.")).toHaveCount(0);
+    await page.getByRole("button", { name: "Add Renter" }).press("Enter");
+    await expect(page.getByRole("heading", { level: 1, name: SOLE_TRADER.name })).toBeVisible();
+
+    await page
+      .getByRole("navigation", { name: "Renter sections" })
+      .getByRole("link", { name: "Details", exact: true })
+      .click();
+    await expect(page.getByText(SOLE_TRADER.abnShown)).toBeVisible();
+    await expectAccessible(page);
+  });
 });

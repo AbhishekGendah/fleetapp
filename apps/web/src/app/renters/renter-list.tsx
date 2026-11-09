@@ -97,8 +97,16 @@ function OwingAmount({ renter }: { renter: RenterListRow }) {
   if (renter.balanceCents === null) {
     return <span className="text-muted-foreground">{NOTHING_YET}</span>;
   }
-  return (
+  const amount = (
     <BalanceText balanceCents={renter.balanceCents} text={balanceAmountText(renter.balanceCents)} />
+  );
+  return renter.owingNote ? (
+    <span className="flex flex-col items-end">
+      {amount}
+      <span className="text-muted-foreground text-xs">{renter.owingNote}</span>
+    </span>
+  ) : (
+    amount
   );
 }
 
@@ -125,10 +133,15 @@ export function RenterCard({ renter }: { renter: RenterListRow }) {
         {renter.paidByText ? (
           <span className="text-muted-foreground">{renter.paidByText}</span>
         ) : renter.balanceCents === null ? null : (
-          <BalanceText
-            balanceCents={renter.balanceCents}
-            text={balanceWordsText(renter.balanceCents)}
-          />
+          <span>
+            <BalanceText
+              balanceCents={renter.balanceCents}
+              text={balanceWordsText(renter.balanceCents)}
+            />
+            {renter.owingNote ? (
+              <span className="text-muted-foreground"> {renter.owingNote}</span>
+            ) : null}
+          </span>
         )}
       </span>
     </>

@@ -29,7 +29,7 @@ import {
   issueInvoiceNowAction,
   issueStatementAction,
 } from "./billing-actions";
-import { StatementForm } from "./statement-form";
+import { StatementForm } from "../../../components/statement-form";
 
 /**
  * A draft has no money, so nothing to invoice. A cancelled booking keeps its

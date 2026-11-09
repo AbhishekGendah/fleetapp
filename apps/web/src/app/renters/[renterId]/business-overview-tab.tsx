@@ -7,7 +7,7 @@ import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 import { cn } from "@fleetapp/ui/cn";
 import { InlineRecordLink, ROW_CLASSES, RowLink } from "@fleetapp/ui/row-link";
-import { Pencil, Plus } from "lucide-react";
+import { FileText, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
 
 import { balanceAmountText, BalanceText } from "../../../components/balance-amount";
@@ -20,8 +20,9 @@ import { driverBadge } from "../../../lib/renters/driver-standing";
 import { findRentersSharingContact, type RenterDetail } from "../../../lib/renters/renter-queries";
 import { CARD_ROW_CLASSES, RentalRow } from "../../rentals/rental-row";
 import { RenterBadges } from "../renter-list";
+import { STATEMENT_CARD_ID } from "./business-money-tab";
 import type { BusinessPageData } from "./business-page-data";
-import { QUIET_LINE_CLASSES } from "./card-lines";
+import { QUIET_LINE_CLASSES, TWO_COLUMNS_CLASSES } from "./card-lines";
 import { ContactCard, LatestNoteCard, OwingLine } from "./overview-tab";
 import { SharedContactNote } from "./renter-alerts";
 import type { RenterPageData } from "./renter-page-data";
@@ -110,6 +111,14 @@ function MoneyAcrossCarsCard(props: {
         Each car is debited and invoiced on its own; add a charge or payment on its rental&rsquo;s
         page.
       </p>
+      <div className="border-t py-3">
+        <Button asChild variant="outline" className="w-full sm:w-auto">
+          <Link href={`${BUSINESS_TAB_LINKS.href(props.renter.id, "money")}#${STATEMENT_CARD_ID}`}>
+            <FileText aria-hidden />
+            Send a statement
+          </Link>
+        </Button>
+      </div>
     </SectionCard>
   );
 }
@@ -232,7 +241,7 @@ export async function BusinessOverviewTab(props: {
     <>
       <BusinessStillNeededCard renter={renter} />
       <SharedContactNote contacts={sharedContacts} />
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start">
+      <div className={TWO_COLUMNS_CLASSES}>
         <div className="flex flex-col gap-4">
           <MoneyAcrossCarsCard renter={renter} data={data} business={business} />
           <CarsOutCard renter={renter} data={data} business={business} clock={props.clock} />

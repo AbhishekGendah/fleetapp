@@ -13,39 +13,41 @@ import { LedgerSummary } from "../../rentals/ledger-line-list";
  * The Renter's whole ledger (docs/design/06): charged, paid and owing, each
  * added up from the lines of every rental of theirs (rule 11), then the lines
  * newest first, each with its car. Charges and payments are added on each
- * rental's page. For a business, its cars one by one come first.
+ * rental's page. A business's Money tab adds its cars one by one beside it.
  */
-export async function MoneyTab(props: {
+export async function LedgerCard(props: {
   renterId: string;
   user: SignedInUser;
-  moneyByCar?: readonly CarMoney[];
-  isMoneyByCarCut?: boolean;
+  isBusiness?: boolean;
 }) {
   const ledger = await loadRenterLedger(appDb, props.user.operatorId, props.renterId);
-  const isBusiness = props.moneyByCar !== undefined;
+  return (
+    <SectionCard
+      heading={props.isBusiness ? "Charges and payments across cars" : "Charges and payments"}
+    >
+      <div className="flex flex-col gap-4 border-t py-3">
+        <p className="text-muted-foreground text-sm">
+          {props.isBusiness
+            ? "Every charge, payment and credit on its rentals, added up. Each car's money stays on its own rental; add a charge or payment there."
+            : "Every charge, payment and credit on this Renter's rentals. Add one on the rental's page."}
+        </p>
+        <LedgerSummary ledger={ledger} label="Money lines" showRego hasTotals />
+      </div>
+    </SectionCard>
+  );
+}
+
+/** A person's Money tab: their whole ledger. */
+export function MoneyTab(props: { renterId: string; user: SignedInUser }) {
   return (
     <div className="flex flex-col gap-4">
-      {props.moneyByCar ? (
-        <CarsMoneyCard cars={props.moneyByCar} isCut={props.isMoneyByCarCut ?? false} />
-      ) : null}
-      <SectionCard
-        heading={isBusiness ? "Charges and payments across cars" : "Charges and payments"}
-      >
-        <div className="flex flex-col gap-4 border-t py-3">
-          <p className="text-muted-foreground text-sm">
-            {isBusiness
-              ? "Every charge, payment and credit on its rentals, added up. Each car's money stays on its own rental; add a charge or payment there."
-              : "Every charge, payment and credit on this Renter's rentals. Add one on the rental's page."}
-          </p>
-          <LedgerSummary ledger={ledger} label="Money lines" showRego hasTotals />
-        </div>
-      </SectionCard>
+      <LedgerCard renterId={props.renterId} user={props.user} />
     </div>
   );
 }
 
 /** A business's money car by car: each rental's charged, paid and owing, from its own lines. */
-function CarsMoneyCard({ cars, isCut }: { cars: readonly CarMoney[]; isCut: boolean }) {
+export function CarsMoneyCard({ cars, isCut }: { cars: readonly CarMoney[]; isCut: boolean }) {
   return (
     <SectionCard heading="Car by car">
       <div className="flex flex-col gap-3 border-t py-3">
