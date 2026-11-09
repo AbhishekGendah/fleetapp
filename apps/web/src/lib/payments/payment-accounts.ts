@@ -1,6 +1,7 @@
 import {
   describeErrorForLog,
   isStripeAccountId,
+  MILLISECONDS_PER_DAY,
   paymentAccountState,
   storedAccountStatus,
   type PaymentAccountState,
@@ -26,6 +27,7 @@ import type {
   PaymentsProvider,
 } from "./payments-provider";
 import { applyCheckoutOutcome, applyMandateStatus, isMandateKnown } from "./renter-payment-records";
+import { isBondPaymentAwaited } from "./stripe-checkouts";
 
 /** What the payments code needs: the database, Stripe (or its stand-in) and the clock. */
 export interface PaymentDependencies {
@@ -313,24 +315,56 @@ async function markDisconnected(tx: AnyTransaction, operatorId: string, now: Dat
  */
 const NOT_READY_WINDOW_MS = 60 * 60 * 1000;
 
-/** Whether an event is about something of ours whose own record is still on its way. */
-async function isAwaitingOwnRecord(
+/** How long Stripe keeps sending an event that isn't answered with success (live mode). */
+const STRIPE_RETRY_WINDOW_MS = 3 * MILLISECONDS_PER_DAY;
+
+/**
+ * Whether an event is about something of ours whose own record is still
+ * on its way: "soon" within the hour, "late" for a refund or dispute still
+ * waiting after it. A refund or dispute is never left while a bond payment
+ * of the business could still be recorded (its Checkout message delayed or
+ * failing), since taking it as handled would lose it for good.
+ */
+async function awaitedOwnRecord(
   tx: AnyTransaction,
   operatorId: string,
   details: EventDetails,
   notice: PaymentEventNotice,
   now: Date,
-): Promise<boolean> {
-  if (now.getTime() - notice.occurredAt.getTime() > NOT_READY_WINDOW_MS) {
-    return false;
-  }
+): Promise<"no" | "soon" | "late"> {
+  const isWithinHour = now.getTime() - notice.occurredAt.getTime() <= NOT_READY_WINDOW_MS;
   if (details.kind === "mandate") {
-    return !(await isMandateKnown(tx, details.mandateId));
+    return isWithinHour && !(await isMandateKnown(tx, details.mandateId)) ? "soon" : "no";
   }
-  if (details.kind === "taken_back" && details.takenBack.paymentIntentId) {
-    return !(await bondPaymentOf(tx, operatorId, details.takenBack.paymentIntentId));
+  const paymentIntentId = details.kind === "taken_back" ? details.takenBack.paymentIntentId : null;
+  if (!paymentIntentId || (await bondPaymentOf(tx, operatorId, paymentIntentId))) {
+    return "no";
   }
-  return false;
+  if (isWithinHour) {
+    return "soon";
+  }
+  return (await isBondPaymentAwaited(tx, operatorId, notice.occurredAt)) ? "late" : "no";
+}
+
+/**
+ * A refund or dispute still waiting for its payment after the hour: told to
+ * AGS by Stripe's ids only (rule 7). Once Stripe stops sending it, it is
+ * resent from Stripe's dashboard after the payment is recorded.
+ */
+function alertTakenBackWaiting(
+  operatorId: string,
+  notice: PaymentEventNotice,
+  details: EventDetails,
+  now: Date,
+): void {
+  const hasStripeStopped = now.getTime() - notice.occurredAt.getTime() > STRIPE_RETRY_WINDOW_MS;
+  console.error("A Stripe refund or dispute is waiting for its bond payment to be recorded", {
+    operatorId,
+    eventId: notice.id,
+    objectId: details.kind === "taken_back" ? details.takenBack.objectId : null,
+    paymentIntentId: details.kind === "taken_back" ? details.takenBack.paymentIntentId : null,
+    hasStripeStopped,
+  });
 }
 
 async function isDisconnected(deps: PaymentDependencies, operatorId: string): Promise<boolean> {
@@ -366,7 +400,11 @@ export async function handlePaymentEvent(
   // Asked before the transaction: Stripe is never waited on while rows are locked.
   const details = await readEventDetails(deps.payments, notice, notice.accountId);
   const result = await withTenant(deps.database, operatorId, async (tx) => {
-    if (await isAwaitingOwnRecord(tx, operatorId, details, notice, deps.now())) {
+    const awaited = await awaitedOwnRecord(tx, operatorId, details, notice, deps.now());
+    if (awaited !== "no") {
+      if (awaited === "late") {
+        alertTakenBackWaiting(operatorId, notice, details, deps.now());
+      }
       // Its Checkout message is still on its way: not marked handled, so Stripe sends this again.
       return "not_ready" as const;
     }

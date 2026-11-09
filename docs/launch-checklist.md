@@ -182,6 +182,14 @@ Add to this list whenever something is relaxed or put off "until launch".
 - [ ] `OPS_ALERT_EMAIL` set in the production Vercel project to an AGS inbox
       someone reads (the nightly run's failure alert). Required: the app will
       not start without it.
+- [ ] An alert on the production web app's logs for "A Stripe refund or
+      dispute is waiting for its bond payment to be recorded", sent to the
+      same AGS inbox. Such a refund or dispute is never taken as handled
+      while a bond payment of the business could still be recorded; past
+      Stripe's three days of resending, AGS resends the event from the
+      business's Stripe dashboard once the payment is in. The log line holds
+      Stripe's and the app's ids only. There is no Operator-facing notice of
+      it yet (no record to hang one on without a new table).
 
 ## Documents
 

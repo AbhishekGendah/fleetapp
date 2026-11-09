@@ -1,7 +1,7 @@
 import type { CheckoutPurpose } from "@fleetapp/core";
 import type { AnyTransaction } from "@fleetapp/db/client";
 import { payments, stripeCheckouts } from "@fleetapp/db/schema";
-import { and, eq, gt, notExists, sql, sum } from "drizzle-orm";
+import { and, eq, gt, lte, notExists, or, sql, sum, type SQL } from "drizzle-orm";
 
 import type { CheckoutOutcome } from "./payments-provider";
 
@@ -143,18 +143,53 @@ export async function unrecordedBondCents(
         eq(stripeCheckouts.rentalId, rentalId),
         eq(stripeCheckouts.purpose, "bond"),
         eq(stripeCheckouts.status, "complete"),
-        notExists(
-          tx
-            .select({ id: payments.id })
-            .from(payments)
-            .where(
-              and(
-                eq(payments.operatorId, operatorId),
-                eq(payments.stripeCheckoutSessionId, stripeCheckouts.stripeCheckoutSessionId),
-              ),
-            ),
-        ),
+        hasNoPaymentRecorded(tx, operatorId),
       ),
     );
   return row?.cents ?? 0;
+}
+
+/**
+ * Whether a bond payment of this business may still be on its way to us: a
+ * bond page finished with no payment recorded yet, or one still open that
+ * was opened before `openedBefore` (so it may have been paid by then). A
+ * refund or dispute about a payment we don't know yet waits for it while
+ * this holds; otherwise the payment was never ours.
+ */
+export async function isBondPaymentAwaited(
+  tx: AnyTransaction,
+  operatorId: string,
+  openedBefore: Date,
+): Promise<boolean> {
+  const [awaited] = await tx
+    .select({ id: stripeCheckouts.id })
+    .from(stripeCheckouts)
+    .where(
+      and(
+        eq(stripeCheckouts.operatorId, operatorId),
+        eq(stripeCheckouts.purpose, "bond"),
+        or(
+          eq(stripeCheckouts.status, "complete"),
+          and(eq(stripeCheckouts.status, "open"), lte(stripeCheckouts.createdAt, openedBefore)),
+        ),
+        hasNoPaymentRecorded(tx, operatorId),
+      ),
+    )
+    .limit(1);
+  return awaited !== undefined;
+}
+
+/** A page's payment isn't recorded yet (no payment row for its session). */
+function hasNoPaymentRecorded(tx: AnyTransaction, operatorId: string): SQL {
+  return notExists(
+    tx
+      .select({ id: payments.id })
+      .from(payments)
+      .where(
+        and(
+          eq(payments.operatorId, operatorId),
+          eq(payments.stripeCheckoutSessionId, stripeCheckouts.stripeCheckoutSessionId),
+        ),
+      ),
+  );
 }
