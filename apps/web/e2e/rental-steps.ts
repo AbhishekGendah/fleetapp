@@ -90,11 +90,14 @@ export async function addCarToBook(
   }
 }
 
+/** The heading of the rental page for these parties. */
+export function rentalHeading(page: Page, parties: RentalParties): Locator {
+  return page.getByRole("heading", { name: `${parties.carRego} · ${parties.renterName}` });
+}
+
 /** Checks the page is the rental for these parties, and gives its id from the address. */
 export async function rentalIdOnPage(page: Page, parties: RentalParties): Promise<string> {
-  await expect(
-    page.getByRole("heading", { name: `${parties.carRego} · ${parties.renterName}` }),
-  ).toBeVisible();
+  await expect(rentalHeading(page, parties)).toBeVisible();
   return new URL(page.url()).pathname.split("/").at(-1) ?? "";
 }
 

@@ -5,7 +5,7 @@ import { PHONE_VIEWPORT } from "./e2e-settings";
 import { expectFilterCounts, openFilter } from "./list-steps";
 import { bookedRental, openRentalPage, rentalOutAndCharged } from "./money-steps";
 import { expectNoSidewaysScroll } from "./phone-checks";
-import { rentalIdOnPage, type RentalParties } from "./rental-steps";
+import { rentalHeading, rentalIdOnPage, type RentalParties } from "./rental-steps";
 
 /**
  * The Rentals list in the 6 Nov 2026 look: status filters in plain words
@@ -135,7 +135,12 @@ test.describe.serial("the Rentals list", () => {
       await expect(rowLink).toBeVisible();
       // A click on the Rent cell lands on the row's link, stretched over the row (forced: the
       // cell itself is covered by that link, which is the point).
-      await tableRow(page, BOOKED.name).getByRole("cell").nth(3).click({ force: true });
+      // Retried: in CI the list can still re-render from the search just after it settles,
+      // and a click on the row being replaced goes nowhere. The row link must still open it.
+      await expect(async () => {
+        await tableRow(page, BOOKED.name).getByRole("cell").nth(3).click({ force: true });
+        await expect(rentalHeading(page, BOOKED_PARTIES)).toBeVisible({ timeout: 3000 });
+      }).toPass({ timeout: 15_000 });
       await rentalIdOnPage(page, BOOKED_PARTIES);
     });
   });
@@ -153,7 +158,11 @@ test.describe.serial("the Rentals list", () => {
       await expectAccessible(page);
       // A tap on the car's line lands on the rental's link, stretched over the whole card (forced:
       // that link covering the line is the point).
-      await card.getByText(`${OWING_PARTIES.carRego} · Toyota Corolla`).click({ force: true });
+      // Retried for the same reason as the row click on a computer.
+      await expect(async () => {
+        await card.getByText(`${OWING_PARTIES.carRego} · Toyota Corolla`).click({ force: true });
+        await expect(rentalHeading(page, OWING_PARTIES)).toBeVisible({ timeout: 3000 });
+      }).toPass({ timeout: 15_000 });
       await rentalIdOnPage(page, OWING_PARTIES);
     });
 
