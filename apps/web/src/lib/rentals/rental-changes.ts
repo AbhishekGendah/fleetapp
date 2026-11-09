@@ -501,9 +501,14 @@ async function withdrawOutOfTimeRateChanges(
       ),
     )
     .for(ROW_LOCK);
-  for (const change of waiting.filter((candidate) =>
-    isRateChangeOutOfTime(candidate, rental, now),
-  )) {
+  const outOfTime = [];
+  for (const candidate of waiting) {
+    const timing = await rateTimingOf(tx, actor.operatorId, candidate, now);
+    if (isRateChangeOutOfTime(candidate, { ...rental, ...timing }, now)) {
+      outOfTime.push(candidate);
+    }
+  }
+  for (const change of outOfTime) {
     await tx
       .update(rentalChanges)
       .set({ status: "withdrawn", withdrawnAt: now })
@@ -637,8 +642,43 @@ export async function changeSigningProblemNow(
     .where(
       and(eq(rentalChanges.operatorId, operatorId), eq(rentalChanges.rentalId, change.rentalId)),
     );
-  const isStartMovedBySigning = await isRiseNoticedNow(tx, operatorId, change);
-  return changeSigningProblem(change, { ...rental, isStartMovedBySigning }, others, now);
+  const timing = await rateTimingOf(tx, operatorId, change, now);
+  return changeSigningProblem(change, { ...rental, ...timing }, others, now);
+}
+
+/** When a rate change would start if signed at a moment, and the first later rate already signed. */
+export interface RateChangeTiming {
+  /** A rise for a direct-debit Renter: its start moves with the notice. */
+  isStartMovedBySigning: boolean;
+  startBlock: number | null;
+  nextRateBlock: number | null;
+}
+
+/**
+ * A rate change's timing if signed at `at` (slice 5 review): its start,
+ * moved by the notice for a noticed rise, and the first rate already
+ * signed after its proposed start, which it may never reach or pass (the
+ * insert would clash with that rate, or override it).
+ */
+export async function rateTimingOf(
+  tx: AnyTransaction,
+  operatorId: string,
+  change: RentalChange,
+  at: Date,
+): Promise<RateChangeTiming> {
+  const start = await signedRateStartOf(tx, operatorId, change, at);
+  const proposed = change.appliesFromBlock;
+  if (!start || proposed === null) {
+    return { isStartMovedBySigning: false, startBlock: null, nextRateBlock: null };
+  }
+  const later = (await loadBlockRates(tx, operatorId, change.rentalId))
+    .map((rate) => rate.fromBlock)
+    .filter((block) => block > proposed);
+  return {
+    isStartMovedBySigning: start.isNoticed,
+    startBlock: start.block,
+    nextRateBlock: later.length > 0 ? Math.min(...later) : null,
+  };
 }
 
 /** Whether the rental's Renter pays by a working direct debit now. */
@@ -681,7 +721,7 @@ export async function signedRateStartOf(
   operatorId: string,
   change: RentalChange,
   signedAt: Date,
-): Promise<{ block: number; startsAt: Date } | null> {
+): Promise<{ block: number; startsAt: Date; isNoticed: boolean } | null> {
   const [rental] = await tx
     .select({ handedOverAt: rentals.handedOverAt })
     .from(rentals)
@@ -689,13 +729,14 @@ export async function signedRateStartOf(
   if (change.kind !== "weekly_rate" || change.appliesFromBlock === null || !rental?.handedOverAt) {
     return null;
   }
+  const isNoticed = await isRiseNoticedNow(tx, operatorId, change);
   const block = signedRateChangeStartBlock({
     handedOverAt: rental.handedOverAt,
     proposedFromBlock: change.appliesFromBlock,
     signedAt,
-    needsNotice: await isRiseNoticedNow(tx, operatorId, change),
+    needsNotice: isNoticed,
   });
-  return { block, startsAt: blockStartsAt(rental.handedOverAt, block) };
+  return { block, startsAt: blockStartsAt(rental.handedOverAt, block), isNoticed };
 }
 
 /** When a rate change starts, in words: its rent week's start on the business's clock, or its date. */

@@ -32,7 +32,10 @@ export type ChangeSigningProblem =
   | "withdrawn"
   | "signed"
   | "rental_over"
-  /** A rate change whose rent week has begun: never signed late (review A3-1). */
+  /**
+   * A rate change whose rent week has begun (review A3-1), or whose start
+   * (moved by the notice) reaches a later rate already signed: never signed.
+   */
   | "out_of_time"
   /** An end change a later one replaced (review A3-12). */
   | "replaced";
@@ -48,6 +51,10 @@ export function changeSigningProblem(
      * week having begun never stops it.
      */
     isStartMovedBySigning?: boolean;
+    /** The rent week (block) it would start with if signed now: moved by the notice, or as proposed. */
+    startBlock?: number | null;
+    /** The first rate already signed after its proposed start, if any. */
+    nextRateBlock?: number | null;
   },
   otherChanges: readonly Pick<SignableChange, "id" | "kind" | "status" | "createdAt">[],
   now: Date,
@@ -67,7 +74,15 @@ export function changeSigningProblem(
     change.appliesFromBlock !== null &&
     rental.handedOverAt !== null &&
     !isBlockRateChangeSignable(rental.handedOverAt, change.appliesFromBlock, now);
-  if (isRateWeekBegun) {
+  // Starting on or after a later signed rate would clash with it or override it: never signed.
+  const startBlock = rental.startBlock ?? change.appliesFromBlock;
+  const isPastLaterRate =
+    change.status === "waiting_for_signature" &&
+    startBlock !== null &&
+    rental.nextRateBlock !== null &&
+    rental.nextRateBlock !== undefined &&
+    startBlock >= rental.nextRateBlock;
+  if (isRateWeekBegun || isPastLaterRate) {
     return "out_of_time";
   }
   const isReplaced =

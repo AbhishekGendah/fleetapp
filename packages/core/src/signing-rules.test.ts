@@ -43,6 +43,14 @@ describe("when a contract or change can be sent and signed (review A3-15)", () =
     const weekStart = blockStartsAt(HANDED_OVER, 3);
     expect(changeSigningProblem(rate, OUT, [], new Date(weekStart.getTime() - 1))).toBeNull();
     expect(changeSigningProblem(rate, OUT, [], weekStart)).toBe("out_of_time");
+    // A start that reaches a later signed rate would clash with it, or override it.
+    const before = new Date(weekStart.getTime() - 1);
+    expect(
+      changeSigningProblem(rate, { ...OUT, nextRateBlock: 10, startBlock: 10 }, [], before),
+    ).toBe("out_of_time");
+    expect(
+      changeSigningProblem(rate, { ...OUT, nextRateBlock: 10, startBlock: 7 }, [], before),
+    ).toBeNull();
     // A rise for a direct-debit Renter moves to a later week when signed late instead.
     expect(
       changeSigningProblem(rate, { ...OUT, isStartMovedBySigning: true }, [], weekStart),

@@ -325,49 +325,49 @@ describe("changes of terms during a rental", () => {
     });
   });
 
-  it("gives a direct-debit Renter 30 days' notice of a rise, moving its start when signed late (slice 5)", async () => {
-    // The change form template comes from the test before (tests in a file run in order).
+  /** A rental out two days, its Renter paying by direct debit: the change form template is the test's before. */
+  async function directDebitRentalOut() {
     const { rentalId, renterId } = await kit.rentalOut(new Date(Date.now() - 2 * DAY_MS));
-    await withTenant(web.db, actor.operatorId, (tx) =>
-      tx.insert(paymentMandates).values({
-        operatorId: actor.operatorId,
-        renterId,
-        method: "becs_debit",
-        status: "active",
-        stripeSetupIntentId: `seti_notice${randomUUID().replaceAll("-", "")}`,
-        stripePaymentMethodId: `pm_notice${randomUUID().replaceAll("-", "")}`,
-        stripeMandateId: `mandate_notice${randomUUID().replaceAll("-", "")}`,
-        setUpAt: new Date(),
-        activatedAt: new Date(),
-      }),
+    const [mandate] = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx
+        .insert(paymentMandates)
+        .values({
+          operatorId: actor.operatorId,
+          renterId,
+          method: "becs_debit",
+          status: "active",
+          stripeSetupIntentId: `seti_notice${randomUUID().replaceAll("-", "")}`,
+          stripePaymentMethodId: `pm_notice${randomUUID().replaceAll("-", "")}`,
+          stripeMandateId: `mandate_notice${randomUUID().replaceAll("-", "")}`,
+          setUpAt: new Date(),
+          activatedAt: new Date(),
+        })
+        .returning({ id: paymentMandates.id }),
     );
-    const rise = { weeklyRateCents: 380_00, reason: "Yearly review" };
-    expect(
-      await changeWeeklyRate(
-        linkDeps(),
-        actor,
-        rentalId,
-        { ...rise, fromBlock: NEXT_WEEK },
-        clock(),
-      ),
-    ).toEqual({ status: "needs_notice" });
-    // 30 days from the handover two days ago is block 32: the first week start after is block 35.
+    return { rentalId, mandateId: mandate!.id };
+  }
+
+  /** Sends a $380 rise from `fromBlock` and signs it `daysLater` from now, as `deps` say. */
+  async function riseSignedLater(
+    rentalId: string,
+    fromBlock: number,
+    daysLater: number,
+    deps = linkDeps(),
+  ) {
     sentEmails.length = 0;
     const sent = await changeWeeklyRate(
       linkDeps(),
       actor,
       rentalId,
-      { ...rise, fromBlock: 35 },
+      { weeklyRateCents: 380_00, fromBlock, reason: "Yearly review" },
       clock(),
     );
     expect(sent).toMatchObject({ status: "sent" });
-
-    // Signed nine and a half days on: the rise starts at the first rent week 30 days after that.
     const token = TOKEN_PATTERN.exec(sentEmails[0]?.html ?? "")?.[1] ?? "";
     const visit = await openLink(web.db, token);
-    const later = new Date(Date.now() + 9.5 * DAY_MS);
-    const signed = await signContract(
-      { ...linkDeps(), now: () => later },
+    const later = new Date(Date.now() + daysLater * DAY_MS);
+    return signContract(
+      { ...deps, now: () => later },
       visit!,
       {
         areDetailsConfirmed: "on",
@@ -379,13 +379,30 @@ describe("changes of terms during a rental", () => {
       },
       META,
     );
-    expect(signed.status).toBe("signed");
+  }
+
+  async function ratesOf(rentalId: string) {
     const rates = await withTenant(web.db, actor.operatorId, (tx) =>
       tx.select().from(rentalRates).where(eq(rentalRates.rentalId, rentalId)),
     );
-    expect(rates.map((rate) => [rate.weeklyRateCents, rate.appliesFromBlock])).toContainEqual([
-      380_00, 42,
-    ]);
+    return rates.map((rate) => [rate.weeklyRateCents, rate.appliesFromBlock]);
+  }
+
+  it("gives a direct-debit Renter 30 days' notice of a rise, moving its start when signed late (slice 5)", async () => {
+    const { rentalId } = await directDebitRentalOut();
+    expect(
+      await changeWeeklyRate(
+        linkDeps(),
+        actor,
+        rentalId,
+        { weeklyRateCents: 380_00, fromBlock: NEXT_WEEK, reason: "Yearly review" },
+        clock(),
+      ),
+    ).toEqual({ status: "needs_notice" });
+    // 30 days from the handover two days ago is block 32: the first week start after is block 35.
+    // Signed nine and a half days on, the rise starts at the first rent week 30 days after that.
+    expect((await riseSignedLater(rentalId, 35, 9.5)).status).toBe("signed");
+    expect(await ratesOf(rentalId)).toContainEqual([380_00, 42]);
     // A fall needs no notice.
     const fall = await changeWeeklyRate(
       linkDeps(),
@@ -395,6 +412,55 @@ describe("changes of terms during a rental", () => {
       clock(),
     );
     expect(fall).toMatchObject({ status: "sent" });
+  });
+
+  it("never signs a rise whose moved start would reach a later signed rate (slice 5 review)", async () => {
+    const { rentalId } = await directDebitRentalOut();
+    // A rate already signed from block 56.
+    await withTenant(web.db, actor.operatorId, (tx) =>
+      tx.insert(rentalRates).values({
+        operatorId: actor.operatorId,
+        rentalId,
+        weeklyRateCents: 500_00,
+        dailyRateCents: 70_00,
+        appliesFromBlock: 56,
+      }),
+    );
+    // Signed on day 26 (24 days from now): the notice moves it to block 56 or later.
+    expect((await riseSignedLater(rentalId, 42, 24)).status).toBe("not_signable");
+    expect(await ratesOf(rentalId)).not.toContainEqual([380_00, expect.anything()]);
+    const [waiting] = await listRentalChanges(
+      web.db,
+      actor.operatorId,
+      rentalId,
+      new Date(Date.now() + 24 * DAY_MS),
+    );
+    expect(waiting).toMatchObject({
+      status: "waiting_for_signature",
+      signingProblem: "out_of_time",
+    });
+  });
+
+  it("refuses the signing if the direct debit stops after the PDF was made (slice 5 review)", async () => {
+    const { rentalId, mandateId } = await directDebitRentalOut();
+    const deps = linkDeps();
+    // The direct debit is cancelled while the signed PDF is being stored.
+    const storage = {
+      ...deps.storage,
+      save: async (...args: Parameters<typeof deps.storage.save>) => {
+        await withTenant(web.db, actor.operatorId, (tx) =>
+          tx
+            .update(paymentMandates)
+            .set({ status: "inactive", endReason: "cancelled", endedAt: new Date() })
+            .where(eq(paymentMandates.id, mandateId)),
+        );
+        return deps.storage.save(...args);
+      },
+    };
+    expect((await riseSignedLater(rentalId, 35, 9.5, { ...deps, storage })).status).toBe(
+      "not_signable",
+    );
+    expect(await ratesOf(rentalId)).not.toContainEqual([380_00, expect.anything()]);
   });
 
   it("refuses a rate change mid-week, and signing once its rent week has begun (review A3-1)", async () => {

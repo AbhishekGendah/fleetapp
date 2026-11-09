@@ -22,6 +22,7 @@ import {
 } from "../renter-links/details-links";
 import {
   proposeRateChange,
+  rateTimingOf,
   withdrawWaitingChange,
   type RateChangeResult,
   type RentalChange,
@@ -191,14 +192,19 @@ export async function listRentalChanges(
       .select({ status: rentals.status, handedOverAt: rentals.handedOverAt })
       .from(rentals)
       .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, operatorId)));
-    return changes.map((change) => {
+    const rows = [];
+    for (const change of changes) {
       const link = links.find((candidate) => candidate.rentalChangeId === change.id);
-      return {
+      const timing = await rateTimingOf(tx, operatorId, change, now);
+      rows.push({
         ...change,
         link: link ? linkInPlay(link, now) : null,
         sentPaper: link ? sentPaperOf(link) : null,
-        signingProblem: rental ? changeSigningProblem(change, rental, changes, now) : "rental_over",
-      };
-    });
+        signingProblem: rental
+          ? changeSigningProblem(change, { ...rental, ...timing }, changes, now)
+          : ("rental_over" as const),
+      });
+    }
+    return rows;
   });
 }

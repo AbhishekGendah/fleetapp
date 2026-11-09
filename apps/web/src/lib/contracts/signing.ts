@@ -703,16 +703,19 @@ async function recordSigned(
     });
     return;
   }
+  // The rental first ("Lock order": rental, then the change), so the check, the moved
+  // start and the new rate row are all worked out under one lock (slice 5 review).
+  const [rental] = await tx
+    .select({ status: rentals.status, handedOverAt: rentals.handedOverAt })
+    .from(rentals)
+    .where(and(eq(rentals.id, signing.rentalId), eq(rentals.operatorId, visit.operatorId)))
+    .for(ROW_LOCK);
   const change = await lockChange(tx, visit.operatorId, signing.rentalChangeId ?? "");
   if (change?.documentId) {
     throw new SignedAlreadyError();
   }
-  // Checked again under the lock: withdrawn, replaced, or its rent week begun since the
-  // page was opened means it is not signed (review A3-1, A3-12).
-  const [rental] = await tx
-    .select({ status: rentals.status, handedOverAt: rentals.handedOverAt })
-    .from(rentals)
-    .where(and(eq(rentals.id, signing.rentalId), eq(rentals.operatorId, visit.operatorId)));
+  // Checked again under the lock: withdrawn, replaced, its rent week begun or past a later
+  // rate since the page was opened means it is not signed (review A3-1, A3-12).
   const problem =
     change && rental
       ? await changeSigningProblemNow(tx, visit.operatorId, change, rental, signed.at)
@@ -720,6 +723,12 @@ async function recordSigned(
   if (!change || problem) {
     // Withdrawn by the business, or no longer signable (replaced, its rent week begun).
     throw problem === "withdrawn" || !change ? new LinkStoppedError() : new NoLongerSignableError();
+  }
+  // The start the signed PDF states must be the one the rate row gets: if the Renter's
+  // direct debit started or stopped since the PDF was made, it is not signed.
+  const rateStart = await signedRateStartOf(tx, visit.operatorId, change, signed.at);
+  if ((rateStart?.block ?? null) !== signed.rateStartBlock) {
+    throw new NoLongerSignableError();
   }
   await recordChangeSigned(tx, visit.operatorId, change, signed);
   await recordActivity(tx, {
