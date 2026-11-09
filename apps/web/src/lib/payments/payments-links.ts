@@ -5,7 +5,7 @@ import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, renterLinks } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { renderRenterPaymentsLinkEmail, type EmailMessage } from "@fleetapp/email";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { isRentalRenterArchived } from "../renters/renter-archived";
 import type { ActingUser } from "../acting-user";
@@ -225,6 +225,31 @@ export interface ContinuedLink {
 }
 
 /**
+ * The signing link, read under the Renter's lock, while it still speaks for
+ * the Renter's email on file: this phone passed a code sent to the email
+ * the link went to, so once the email changed (which cancels live links)
+ * the phone is not remembered for a new link. The Operator then sends the
+ * payments link the usual way, and a new phone types a code from the new
+ * email (rule 26).
+ */
+async function signingLinkStillTo(
+  tx: AnyTransaction,
+  signing: LinkVisit,
+  email: string,
+): Promise<{ createdByUserId: string } | null> {
+  const [link] = await tx
+    .select({
+      createdByUserId: renterLinks.createdByUserId,
+      sentToEmail: renterLinks.sentToEmail,
+      cancelledAt: renterLinks.cancelledAt,
+    })
+    .from(renterLinks)
+    .where(and(eq(renterLinks.id, signing.linkId), eq(renterLinks.operatorId, signing.operatorId)));
+  const isStillTo = link !== undefined && link.cancelledAt === null && link.sentToEmail === email;
+  return isStillTo ? { createdByUserId: link.createdByUserId } : null;
+}
+
+/**
  * Right after the Renter signs their contract: if the business takes
  * payments by Stripe and the direct debit or bond is still to do, a
  * payments link is made and this phone is remembered for it, so they carry
@@ -248,15 +273,15 @@ export async function continueToPayments(
       rentalId: signing.rentalId,
       renterId: signing.renterId,
     });
-    const [link] = await tx
-      .select({ createdByUserId: renterLinks.createdByUserId })
-      .from(renterLinks)
-      .where(eq(renterLinks.id, signing.linkId));
-    if (!rental || !link) {
+    if (!rental) {
       return null;
     }
     const recipient = await lockLinkRecipient(tx, signing.operatorId, signing.renterId);
     if (recipient.status !== "found") {
+      return null;
+    }
+    const link = await signingLinkStillTo(tx, signing, recipient.email);
+    if (!link) {
       return null;
     }
     const due = await rentalPaymentsIn(tx, signing.operatorId, rental);

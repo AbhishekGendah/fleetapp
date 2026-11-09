@@ -2,13 +2,14 @@ import {
   bondMovements,
   paymentMandates,
   payments,
+  renterLinks,
   renterStripeCustomers,
   stripeAccounts,
 } from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import type { EmailMessage } from "@fleetapp/email";
-import { eq, isNotNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import type { ActingUser } from "../src/lib/acting-user";
@@ -659,5 +660,52 @@ describe("a Renter's direct debit and bond", () => {
     await deliver(stripe.finishCheckout(await visitStripe(next!, "direct_debit")));
     await deliver(stripe.finishCheckout(await visitStripe(next!, "bond"), "card"));
     expect(await continueToPayments(deps(), { ...next!, purpose: "sign_contract" })).toBeNull();
+  });
+
+  /** The Renter's email changed while they were on their signing link (the change cancels it). */
+  async function emailChangedDuringSigning() {
+    const rental = await bookedRental(actor);
+    const visit = await openedPaymentsLink(actor, rental.rentalId);
+    await updateRenter(
+      web.db,
+      actor,
+      rental.renterId,
+      parseRenterForm(
+        { ...emptyRenterForm(), fullName: "Pat Payer", email: "pat.moved@example.test" },
+        "2026-10-30",
+      ).data!,
+    );
+    return { rental, signing: { ...visit, purpose: "sign_contract" as const } };
+  }
+
+  function liveLinksOf(rentalId: string) {
+    return withTenant(web.db, actor.operatorId, (tx) =>
+      tx
+        .select({ id: renterLinks.id })
+        .from(renterLinks)
+        .where(and(eq(renterLinks.rentalId, rentalId), isNull(renterLinks.cancelledAt))),
+    );
+  }
+
+  it("doesn't carry the Renter on once their email changed and cancelled the signing link", async () => {
+    const { rental, signing } = await emailChangedDuringSigning();
+
+    expect(await continueToPayments(deps(), signing)).toBeNull();
+    expect(await liveLinksOf(rental.rentalId)).toEqual([]);
+    // The Operator sends one the usual way, to the new email, and a new phone types its code.
+    expect(await sendPaymentsLink(deps(), actor, rental.rentalId, "email")).toMatchObject({
+      status: "sent",
+    });
+  });
+
+  it("doesn't carry the Renter on from a signing link sent to an email no longer theirs", async () => {
+    const { rental, signing } = await emailChangedDuringSigning();
+    // Even were the signing link still live: it went to the old email, so its phone isn't remembered.
+    await withTenant(web.db, actor.operatorId, (tx) =>
+      tx.update(renterLinks).set({ cancelledAt: null }).where(eq(renterLinks.id, signing.linkId)),
+    );
+
+    expect(await continueToPayments(deps(), signing)).toBeNull();
+    expect((await liveLinksOf(rental.rentalId)).map((link) => link.id)).toEqual([signing.linkId]);
   });
 });

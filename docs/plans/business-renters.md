@@ -1136,7 +1136,11 @@ unchanged and passing).
   Renter for no key update (`lockCurrentRenter`, as the details link
   already did) after the rental, and uses the email read under that lock;
   an archived Renter is refused with the usual words. The payments link the
-  Renter goes on to after signing does the same. Two-connection tests
+  Renter goes on to after signing does the same, and goes ahead only while
+  the signing link is not cancelled and was sent to the Renter's email as
+  it now is (review of the fourth review's fixes): otherwise the phone that
+  signed is not remembered and no link is made, and the Operator sends the
+  payments link the usual way, which asks a new phone for a code. Two-connection tests
   (`renter-link-lock-order.test.ts`) in both orders against an archive and
   an email change: sent first, the change cancels it; changed first, the
   sending is refused or goes to the new email.
