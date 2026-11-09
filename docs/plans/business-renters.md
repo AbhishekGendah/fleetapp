@@ -969,3 +969,125 @@ unchanged and passing).
   the right rather than the mockup's radio dot on the left, as for Person or
   Business. On a phone the strip's "driver …" is in the title line rather
   than its own line.
+
+#### As built (slice 4, 9 Nov 2026)
+
+Abhi's go: 9 Nov 2026. Person Renters behave as before.
+
+- **Migration C.** `0057_driver_changes`, a new file: the
+  `rental_driver_changes` table as planned (from and to driver, reason,
+  status, the check-in's return checklist and the new driver's handover
+  checklist, `changed_at`, who started it, `cancelled_at`), with the
+  protections of `car_swaps`: two-column links to the rental, both drivers
+  and both checklists; one under way per rental; RLS enabled and forced;
+  `SELECT, INSERT, UPDATE (status, changed_at, cancelled_at, updated_at)`
+  for the web app, nothing for admin; a finished or cancelled change never
+  changes again, and none is ever deleted. `inspections.is_for_driver_change`
+  (default false) and `inspections_one_completed` widened to leave it out,
+  with a check that a checklist is never both a swap's and a driver
+  change's. Beyond the plan's list, each one the "same protections as
+  `car_swaps`" asked for: a start check (the rental's car is out, its Renter
+  a business, the change from the driver who has it, with its own two
+  checklists under way, and no swap under way), the reverse on `car_swaps`
+  (no swap starts while a driver change is under way), and
+  `app.check_rental_driver` replaced so a car that is out changes driver
+  only to the new driver of the change under way, from the one it started
+  from: the database rule that the driver changes only through this flow.
+  Tested on a database filled at 0056 (`driver-changes-update.test.ts`): a
+  business's car out with its driver, a person's car out, a business's
+  booking; the deployed code's checklists, swap and naming of a booking's
+  driver still work; a car out refused a driver change with no change under
+  way, or to another current driver than the one named; the possessions of
+  a change meet at one instant and a "who had the car at T" lookup returns
+  the old driver before it and the new one from it; another Operator sees
+  nothing and the admin login can't read the table.
+- **The flow (mockup 7), on the phone.** Change driver on the rental's strip
+  and Rental card (a business's car that is out, no return or swap under
+  way). Step 1, "Why and who": the business's other current drivers as the
+  shared choice cards (licence, standing, cars out; one who can't be named
+  is shown but can't be picked), "+ Add a driver", and why (required, kept
+  with the change and printed on both reports, never in the Log). Step 2,
+  "Check in from Sam": the return checklist beside the last handover, kept
+  on the phone and queued for signal (rule 25: the page is cached by the
+  checklists' service worker), then "Next: Mia signs". Step 3, "Mia signs":
+  the car as Mia takes it (the check-in's readings, photo count and new
+  damage), her checks, then Sam signs (or "Sam is here to sign" is unticked
+  and the report says the driver was not present, as at a return; not
+  offered when the rental's rules want a signature at a return) and Mia
+  signs, each drawn or typed and checked against their own name, and Finish
+  driver change. A navy strip in steps (a new `steps` option on the shared
+  strip, in the component catalogue) heads each step. Cancel driver change
+  on steps 2 and 3, and on the rental page while one is under way.
+- **What finishing does**, in one transaction that issues both reports
+  (rule 12): the rental, then the change, then both checklists (each
+  re-read under its lock and compared with what the phone showed: the
+  fingerprints cover the check-in, the new driver by id and name, the
+  outgoing driver, and the business's legal name), then the business and
+  the new driver (their link current, their checks run again: Do not rent,
+  details, licence, age, provisional, archived, details waiting review),
+  then the link (taken shared by the database). The check-in is completed
+  with Sam's acceptance or "not present"; the new driver's checklist takes
+  the check-in's readings and the damage already on the car (the last
+  handover's marks and the check-in's new ones; photos stay stored once,
+  with the check-in, rule 21) and Mia's acceptance; Sam's possession ends,
+  the rental names Mia, Mia's possession starts at the same instant (rule
+  15, `possessions_no_overlap` intact); the odometer is read; new damage
+  found at the check-in is recorded against the business; the Log gets the
+  change, the check-in and the rental's driver change by record ids only.
+  Reports: the check-in's return report (Sam, beside the last handover) and
+  Mia's handover report, each with a "Driver change: Sam Lee to Mia
+  Thompson. Why: …" line. Emails: each report to the business's contact and
+  the Operator, and to the driver who signed it (Sam gets the check-in, Mia
+  the handover), to their own email (slice 3's driver copy).
+- **For slice 4, done.** Who signs a checklist now comes from the car's
+  possession records (`checklistDriverId` in `handover-queries.ts`): the
+  driver whose possession it started or ended; for a driver change's
+  handover under way, the new driver; for a return, a swap's pair or a
+  driver change's check-in under way, the driver with the open possession;
+  only a first handover reads the rental's driver. So the return's, swap's
+  and the driver copy's driver and address follow the record.
+  `endPossession` gives back the ended possession's driver, read under its
+  lock, and the swap's `movePossession` starts the new car's possession with
+  that driver (refused as changed if it isn't the one who signed). "Email
+  again" already took the driver from the paper's own possession; tested
+  for both reports of a change.
+- **Kept apart.** One of a return, a swap and a driver change at a time:
+  a return or swap won't start while a change is under way ("A driver
+  change is under way. Finish or cancel it first."), a change won't start
+  while either is. A change's checklists are cancelled only with it. A
+  driver taking over a car can't be removed from the business meanwhile
+  ("… or are taking a car over in a driver change"); archiving them is
+  refused (they still drive for the business).
+- **Who had the car**, on a business's rental page (mockup 6): each
+  driver's time with the car from the possession records, newest first,
+  the rego when the car changed, "Has it" on the current one. The rental's
+  Overview lists each finished change (who to whom, why, when) with both
+  reports and their emailed copies; the Papers tab names them "Driver
+  change: check-in report" and "Driver change: handover report".
+- **Tests.** `apps/web/test/driver-changes.test.ts`: starting (only a
+  business's car out, another current driver, not Do not rent, not the same
+  driver, not another Operator's person); signing (each in their own name,
+  never the business's; possessions meet at one instant; a fine-style
+  lookup; Sam not there; refused as changed when the new driver's name, the
+  check-in or the business's legal name changes; a Do not rent since the
+  start refused in words; the Log has no names or reason); after a change
+  (the return and a swap signed by Mia, her possession moving with the car;
+  Email again to the driver who signed each report); two-connection tests
+  against cancelling (both orders), the new driver's removal (both orders),
+  their archive, a swap starting and a return starting; tenancy (another
+  Operator can't see, sign or cancel a change, or hand the car to their own
+  person). Browser: `e2e/driver-change.e2e.ts` at phone width, keyboard
+  choice of the driver, axe on each step and the rental page after, the
+  pages' JavaScript under the checklist's 730 KB budget.
+- **Departures from mockup 7, and why.** Sam signs on step 3, just above
+  Mia, not at the end of step 2: both signatures are sent together, so a
+  drawn signature is never kept on the phone between pages, and Sam reads
+  the same summary Mia accepts. Two reports (the check-in's return report
+  and Mia's handover report) rather than one "change report": each is a
+  checklist's report as the possession records need, and a new document
+  kind would be a schema change beyond Migration C. The emails are the
+  ordinary return and handover report emails (each names the driver and
+  the business), not a driver-change email of their own. The "Kept in the
+  Log" line under Why the change reads "Not written into the Log" (rule 7).
+  The step bars use the strip's pale teal for done steps. No "Driver
+  change" in the demo data yet.

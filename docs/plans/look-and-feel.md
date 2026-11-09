@@ -566,3 +566,19 @@ rental and its Rentals tab's Driver column. The chosen Renter stays in the
 record picker rather than a separate card, and the choice cards keep the
 app's tick on the right.
 
+
+## As built: business Renters pages, slice 4 (9 Nov 2026)
+
+Built from mockup 7 (docs/plans/business-renters.md, As built slice 4): the
+three-step driver change on a phone, each step under a navy strip in steps
+("Change driver", the car, the business and the driver who has it, a bar
+per step and "Step 2 of 3: Check in from Sam": the shared strip's new
+`steps` option, in the component catalogue); the new driver as the shared
+choice cards, stacked; the check-in as the return checklist beside the last
+handover; the last step's white cards (the car as the new driver takes it,
+the checks, the signatures). On a business's rental: Change driver on the
+strip and the Rental card, a Driver change card while one is under way and
+for each finished one, and Who had the car (each driver a bold teal link,
+"Has it" on the current one). Both drivers sign on the last step rather
+than the outgoing driver at the end of the check-in, so nothing drawn is
+kept on the phone between pages.

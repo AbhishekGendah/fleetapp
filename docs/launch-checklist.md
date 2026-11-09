@@ -250,3 +250,8 @@ Add to this list whenever something is relaxed or put off "until launch".
       minimum Renter age and whether provisional licences may rent, and the
       lawyer confirms the age discrimination exemption covers it. See
       docs/legal-notes.md, Bookings.
+- [ ] The Business rental contract starter (and the lawyer's check of it)
+      says a driver change is asked for through the Operator, needs the car
+      brought in, and that the business stays responsible for the car and
+      its fines until the new driver signs for it (business Renters slice 4,
+      docs/legal-notes.md).

@@ -1064,3 +1064,38 @@ As built slice 2).
   state and expiry and standing, never the licence number or photos (rule
   8). The Log records that a driver was named (their record id), never
   their name (rule 7).
+
+## Business Renters, slice 4: changing the driver (9 Nov 2026, built)
+
+- **Who had the car (fines, record keeping).** A driver change ends the
+  outgoing driver's possession and starts the new driver's at the same
+  instant, the new driver's signature (rule 15). The database refuses a
+  car that is out changing driver any other way, and refuses two
+  possessions of one car that overlap; so for any moment there is exactly
+  one driver on record, which is what a fine nomination needs. Both
+  checklists, both reports and both possessions are kept for good (rule 12,
+  13); each counts toward that driver's own seven years (as for any
+  possession, slice 1).
+- **What each person gets.** The check-in report (signed by the driver who
+  had the car, or saying they were not there) goes to that driver's own
+  email, the business's contact and the Operator; the new driver's handover
+  report to the new driver, the contact and the Operator. Neither report
+  holds a licence number, date of birth or address. Each driver's privacy
+  notice (slice 2) already says the business sees their name, signature and
+  the car's use. Transactional under the Spam Act; the same email provider
+  as every other copy, so overseas disclosure is unchanged.
+- **The reason.** The Operator types why the driver changes; it is kept
+  with the change and printed on both reports (so the business and both
+  drivers read it), and never written into the Log (rule 7). Operators
+  should keep it factual: the screen says it is printed on both reports.
+- **Signing.** Both drivers sign on the Operator's phone (drawn, or their
+  full name typed), each checked against their own name, never the
+  business's; the words each accepts are shown before signing and kept
+  with the report. A drawn signature is never kept on the phone between
+  pages: both sign on the last step and are sent together.
+- **Consumer law and the contract.** The rent, bond and contract stay as
+  they are: a driver change is not a change of terms, so the business
+  doesn't sign anything new. Ask the lawyer whether the Business rental
+  contract should say that the business asks for a driver change through
+  the Operator, brings the car in for it, and stays responsible for the
+  car (and its fines) until the new driver has signed (launch checklist).

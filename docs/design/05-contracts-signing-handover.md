@@ -63,6 +63,18 @@
 - After-hours return: Operator enters actual return time. Optional
   Renter return-photo link.
 
+## Driver change (business Renters, slice 4)
+
+- A business's car that is out changes driver only with the car brought in:
+  a check-in from the driver who has it (a return checklist, side by side
+  with the last handover; they may be recorded as not there), then the new
+  driver signs for it on the Operator's phone (the check-in's readings and
+  photos, the damage already on the car). Possession moves from one driver
+  to the other at that signature (rule 15); a check-in report and a
+  handover report are issued together, each emailed to the driver who
+  signed it, the business's contact and the Operator. Rent, bond and
+  contract stay as they are.
+
 ## Damage and incident records
 
 - date, description, photos, linked charge, insurance claim (insurer,
