@@ -282,7 +282,7 @@ export async function issueBusinessStatement(
     recordRenterStatement(tx, deps, actor, stored, renterId),
   );
   const emailOutcome = request.isEmailed
-    ? await emailStatement(deps, context, business, {
+    ? await emailIssuedStatement(deps, context, business, {
         issuedDocumentId: issued.documentId,
         pdf,
         operatorId: actor.operatorId,
@@ -290,6 +290,25 @@ export async function issueBusinessStatement(
       })
     : null;
   return { status: "issued", issuedDocumentId: issued.documentId, emailOutcome };
+}
+
+/**
+ * The statement is issued by now, so a failure emailing it or recording the
+ * send never fails the action (review): it says "not emailed, use Email
+ * again", so trying again never issues a second version. Logged by ids only.
+ */
+async function emailIssuedStatement(
+  ...args: Parameters<typeof emailStatement>
+): Promise<DocumentEmailOutcome> {
+  try {
+    return await emailStatement(...args);
+  } catch (error) {
+    console.error(
+      `Emailing statement ${args[3].issuedDocumentId} as it was made failed`,
+      describeErrorForLog(error),
+    );
+    return "failed";
+  }
 }
 
 /** One of a business's statements across its cars, as its Money tab lists it. */
