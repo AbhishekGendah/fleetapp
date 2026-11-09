@@ -1,6 +1,7 @@
 import {
   canChangeEnd,
   canChangeRate,
+  firstWeekAfterNotice,
   blockAt,
   blockStartsAt,
   upcomingWeekStarts,
@@ -29,7 +30,9 @@ import { appDb } from "../../../lib/app-db";
 import { loadDocumentEmailStates } from "../../../lib/contracts/document-emails";
 import { withPaperCheck } from "../../../lib/contracts/signing";
 import { loadDefaultTemplate } from "../../../lib/contracts/templates";
+import { hasUsableMandateFor } from "../../../lib/debits/debit-queries";
 import { CONTRACTS_PATH } from "../../../lib/paths";
+import type { RateRiseNotice } from "../../../lib/rentals/change-input";
 import { listRentalChanges, type RentalChangeRow } from "../../../lib/rentals/change-signing";
 import { rateChangeStartText } from "../../../lib/rentals/rental-changes";
 import type { RentalDetail } from "../../../lib/rentals/rental-queries";
@@ -159,11 +162,26 @@ function weekStartOptions(handedOverAt: Date, clock: RentalClock) {
   );
 }
 
+/** For a Renter paying by direct debit: the first rent week a rise can start with (decision 3). */
+function riseNotice(
+  handedOverAt: Date,
+  weeklyRateCents: number | null,
+  clock: RentalClock,
+): RateRiseNotice {
+  const fromBlock = firstWeekAfterNotice(handedOverAt, clock.now);
+  return {
+    fromBlock,
+    currentWeeklyCents: weeklyRateCents ?? 0,
+    fromLabel: formatDateTimeInTimeZone(blockStartsAt(handedOverAt, fromBlock), clock.timeZone),
+  };
+}
+
 /** The buttons that start a change, as the rental's state allows. */
 function ChangeButtons(props: {
   rental: RentalDetail;
   clock: RentalClock;
   hasChangeTemplate: boolean;
+  isPaidByDirectDebit: boolean;
 }) {
   const { rental, clock } = props;
   const { ongoingNoticeDays } = readSettings(operatorSettingsSchema, rental.settingsSnapshot);
@@ -208,6 +226,11 @@ function ChangeButtons(props: {
           <LazyRateChangeForm
             action={changeRateAction.bind(null, rental.id)}
             weekStarts={weekStartOptions(rental.handedOverAt, clock)}
+            notice={
+              props.isPaidByDirectDebit
+                ? riseNotice(rental.handedOverAt, rental.weeklyRateCents, clock)
+                : null
+            }
           />
         </FormDialog>
       ) : null}
@@ -267,6 +290,7 @@ export async function ChangesCard(props: {
             rental={rental}
             clock={clock}
             hasChangeTemplate={changeTemplate !== null}
+            isPaidByDirectDebit={await hasUsableMandateFor(appDb, user.operatorId, rental.renterId)}
           />
         ) : null}
         {isChangeable && canChangeRate(rental.status) && !changeTemplate ? (

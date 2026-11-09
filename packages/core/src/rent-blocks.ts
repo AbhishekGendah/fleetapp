@@ -372,17 +372,26 @@ export function upcomingWeekStarts(currentBlock: number, count: number): number[
 }
 
 export type BlockRateChangeProblem =
-  "not_long_term" | "not_week_start" | "too_soon" | "already_has_rate" | "unchanged";
+  | "not_long_term"
+  | "not_week_start"
+  | "too_soon"
+  | "already_has_rate"
+  | "unchanged"
+  /** A rise for a Renter paying by direct debit, from a week under 30 days away (decision 3). */
+  | "needs_notice";
 
 /**
  * What is wrong with a proposed weekly price, if anything: long-term rentals
  * only, from a week start after the one running, never a week that already
- * has a signed rate, and different from the rate that week would have.
+ * has a signed rate, and different from the rate that week would have. For
+ * a Renter paying by direct debit, a rise starts no sooner than
+ * `noticeFromBlock` (30 days ahead, slice 5 decision 3); a fall any week.
  */
 export function blockRateChangeProblem(
   terms: BlockRentTerms,
   change: { fromBlock: number; weeklyRateCents: number },
   currentBlock: number,
+  noticeFromBlock: number | null = null,
 ): BlockRateChangeProblem | null {
   if (!terms.isLongTerm) {
     return "not_long_term";
@@ -397,7 +406,14 @@ export function blockRateChangeProblem(
     return "already_has_rate";
   }
   const inForce = rateForBlock(terms.rates, change.fromBlock);
-  return inForce.weeklyRateCents === change.weeklyRateCents ? "unchanged" : null;
+  if (inForce.weeklyRateCents === change.weeklyRateCents) {
+    return "unchanged";
+  }
+  const isRise =
+    change.weeklyRateCents > (inForce.weeklyRateCents ?? inForce.dailyRateCents * DAYS_PER_WEEK);
+  return isRise && noticeFromBlock !== null && change.fromBlock < noticeFromBlock
+    ? "needs_notice"
+    : null;
 }
 
 /** A rate change can be signed only before the week it starts in has begun (no backdating). */

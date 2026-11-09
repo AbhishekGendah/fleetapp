@@ -26,6 +26,7 @@ import { recordUserChange, type ActingUser } from "../acting-user";
 import {
   changeFieldsOf,
   changeSigningProblemNow,
+  isRiseNoticedNow,
   lockChange,
   type RentalChange,
 } from "../rentals/rental-changes";
@@ -299,17 +300,24 @@ export async function sendChangeSigningLink(
   change: RentalChange,
   clock: RentalClock,
 ): Promise<SendSigningLinkResult> {
-  const [rental] = await withTenant(deps.database, actor.operatorId, (tx) =>
-    tx
-      .select({ handedOverAt: rentals.handedOverAt })
-      .from(rentals)
-      .where(and(eq(rentals.id, change.rentalId), eq(rentals.operatorId, actor.operatorId))),
+  const { rental, isRiseNoticed } = await withTenant(
+    deps.database,
+    actor.operatorId,
+    async (tx) => ({
+      rental: (
+        await tx
+          .select({ handedOverAt: rentals.handedOverAt })
+          .from(rentals)
+          .where(and(eq(rentals.id, change.rentalId), eq(rentals.operatorId, actor.operatorId)))
+      )[0],
+      isRiseNoticed: await isRiseNoticedNow(tx, actor.operatorId, change),
+    }),
   );
   const ready = await filledFor(deps, actor, {
     kind: "change_of_terms",
     rentalId: change.rentalId,
     clock,
-    change: changeFieldsOf(change, clock.timeZone, rental?.handedOverAt ?? null),
+    change: changeFieldsOf(change, clock.timeZone, rental?.handedOverAt ?? null, isRiseNoticed),
   });
   if (ready.status !== "ready") {
     return ready;

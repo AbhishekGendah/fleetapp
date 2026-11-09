@@ -1,6 +1,6 @@
 "use client";
 
-import { fieldErrorsOf } from "@fleetapp/core";
+import { fieldErrorsOf, RATE_RISE_NOTICE_DAYS } from "@fleetapp/core";
 import type { ChangeFormState } from "@fleetapp/ui/change-form-state";
 import { DateTimePicker } from "@fleetapp/ui/date-time-picker";
 import { FormField } from "@fleetapp/ui/form-field";
@@ -19,6 +19,7 @@ import {
   ongoingChangeFormSchema,
   RATE_CHANGE_FIELDS,
   rateChangeFormSchema,
+  type RateRiseNotice,
 } from "../../../lib/rentals/change-input";
 
 type ChangeAction = (state: ChangeFormState, formData: FormData) => Promise<ChangeFormState>;
@@ -104,10 +105,16 @@ export interface WeekStartOption {
 export function RateChangeForm(props: {
   action: ChangeAction;
   weekStarts: readonly WeekStartOption[];
+  /** Set when the Renter pays by direct debit: a rise waits for the notice. */
+  notice: RateRiseNotice | null;
 }) {
   const schema = useMemo(
-    () => rateChangeFormSchema(props.weekStarts.map((option) => option.block)),
-    [props.weekStarts],
+    () =>
+      rateChangeFormSchema(
+        props.weekStarts.map((option) => option.block),
+        props.notice,
+      ),
+    [props.weekStarts, props.notice],
   );
   const form = useChangeForm({
     action: props.action,
@@ -136,7 +143,11 @@ export function RateChangeForm(props: {
           label="Starts with the rent week from"
           isRequired
           error={fields.errorFor("fromBlock")}
-          hint="The Renter must sign before then."
+          hint={
+            props.notice
+              ? `The Renter pays by direct debit: a rise starts from ${props.notice.fromLabel} at the soonest, or the first rent week starting ${RATE_RISE_NOTICE_DAYS} days after they sign, if later.`
+              : "The Renter must sign before then."
+          }
         >
           <Select
             {...fields.boxProps("fromBlock")}

@@ -1,6 +1,7 @@
 "use server";
 
 import {
+  RATE_RISE_NOTICE_DAYS,
   describeErrorForLog,
   blockAt,
   upcomingWeekStarts,
@@ -80,6 +81,7 @@ const RATE_REFUSALS: Record<
   not_long_term: "Only a long-term rental's weekly rate can change.",
   not_week_start: "A new rate starts at the beginning of a rent week.",
   already_has_rate: "That week already has a signed rate. Choose a later week.",
+  needs_notice: `The Renter pays by direct debit, so a rise starts at least ${RATE_RISE_NOTICE_DAYS} days ahead. Choose a later rent week.`,
 };
 
 function changeRental(

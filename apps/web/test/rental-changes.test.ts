@@ -1,5 +1,13 @@
+import { randomUUID } from "node:crypto";
+
 import { utcToLocalDateTime, type TemplateDocument } from "@fleetapp/core";
-import { carHolds, rentalChanges, rentalRates, rentals } from "@fleetapp/db/schema";
+import {
+  carHolds,
+  paymentMandates,
+  rentalChanges,
+  rentalRates,
+  rentals,
+} from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import type { EmailMessage } from "@fleetapp/email";
@@ -315,6 +323,78 @@ describe("changes of terms during a rental", () => {
     expect(await sendChangeForSigning(linkDeps(), actor, change!.id, clock())).toEqual({
       status: "already_signed",
     });
+  });
+
+  it("gives a direct-debit Renter 30 days' notice of a rise, moving its start when signed late (slice 5)", async () => {
+    // The change form template comes from the test before (tests in a file run in order).
+    const { rentalId, renterId } = await kit.rentalOut(new Date(Date.now() - 2 * DAY_MS));
+    await withTenant(web.db, actor.operatorId, (tx) =>
+      tx.insert(paymentMandates).values({
+        operatorId: actor.operatorId,
+        renterId,
+        method: "becs_debit",
+        status: "active",
+        stripeSetupIntentId: `seti_notice${randomUUID().replaceAll("-", "")}`,
+        stripePaymentMethodId: `pm_notice${randomUUID().replaceAll("-", "")}`,
+        stripeMandateId: `mandate_notice${randomUUID().replaceAll("-", "")}`,
+        setUpAt: new Date(),
+        activatedAt: new Date(),
+      }),
+    );
+    const rise = { weeklyRateCents: 380_00, reason: "Yearly review" };
+    expect(
+      await changeWeeklyRate(
+        linkDeps(),
+        actor,
+        rentalId,
+        { ...rise, fromBlock: NEXT_WEEK },
+        clock(),
+      ),
+    ).toEqual({ status: "needs_notice" });
+    // 30 days from the handover two days ago is block 32: the first week start after is block 35.
+    sentEmails.length = 0;
+    const sent = await changeWeeklyRate(
+      linkDeps(),
+      actor,
+      rentalId,
+      { ...rise, fromBlock: 35 },
+      clock(),
+    );
+    expect(sent).toMatchObject({ status: "sent" });
+
+    // Signed nine and a half days on: the rise starts at the first rent week 30 days after that.
+    const token = TOKEN_PATTERN.exec(sentEmails[0]?.html ?? "")?.[1] ?? "";
+    const visit = await openLink(web.db, token);
+    const later = new Date(Date.now() + 9.5 * DAY_MS);
+    const signed = await signContract(
+      { ...linkDeps(), now: () => later },
+      visit!,
+      {
+        areDetailsConfirmed: "on",
+        hasConsented: "on",
+        method: "typed",
+        typedName: "Rory Ready",
+        drawnSignature: "",
+        contractFingerprint: visit!.signing!.contractFingerprint,
+      },
+      META,
+    );
+    expect(signed.status).toBe("signed");
+    const rates = await withTenant(web.db, actor.operatorId, (tx) =>
+      tx.select().from(rentalRates).where(eq(rentalRates.rentalId, rentalId)),
+    );
+    expect(rates.map((rate) => [rate.weeklyRateCents, rate.appliesFromBlock])).toContainEqual([
+      380_00, 42,
+    ]);
+    // A fall needs no notice.
+    const fall = await changeWeeklyRate(
+      linkDeps(),
+      actor,
+      rentalId,
+      { weeklyRateCents: 300_00, fromBlock: 14, reason: "Discount" },
+      clock(),
+    );
+    expect(fall).toMatchObject({ status: "sent" });
   });
 
   it("refuses a rate change mid-week, and signing once its rent week has begun (review A3-1)", async () => {

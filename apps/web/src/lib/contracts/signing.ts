@@ -36,6 +36,8 @@ import type { RequestMeta } from "../request-meta";
 import {
   changeFieldsOf,
   changeSigningProblemNow,
+  isRiseNoticedNow,
+  signedRateStartOf,
   lockChange,
   recordChangeSigned,
   type RentalChange,
@@ -239,6 +241,11 @@ async function fillSentPaper(
   sent: SentPaper,
 ): Promise<FilledContract | null> {
   const version = await loadTemplateVersion(database, operatorId, sent.templateVersionId);
+  const { change } = sent;
+  // A rise for a direct-debit Renter says its start may move with the notice (decision 3).
+  const isRiseNoticed = change
+    ? await withTenant(database, operatorId, (tx) => isRiseNoticedNow(tx, operatorId, change))
+    : false;
   return version
     ? fillContract(
         database,
@@ -246,7 +253,9 @@ async function fillSentPaper(
         sent.rentalId,
         version.content,
         { timeZone: sent.timeZone, now: sent.sentAt },
-        sent.change ? changeFieldsOf(sent.change, sent.timeZone, sent.handedOverAt) : undefined,
+        change
+          ? changeFieldsOf(change, sent.timeZone, sent.handedOverAt, isRiseNoticed)
+          : undefined,
       )
     : null;
 }
@@ -447,7 +456,7 @@ async function renderSignedContract(
   view: Extract<SigningView, { status: "ready" }>,
   link: { sentToEmail: string },
   input: SignContractInput,
-  signed: { at: Date; text: string; meta: RequestMeta },
+  signed: { at: Date; text: string; meta: RequestMeta; rateStartsAt: Date | null },
 ): Promise<Uint8Array> {
   const signature: PdfSignature = {
     signedByText: view.authority
@@ -472,10 +481,40 @@ async function renderSignedContract(
         at: signed.at,
         meta: signed.meta,
         methodLabel,
-        authority: authorityRows(view.authority, input),
+        authority: [
+          ...authorityRows(view.authority, input),
+          // The rent week a rate change starts with as signed, moved by the notice if need be.
+          ...(signed.rateStartsAt
+            ? [
+                [
+                  "New rate from",
+                  formatDateTimeInTimeZone(signed.rateStartsAt, visit.timeZone),
+                ] as const,
+              ]
+            : []),
+        ],
       }),
       contentFingerprint: view.fingerprint,
     },
+  });
+}
+
+/**
+ * A rate change's first rent week if signed now (worked out once, so the
+ * signed PDF and the new rate row say the same week); null for anything else.
+ */
+async function rateStartAtSigning(
+  database: AnyDatabase,
+  visit: LinkVisit,
+  signedAt: Date,
+): Promise<{ block: number; startsAt: Date } | null> {
+  const changeId = visit.signing?.rentalChangeId;
+  if (!changeId) {
+    return null;
+  }
+  return withTenant(database, visit.operatorId, async (tx) => {
+    const change = await lockChange(tx, visit.operatorId, changeId);
+    return change ? signedRateStartOf(tx, visit.operatorId, change, signedAt) : null;
   });
 }
 
@@ -527,10 +566,12 @@ export async function signContract(
   if (!link) {
     return { status: "not_signable" };
   }
+  const rateStart = await rateStartAtSigning(deps.database, visit, signedAt);
   const pdf = await renderSignedContract(deps, visit, view, link, input, {
     at: signedAt,
     text: signedAtText,
     meta,
+    rateStartsAt: rateStart?.startsAt ?? null,
   });
 
   const result = await issueDocument(
@@ -559,6 +600,7 @@ export async function signContract(
           at: signedAt,
           kind: view.kind,
           method: input.method,
+          rateStartBlock: rateStart?.block ?? null,
         });
         await tx.insert(signingEvidence).values({
           ...evidenceRow(visit, rentalId, "signed", meta, {
@@ -628,7 +670,13 @@ export async function signContract(
 async function recordSigned(
   tx: AnyTransaction,
   visit: LinkVisit,
-  signed: { documentId: string; at: Date; kind: SignedDocumentKind; method: string },
+  signed: {
+    documentId: string;
+    at: Date;
+    kind: SignedDocumentKind;
+    method: string;
+    rateStartBlock: number | null;
+  },
 ): Promise<void> {
   const signing = visit.signing!;
   const actor = { type: "renter_link" as const, id: visit.linkId };

@@ -39,7 +39,16 @@ export type ChangeSigningProblem =
 
 export function changeSigningProblem(
   change: SignableChange,
-  rental: { status: RentalStatus; handedOverAt: Date | null },
+  rental: {
+    status: RentalStatus;
+    handedOverAt: Date | null;
+    /**
+     * A rise for a Renter paying by direct debit: signed late, it starts at
+     * the first rent week 30 days on instead (slice 5 decision 3), so its
+     * week having begun never stops it.
+     */
+    isStartMovedBySigning?: boolean;
+  },
   otherChanges: readonly Pick<SignableChange, "id" | "kind" | "status" | "createdAt">[],
   now: Date,
 ): ChangeSigningProblem | null {
@@ -53,6 +62,7 @@ export function changeSigningProblem(
     return "rental_over";
   }
   const isRateWeekBegun =
+    rental.isStartMovedBySigning !== true &&
     change.status === "waiting_for_signature" &&
     change.appliesFromBlock !== null &&
     rental.handedOverAt !== null &&

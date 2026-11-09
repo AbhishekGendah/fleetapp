@@ -314,6 +314,22 @@ describe("rate changes", () => {
     ).toBeNull();
   });
 
+  it("starts a rise for a direct-debit Renter no sooner than the notice allows, and a fall any week", () => {
+    // LONG_TERM is $350 a week; the notice ends at block 35.
+    expect(
+      blockRateChangeProblem(LONG_TERM, { fromBlock: 14, weeklyRateCents: 380_00 }, 3, 35),
+    ).toBe("needs_notice");
+    expect(
+      blockRateChangeProblem(LONG_TERM, { fromBlock: 35, weeklyRateCents: 380_00 }, 3, 35),
+    ).toBeNull();
+    expect(
+      blockRateChangeProblem(LONG_TERM, { fromBlock: 14, weeklyRateCents: 320_00 }, 3, 35),
+    ).toBeNull();
+    expect(
+      blockRateChangeProblem(LONG_TERM, { fromBlock: 14, weeklyRateCents: 380_00 }, 3, null),
+    ).toBeNull();
+  });
+
   it("can't be signed once its week has started", () => {
     expect(isBlockRateChangeSignable(HANDOVER, 7, at(167))).toBe(true);
     expect(isBlockRateChangeSignable(HANDOVER, 7, at(168))).toBe(false);

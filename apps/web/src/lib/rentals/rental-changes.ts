@@ -25,6 +25,10 @@ import {
   changeSigningProblem,
   isRateChangeOutOfTime,
   type ChangeSigningProblem,
+  firstWeekAfterNotice,
+  isRateRise,
+  RATE_RISE_NOTICE_TEXT,
+  signedRateChangeStartBlock,
 } from "@fleetapp/core";
 import { recordActivity } from "@fleetapp/db/activity";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
@@ -41,6 +45,7 @@ import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
+import { usableMandateOf } from "../debits/debit-queries";
 import { cancelLiveLinks } from "../renter-links/cancel-links";
 import { isChecklistUnderWay } from "../handover/handover-records";
 import type { ChangeFields } from "../contracts/contract-data";
@@ -413,10 +418,12 @@ export async function proposeRateChange(
     if (!rate) {
       return { status: "not_long_term" };
     }
+    const isNoticeNeeded = await hasUsableMandate(tx, actor.operatorId, rental.id);
     const problem = blockRateChangeProblem(
       rate.terms,
       request,
       blockAt(rate.handedOverAt, clock.now),
+      isNoticeNeeded ? firstWeekAfterNotice(rate.handedOverAt, clock.now) : null,
     );
     if (problem) {
       return { status: problem };
@@ -561,7 +568,8 @@ export async function recordChangeSigned(
   tx: AnyTransaction,
   operatorId: string,
   change: RentalChange,
-  signed: { documentId: string; at: Date },
+  /** For a rate change, the rent week it starts from as signed (moved by the notice, decision 3). */
+  signed: { documentId: string; at: Date; rateStartBlock?: number | null },
 ): Promise<void> {
   const isWaiting = change.status === "waiting_for_signature";
   await tx
@@ -572,7 +580,8 @@ export async function recordChangeSigned(
     })
     .where(eq(rentalChanges.id, change.id));
   if (isWaiting && change.kind === "weekly_rate" && change.rateAfterCents) {
-    await addSignedRate(tx, operatorId, change, change.rateAfterCents);
+    const appliesFromBlock = signed.rateStartBlock ?? change.appliesFromBlock;
+    await addSignedRate(tx, operatorId, { ...change, appliesFromBlock }, change.rateAfterCents);
   }
 }
 
@@ -628,7 +637,65 @@ export async function changeSigningProblemNow(
     .where(
       and(eq(rentalChanges.operatorId, operatorId), eq(rentalChanges.rentalId, change.rentalId)),
     );
-  return changeSigningProblem(change, rental, others, now);
+  const isStartMovedBySigning = await isRiseNoticedNow(tx, operatorId, change);
+  return changeSigningProblem(change, { ...rental, isStartMovedBySigning }, others, now);
+}
+
+/** Whether the rental's Renter pays by a working direct debit now. */
+async function hasUsableMandate(
+  tx: AnyTransaction,
+  operatorId: string,
+  rentalId: string,
+): Promise<boolean> {
+  const [rental] = await tx
+    .select({ renterId: rentals.renterId })
+    .from(rentals)
+    .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, operatorId)));
+  return rental ? (await usableMandateOf(tx, operatorId, rental.renterId)) !== null : false;
+}
+
+/**
+ * Whether a rate change waits for the 30 days' notice (slice 5, decision
+ * 3): a rise, for a Renter paying by direct debit now. A Renter who sets one
+ * up after signing keeps the change as signed; a fall starts as proposed.
+ */
+export async function isRiseNoticedNow(
+  tx: AnyTransaction,
+  operatorId: string,
+  change: Pick<RentalChange, "kind" | "rentalId" | "rateBeforeCents" | "rateAfterCents">,
+): Promise<boolean> {
+  const isRise =
+    change.kind === "weekly_rate" &&
+    change.rateAfterCents !== null &&
+    isRateRise(change.rateBeforeCents, change.rateAfterCents);
+  return isRise && (await hasUsableMandate(tx, operatorId, change.rentalId));
+}
+
+/**
+ * The rent week a rate change starts from if signed at `signedAt`: as
+ * proposed, or for a noticed rise the first week starting 30 days after
+ * signing, if later. Null for a change that is not a block rate change.
+ */
+export async function signedRateStartOf(
+  tx: AnyTransaction,
+  operatorId: string,
+  change: RentalChange,
+  signedAt: Date,
+): Promise<{ block: number; startsAt: Date } | null> {
+  const [rental] = await tx
+    .select({ handedOverAt: rentals.handedOverAt })
+    .from(rentals)
+    .where(and(eq(rentals.id, change.rentalId), eq(rentals.operatorId, operatorId)));
+  if (change.kind !== "weekly_rate" || change.appliesFromBlock === null || !rental?.handedOverAt) {
+    return null;
+  }
+  const block = signedRateChangeStartBlock({
+    handedOverAt: rental.handedOverAt,
+    proposedFromBlock: change.appliesFromBlock,
+    signedAt,
+    needsNotice: await isRiseNoticedNow(tx, operatorId, change),
+  });
+  return { block, startsAt: blockStartsAt(rental.handedOverAt, block) };
 }
 
 /** When a rate change starts, in words: its rent week's start on the business's clock, or its date. */
@@ -648,9 +715,13 @@ export function changeFieldsOf(
   change: RentalChange,
   timeZone: string,
   handedOverAt: Date | null,
+  /** A rise for a direct-debit Renter: its start may move with the notice, and says so. */
+  isRiseNoticed = false,
 ): ChangeFields {
   const rate = change.rateAfterCents === null ? null : formatCents(change.rateAfterCents);
-  const rateFrom = rateChangeStartText(change, handedOverAt, timeZone);
+  const startText = rateChangeStartText(change, handedOverAt, timeZone);
+  const rateFrom =
+    startText && isRiseNoticed ? `${startText}, ${RATE_RISE_NOTICE_TEXT}` : startText;
   const newEnd = change.endAfter ? formatDateTimeInTimeZone(change.endAfter, timeZone) : null;
   return {
     changeSummary: changeSummaryText(change, { rate, rateFrom, newEnd }),
