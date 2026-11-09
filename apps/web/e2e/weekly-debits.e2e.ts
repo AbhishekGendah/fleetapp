@@ -1,9 +1,9 @@
 import { expectAccessible } from "@fleetapp/e2e/accessibility";
 import { scriptKilobytes } from "@fleetapp/e2e/download-size";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import { E2E_CRON_SECRET, PHONE_VIEWPORT } from "./e2e-settings";
-import { openRentalPage, rentalOutAndCharged } from "./money-steps";
+import { connectStripe, openRentalPage, rentalOutAndCharged } from "./money-steps";
 import { expectNoSidewaysScroll } from "./phone-checks";
 import type { RentalParties } from "./rental-steps";
 import { recordDebits } from "./test-records";
@@ -26,15 +26,6 @@ const PARTIES: RentalParties = { renterName: RENTER.name, carRego: "E2E5005" };
 const RENTAL_PAGE_BUDGET_KB = 400;
 
 let rentalId = "";
-
-async function connectStripe(page: Page): Promise<void> {
-  await page.goto("/settings/payments", { waitUntil: "networkidle" });
-  const connect = page.getByRole("button", { name: "Connect Stripe" });
-  if (await connect.isVisible()) {
-    await connect.click();
-  }
-  await expect(page.getByText("Ready: cards and direct debit on")).toBeVisible();
-}
 
 test.describe.serial("weekly debits on the rental page", () => {
   test.use({ viewport: PHONE_VIEWPORT });

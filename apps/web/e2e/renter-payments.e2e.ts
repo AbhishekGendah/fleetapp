@@ -1,9 +1,9 @@
 import { expectAccessible } from "@fleetapp/e2e/accessibility";
 import { scriptKilobytes } from "@fleetapp/e2e/download-size";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import { PHONE_VIEWPORT } from "./e2e-settings";
-import { bookedRental, openRentalPage } from "./money-steps";
+import { bookedRental, connectStripe, openRentalPage } from "./money-steps";
 import { expectNoSidewaysScroll } from "./phone-checks";
 import type { RentalParties } from "./rental-steps";
 import { openLinkOnPhone } from "./signing-steps";
@@ -32,16 +32,6 @@ const PAYMENTS_PAGE_BUDGET_KB = 445;
 
 let rentalId = "";
 let linkUrl = "";
-
-/** Stripe's stand-in connected for the business, if an earlier test has not done it. */
-async function connectStripe(page: Page): Promise<void> {
-  await page.goto("/settings/payments", { waitUntil: "networkidle" });
-  const connect = page.getByRole("button", { name: "Connect Stripe" });
-  if (await connect.isVisible()) {
-    await connect.click();
-  }
-  await expect(page.getByText("Ready: cards and direct debit on")).toBeVisible();
-}
 
 test.describe.serial("a Renter's direct debit and bond", () => {
   test.use({ viewport: PHONE_VIEWPORT });

@@ -63,3 +63,13 @@ export async function openRentalPage(
   await page.goto(`/rentals/${rentalId}${tab ? `?tab=${tab}` : ""}`, { waitUntil: "networkidle" });
   await rentalIdOnPage(page, parties);
 }
+
+/** Stripe's stand-in connected for the business, if an earlier test has not done it. */
+export async function connectStripe(page: Page): Promise<void> {
+  await page.goto("/settings/payments", { waitUntil: "networkidle" });
+  const connect = page.getByRole("button", { name: "Connect Stripe" });
+  if (await connect.isVisible()) {
+    await connect.click();
+  }
+  await expect(page.getByText("Ready: cards and direct debit on")).toBeVisible();
+}
