@@ -257,10 +257,14 @@ async function unlessDriverWaitsReview(
 }
 
 /**
- * For naming a business's driver on a draft or booking, under the rental's
- * lock: the business, then the driver, locked (the order a handover takes
- * them, after the rental and the car), and the car as it is, unlocked
- * (nothing about the car changes). Naming again the driver the rental
+ * For naming a business's driver (on a draft or booking, or in a driver
+ * change once the car is out), under the rental's lock: the car, then the
+ * business, then the driver, all locked, in "Lock order" (docs/plans/
+ * business-renters.md). The car comes before the business even where
+ * nothing about the car changes: a booking of the same car takes the car and
+ * then the business, and a driver change goes on to touch the car (its
+ * checklists, possession and reading), so taking the business first would
+ * deadlock with it (slice 4 review). Naming again the driver the rental
  * already names (`alreadyNamedId`) changes nothing, so it is never refused
  * for details they sent since.
  */
@@ -270,15 +274,10 @@ export async function lockDriverNamingParties(
   ids: PartyIds,
   alreadyNamedId: string | null,
 ): Promise<PartiesOrMissing> {
-  const people = await findRenterAndDriver(tx, operatorId, ids, true);
-  if (typeof people === "string") {
-    return people;
-  }
-  const carStatus = await findCarStatus(tx, operatorId, ids.vehicleId, false);
   return unlessDriverWaitsReview(
     tx,
     operatorId,
-    carStatus ? { ...people, vehicleId: ids.vehicleId, carStatus } : "car_not_found",
+    await findBookingParties(tx, operatorId, ids, true),
     alreadyNamedId,
   );
 }

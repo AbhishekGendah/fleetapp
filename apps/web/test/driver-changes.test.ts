@@ -25,6 +25,7 @@ import {
 import { completeReturn } from "../src/lib/handover/complete-return";
 import { cancelHandover, startReturn } from "../src/lib/handover/handover-records";
 import { startSwap } from "../src/lib/rentals/car-swaps";
+import { bookRental } from "../src/lib/rentals/rental-records";
 import {
   cancelDriverChange,
   listRentalDriverChanges,
@@ -47,7 +48,12 @@ import {
 import { addCurrentPaperwork, addTestCar, seedOperatorWithUser } from "./car-fixtures";
 import { checklistKit, HANDOVER_KM, TEST_SIGNATURE } from "./handover-fixtures";
 import { openTransactionAs, waitUntilBlockedBy } from "./lock-fixtures";
-import { addRenterReadyToRent, bookTestRentalOn, TEST_TIME_ZONE } from "./rental-fixtures";
+import {
+  addRenterReadyToRent,
+  attemptTestBooking,
+  bookTestRentalOn,
+  TEST_TIME_ZONE,
+} from "./rental-fixtures";
 
 const LEGAL_NAME = "Acme Rideshare Pty Ltd";
 const CONTACT_EMAIL = "dana.wells@acme.example.test";
@@ -674,6 +680,87 @@ describe("changing a business's driver while the car is out", () => {
       expect((await signed).status).toBe("completed");
       expect(await statusOf(change.id)).toBe("completed");
     });
+
+    /** A later booking of the business's car, made new or from a draft, as the booking screens do. */
+    const LATER_PERIOD = { plannedStart: "2028-03-01T09:00", plannedEnd: "2028-03-29T09:00" };
+    const bookings = {
+      "a new rental": async (out: Awaited<ReturnType<typeof carOutWithSam>>) => () =>
+        attemptTestBooking(web, actor, {
+          renterId: out.businessId,
+          vehicleId: out.vehicleId,
+          period: LATER_PERIOD,
+        }),
+      "a draft being booked": async (out: Awaited<ReturnType<typeof carOutWithSam>>) => {
+        const draft = await attemptTestBooking(web, actor, {
+          renterId: out.businessId,
+          vehicleId: out.vehicleId,
+          period: LATER_PERIOD,
+          status: "draft",
+        });
+        expect(draft.status).toBe("saved");
+        const draftId = draft.status === "saved" ? draft.rentalId : "";
+        return () => bookRental(web.db, actor, draftId, clock());
+      },
+    } as const;
+    const changeSteps = {
+      starting: async (out: Awaited<ReturnType<typeof carOutWithSam>>) => ({
+        expected: "started",
+        run: () =>
+          startDriverChange(
+            web.db,
+            actor,
+            out.rentalId,
+            { toDriverId: out.miaId, reason: "Shifts" },
+            clock(),
+          ),
+      }),
+      finishing: async (out: Awaited<ReturnType<typeof carOutWithSam>>) => {
+        await changeUnderWay(out);
+        return { expected: "completed", run: () => signChange(out.rentalId, null) };
+      },
+    } as const;
+    const outcomeOf = (pending: Promise<{ status: string }>) =>
+      pending.then(
+        (result) => result.status,
+        (error: unknown) => (error instanceof Error ? error.message : String(error)),
+      );
+    const raceCases = (["starting", "finishing"] as const).flatMap((step) =>
+      (["a new rental", "a draft being booked"] as const).flatMap((booking) =>
+        (["the driver change", "the booking"] as const).map((first) => ({ step, booking, first })),
+      ),
+    );
+
+    // Each takes the car before the business ("Lock order"), so neither deadlocks (review of slice 4).
+    it.each(raceCases)(
+      "lets $step a driver change and $booking of the same car both go ahead, $first first",
+      async ({ step, booking, first }) => {
+        const out = await carOutWithSam();
+        const change = await changeSteps[step](out);
+        const book = await bookings[booking](out);
+        const isChangeFirst = first === "the driver change";
+        // Holding what the first one waits for, so the second arrives while it waits.
+        const holder = await openTransactionAs(actor.operatorId);
+        await holder.client.query(
+          isChangeFirst
+            ? "select id from renters where id = $1 for update"
+            : "select id from vehicles where id = $1 for update",
+          [isChangeFirst ? out.businessId : out.vehicleId],
+        );
+        const [runFirst, runSecond] = isChangeFirst ? [change.run, book] : [book, change.run];
+        const firstDone = outcomeOf(runFirst());
+        await waitUntilBlockedBy(superuser, holder.pid);
+        const secondDone = outcomeOf(runSecond());
+        await waitUntilBlockedBy(superuser, holder.pid, 2);
+        await holder.client.query("commit");
+        await holder.client.end();
+
+        const [changed, booked] = isChangeFirst
+          ? [await firstDone, await secondDone]
+          : [await secondDone, await firstDone];
+        expect(changed).toBe(change.expected);
+        expect(booked).toBe("saved");
+      },
+    );
 
     it("lets one of a swap and a driver change start when both are asked at once", async () => {
       const out = await carOutWithSam();

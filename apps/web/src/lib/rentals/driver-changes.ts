@@ -80,8 +80,8 @@ async function startRefusal(
  * has it (a return checklist asking for the photos its handover took), then
  * signed for by the new driver (a handover checklist showing that check-in).
  * Locked as everything else that changes a rental (docs/plans/
- * business-renters.md, "Lock order"): the rental, then the business and the
- * new driver, whose checks run now (and again as they sign).
+ * business-renters.md, "Lock order"): the rental, then the car, the business
+ * and the new driver, whose checks run now (and again as they sign).
  */
 export async function startDriverChange(
   database: AnyDatabase,

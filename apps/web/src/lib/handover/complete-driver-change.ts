@@ -335,7 +335,8 @@ class DriverChangeRefusedError extends Error {
 
 /**
  * Under the locks, in "Lock order": the change, its two checklists (each
- * still as shown, re-read here), then the business and the new driver, whose
+ * still as shown, re-read here), then the car (before the business, as a
+ * booking of it takes them), the business and the new driver, whose
  * checks run once more, so a link removed, an archive or a Do not rent at
  * the same moment is waited for and then refuses the change in words.
  */

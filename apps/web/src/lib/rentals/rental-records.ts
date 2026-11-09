@@ -299,12 +299,11 @@ export type NameDriverResult =
 /** Only a draft or a booking names its driver here; once out, a driver change is its own flow (slice 4). */
 const DRIVER_NAMEABLE: ReadonlySet<RentalStatus> = new Set(["draft", "booked"]);
 
-/** The rental's Renter and car as they are now, read before any lock: whose lock comes first. */
 /**
  * Names a business's driver on its draft or booking, or puts it back to "to
  * be named" (decision 2). Locked in the order everything else takes them
  * (docs/plans/business-renters.md, "Lock order"): the rental first, then the
- * business, then the driver, so a handover finishing at the same moment
+ * car, the business and the driver, so a handover finishing at the same moment
  * (which takes the rental to number its report) waits or is waited for,
  * never both. The driver's checks run under the rental's own rules (rule
  * 14): a Do not rent driver is refused, anything else is a warning the
