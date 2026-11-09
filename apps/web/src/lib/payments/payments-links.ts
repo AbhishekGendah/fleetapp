@@ -227,8 +227,8 @@ export interface ContinuedLink {
 /**
  * The signing link, read under the Renter's lock, while it still speaks for
  * the Renter's email on file: this phone passed a code sent to the email
- * the link went to, so once the email changed (which cancels live links)
- * the phone is not remembered for a new link. The Operator then sends the
+ * the link went to, so once the email changed (cancelling the link if it
+ * was not used yet) the phone is not remembered for a new link. The Operator then sends the
  * payments link the usual way, and a new phone types a code from the new
  * email (rule 26).
  */
@@ -242,10 +242,13 @@ async function signingLinkStillTo(
       createdByUserId: renterLinks.createdByUserId,
       sentToEmail: renterLinks.sentToEmail,
       cancelledAt: renterLinks.cancelledAt,
+      usedAt: renterLinks.usedAt,
     })
     .from(renterLinks)
     .where(and(eq(renterLinks.id, signing.linkId), eq(renterLinks.operatorId, signing.operatorId)));
-  const isStillTo = link !== undefined && link.cancelledAt === null && link.sentToEmail === email;
+  // Signing marks its link cancelled as it uses it up; only a cancelling without a use stops it.
+  const isCancelled = link?.cancelledAt != null && link.usedAt === null;
+  const isStillTo = link !== undefined && !isCancelled && link.sentToEmail === email;
   return isStillTo ? { createdByUserId: link.createdByUserId } : null;
 }
 

@@ -662,20 +662,32 @@ describe("a Renter's direct debit and bond", () => {
     expect(await continueToPayments(deps(), { ...next!, purpose: "sign_contract" })).toBeNull();
   });
 
-  /** The Renter's email changed while they were on their signing link (the change cancels it). */
-  async function emailChangedDuringSigning() {
+  /** A link the Renter is on, standing in for their signing link; used up as signing does if asked. */
+  async function signingVisit(options: { isSigned: boolean }) {
     const rental = await bookedRental(actor);
     const visit = await openedPaymentsLink(actor, rental.rentalId);
-    await updateRenter(
+    if (options.isSigned) {
+      const signedAt = new Date();
+      await withTenant(web.db, actor.operatorId, (tx) =>
+        tx
+          .update(renterLinks)
+          .set({ cancelledAt: signedAt, usedAt: signedAt })
+          .where(eq(renterLinks.id, visit.linkId)),
+      );
+    }
+    return { rental, signing: { ...visit, purpose: "sign_contract" as const } };
+  }
+
+  function changeEmail(renterId: string) {
+    return updateRenter(
       web.db,
       actor,
-      rental.renterId,
+      renterId,
       parseRenterForm(
         { ...emptyRenterForm(), fullName: "Pat Payer", email: "pat.moved@example.test" },
         "2026-10-30",
       ).data!,
     );
-    return { rental, signing: { ...visit, purpose: "sign_contract" as const } };
   }
 
   function liveLinksOf(rentalId: string) {
@@ -687,8 +699,15 @@ describe("a Renter's direct debit and bond", () => {
     );
   }
 
+  it("carries the Renter on from a signing link signing used up", async () => {
+    const { signing } = await signingVisit({ isSigned: true });
+
+    expect(await continueToPayments(deps(), signing)).not.toBeNull();
+  });
+
   it("doesn't carry the Renter on once their email changed and cancelled the signing link", async () => {
-    const { rental, signing } = await emailChangedDuringSigning();
+    const { rental, signing } = await signingVisit({ isSigned: false });
+    await changeEmail(rental.renterId);
 
     expect(await continueToPayments(deps(), signing)).toBeNull();
     expect(await liveLinksOf(rental.rentalId)).toEqual([]);
@@ -698,14 +717,12 @@ describe("a Renter's direct debit and bond", () => {
     });
   });
 
-  it("doesn't carry the Renter on from a signing link sent to an email no longer theirs", async () => {
-    const { rental, signing } = await emailChangedDuringSigning();
-    // Even were the signing link still live: it went to the old email, so its phone isn't remembered.
-    await withTenant(web.db, actor.operatorId, (tx) =>
-      tx.update(renterLinks).set({ cancelledAt: null }).where(eq(renterLinks.id, signing.linkId)),
-    );
+  it("doesn't carry the Renter on once their email changed after they signed", async () => {
+    const { rental, signing } = await signingVisit({ isSigned: true });
+    await changeEmail(rental.renterId);
 
+    // The signing link went to the old email: its phone isn't remembered for a new link.
     expect(await continueToPayments(deps(), signing)).toBeNull();
-    expect((await liveLinksOf(rental.rentalId)).map((link) => link.id)).toEqual([signing.linkId]);
+    expect(await liveLinksOf(rental.rentalId)).toEqual([]);
   });
 });
