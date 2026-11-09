@@ -3,6 +3,7 @@ export * from "./availability";
 export * from "./account-access";
 export * from "./business-details";
 export * from "./business-renters";
+export * from "./business-statement";
 export * from "./calendar-dates";
 export * from "./changed-values";
 export * from "./contracts";
