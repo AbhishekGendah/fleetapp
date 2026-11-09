@@ -955,8 +955,12 @@ unchanged and passing).
 
   **The one order (second review of slice 4, 9 Nov 2026).** Every code
   path and database rule that locks these tables takes them in this order,
-  skipping what it doesn't need; a row locked "shared" is taken by a
-  link (a foreign key) or a database rule, and counts where it is taken:
+  skipping what it doesn't need. Which lock each takes is set out under
+  "Lock modes" below: a row the app changes is locked for no key update; a
+  row a new or changed row links to (a foreign key) is taken "key shared",
+  which those locks leave free, so it no longer counts in the order; a row
+  locked "shared" by a database rule or a photo does count, where it is
+  taken:
 
   1. `rentals`: the rental being changed (an issued paper takes it first,
      to number the paper; the database's start rules for a swap or a
@@ -978,7 +982,15 @@ unchanged and passing).
      Releasing or moving the end of a rental's own hold (a cancel, a new
      end) is done under the rental's lock without the car's: such a write
      can make a booking of the car wait, but takes nothing afterwards that
-     the booking holds.
+     the booking holds. The one exception is the return (second review of
+     slice 4, rule 8): it ends the possession and releases the rental's
+     hold, and only then writes the car's status and reading, so it takes
+     the car after its hold. A booking that holds the car never waits for
+     that hold: its clash check reads the hold as saved, still covering the
+     return's dates, and refuses the booking before it writes anything; only
+     once the return is saved can a booking of those dates write its hold.
+     A new possession of the car (a handover or a swap of another rental)
+     is refused the same way while the possession is open as saved.
 
   | Path | Locks, in order |
   | --- | --- |
@@ -1022,6 +1034,77 @@ unchanged and passing).
   meanwhile refuses the photo as not found); and two driver changes
   crossing the same two drivers of two businesses (the drivers now in id
   order).
+  **Lock modes (third review of slice 4, 9 Nov 2026).** A reviewer showed
+  four deadlocks (40P01) with the app's own code, none in the order above:
+  each came from Postgres's foreign key checks. A new or changed row that
+  links to another (a damage record to its car and rental, a ledger line to
+  its rental and damage record, a submission to its Renter) takes the row it
+  links to "key shared", one link at a time in the order the links were
+  made; a row locked FOR UPDATE blocks that, so "add a row pointing at the
+  car and the rental" took the car and then the rental, the reverse of the
+  order. The cases: damage found later on a car while its handover was
+  signed (the damage held the car shared and waited for the rental; the
+  handover held the rental and waited for the car), and the same against a
+  swap of that car or a driver change; confirming who had the car for
+  damage while a charge for that damage was added to the rental (each held
+  one and linked to the other); and a Renter's details sent through their
+  link while the Operator archived them or changed their email (sending
+  held the link and linked the submission to the Renter; the archive held
+  the Renter and cancelled the link).
+
+  The fix is the standard one: the app locks a row it changes FOR NO KEY
+  UPDATE (`ROW_LOCK`, `@fleetapp/db/row-lock`; the linter refuses
+  `.for("update")`). Two such locks on one row still wait for each other,
+  as do a database rule's or a photo's "shared" lock, so every
+  "one after the other" above holds as before (the two-connection tests
+  for the rental, swaps, driver changes and checklist photos pass
+  unchanged); a link's key share waits for neither. FOR UPDATE adds only
+  the right to change a row's id or a column a link or unique key relies
+  on, or to delete the row, and the app does none of those to a row it
+  locks (such columns are ids, the Operator, a link's Renter and hash, a
+  file's storage key, Stripe's ids and a few document ids; the one ever
+  written on a locked row is kept below). The database's start rules for a swap and a driver change
+  locked the rental again FOR UPDATE: already held, but the stronger lock
+  waited for every link to the rental under way, so migration 0060 has
+  them take the same lock (only the lock mode changes).
+
+  Kept as FOR UPDATE, each for a reason: a change of terms
+  (`lockChange`), as signing it writes its document id, a unique key, which
+  takes that lock anyway (taken at the start, never raised halfway); the
+  retention job's
+  `lock_renter_for_retirement` (the Renter, then their rentals: the
+  exception above, run only for Renters long out of use, and changed only
+  through a new migration if it ever takes part in a deadlock); the AGS
+  catalogue fix `correct_vehicle_make_model` (one car, then its own change:
+  it waits for nothing while holding it); and the sign-in lockout's single
+  statement on the login row (packages/auth, nothing else in its
+  transaction).
+
+  Nothing relied on FOR UPDATE making a link wait. Every check that a
+  change makes of rows linking to it, under its lock, is matched by a lock
+  the other side takes itself: an archive of a Renter or car against a
+  booking (both lock the Renter and the car, review A8-1), a driver link
+  (the business and person), a removal of a driver (the business, person
+  and link), a checklist against its marks and photos (the checklist,
+  shared for a photo), a submission against a link photo's confirmation
+  (the link), and a ledger or bond line by hand (the rental). A bond paid
+  on Stripe's page while bond is entered by hand was never fully kept apart
+  by the link's wait (only when Stripe's payment row was already being
+  written), and stays handled as it was: the hand entry stops Stripe's page
+  and says when the Renter had just paid there (review KS-1).
+
+  Two-connection tests, each showing 40P01 before the fix and both going
+  ahead after (`damage-lock-order.test.ts`: damage found while a handover
+  or a swap of the car is signed, and who had the car confirmed while a
+  charge for the damage is added; `driver-changes.test.ts`: damage found
+  while a driver change is signed; `renter-link-lock-order.test.ts`: the
+  details sent while the Renter is archived or their email changed, then
+  the link cancelled). `driver-changes.test.ts` also shows a swap and a
+  driver change starting while a link to the rental is being written
+  ("waited" before 0060). And `checklist-photo-lock-order.test.ts` now has
+  a test, in one set order, of a photo started while its checklist is
+  signed: signing holds the checklist and waits for the car, the photo
+  waits for the checklist, and is refused as finished once signing is done.
 - **Second review fixes (8 Nov 2026).** Booking a draft refuses a driver
   whose details wait for review, as naming one and a new rental do (one
   `lockBookingParties` for both); naming again the driver the rental already
