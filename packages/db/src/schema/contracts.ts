@@ -27,6 +27,7 @@ import { files } from "./files";
 import { inspectionLink } from "./inspections";
 import { operatorIdColumn } from "./operators";
 import { rentals } from "./rentals";
+import { renters } from "./renters";
 import { users } from "./users";
 
 export const contractTemplateKindEnum = pgEnum("contract_template_kind", CONTRACT_TEMPLATE_KINDS);
@@ -99,14 +100,19 @@ export const contractTemplateVersions = pgTable(
 /**
  * A fixed document issued for a rental (rule 12): the PDF as stored, its
  * SHA-256 fingerprint, and the template version it was made from. Never
- * changed or removed; a correction is a new version of the same kind.
+ * changed or removed; a correction is a new version of the same kind. A
+ * business Renter's statement across its cars belongs to the Renter instead
+ * of one rental (docs/plans/business-renters.md, Migration B).
  */
 export const issuedDocuments = pgTable(
   "issued_documents",
   {
     ...primaryKeyColumn,
     ...operatorIdColumn,
-    rentalId: uuid("rental_id").notNull(),
+    /** None only for a Renter's statement across their rentals. */
+    rentalId: uuid("rental_id"),
+    /** The Renter a statement across their rentals is for; none for everything else. */
+    renterId: uuid("renter_id"),
     kind: issuedDocumentKindEnum("kind").notNull(),
     version: integer("version").notNull(),
     templateVersionId: uuid("template_version_id"),
@@ -127,6 +133,11 @@ export const issuedDocuments = pgTable(
       foreignColumns: [rentals.id, rentals.operatorId],
     }),
     foreignKey({
+      name: "issued_documents_renter_fk",
+      columns: [table.renterId, table.operatorId],
+      foreignColumns: [renters.id, renters.operatorId],
+    }),
+    foreignKey({
       name: "issued_documents_template_version_fk",
       columns: [table.templateVersionId, table.operatorId],
       foreignColumns: [contractTemplateVersions.id, contractTemplateVersions.operatorId],
@@ -141,6 +152,20 @@ export const issuedDocuments = pgTable(
       table.rentalId,
       table.kind,
       table.version,
+    ),
+    unique("issued_documents_renter_version_unique").on(
+      table.operatorId,
+      table.renterId,
+      table.kind,
+      table.version,
+    ),
+    check(
+      "issued_documents_one_owner",
+      sql`(${table.rentalId} is null) <> (${table.renterId} is null)`,
+    ),
+    check(
+      "issued_documents_renter_statement",
+      sql`${table.renterId} is null or ${table.kind} = 'statement'`,
     ),
     unique("issued_documents_file_unique").on(table.fileId),
     inspectionLink("issued_documents", table),

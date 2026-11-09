@@ -40,7 +40,7 @@ import {
   signingEvidence,
   vehicles,
 } from "@fleetapp/db/schema";
-import { aliasedTable, and, asc, eq, inArray, sql, type Column } from "drizzle-orm";
+import { aliasedTable, and, asc, eq, inArray, or, sql, type Column } from "drizzle-orm";
 
 const driver = aliasedTable(renters, "driver");
 
@@ -55,6 +55,9 @@ export const HELD_DOCUMENT_COLUMNS = {
   objectKey: files.objectKey,
   contentType: files.contentType,
 };
+
+/** A business's statement across its cars, in the Rental column. */
+const ACROSS_ITS_CARS = "All its cars";
 
 /** How other people are shown: the Renter asked what is held about them, not who did it. */
 export const THE_BUSINESS = "The business";
@@ -164,7 +167,13 @@ async function selectHeldRecords(tx: AnyTransaction, operatorId: string, renterI
         .select(HELD_DOCUMENT_COLUMNS)
         .from(issuedDocuments)
         .innerJoin(files, eq(files.id, issuedDocuments.fileId))
-        .where(and(eq(issuedDocuments.operatorId, operatorId), ofRentals(issuedDocuments.rentalId)))
+        .where(
+          and(
+            eq(issuedDocuments.operatorId, operatorId),
+            // A business's statements across its cars are its own, not one rental's.
+            or(ofRentals(issuedDocuments.rentalId), eq(issuedDocuments.renterId, renterId)),
+          ),
+        )
         .orderBy(asc(issuedDocuments.issuedAt)),
     ]);
   const documentIds = documents.map((document) => document.id);
@@ -517,7 +526,7 @@ function documentsSheet(records: HeldRecords, words: Wording): WorkbookSheet {
       ...records.documents.map((document) => [
         ISSUED_DOCUMENT_NAMES[document.kind],
         document.version,
-        words.rentalOf(document.rentalId),
+        document.rentalId ? words.rentalOf(document.rentalId) : ACROSS_ITS_CARS,
         words.when(document.issuedAt),
         heldDocumentFileName(document),
       ]),

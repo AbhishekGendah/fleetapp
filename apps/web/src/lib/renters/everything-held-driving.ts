@@ -192,7 +192,7 @@ export function drivingSheets(
         ...records.documents.map((document) => [
           ISSUED_DOCUMENT_NAMES[document.kind],
           document.version,
-          carOf.get(document.rentalId) ?? null,
+          document.rentalId ? (carOf.get(document.rentalId) ?? null) : null,
           when(document.issuedAt),
           heldDocumentFileName(document),
         ]),
