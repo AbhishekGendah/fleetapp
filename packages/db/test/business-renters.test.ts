@@ -1,5 +1,5 @@
 import { DEFAULT_HANDOVER_PHOTOS, isValidAbn } from "@fleetapp/core";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
 import type { AnyTransaction } from "../src/client";
@@ -705,16 +705,36 @@ describe("business Renters and their drivers", () => {
         return handoverId;
       });
       const changedAt = new Date();
+      // As the app finishes it (0058): the checklists and the change completed in the same step.
       await withTenant(web.db, operatorAId, async (tx) => {
+        const [change] = await tx
+          .select()
+          .from(schema.rentalDriverChanges)
+          .where(eq(schema.rentalDriverChanges.handoverInspectionId, inspectionId));
+        await tx
+          .update(schema.inspections)
+          .set({
+            status: "completed",
+            completedAt: changedAt,
+            odometerKm: 1_200,
+            fuelLevel: "full",
+            keysCount: 1,
+            acceptanceText: "Accepted",
+          })
+          .where(inArray(schema.inspections.id, [change!.returnInspectionId, inspectionId]));
         await tx
           .update(schema.possessions)
-          .set({ endedAt: changedAt })
+          .set({ endedAt: changedAt, returnInspectionId: change!.returnInspectionId })
           .where(eq(schema.possessions.id, out.possession.id));
         await tx
           .update(schema.rentals)
           .set({ driverId: secondId })
           .where(eq(schema.rentals.id, out.rentalId));
         await handOver(tx, out, inspectionId, { startedAt: changedAt });
+        await tx
+          .update(schema.rentalDriverChanges)
+          .set({ status: "completed", changedAt })
+          .where(eq(schema.rentalDriverChanges.id, change!.id));
       });
 
       const history = await withTenant(web.db, operatorAId, (tx) =>

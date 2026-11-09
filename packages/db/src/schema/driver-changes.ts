@@ -28,7 +28,10 @@ export const driverChangeStatusEnum = pgEnum("driver_change_status", DRIVER_CHAN
  * has it (the return checklist; they may not be there to sign) and signed
  * for by the new driver (the handover checklist). Possession moves from one
  * driver to the other at that signature (rule 15). The same shape and
- * protections as a car swap; kept for good once finished.
+ * protections as a car swap; kept for good once finished, except that the
+ * retention job clears its reason with a retired party's free text (0058).
+ * The database completes one only with the car changing hands at that
+ * moment, and won't let the car come back while one is under way (0058).
  */
 export const rentalDriverChanges = pgTable(
   "rental_driver_changes",

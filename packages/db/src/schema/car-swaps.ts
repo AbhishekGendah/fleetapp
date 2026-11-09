@@ -27,7 +27,9 @@ export const carSwapStatusEnum = pgEnum("car_swap_status", CAR_SWAP_STATUSES);
  * One car swap during a rental (docs/plans/phase-3-slice-7.md, 7b): the old
  * car checked in as a return, the new car out as a handover, and the
  * Renter's signed swap form. Possession moves from one car to the other at
- * the Renter's acceptance (rule 15). Kept for good once finished.
+ * the Renter's acceptance (rule 15). Kept for good once finished, except
+ * that the retention job clears its reason with a retired Renter's free
+ * text (0058).
  */
 export const carSwaps = pgTable(
   "car_swaps",

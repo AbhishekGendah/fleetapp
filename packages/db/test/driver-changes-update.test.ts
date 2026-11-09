@@ -236,13 +236,23 @@ describe("the driver change update on a filled database", () => {
     ]);
   }
 
-  /** The driver change's own transaction: one possession ends, the driver changes, the next starts. */
+  /**
+   * The driver change's own transaction: its checklists finish, one
+   * possession ends, the driver changes, the next starts, and the change is
+   * completed (each needed together since 0058).
+   */
   function changeHands(
     change: { changeId: string; handoverId: string },
     at: Date,
     toDriverId = filled.miaId!,
   ) {
     return inOneTransaction([
+      [
+        `update inspections set status = 'completed', completed_at = $3, odometer_km = 1200,
+           fuel_level = 'full', keys_count = 1, acceptance_text = 'Accepted'
+         where id = $1 or id = (select return_inspection_id from rental_driver_changes where id = $2)`,
+        [change.handoverId, change.changeId, at],
+      ],
       [
         `update possessions set ended_at = $2, return_inspection_id = (
            select return_inspection_id from rental_driver_changes where id = $3)

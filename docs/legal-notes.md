@@ -1088,6 +1088,13 @@ As built slice 2).
   with the change and printed on both reports (so the business and both
   drivers read it), and never written into the Log (rule 7). Operators
   should keep it factual: the screen says it is printed on both reports.
+  Retention (APP 11.2, slice 4 review): once every party to the rental is
+  retired (seven years), the retention job replaces the reason with
+  "Removed", as for the rental's other free text, and does the same for a
+  car swap's reason, which had the same gap since slice 7b
+  (`0058_driver_change_guards`). The reports holding it are binned with the
+  rental's other papers then, as before. Nothing else on a finished change
+  or swap can ever change.
 - **Signing.** Both drivers sign on the Operator's phone (drawn, or their
   full name typed), each checked against their own name, never the
   business's; the words each accepts are shown before signing and kept
