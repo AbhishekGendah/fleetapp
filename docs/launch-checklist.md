@@ -42,6 +42,26 @@ Add to this list whenever something is relaxed or put off "until launch".
     backed up;
   - dependencies up to date with no known vulnerabilities;
   - logs: no personal data, tokens or licence details (rule 7).
+- [ ] **Simultaneous-action leftovers from the business Renters reviews**
+      (decided with Abhi 9 Nov 2026: from slice 4 on, only clashes that
+      lose, duplicate or wrongly change money or data were fixed at once;
+      the rest wait for the pre-launch whole-app review). None loses data;
+      each at worst shows one person an error or slightly stale wording:
+  - a payments link's greeting name is read before the Renter is locked;
+  - `sendPaymentsLink` reads the rental without locking it;
+  - the FOR UPDATE lint rule misses `sql.raw(...)` and a `.for()` argument
+    held in a variable;
+  - a phone's queued photo refused because its checklist was signed on
+    another phone is dropped without a note on that phone;
+  - a direct database write within one Operator could point a copied
+    damage mark at another of its own marks (no database check);
+  - a refund made in the business's own Stripe dashboard on a charge that
+    isn't ours, while one of its bond pages awaits a payment, retries for
+    up to 3 days and logs alerts (noise only);
+  - a business trading under exactly its contact's own name can't sign
+    (the signer-is-the-business check);
+  - anything further the whole-app review finds of this kind (the lock
+    order and lock modes are in docs/plans/business-renters.md).
 
 ## Settings and services for production
 

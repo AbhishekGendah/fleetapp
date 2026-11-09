@@ -1308,6 +1308,27 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
   the signature, and a naming-vs-handover deadlock. Test sheet rows O-511 to
   O-528 and A-80; O-227, O-495 and O-509 updated.
 
+- **Business Renters slice 4 (9 Nov, Abhi's go).** Changing a business's
+  driver while the car is out: Change driver on the rental, three steps on
+  the phone (who and why, check-in that survives poor signal, both drivers
+  sign), the old driver's possession ends and the new one's starts at the
+  same instant, "Who had the car" on the rental, two reports emailed to each
+  driver, the business and the Operator; return and swap now take their
+  signer from the possession records. Migrations 0057 (driver changes),
+  0058 (completion guards, reasons cleared at retirement), 0059 (copied
+  damage marks name their mark), 0060 (start rules' lock mode). Choice made
+  for Abhi: the business needn't approve a change in advance. Five review
+  rounds, two checkers each. Fixed along the way: deadlocks between driver
+  changes, swaps, bookings, photo uploads and damage records, then the cause
+  (the app now locks rows FOR NO KEY UPDATE, with one written lock order and
+  a lint rule); a bond that could be recorded twice or paid twice; links that
+  could outlive an archive or email change; a Stripe refund arriving long
+  before its payment being lost; and an older bug where cancelling a swap as
+  it was signed overwrote the signature. Decided with Abhi 9 Nov: from here,
+  only clashes that lose or change money or data are fixed at once; the rest
+  wait for the pre-launch whole-app review (docs/launch-checklist.md). Test
+  sheet rows O-529 to O-538.
+
 ## Next
 
 **Standing instruction (Abhi, 8 Nov):** when a choice is obvious, go with
@@ -1320,10 +1341,9 @@ reports they sign (pulls the `driver` email recipient forward from slice 5).
 (dates first, free cars as photo cards, filters, showroom photos; also
 fixes a car late back being bookable) and docs/plans/condition-photos.md
 (free photo gallery at pickup/return, Optional/Required, albums). Mockups on
-the design canvas (8 Nov). The late-car booking fix is live (8 Nov). Business Renters slices 2 and 3
-are live (8 Nov); next: business Renters slice 4 (changing the driver while
-the car is out) with his go, then slice 5 (business invoices), then Find a
-car, then condition photos. Decided 8 Nov: an
+the design canvas (8 Nov). The late-car booking fix is live (8 Nov). Business Renters slices 2, 3 and 4
+are live (8-9 Nov); next: business Renters slice 5 (business invoices) with
+his go, then Find a car, then condition photos. Decided 8 Nov: an
 existing person added as a driver is emailed the privacy notice each time
 (Abhi: yes). Also decided 8 Nov (Abhi: yes): a phone-only new
 driver gets no details link until texting is built; the app asks for an
