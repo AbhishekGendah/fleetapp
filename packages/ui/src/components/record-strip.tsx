@@ -27,11 +27,39 @@ export interface RecordStripProps {
   badges?: React.ReactNode;
   facts?: readonly RecordStripFact[];
   /**
+   * A flow of a few steps on the phone (e.g. a driver change): each step's
+   * name and which one this page is (from 0). Shown as a bar per step and
+   * "Step 2 of 3: Check in from Sam" under the title.
+   */
+  steps?: { names: readonly string[]; current: number };
+  /**
    * The record's buttons: Button variant="inverse" for the main one (put it
    * last, so it sits at the right on a computer) and variant="inverse-outline"
    * for the rest. Full width on a phone.
    */
   actions?: React.ReactNode;
+}
+
+/** The bars of a few-step flow, then which step this is, in words. */
+function StripSteps({ names, current }: { names: readonly string[]; current: number }) {
+  return (
+    <div className="flex flex-col gap-2 md:col-span-2">
+      <div className="flex gap-1.5" aria-hidden>
+        {names.map((name, index) => (
+          <span
+            key={name}
+            className={cn(
+              "h-1.5 flex-1 rounded-full",
+              index <= current ? "bg-on-primary-label" : "bg-primary-foreground/20",
+            )}
+          />
+        ))}
+      </div>
+      <p className="text-on-primary-label text-sm font-bold">
+        Step {current + 1} of {names.length}: {names[current]}
+      </p>
+    </div>
+  );
 }
 
 /**
@@ -81,6 +109,8 @@ export function RecordStrip(props: RecordStripProps): React.JSX.Element {
             </div>
           ) : null}
         </div>
+
+        {props.steps ? <StripSteps {...props.steps} /> : null}
 
         {facts.length > 0 ? (
           <dl className="grid grid-cols-3 gap-2 md:col-span-2 md:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] md:gap-2.5">

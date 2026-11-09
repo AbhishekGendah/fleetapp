@@ -781,6 +781,20 @@ function QuickSearchExample() {
   );
 }
 
+function StepsStripExample() {
+  return (
+    <div className="overflow-hidden rounded-xl">
+      <RecordStrip
+        backHref="#example-rental"
+        backLabel="Rental of 1BRT482"
+        title="Change driver"
+        subtitle="1BRT482 · Acme Rides · driver Sam Lee"
+        steps={{ names: ["Why and who", "Check in from Sam", "Mia signs"], current: 1 }}
+      />
+    </div>
+  );
+}
+
 function RecordStripExample() {
   return (
     <div className="overflow-hidden rounded-xl">
@@ -956,6 +970,13 @@ export function ComponentCatalogue() {
         note="Opens every single-item page: its name, status, key facts and buttons. Edge to edge at the top of the page."
       >
         <RecordStripExample />
+      </CatalogueSection>
+
+      <CatalogueSection
+        title="Navy strip, in steps"
+        note="A short flow on the phone, such as a driver change: a bar per step and which step this is, in words. The bars are only a picture; the words say it."
+      >
+        <StepsStripExample />
       </CatalogueSection>
 
       <CatalogueSection
