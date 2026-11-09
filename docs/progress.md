@@ -1344,8 +1344,36 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
   for an archived business. Choice made for Abhi: statements go at
   retirement with the business. Test sheet rows O-540 to O-555 (O-333,
   O-337, O-496 updated).
+- **Phase 4 slice 5: weekly debits (9 Nov, Abhi: "yes go with your
+  recommendation").** Each long-term rent week is debited from the
+  Renter's bank (BECS) by a nightly run (18:00 UTC), from the second week,
+  with crash-safe recovery (same Stripe request key, looked up after 23
+  hours, otherwise "not sent"). Abhi's change: every one-off charge
+  defaults to "Invoice only, don't debit"; per charge it can instead go
+  with the next weekly debit, be taken now, or be split over 2 to 12 weeks
+  (the default is a setting in Settings → Payments). Pause/Resume per
+  rental, debit list on the Stripe card, debit warning on Record payment,
+  Stripe's lines can't be reversed by hand, a business's debits pending
+  across its cars, 30 days' notice for a rate rise to a direct-debit
+  Renter (a rise signed late moves its start). Migration 0063. Two
+  checkers, two rounds. Fixed: Take it now could debit a reversed charge;
+  a late-signed rise could clash with or override a later signed rate; a
+  debit marked not sent that Stripe in fact took was never recorded;
+  recovery could re-send after a pause or suspension; the signing check
+  now runs under the rental lock. Rest on the launch checklist ("Weekly
+  debits leftovers"). Not yet tried against Stripe: Abhi's sandbox full
+  cycle (three event types to add to the connected-accounts destination
+  first). Test sheet rows O-556 to O-571 (O-307, O-309, O-326 to O-328,
+  O-331, O-343, O-347, O-348, O-549 updated).
 
 ## Next
+
+**Money side first (Abhi, 9 Nov: "lets finish the money side"):** Phase 4
+slice 5 (weekly debits) is live; next slice 6 (failed payments and
+arrears), then 7 (closing a rental: bond refund, closing statement) and 8
+(profit per car, money on the dashboard). Their plans (5 Nov) need
+refreshing and his approval. After that: Find a car, then condition
+photos. Tolls (interstate) are put off to a later version.
 
 **Standing instruction (Abhi, 8 Nov):** when a choice is obvious, go with
 the recommendation without asking, and tell him what was chosen. Ask only

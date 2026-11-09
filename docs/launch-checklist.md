@@ -264,6 +264,10 @@ From the weekly debits review (Phase 4 slice 5, 9 Nov 2026), not blocking:
 - [ ] debitOfRead's metadata fallback needs the mandate on the PaymentIntent's latest charge: confirm in the sandbox.
 - [ ] A PaymentIntent recovery found but could not match to our debit (amount, customer or mandate differ) can leave the debit pending for ever.
 - [x] Take it now was logged with actor system instead of the User: fixed in the review (now the User's).
+- [ ] A debit Stripe refused that later reports succeeded only writes a server log line (no AGS alert email), so the money stays off the ledger until someone notices; send the AGS alert email.
+- [ ] Asking Stripe again (within 23 hours) checks pause, suspension and Stripe readiness, but not that the rental is still out or the direct debit still usable.
+- [ ] A not-sent debit whose PaymentIntent sits at "processing" is not re-read by the 7-day sweep, so recording it relies on Stripe's succeeded message arriving.
+- [ ] Recovery's lookup uses Stripe's created time with a 10-minute margin; a larger clock gap could still give a wrong "not sent" (now recorded if Stripe later says succeeded).
 
 ## Documents
 
