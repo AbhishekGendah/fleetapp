@@ -39,6 +39,9 @@ export function createDrizzleLockoutStore(
     async claimAttempt(userId, now) {
       const isLocked = sql`attempt_state.locked_until IS NOT NULL AND attempt_state.locked_until > ${now.toISOString()}::timestamptz`;
       const isOutOfAttempts = sql`attempt_state.failed >= ${MAX_FAILED_SIGN_INS}`;
+      // FOR UPDATE on purpose ("Lock order", lock modes): one statement on the
+      // login row, with nothing else in its transaction to wait for.
+      /* eslint-disable no-restricted-syntax -- the sign-in lockout's single statement. */
       const result = await database.execute(sql`
         WITH attempt_state AS (
           SELECT ${columns.failedSignInCount} AS failed, ${columns.signInLockedUntil} AS locked_until
@@ -58,6 +61,7 @@ export function createDrizzleLockoutStore(
         RETURNING (${isLocked} OR ${isOutOfAttempts}) AS is_refused,
           (NOT (${isLocked}) AND ${isOutOfAttempts}) AS is_now_locked
       `);
+      /* eslint-enable no-restricted-syntax */
       const row = firstRow(result);
       return { isAllowed: row?.is_refused !== true, isNowLocked: row?.is_now_locked === true };
     },

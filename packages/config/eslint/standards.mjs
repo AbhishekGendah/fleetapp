@@ -1,5 +1,30 @@
 import tseslint from "typescript-eslint";
 
+const ROW_LOCK_MESSAGE = 'Lock the row with ROW_LOCK from @fleetapp/db/row-lock, not "update".';
+
+/**
+ * FOR UPDATE also blocks every link (foreign key) to the row, which is how
+ * two changes deadlock (docs/plans/business-renters.md, "Lock order"): in
+ * Drizzle's .for("update") or .for(`update`), and in a raw sql template.
+ * A deliberate one is kept with an eslint-disable comment giving the reason.
+ */
+const ROW_LOCK_RESTRICTIONS = [
+  {
+    selector: "CallExpression[callee.property.name='for'] > Literal[value='update']",
+    message: ROW_LOCK_MESSAGE,
+  },
+  {
+    selector:
+      "CallExpression[callee.property.name='for'] > TemplateLiteral[expressions.length=0][quasis.0.value.cooked='update']",
+    message: ROW_LOCK_MESSAGE,
+  },
+  {
+    selector:
+      "TaggedTemplateExpression[tag.name='sql'] TemplateElement[value.raw=/for\\s+update/i]",
+    message: `${ROW_LOCK_MESSAGE} In raw SQL: FOR NO KEY UPDATE.`,
+  },
+];
+
 /**
  * The AGS coding standards (docs/coding-standards.md) that a linter can
  * check, so they hold on every push rather than only in review.
@@ -27,19 +52,11 @@ export const standards = [
     },
   },
   {
-    // A row the app changes is locked with ROW_LOCK (@fleetapp/db/row-lock):
-    // FOR UPDATE also blocks every link (foreign key) to the row, which is
-    // how two changes deadlock (docs/plans/business-renters.md, "Lock order").
-    files: ["**/*.ts"],
-    rules: {
-      "no-restricted-syntax": [
-        "error",
-        {
-          selector: "CallExpression[callee.property.name='for'] > Literal[value='update']",
-          message: 'Lock the row with ROW_LOCK from @fleetapp/db/row-lock, not "update".',
-        },
-      ],
-    },
+    // A row the app changes is locked with ROW_LOCK (@fleetapp/db/row-lock).
+    // Also in .tsx: appStandards repeats these, as its own no-restricted-syntax
+    // for screens would otherwise replace them there.
+    files: ["**/*.{ts,tsx}"],
+    rules: { "no-restricted-syntax": ["error", ...ROW_LOCK_RESTRICTIONS] },
   },
   {
     // Command-line scripts talk to the person running them.
@@ -64,6 +81,7 @@ export const appStandards = [
     rules: {
       "no-restricted-syntax": [
         "error",
+        ...ROW_LOCK_RESTRICTIONS,
         {
           selector: "JSXOpeningElement[name.name=/^(button|select|textarea|table|label)$/]",
           message:
