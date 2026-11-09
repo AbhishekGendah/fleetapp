@@ -1,9 +1,9 @@
 # Phase 4 slice 5: weekly debits
 
-Status: draft for Abhi's approval. First drafted 5 Nov 2026; brought up to
-date against the code on 9 Nov 2026 (after business Renters slices 1 to 5,
-the lock order and lock modes, and review fixes batches 1 to 7). Touches
-money, schema and Stripe: nothing is built until approved.
+Status: approved by Abhi on 9 Nov 2026, with decision 2 changed (see
+"Decisions — approved 9 Nov"). First drafted 5 Nov 2026; brought up to date
+against the code on 9 Nov 2026 (after business Renters slices 1 to 5, the
+lock order and lock modes, and review fixes batches 1 to 7).
 
 Outline already approved: docs/plans/phase-4.md (slice 5, decisions 1, 2, 3
 and 6). Business Renters decision 6 (one weekly debit per car, approved
@@ -24,9 +24,10 @@ on rent in 24-hour blocks (batch 1), bond and direct debit (batch 2, slice
   debit covers all its cars; each car's rental gets its own weekly debit,
   on its own ledger, receipt and statement line. A failed or disputed debit
   touches one car only.
-- **One-off charges, collected how the business chooses:** with the next
-  weekly debit (default), debited on their own straight away, split over 2
-  to 12 weekly debits, or not debited.
+- **One-off charges, collected how the business chooses:** invoiced only,
+  not debited (the default, decision 2 as changed on 9 Nov), with the next
+  weekly debit, taken now on their own, or split over 2 to 12 weekly
+  debits.
 - **The money counts only when Stripe says it arrived (decision 2).** Until
   then the rental shows "Debit of $X pending since Tue 10 Nov". When it
   clears, a payment line goes on the ledger and the receipt follows, as for
@@ -167,16 +168,17 @@ on rent in 24-hour blocks (batch 1), bond and direct debit (batch 2, slice
 - The charge form on the rental page (`charge-form.tsx`) gains **"How to
   collect it"**, shown only when the business takes Stripe payments and the
   Renter has an active direct debit:
-  - With the next weekly debit (default, from the rental's settings copy,
-    rule 14; only while the rental is out);
-  - Debit it on its own now (reserved after the charge is saved, in its own
-    locked transaction, then sent as in steps 6 and 7);
+  - Invoice only, don't debit (the default for every one-off charge,
+    decision 2 as changed on 9 Nov; from the rental's settings copy, rule
+    14);
+  - Take it with the next weekly debit (only while the rental is out);
+  - Take it now (reserved after the charge is saved, in its own locked
+    transaction, then sent as in steps 6 and 7);
   - Split over [2 to 12] weekly debits (digits only, stops at 2 characters;
     the cents spread so the instalments add up exactly, odd cents first, as
-    `dailyShares` does for rent; only while the rental is out);
-  - Don't debit it (decision 2).
+    `dailyShares` does for rent; only while the rental is out).
 - A returned or cancelled rental has no more weekly debits, so it offers
-  only "Debit it on its own now" and "Don't debit it".
+  only "Take it now" and "Invoice only, don't debit".
 - The same choice is offered on "Charge the Renter" from a damage record.
 - **The choice can be changed until the first part is debited**, logged.
 - **Only charges added once the direct debit was active are swept in
@@ -186,10 +188,11 @@ on rent in 24-hour blocks (batch 1), bond and direct debit (batch 2, slice
 - A plan that never meets a weekly debit (the rental paused, returned, its
   business suspended, the direct debit cancelled) leaves the rest owing;
   the Money card says "Waiting for the next weekly debit".
-- Settings → Payments gains the default ("One-off charges are collected:
-  with the next weekly debit"), using the existing choice-setting form. It
-  is a new key in the settings document, so rentals made before it read the
-  default (rule 14, no column).
+- The default is one named constant (`DEFAULT_ONE_OFF_COLLECTION`, "Invoice
+  only, don't debit") and a new key in the settings document, copied onto
+  each rental (rule 14, no column); rentals made before it read the default.
+  Settings → Payments shows it with the existing choice-setting form, since
+  every setting is editable (rule 27).
 
 ## Pausing a Renter's automatic debits
 
@@ -231,7 +234,8 @@ on rent in 24-hour blocks (batch 1), bond and direct debit (batch 2, slice
 - **A business's Money tab, How it pays card**: adds "Debits pending: $X
   across N cars" and the last one cleared (each car's detail stays on its
   rental).
-- **Settings → Payments**: the one-off default; the BECS-limit reminder
+- **Settings → Payments**: the one-off default ("Invoice only, don't
+  debit" unless changed); the BECS-limit reminder
   shows again after a debit was refused for the limit in the last 30 days;
   a line saying to leave Stripe's emails to customers about direct debits
   on in the business's Stripe settings (decision 1 puts those settings in
@@ -438,8 +442,8 @@ debit or a debit"):
   without the Renter agreeing to that amount first? Australian Consumer Law
   (unfair terms, the Renter's fair chance to dispute) and BECS disputes (up
   to 7 years, the bank's decision final) both bear on it. Until answered,
-  the business chooses per charge and can pick "Don't debit it" (decision
-  2).
+  every one-off charge defaults to "Invoice only, don't debit" (decision 2
+  as changed on 9 Nov) and the business chooses per charge.
 - **Consumer law:** no surprise catch-up of missed weeks (decision 3); the
   first week is collected at pickup, not debited on top (decision 6).
 - **Spam Act:** nothing new is sent by us here; receipts are transactional.
@@ -450,60 +454,41 @@ debit or a debit"):
 - **Record keeping:** debits, their items and ledger links are tax records,
   kept at least 5 years, never removed by retention jobs.
 
-## Decisions for Abhi (my recommendation first)
+## Decisions — approved 9 Nov
 
-**Obvious (I'll adopt these unless you say otherwise):**
+Abhi approved the plan on 9 Nov 2026. Each decision as it now stands:
 
 1. **Short hires are not debited automatically.** Booked days are charged
    at pickup and usually paid then; a bank debit takes 3 business days,
-   often longer than the hire. Tradeoff: one more thing to collect by hand
-   for short hires; in return no debit lands after the car is back.
-3. **Only weeks that started in the last 7 days are debited
-   automatically.** A week missed for longer (a direct debit set up late,
-   a pause, a suspension, an outage) is left owing for the business to
-   collect. Tradeoff: some money waits for a person; in return a Renter is
-   never hit with several weeks in one surprise debit.
-5. **Stripe's fee is saved now; the payout each debit went out in waits
-   for slice 8** (profit per car), where it is used. Tradeoff: no payout
-   matching for a few slices; in return no extra Stripe messages handled
-   before anything reads them.
-8. **Stripe's payment lines can't be reversed by hand,** and a dispute
-   lost is a refund line of what the bank took. Tradeoff: a wrong Stripe
-   line is fixed in Stripe (a refund), not on the ledger; in return money
-   Stripe moved is never taken back twice.
-9. **One debit per car per week for a business** (business Renters
-   decision 6, approved), each described by rego and week, never a person.
-   Tradeoff: several debits and fees a week; in return a failure touches
-   one car.
-
-**Judgement calls (your say):**
-
-2. **One-off charges default to "with the next weekly debit"** (as
-   approved), with a fourth choice "Don't debit it" for a charge the
-   Renter disputes or pays another way. Tradeoff: one more option on the
-   form; in return a disputed damage charge is never debited by accident.
-   (Pushback to consider: until the lawyer answers, default damage and
-   excess to "Don't debit it".)
-4. **A suspended business's debits stop while it is suspended.** G3-6
-   (what suspension does to rent and invoices) is still undecided, and the
-   run keeps charging cars that came back while the business couldn't
-   sign in; turning that into money from a bank is worse than an invoice.
-   Weeks missed are not caught up (decision 3). Tradeoff: a suspended
-   business's Renters pay late; in return no debit rests on records nobody
-   can correct. Renters paying by their own choice online (5 Nov, batch 3)
-   are unchanged.
+   often longer than the hire. (Adopted as recommended.)
+2. **One-off charges default to "Invoice only, don't debit"** (changed by
+   Abhi; supersedes the 5 Nov "with the next weekly debit" default). This
+   covers all of them: damage, excess, cleaning, towing, admin fees,
+   anything that is not weekly rent. Per charge the business can choose
+   instead "Take it with the next weekly debit", "Take it now", or "Split
+   over 2 to 12 weekly debits". Why: no disputed charge is taken from a
+   Renter's bank without their agreement (Australian Consumer Law unfair
+   terms; BECS disputes, up to 7 years, the bank's decision final), and it
+   matches how businesses work (extras are invoiced, or taken from the bond
+   at the close). The default is a named constant and a key in the
+   settings copy on each rental (rule 14).
+3. **Only rent weeks that started in the last 7 days are debited
+   automatically.** A week missed for longer (a direct debit set up late, a
+   pause, a suspension, an outage) is left owing for the business to
+   collect. (Adopted as recommended.)
+4. **A suspended business's debits stop while it is suspended**; its rent
+   and invoices are unchanged. Weeks missed are not caught up (decision 3).
+   (Adopted as recommended.)
+5. **Stripe's fee is saved now; payout matching waits for slice 8.**
+   (Adopted as recommended.)
 6. **The first rent week is not debited automatically.** It is charged at
-   the handover, when most businesses take it with the bond; a debit that
-   night would take it twice if the cash is recorded the next morning, and
-   a 3-day debit can't secure a car going out today anyway. Tradeoff: a
-   business that wants week 1 debited uses "Debit what's owing now"
-   (slice 6, before any live business); in return no Renter pays week 1
-   twice.
-7. **The 30 days apply to rate rises only**; a lower rate starts from any
-   week after signing, as today. Tradeoff: if Stripe reads any change as
-   needing notice, a fall could break the letter of it (it takes less, so
-   no one is harmed); in return a Renter isn't kept on the higher rate for
-   a month.
+   the handover, usually taken with the bond. (Adopted as recommended.)
+7. **The 30 days' notice applies to rate rises only**; a lower rate starts
+   from any week after signing, as today. (Adopted as recommended.)
+8. **Stripe's payment lines can't be reversed by hand**, and a dispute lost
+   is a refund line of what the bank took. (Adopted as recommended.)
+9. **One debit per car per week for a business**, each described by rego
+   and week only, never a person. (Adopted as recommended.)
 
 ## Senior review of this plan
 
@@ -556,7 +541,6 @@ debit or a debit"):
 
 ## What Abhi needs to do (one step at a time, when we get there)
 
-- Before building: approve this plan and the judgement calls.
 - Once the code is on the dev site: add the three PaymentIntent event
   types to the sandbox's connected-accounts destination.
 - Then, on the dev site with Stripe's sandbox (the cloud session can't
