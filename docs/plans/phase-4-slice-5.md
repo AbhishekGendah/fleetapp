@@ -621,6 +621,16 @@ Departures, each for a reason:
    debit (the debit logic is per Renter and per rental, a business or a
    person alike).
 
+Review fixes (9 Nov 2026): a reversed charge is never taken now nor
+re-planned; a debit marked not sent that Stripe says succeeded becomes
+succeeded with its payment line (the only way back the database allows),
+and one Stripe refused that later succeeds alerts AGS; recovery looks
+debits up from ten minutes before they were reserved and asks Stripe
+again only while the debit could still be made; a rise moved by the
+notice is out of time once its start reaches a later signed rate, and the
+moved start and the check are worked out inside the signing transaction.
+The rest are on the launch checklist ("Weekly debits leftovers").
+
 ## Not in this slice
 
 - What happens after a failed debit (emails, retry, late fee, "Debit
