@@ -24,6 +24,7 @@ import {
   shownDriverChangeOf,
 } from "../src/lib/handover/complete-driver-change";
 import { completeReturn } from "../src/lib/handover/complete-return";
+import { completeSwap, currentShownSwap } from "../src/lib/handover/complete-swap";
 import { loadCompletedHandover } from "../src/lib/handover/handover-queries";
 import {
   addDamageMark,
@@ -33,7 +34,7 @@ import {
   startReturn,
 } from "../src/lib/handover/handover-records";
 import { startSwap } from "../src/lib/rentals/car-swaps";
-import { bookRental } from "../src/lib/rentals/rental-records";
+import { bookRental, nameRentalDriver } from "../src/lib/rentals/rental-records";
 import {
   cancelDriverChange,
   listRentalDriverChanges,
@@ -55,7 +56,7 @@ import {
 } from "../src/lib/storage/memory-file-storage";
 import { addCurrentPaperwork, addTestCar, seedOperatorWithUser } from "./car-fixtures";
 import { checklistKit, HANDOVER_KM, TEST_DETAILS, TEST_SIGNATURE } from "./handover-fixtures";
-import { openTransactionAs, waitUntilBlockedBy } from "./lock-fixtures";
+import { openTransactionAs, outcomeOf, waitUntilBlockedBy } from "./lock-fixtures";
 import {
   addRenterReadyToRent,
   attemptTestBooking,
@@ -227,6 +228,45 @@ describe("changing a business's driver while the car is out", () => {
         .where(eq(possessions.rentalId, rentalId))
         .orderBy(asc(possessions.startedAt)),
     );
+
+  /**
+   * A swap of the business's car into a new one, both checklists filled;
+   * `signAs` signs it as the signing step showed it, the old car back to
+   * Available.
+   */
+  async function swapReadyToSign(rentalId: string) {
+    const swapped = await startSwap(
+      web.db,
+      actor,
+      rentalId,
+      { toVehicleId: await addTestCar(web, actor), reason: "Engine light" },
+      clock(),
+    );
+    expect(swapped.status).toBe("started");
+    const [swap] = (
+      await superuser.query<{ returnId: string; handoverId: string }>(
+        `select return_inspection_id as "returnId", handover_inspection_id as "handoverId"
+         from car_swaps where rental_id = $1 and status = 'in_progress'`,
+        [rentalId],
+      )
+    ).rows;
+    await kit().fillChecklist(swap!.returnId, CHECK_IN_KM + 100);
+    await kit().fillChecklist(swap!.handoverId, 12_050);
+    const shown = await currentShownSwap({ database: web.db }, actor.operatorId, rentalId, clock());
+    const signAs = (name: string) =>
+      completeSwap(
+        kit().handoverDeps(),
+        actor,
+        rentalId,
+        {
+          shown: shown!,
+          signature: typed(name),
+          oldCarAfter: { status: "available", statusReason: null, statusExpectedBack: null },
+        },
+        clock(),
+      );
+    return { signAs };
+  }
 
   const driverOf = async (rentalId: string) =>
     (
@@ -721,42 +761,7 @@ describe("changing a business's driver while the car is out", () => {
       const out = await carOutWithSam();
       await changeUnderWay(out);
       expect((await signChange(out.rentalId, null)).status).toBe("completed");
-      const swapped = await startSwap(
-        web.db,
-        actor,
-        out.rentalId,
-        { toVehicleId: await addTestCar(web, actor), reason: "Engine light" },
-        clock(),
-      );
-      expect(swapped.status).toBe("started");
-      const { completeSwap, currentShownSwap } = await import("../src/lib/handover/complete-swap");
-      const [swap] = await superuser
-        .query<{ returnId: string; handoverId: string }>(
-          `select return_inspection_id as "returnId", handover_inspection_id as "handoverId"
-         from car_swaps where rental_id = $1`,
-          [out.rentalId],
-        )
-        .then((result) => result.rows);
-      await kit().fillChecklist(swap!.returnId, CHECK_IN_KM + 100);
-      await kit().fillChecklist(swap!.handoverId, 12_050);
-      const swapAs = async (name: string) =>
-        completeSwap(
-          kit().handoverDeps(),
-          actor,
-          out.rentalId,
-          {
-            shown: (await currentShownSwap(
-              { database: web.db },
-              actor.operatorId,
-              out.rentalId,
-              clock(),
-            ))!,
-            signature: typed(name),
-            oldCarAfter: { status: "available", statusReason: null, statusExpectedBack: null },
-          },
-          clock(),
-        );
-
+      const { signAs: swapAs } = await swapReadyToSign(out.rentalId);
       expect((await swapAs("Sam Lee")).status).toBe("no_signature");
       expect((await swapAs("Mia Thompson")).status).toBe("completed");
       const held = await possessionsOf(out.rentalId);
@@ -921,7 +926,21 @@ describe("changing a business's driver while the car is out", () => {
         const draftId = draft.status === "saved" ? draft.rentalId : "";
         return () => bookRental(web.db, actor, draftId, clock());
       },
+      "a driver named on a later booking": async (
+        out: Awaited<ReturnType<typeof carOutWithSam>>,
+      ) => {
+        const booked = await attemptTestBooking(web, actor, {
+          renterId: out.businessId,
+          vehicleId: out.vehicleId,
+          period: LATER_PERIOD,
+        });
+        expect(booked.status).toBe("saved");
+        const bookingId = booked.status === "saved" ? booked.rentalId : "";
+        return () => nameRentalDriver(web.db, actor, bookingId, { driverId: out.miaId }, clock());
+      },
     } as const;
+    type Booking = keyof typeof bookings;
+    const bookingKinds = Object.keys(bookings) as Booking[];
     const changeSteps = {
       starting: async (out: Awaited<ReturnType<typeof carOutWithSam>>) => ({
         expected: "started",
@@ -939,13 +958,8 @@ describe("changing a business's driver while the car is out", () => {
         return { expected: "completed", run: () => signChange(out.rentalId, null) };
       },
     } as const;
-    const outcomeOf = (pending: Promise<{ status: string }>) =>
-      pending.then(
-        (result) => result.status,
-        (error: unknown) => (error instanceof Error ? error.message : String(error)),
-      );
     const raceCases = (["starting", "finishing"] as const).flatMap((step) =>
-      (["a new rental", "a draft being booked"] as const).flatMap((booking) =>
+      bookingKinds.flatMap((booking) =>
         (["the driver change", "the booking"] as const).map((first) => ({ step, booking, first })),
       ),
     );
@@ -978,6 +992,43 @@ describe("changing a business's driver while the car is out", () => {
           ? [await firstDone, await secondDone]
           : [await secondDone, await firstDone];
         expect(changed).toBe(change.expected);
+        expect(booked).toBe("saved");
+      },
+    );
+
+    const swapRaceCases = bookingKinds.flatMap((booking) =>
+      (["the swap", "the booking"] as const).map((first) => ({ booking, first })),
+    );
+
+    // The swap locks both cars before the possession it moves takes the business (second review of slice 4).
+    it.each(swapRaceCases)(
+      "lets a swap of the business's car be signed and $booking of the old car go ahead, $first first",
+      async ({ booking, first }) => {
+        const out = await carOutWithSam();
+        const swap = await swapReadyToSign(out.rentalId);
+        const book = await bookings[booking](out);
+        const isSwapFirst = first === "the swap";
+        // Holding what the first one waits for, so the second arrives while it waits.
+        const holder = await openTransactionAs(actor.operatorId);
+        await holder.client.query(
+          isSwapFirst
+            ? "select id from renters where id = $1 for update"
+            : "select id from vehicles where id = $1 for update",
+          [isSwapFirst ? out.businessId : out.vehicleId],
+        );
+        const signSwap = () => swap.signAs("Sam Lee");
+        const [runFirst, runSecond] = isSwapFirst ? [signSwap, book] : [book, signSwap];
+        const firstDone = outcomeOf(runFirst());
+        await waitUntilBlockedBy(superuser, holder.pid);
+        const secondDone = outcomeOf(runSecond());
+        await waitUntilBlockedBy(superuser, holder.pid, 2);
+        await holder.client.query("commit");
+        await holder.client.end();
+
+        const [swapped, booked] = isSwapFirst
+          ? [await firstDone, await secondDone]
+          : [await secondDone, await firstDone];
+        expect(swapped).toBe("completed");
         expect(booked).toBe("saved");
       },
     );

@@ -1,5 +1,6 @@
 import { Client } from "pg";
 import { inject } from "vitest";
+import { z } from "zod";
 
 /** Far longer than any wait these tests prove. */
 const LOCK_WAIT_ATTEMPTS = 250;
@@ -44,4 +45,24 @@ export async function waitUntilBlockedBy(
     await new Promise((resolve) => setTimeout(resolve, LOCK_WAIT_STEP_MS));
   }
   throw new Error("Nothing waited for the lock.");
+}
+
+const errorCodeSchema = z.object({ code: z.string() });
+
+/**
+ * What a call at the same moment as another came to: its status, or what
+ * it threw, by the database's error code where there is one ("40P01" is a
+ * deadlock), so a failing test says why.
+ */
+export function outcomeOf(pending: Promise<{ status: string }>): Promise<string> {
+  return pending.then(
+    (result) => result.status,
+    (error: unknown) => {
+      const coded = errorCodeSchema.safeParse(error instanceof Error ? error.cause : null);
+      if (coded.success) {
+        return coded.data.code;
+      }
+      return error instanceof Error ? error.message : String(error);
+    },
+  );
 }

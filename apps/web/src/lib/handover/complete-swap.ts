@@ -523,6 +523,35 @@ async function logSwapped(
   }
 }
 
+/**
+ * Both cars, locked after the checklists and before anything that touches
+ * the Renter or the driver (docs/plans/business-renters.md, "Lock order"):
+ * a booking of either car, or a driver named on one, takes the car and then
+ * the Renter, while the possession that moves here takes the Renter and
+ * driver (shared, through its links) before the old car's status changes,
+ * so the two deadlocked (second review of slice 4). Taken in id order, so
+ * two swaps crossing the same two cars wait for each other rather than each
+ * holding one. The new car is locked as a handover locks its car, so a sale
+ * at the same moment waits and then sees it Rented (review A8-4).
+ */
+async function lockSwapCars(
+  tx: AnyTransaction,
+  operatorId: string,
+  views: SwapViews,
+): Promise<void> {
+  const carIds = [views.old.vehicleId, views.new.vehicleId].sort();
+  let newCarStatus: string | undefined;
+  for (const vehicleId of carIds) {
+    const car = await lockCurrentVehicle(tx, operatorId, vehicleId);
+    if (vehicleId === views.new.vehicleId) {
+      newCarStatus = car?.status;
+    }
+  }
+  if (newCarStatus !== "available") {
+    throw new NewCarChangedError();
+  }
+}
+
 /** Everything the swap changes, in the one transaction that issues its three documents. */
 async function recordSwapped(
   tx: AnyTransaction,
@@ -545,16 +574,12 @@ async function recordSwapped(
   if (locked?.status !== "in_progress") {
     throw new FinishedAlreadyError();
   }
-  // Locked as a handover locks its car, so a sale at the same moment waits and then sees it Rented (review A8-4).
-  const newCar = await lockCurrentVehicle(tx, actor.operatorId, views.new.vehicleId);
-  if (newCar?.status !== "available") {
-    throw new NewCarChangedError();
-  }
   await completeChecklists(tx, actor.operatorId, views, {
     at: done.at,
     acceptance: done.pdfs.acceptance,
     signature: done.signature,
   });
+  await lockSwapCars(tx, actor.operatorId, views);
   // Under the locks: the checklists are still the ones the reports were made from (review A6-10).
   await assertChecklistUnchanged(tx, actor.operatorId, views.old);
   await assertChecklistUnchanged(tx, actor.operatorId, views.new);
