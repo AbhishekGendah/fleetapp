@@ -12,12 +12,14 @@ import { appDb } from "../../../lib/app-db";
 import { loadRentalHandoverStatus } from "../../../lib/handover/handover-queries";
 import { rentalHandoverPath, rentalReturnPath } from "../../../lib/paths";
 import { swapUnderWay } from "../../../lib/rentals/car-swaps";
+import { driverChangeUnderWay } from "../../../lib/rentals/driver-change-under-way";
 import type { RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { SignedInUser } from "../../../lib/require-user";
 import { cancelHandoverAction, startHandoverAction } from "./handover/actions";
 import { cancelReturnAction, startReturnAction } from "./return/actions";
 
 const SWAP_FIRST = "A car swap is under way. Finish or cancel it first.";
+const DRIVER_CHANGE_FIRST = "A driver change is under way. Finish or cancel it first.";
 
 /** How each checklist is started, carried on and stopped from the rental's page. */
 interface ChecklistWording {
@@ -94,10 +96,16 @@ export function CancelChecklistButton(props: {
   );
 }
 
-/** Where the rental's return stands while the car is out: under way, or waiting for a swap. */
+/** Where the rental's return stands while the car is out: under way, or waiting for a swap or driver change. */
 export interface ReturnProgress {
   inProgressId: string | null;
   isSwapUnderWay: boolean;
+  isDriverChangeUnderWay: boolean;
+}
+
+/** Whether a swap or a driver change has the car's check-in, so the rental's return waits. */
+export function isReturnWaiting(progress: ReturnProgress): boolean {
+  return progress.isSwapUnderWay || progress.isDriverChangeUnderWay;
 }
 
 export async function loadReturnProgress(
@@ -107,13 +115,20 @@ export async function loadReturnProgress(
   if (rental.status !== "active") {
     return null;
   }
-  const [status, swap] = await Promise.all([
+  const [status, swap, change] = await Promise.all([
     loadRentalHandoverStatus(appDb, user.operatorId, rental.id, "return"),
     canSwapCar(rental.status)
       ? withTenant(appDb, user.operatorId, (tx) => swapUnderWay(tx, user.operatorId, rental.id))
       : Promise.resolve(null),
+    withTenant(appDb, user.operatorId, (tx) =>
+      driverChangeUnderWay(tx, user.operatorId, rental.id),
+    ),
   ]);
-  return { inProgressId: status.inProgressId, isSwapUnderWay: swap !== null };
+  return {
+    inProgressId: status.inProgressId,
+    isSwapUnderWay: swap !== null,
+    isDriverChangeUnderWay: change !== null,
+  };
 }
 
 /**
@@ -123,7 +138,7 @@ export async function loadReturnProgress(
  * report is on the Papers tab.
  */
 export function ReturnCard({ rentalId, progress }: { rentalId: string; progress: ReturnProgress }) {
-  if (!progress.isSwapUnderWay && !progress.inProgressId) {
+  if (!isReturnWaiting(progress) && !progress.inProgressId) {
     return null;
   }
   return (
@@ -133,7 +148,9 @@ export function ReturnCard({ rentalId, progress }: { rentalId: string; progress:
         <CardDescription>
           {progress.inProgressId
             ? "A return is under way. Carry on with it from Continue return at the top."
-            : SWAP_FIRST}
+            : progress.isSwapUnderWay
+              ? SWAP_FIRST
+              : DRIVER_CHANGE_FIRST}
         </CardDescription>
       </CardHeader>
       {progress.inProgressId ? (

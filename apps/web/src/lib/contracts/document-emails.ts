@@ -290,6 +290,8 @@ export interface ChecklistReport {
   inspectionId: string;
   /** One of a swap's pair, not the rental's own first handover or final return. */
   isForSwap: boolean;
+  /** One of a driver change's pair: the check-in and the new driver's handover. */
+  isForDriverChange: boolean;
 }
 
 /**
@@ -308,6 +310,7 @@ export async function listChecklistReports(
         kind: issuedDocuments.kind,
         inspectionId: inspections.id,
         isForSwap: inspections.isForSwap,
+        isForDriverChange: inspections.isForDriverChange,
       })
       .from(issuedDocuments)
       .innerJoin(

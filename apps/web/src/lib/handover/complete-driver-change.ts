@@ -21,9 +21,10 @@ import {
   inspections,
   rentalDriverChanges,
   rentals,
+  renters,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
 import { emailDocumentCopies } from "../contracts/document-copies";
@@ -36,6 +37,7 @@ import {
   type MissingParty,
 } from "../rentals/booking-checks";
 import { driverChangeUnderWay, type DriverChange } from "../rentals/driver-change-under-way";
+import { currentLinkOf } from "../renters/organisation-driver-records";
 import type { RentalClock } from "../rentals/rental-records";
 import { addReading } from "../vehicles/odometer";
 import {
@@ -168,6 +170,42 @@ export async function loadDriverChangeViews(
     driverChangeUnderWay(tx, operatorId, rentalId),
   );
   return change ? readDriverChangeViews(deps.database, operatorId, change) : null;
+}
+
+/**
+ * What stands between the new driver and the car now, read without a lock
+ * for the signing page (signing checks again under its locks): the
+ * business's link and the driver's own checks.
+ */
+export async function loadIncomingDriverProblems(
+  deps: Pick<HandoverDependencies, "database">,
+  operatorId: string,
+  views: DriverChangeViews,
+  clock: RentalClock,
+): Promise<BookingProblem[] | MissingParty> {
+  const { returned } = views;
+  return withTenant(deps.database, operatorId, async (tx) => {
+    const [driver] = await tx
+      .select()
+      .from(renters)
+      .where(and(eq(renters.id, views.change.toDriverId), eq(renters.operatorId, operatorId)));
+    if (!driver || driver.archivedAt) {
+      return driver ? "driver_archived" : "driver_not_found";
+    }
+    if (!(await currentLinkOf(tx, operatorId, returned.renterId, driver.id, false))) {
+      return "driver_not_current";
+    }
+    return findDriverChangeProblems(
+      tx,
+      driver,
+      {
+        id: returned.rentalId,
+        plannedEnd: returned.plannedEnd,
+        settingsSnapshot: returned.settingsSnapshot,
+      },
+      clock,
+    );
+  });
 }
 
 /** What the signing step sends back for the change as it stands. */

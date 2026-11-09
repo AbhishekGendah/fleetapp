@@ -4,9 +4,11 @@ import {
   ACTIVITY_ENTITY_TYPES,
   carHolds,
   possessions,
+  renters,
+  vehicles,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
 
@@ -94,4 +96,48 @@ export async function possessionAndHoldIdsOf(
     ]);
     return { possessionIds: held.map((row) => row.id), holdIds: holds.map((row) => row.id) };
   });
+}
+
+/** One driver's time with one of the rental's cars, as fines are matched to it (rule 15). */
+export interface RentalPossession {
+  id: string;
+  driverId: string;
+  driverName: string;
+  carRego: string;
+  startedAt: Date;
+  /** None while they still have it. */
+  endedAt: Date | null;
+}
+
+/** Who had the rental's cars and when, oldest first: from the possession records, never the rental's driver now. */
+export async function listRentalPossessions(
+  database: AnyDatabase,
+  operatorId: string,
+  rentalId: string,
+): Promise<RentalPossession[]> {
+  return withTenant(database, operatorId, (tx) =>
+    tx
+      .select({
+        id: possessions.id,
+        driverId: possessions.driverId,
+        driverName: renters.fullName,
+        carRego: vehicles.rego,
+        startedAt: possessions.startedAt,
+        endedAt: possessions.endedAt,
+      })
+      .from(possessions)
+      .innerJoin(
+        renters,
+        and(eq(renters.id, possessions.driverId), eq(renters.operatorId, possessions.operatorId)),
+      )
+      .innerJoin(
+        vehicles,
+        and(
+          eq(vehicles.id, possessions.vehicleId),
+          eq(vehicles.operatorId, possessions.operatorId),
+        ),
+      )
+      .where(and(eq(possessions.operatorId, operatorId), eq(possessions.rentalId, rentalId)))
+      .orderBy(asc(possessions.startedAt)),
+  );
 }

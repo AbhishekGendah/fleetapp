@@ -19,3 +19,7 @@ export type StartDriverChangeInput = z.infer<typeof startDriverChangeFormSchema>
 
 /** The tick that says the driver handing the car back is there to sign. */
 export const OUTGOING_PRESENT = "on";
+
+/** The boxes of each driver's signature on the one signing form. */
+export const OUTGOING_PREFIX = "outgoing-";
+export const INCOMING_PREFIX = "incoming-";

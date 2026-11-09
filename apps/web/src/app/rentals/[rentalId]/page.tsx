@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { isRecordId, todayInTimeZone } from "@fleetapp/core";
+import { canChangeDriver, isRecordId, todayInTimeZone } from "@fleetapp/core";
 import { ACTIVITY_ENTITY_TYPES } from "@fleetapp/db/schema";
 import { TabLinks } from "@fleetapp/ui/tab-links";
 import { notFound } from "next/navigation";
@@ -41,6 +41,9 @@ import { PaymentsCard } from "./payments-card";
 import { RentalStrip, type RentalStripData } from "./rental-strip";
 import { RENTAL_TAB_LINKS, RENTAL_TABS, type RentalTabKey } from "./rental-tabs";
 import { SwapCard } from "./swap-card";
+import { ChangeDriverLink } from "./change-driver-link";
+import { DriverChangeCard } from "./driver-change-card";
+import { WhoHadTheCarCard } from "./who-had-the-car-card";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -110,13 +113,21 @@ function OverviewTab(props: {
           <RentalDetailsCard
             rental={rental}
             timeZone={user.operatorTimezone}
-            driverAction={<NameDriverDialog rental={rental} user={user} />}
+            driverAction={
+              canChangeDriver(rental.status, rental.renterKind) ? (
+                <ChangeDriverLink rental={rental} progress={data.returnProgress} />
+              ) : (
+                <NameDriverDialog rental={rental} user={user} />
+              )
+            }
           />
+          <WhoHadTheCarCard rental={rental} user={user} />
           <ChangesCard rental={rental} user={user} clock={clock} />
           {data.returnProgress ? (
             <ReturnCard rentalId={rental.id} progress={data.returnProgress} />
           ) : null}
           <SwapCard rental={rental} user={user} />
+          <DriverChangeCard rental={rental} user={user} />
           <RatesCard rental={rental} />
         </div>
         <div className="flex flex-col gap-4">

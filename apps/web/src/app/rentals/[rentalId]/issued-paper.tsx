@@ -1,5 +1,7 @@
-import type { DocumentEmailState } from "@fleetapp/core";
+import { formatDateTimeInTimeZone, type DocumentEmailState } from "@fleetapp/core";
+import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
+import { RecordItem } from "@fleetapp/ui/record-list";
 import { FileCheck2 } from "lucide-react";
 
 import { rentalDocumentPath } from "../../../lib/paths";
@@ -35,5 +37,60 @@ export function IssuedPaper(props: {
         state={props.emails.get(props.documentId)}
       />
     </div>
+  );
+}
+
+/** One paper of a finished swap or driver change, as its item lists it. */
+export interface PairPaper {
+  kind: Parameters<typeof rentalDocumentPath>[1];
+  documentId: string;
+  label: string;
+}
+
+/**
+ * A finished car swap or driver change on the rental's page (review G9-5):
+ * what changed, why and when, and each of its papers.
+ */
+export function FinishedPairItem(props: {
+  title: string;
+  badge: string;
+  reason: string;
+  /** "Swapped" or "Changed", then when. */
+  doneWord: string;
+  doneAt: Date | null;
+  timeZone: string;
+  rentalId: string;
+  papers: readonly PairPaper[];
+  emails: ReadonlyMap<string, DocumentEmailState>;
+}) {
+  return (
+    <RecordItem
+      title={props.title}
+      aside={<Badge tone="good">{props.badge}</Badge>}
+      details={
+        <>
+          <p>{props.reason}</p>
+          {props.doneAt ? (
+            <p>
+              {props.doneWord} {formatDateTimeInTimeZone(props.doneAt, props.timeZone)}
+            </p>
+          ) : null}
+        </>
+      }
+      actions={
+        <div className="flex flex-col gap-3">
+          {props.papers.map((paper) => (
+            <IssuedPaper
+              key={paper.documentId}
+              rentalId={props.rentalId}
+              kind={paper.kind}
+              documentId={paper.documentId}
+              label={paper.label}
+              emails={props.emails}
+            />
+          ))}
+        </div>
+      }
+    />
   );
 }

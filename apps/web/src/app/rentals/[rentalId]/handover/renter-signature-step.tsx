@@ -43,8 +43,11 @@ export function RenterSignatureFields(props: {
   onSignatureChange: (signature: RenterSignatureInput) => void;
   /** Where the business's privacy policy is, shown before the Renter signs (APP 5). */
   privacyLine: React.ReactNode;
+  /** Before each box's name, when one form holds two signatures (a driver change). */
+  namePrefix?: string;
 }) {
   const [signature, setSignature] = useState<RenterSignatureInput>(NO_SIGNATURE);
+  const prefix = props.namePrefix ?? "";
   const methodId = `${props.id}-method`;
 
   function change(next: Partial<RenterSignatureInput>): void {
@@ -59,7 +62,7 @@ export function RenterSignatureFields(props: {
       <FormField htmlFor={methodId} label={`How ${props.renterName} signs`} isRequired>
         <Select
           id={methodId}
-          name="method"
+          name={`${prefix}method`}
           required
           value={signature.method}
           // A new way of signing starts afresh: the box that comes back is empty.
@@ -81,7 +84,7 @@ export function RenterSignatureFields(props: {
         >
           <Input
             id={props.id}
-            name="typedName"
+            name={`${prefix}typedName`}
             required
             autoComplete="off"
             value={signature.typedName}
@@ -92,7 +95,7 @@ export function RenterSignatureFields(props: {
         <FormField htmlFor={props.id} label={`${props.renterName}'s signature`} isRequired>
           <SignaturePad
             id={props.id}
-            name="drawnSignature"
+            name={`${prefix}drawnSignature`}
             onValueChange={(drawnSignature) => change({ drawnSignature })}
           />
         </FormField>

@@ -50,6 +50,14 @@ const SWAP_REPORT_WORDING: Readonly<
   return_report: { title: "Swap: return report", open: "Open swap return report" },
 };
 
+/** A driver change's pair: the check-in from the driver who had the car, and the new driver's handover. */
+const DRIVER_CHANGE_REPORT_WORDING: Readonly<
+  Record<"handover_report" | "return_report", { title: string; open: string }>
+> = {
+  handover_report: { title: "Driver change: handover report", open: "Open new driver's report" },
+  return_report: { title: "Driver change: check-in report", open: "Open check-in report" },
+};
+
 export interface RentalPaper {
   documentId: string;
   kind: SignedPaperKind;
@@ -72,22 +80,25 @@ export async function loadRentalPapers(
     listIssuedDocuments(appDb, user.operatorId, rentalId),
     listChecklistReports(appDb, user.operatorId, rentalId),
   ]);
-  const swapReportIds = new Set(
-    reports.filter((report) => report.isForSwap).map((report) => report.documentId),
-  );
+  const idsOf = (isOfPair: (report: (typeof reports)[number]) => boolean) =>
+    new Set(reports.filter(isOfPair).map((report) => report.documentId));
+  const swapReportIds = idsOf((report) => report.isForSwap);
+  const driverChangeReportIds = idsOf((report) => report.isForDriverChange);
   return documents
     .flatMap((document) => {
       const { kind } = document;
       if (!isSignedPaperKind(kind)) {
         return [];
       }
-      const isSwapReport =
-        (kind === "handover_report" || kind === "return_report") && swapReportIds.has(document.id);
-      const wording = isSwapReport
-        ? SWAP_REPORT_WORDING[kind]
-        : kind === "contract" && isBusinessRental
-          ? BUSINESS_CONTRACT_WORDING
-          : PAPER_WORDING[kind];
+      const isReport = kind === "handover_report" || kind === "return_report";
+      const wording =
+        isReport && swapReportIds.has(document.id)
+          ? SWAP_REPORT_WORDING[kind]
+          : isReport && driverChangeReportIds.has(document.id)
+            ? DRIVER_CHANGE_REPORT_WORDING[kind]
+            : kind === "contract" && isBusinessRental
+              ? BUSINESS_CONTRACT_WORDING
+              : PAPER_WORDING[kind];
       return [
         {
           documentId: document.id,

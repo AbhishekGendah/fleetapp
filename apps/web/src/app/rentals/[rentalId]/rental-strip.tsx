@@ -1,10 +1,12 @@
 import {
+  canChangeDriver,
   formatShortDayInTimeZone,
   renterShownName,
   todayInTimeZone,
   type FuelLevel,
 } from "@fleetapp/core";
 import { Badge } from "@fleetapp/ui/badge";
+import { Button } from "@fleetapp/ui/button";
 import { RecordStrip } from "@fleetapp/ui/record-strip";
 import { InlineRecordLink } from "@fleetapp/ui/row-link";
 import Link from "next/link";
@@ -12,7 +14,7 @@ import Link from "next/link";
 import type { BondAccount } from "../../../lib/bonds/bond-account";
 import type { LedgerView } from "../../../lib/ledger/ledger-queries";
 import type { NextRent } from "../../../lib/ledger/next-rent";
-import { carPath, RENTALS_PATH, renterPath } from "../../../lib/paths";
+import { carPath, rentalDriverChangePath, RENTALS_PATH, renterPath } from "../../../lib/paths";
 import { rentalRateOf } from "../../../lib/rentals/rental-labels";
 import {
   atHandoverFact,
@@ -27,7 +29,7 @@ import {
 import { rentalRenterNames, type RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { RentalClock } from "../../../lib/rentals/rental-records";
 import { RentalAlertBadges } from "../rental-status-badge";
-import { ChecklistMainButton, type ReturnProgress } from "./handover-card";
+import { ChecklistMainButton, isReturnWaiting, type ReturnProgress } from "./handover-card";
 
 /** What the strip shows that is not on the rental itself. */
 export interface RentalStripData {
@@ -141,13 +143,20 @@ export function RentalStrip(props: {
       }
       facts={factsOf(rental, data, clock)}
       actions={
-        progress && !progress.isSwapUnderWay ? (
-          <ChecklistMainButton
-            kind="return"
-            rentalId={rental.id}
-            inProgressId={progress.inProgressId}
-            variant="inverse"
-          />
+        progress && !isReturnWaiting(progress) ? (
+          <>
+            {canChangeDriver(rental.status, rental.renterKind) && !progress.inProgressId ? (
+              <Button asChild variant="inverse-outline">
+                <Link href={rentalDriverChangePath(rental.id)}>Change driver</Link>
+              </Button>
+            ) : null}
+            <ChecklistMainButton
+              kind="return"
+              rentalId={rental.id}
+              inProgressId={progress.inProgressId}
+              variant="inverse"
+            />
+          </>
         ) : undefined
       }
     />

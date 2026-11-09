@@ -1,10 +1,10 @@
-import { canSwapCar, formatDateTimeInTimeZone, type DocumentEmailState } from "@fleetapp/core";
+import { canSwapCar, type DocumentEmailState } from "@fleetapp/core";
+import { withTenant } from "@fleetapp/db/tenant-context";
 import { ActionButton } from "@fleetapp/ui/action-button";
-import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
-import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
+import { RecordList } from "@fleetapp/ui/record-list";
 import { ArrowLeftRight, ClipboardCheck, XCircle } from "lucide-react";
 import Link from "next/link";
 
@@ -17,11 +17,12 @@ import {
 import { loadRentalHandoverStatus } from "../../../lib/handover/handover-queries";
 import { CONTRACTS_PATH, rentalSwapPath } from "../../../lib/paths";
 import { listRentalSwaps, type SwapSummary } from "../../../lib/rentals/car-swaps";
+import { driverChangeUnderWay } from "../../../lib/rentals/driver-change-under-way";
 import { listPickableCars } from "../../../lib/rentals/pickable-records";
 import type { RentalDetail } from "../../../lib/rentals/rental-queries";
 import { loadDefaultTemplate } from "../../../lib/contracts/templates";
 import type { SignedInUser } from "../../../lib/require-user";
-import { IssuedPaper } from "./issued-paper";
+import { FinishedPairItem } from "./issued-paper";
 import { cancelSwapAction, startSwapAction } from "./swap/swap-actions";
 import { LazyStartSwapForm } from "./swap/lazy-start-swap-form";
 
@@ -51,31 +52,16 @@ function SwapItem(props: {
     ),
   ].filter((paper) => paper !== null);
   return (
-    <RecordItem
+    <FinishedPairItem
       title={`${swap.fromRego} → ${swap.toRego}`}
-      aside={<Badge tone="good">Swapped</Badge>}
-      details={
-        <>
-          <p>{swap.reason}</p>
-          {swap.swappedAt ? (
-            <p>Swapped {formatDateTimeInTimeZone(swap.swappedAt, props.timeZone)}</p>
-          ) : null}
-        </>
-      }
-      actions={
-        <div className="flex flex-col gap-3">
-          {papers.map((paper) => (
-            <IssuedPaper
-              key={paper.documentId}
-              rentalId={props.rentalId}
-              kind={paper.kind}
-              documentId={paper.documentId}
-              label={paper.label}
-              emails={props.emails}
-            />
-          ))}
-        </div>
-      }
+      badge="Swapped"
+      reason={swap.reason}
+      doneWord="Swapped"
+      doneAt={swap.swappedAt}
+      timeZone={props.timeZone}
+      rentalId={props.rentalId}
+      papers={papers}
+      emails={props.emails}
     />
   );
 }
@@ -144,19 +130,23 @@ async function SwapStarter({ rental, user }: { rental: RentalDetail; user: Signe
 /**
  * Swapping the Renter's car during the rental (rule 15): the old car checked
  * in, the new one checked out, and the Renter signs on this phone. Hidden
- * while the rental's own return is under way.
+ * while the rental's own return, or a driver change, is under way.
  */
 export async function SwapCard({ rental, user }: { rental: RentalDetail; user: SignedInUser }) {
   const isSwappable = canSwapCar(rental.status);
-  const [swaps, returnStatus] = await Promise.all([
+  const [swaps, returnStatus, driverChange] = await Promise.all([
     listRentalSwaps(appDb, user.operatorId, rental.id),
     isSwappable
       ? loadRentalHandoverStatus(appDb, user.operatorId, rental.id, "return")
       : Promise.resolve(null),
+    withTenant(appDb, user.operatorId, (tx) =>
+      driverChangeUnderWay(tx, user.operatorId, rental.id),
+    ),
   ]);
   const underWay = swaps.find((swap) => swap.status === "in_progress");
   const finished = swaps.filter((swap) => swap.status === "completed");
-  const canStart = isSwappable && !returnStatus?.inProgressId;
+  // A return or a driver change has the car's check-in: the swap waits for it.
+  const canStart = isSwappable && !returnStatus?.inProgressId && !driverChange;
   if (!canStart && finished.length === 0) {
     return null;
   }
