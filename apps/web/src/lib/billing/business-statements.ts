@@ -147,7 +147,8 @@ async function loadStatementData(tx: AnyTransaction, operatorId: string, renterI
 
 export type BusinessStatementResult =
   | { status: "issued"; issuedDocumentId: string; emailOutcome: DocumentEmailOutcome | null }
-  | { status: "not_found" | "too_big" };
+  /** Archived or retired: no new statement (review), though its old ones stay. */
+  | { status: "not_found" | "too_big" | "not_current" };
 
 /** Emails the statement to the business's contact and keeps the try; never throws. */
 async function emailStatement(
@@ -281,6 +282,10 @@ export async function issueBusinessStatement(
   const issued = await withTenant(deps.database, actor.operatorId, (tx) =>
     recordRenterStatement(tx, deps, actor, stored, renterId),
   );
+  // Its stored PDF, never confirmed, goes with the nightly clean-up of abandoned uploads.
+  if (!issued) {
+    return { status: "not_current" };
+  }
   const emailOutcome = request.isEmailed
     ? await emailIssuedStatement(deps, context, business, {
         issuedDocumentId: issued.documentId,

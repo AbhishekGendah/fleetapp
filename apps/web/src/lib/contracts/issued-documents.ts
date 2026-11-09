@@ -251,7 +251,9 @@ async function nextRenterStatementVersion(
  * A business Renter's statement across its cars (Migration B), recorded as
  * the Renter's next one inside the caller's transaction. The Renter is
  * locked so two statements at once take versions in turn (step 6 of the
- * lock order; nothing else is locked here).
+ * lock order; nothing else is locked here), and read under that lock: an
+ * archived or retired Renter gets none (null), so an archive at the same
+ * moment is either waited for and seen, or waits for the statement.
  */
 export async function recordRenterStatement(
   tx: AnyTransaction,
@@ -259,12 +261,15 @@ export async function recordRenterStatement(
   actor: IssuingActor,
   stored: StoredDocument<DocumentContent>,
   renterId: string,
-): Promise<{ documentId: string; version: number; sha256: string }> {
-  await tx
-    .select({ id: renters.id })
+): Promise<{ documentId: string; version: number; sha256: string } | null> {
+  const [renter] = await tx
+    .select({ archivedAt: renters.archivedAt, retiredAt: renters.retiredAt })
     .from(renters)
     .where(and(eq(renters.id, renterId), eq(renters.operatorId, actor.operatorId)))
     .for(ROW_LOCK);
+  if (!renter || renter.archivedAt !== null || renter.retiredAt !== null) {
+    return null;
+  }
   const version = await nextRenterStatementVersion(tx, actor.operatorId, renterId);
   return insertIssuedDocument(tx, deps, actor, stored, { owner: { renterId }, version });
 }

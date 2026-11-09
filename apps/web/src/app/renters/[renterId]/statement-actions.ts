@@ -17,6 +17,8 @@ import { runUserChange } from "../../../lib/run-change";
 import { RENTER_NOT_FOUND_MESSAGE } from "../renter-form-state";
 
 const NOT_FOUND_MESSAGE = "That statement could not be found.";
+const NOT_CURRENT_MESSAGE =
+  "This business is archived, so no new statement is made. Restore it first; its statements are kept.";
 const CHECK_DAYS_MESSAGE = "Check the days marked in red, then try again.";
 
 /** What came of emailing a statement to the business's contact, in the Operator's words. */
@@ -51,6 +53,9 @@ export async function issueBusinessStatementAction(
         renterId,
         parsed.data,
       );
+      if (result.status === "not_current") {
+        return failedState(NOT_CURRENT_MESSAGE);
+      }
       if (result.status !== "issued") {
         return failedState(RENTER_NOT_FOUND_MESSAGE);
       }

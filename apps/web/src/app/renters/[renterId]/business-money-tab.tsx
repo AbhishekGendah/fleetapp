@@ -77,24 +77,31 @@ function StatementCard(props: {
         <p className="text-muted-foreground text-sm">
           {`One PDF across all ${renterShownName(renter)}'s cars, grouped by car. It is a statement, not a tax invoice.`}
         </p>
-        <StatementForm
-          action={issueBusinessStatementAction.bind(null, renter.id)}
-          fromDate={props.firstDay}
-          today={todayInTimeZone(clock.now, clock.timeZone)}
-          submitLabel="Make statement"
-        >
-          <Checkbox
-            name="isEmailed"
-            value={BUSINESS_STATEMENT_TICKED}
-            defaultChecked={renter.email !== null}
-            disabled={renter.email === null}
-            label={
-              renter.email
-                ? `Email it to ${contactName}`
-                : "No email on file: add one on the Details tab to email it"
-            }
-          />
-        </StatementForm>
+        {renter.archivedAt ? (
+          <p className="text-sm">
+            Archived: restore it on its Details tab to make a new statement. Its statements are kept
+            below.
+          </p>
+        ) : (
+          <StatementForm
+            action={issueBusinessStatementAction.bind(null, renter.id)}
+            fromDate={props.firstDay}
+            today={todayInTimeZone(clock.now, clock.timeZone)}
+            submitLabel="Make statement"
+          >
+            <Checkbox
+              name="isEmailed"
+              value={BUSINESS_STATEMENT_TICKED}
+              defaultChecked={renter.email !== null}
+              disabled={renter.email === null}
+              label={
+                renter.email
+                  ? `Email it to ${contactName}`
+                  : "No email on file: add one on the Details tab to email it"
+              }
+            />
+          </StatementForm>
+        )}
       </div>
       {props.statements.length === 0 ? (
         <p className={QUIET_LINE_CLASSES}>No statements made yet.</p>

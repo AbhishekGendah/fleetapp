@@ -13,9 +13,16 @@ import {
   emptyBusinessRenterForm,
   parseBusinessRenterForm,
 } from "../src/lib/renters/business-renter-input";
-import { createBusinessRenter } from "../src/lib/renters/renter-records";
+import {
+  archiveRenter,
+  createBusinessRenter,
+  restoreRenter,
+} from "../src/lib/renters/renter-records";
 import { createMemoryFileStorage } from "../src/lib/storage/memory-file-storage";
+import { Client } from "pg";
+
 import { seedOperatorWithUser } from "./car-fixtures";
+import { openTransactionAs, waitUntilBlockedBy } from "./lock-fixtures";
 import { recordingEmailSender } from "./renter-link-fixtures";
 
 /** Set by a test: the next record of a send fails, as a lost connection would. */
@@ -45,6 +52,7 @@ const ALL_DAYS = { fromDate: "2026-10-01", toDate: "2026-11-30" };
 describe("emailing a business's statement as it is made", () => {
   let admin: TestConnection;
   let web: TestConnection;
+  let superuser: Client;
   let actor: ActingUser;
   let businessId: string;
   const sentEmails: EmailMessage[] = [];
@@ -61,6 +69,8 @@ describe("emailing a business's statement as it is made", () => {
   beforeAll(async () => {
     admin = connectAs(inject("adminAppRoleUrl"));
     web = connectAs(inject("webAppRoleUrl"));
+    superuser = new Client({ connectionString: inject("superuserUrl") });
+    await superuser.connect();
     actor = await seedOperatorWithUser(admin, "Statement Email Rentals Pty Ltd");
     const parsed = parseBusinessRenterForm({
       ...emptyBusinessRenterForm(),
@@ -73,7 +83,7 @@ describe("emailing a business's statement as it is made", () => {
   });
 
   afterAll(async () => {
-    await Promise.all([admin.close(), web.close()]);
+    await Promise.all([admin.close(), web.close(), superuser.end()]);
   });
 
   it("keeps the statement issued and says it wasn't emailed when the send can't be recorded", async () => {
@@ -87,5 +97,56 @@ describe("emailing a business's statement as it is made", () => {
     expect(result).toMatchObject({ status: "issued", emailOutcome: "failed" });
     const listed = await listRenterStatements(web.db, actor.operatorId, businessId);
     expect(listed.map((statement) => statement.version)).toEqual([1]);
+  });
+
+  it("refuses a statement for an archived business, and makes one once it is restored", async () => {
+    expect(await archiveRenter(web.db, actor, businessId)).toBe("changed");
+
+    const refused = await issueBusinessStatement(deps(), actor, businessId, {
+      ...ALL_DAYS,
+      isEmailed: true,
+    });
+    await restoreRenter(web.db, actor, businessId);
+    const made = await issueBusinessStatement(deps(), actor, businessId, {
+      ...ALL_DAYS,
+      isEmailed: false,
+    });
+
+    expect(refused).toEqual({ status: "not_current" });
+    expect(made).toMatchObject({ status: "issued" });
+    const versions = (await listRenterStatements(web.db, actor.operatorId, businessId)).map(
+      (statement) => statement.version,
+    );
+    expect(versions).toEqual([2, 1]);
+  });
+
+  it("refuses it when the business is archived while the statement waits for its lock", async () => {
+    const holder = await openTransactionAs(actor.operatorId);
+    let result: Awaited<ReturnType<typeof issueBusinessStatement>>;
+    try {
+      await holder.client.query(`select id from renters where id = $1 for no key update`, [
+        businessId,
+      ]);
+      const pending = issueBusinessStatement(deps(), actor, businessId, {
+        ...ALL_DAYS,
+        isEmailed: true,
+      });
+      await waitUntilBlockedBy(superuser, holder.pid);
+      await holder.client.query(`update renters set archived_at = now() where id = $1`, [
+        businessId,
+      ]);
+      await holder.client.query("commit");
+      result = await pending;
+    } finally {
+      await holder.client.end();
+    }
+
+    expect(result).toEqual({ status: "not_current" });
+    expect(
+      (await listRenterStatements(web.db, actor.operatorId, businessId)).map(
+        (statement) => statement.version,
+      ),
+    ).toEqual([2, 1]);
+    await restoreRenter(web.db, actor, businessId);
   });
 });
