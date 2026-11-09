@@ -6,6 +6,7 @@ import {
   vehicleMakes,
   vehicleModels,
 } from "@fleetapp/db/schema";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
@@ -68,7 +69,7 @@ export async function updateCatalogueEntry(
         .select({ name: table.name, aliases: table.aliases })
         .from(table)
         .where(eq(table.id, entryId))
-        .for("update");
+        .for(ROW_LOCK);
       if (!before) {
         return "not_found" as const;
       }

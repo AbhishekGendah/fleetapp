@@ -24,6 +24,7 @@ import {
   renters,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, eq } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
@@ -350,7 +351,7 @@ async function lockForSigning(
     .select({ status: rentalDriverChanges.status })
     .from(rentalDriverChanges)
     .where(eq(rentalDriverChanges.id, views.change.id))
-    .for("update");
+    .for(ROW_LOCK);
   for (const inspectionId of [views.change.returnInspectionId, views.change.handoverInspectionId]) {
     if (
       locked?.status !== "in_progress" ||

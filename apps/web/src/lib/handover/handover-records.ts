@@ -15,6 +15,7 @@ import {
   type ActivityAction,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, desc, eq, inArray, isNull, ne, or, type SQL } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
@@ -173,7 +174,7 @@ async function startChecklist(
       })
       .from(rentals)
       .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, actor.operatorId)))
-      .for("update");
+      .for(ROW_LOCK);
     if (!rental) {
       return { status: "not_found" as const };
     }
@@ -251,7 +252,7 @@ export async function lockOpenInspection(
         eq(inspections.status, "in_progress"),
       ),
     )
-    .for("update");
+    .for(ROW_LOCK);
   return inspection ?? null;
 }
 

@@ -8,6 +8,7 @@ import {
   type ActivityAction,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser, type UserChange } from "../acting-user";
@@ -54,7 +55,7 @@ async function lockCurrentPolicy(tx: AnyTransaction, operatorId: string, policyI
         isNull(insurancePolicies.archivedAt),
       ),
     )
-    .for("update");
+    .for(ROW_LOCK);
   return policy;
 }
 
@@ -199,7 +200,7 @@ export async function restorePolicy(
           isNotNull(insurancePolicies.archivedAt),
         ),
       )
-      .for("update");
+      .for(ROW_LOCK);
     if (!archived) {
       return "not_found";
     }

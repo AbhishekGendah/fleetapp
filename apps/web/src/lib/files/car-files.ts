@@ -8,6 +8,7 @@ import {
 import type { AnyTransaction } from "@fleetapp/db/client";
 import { files, vehicles } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import {
   and,
   count,
@@ -70,7 +71,7 @@ async function nextPhotoName(
     .select({ rego: vehicles.rego })
     .from(vehicles)
     .where(and(eq(vehicles.id, vehicleId), eq(vehicles.operatorId, operatorId)))
-    .for("update");
+    .for(ROW_LOCK);
   const rego = car?.rego ?? "";
   const [taken] = await tx
     .select({ count: count() })

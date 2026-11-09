@@ -3,6 +3,7 @@ import { recordActivity } from "@fleetapp/db/activity";
 import type { AnyDatabase } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, operators } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { eq } from "drizzle-orm";
 
 import type { BusinessDetailsInput } from "./business-details-input";
@@ -92,7 +93,7 @@ export async function saveBusinessDetails(
       .select(businessDetailColumns)
       .from(operators)
       .where(eq(operators.id, actor.operatorId))
-      .for("update");
+      .for(ROW_LOCK);
     if (!before) {
       throw new Error("The Operator was not found.");
     }

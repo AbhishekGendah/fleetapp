@@ -3,6 +3,7 @@ import type { AnyTransaction } from "@fleetapp/db/client";
 import { vehicles } from "@fleetapp/db/schema";
 import { and, eq, isNull, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { qualified } from "@fleetapp/db/qualified";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 
 /** The Operator's car, if it is still current (an archived car is read-only). */
 export async function findCurrentVehicle(
@@ -24,7 +25,7 @@ export async function lockCurrentVehicle(
   operatorId: string,
   vehicleId: string,
 ): Promise<{ id: string; status: VehicleStatus } | undefined> {
-  const [vehicle] = await currentVehicleQuery(tx, operatorId, vehicleId).for("update");
+  const [vehicle] = await currentVehicleQuery(tx, operatorId, vehicleId).for(ROW_LOCK);
   return vehicle;
 }
 

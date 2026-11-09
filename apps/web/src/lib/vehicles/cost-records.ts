@@ -18,6 +18,7 @@ import {
   vehicles,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, eq, isNull } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
@@ -129,7 +130,7 @@ export async function savePurchase(
           eq(vehiclePurchases.operatorId, actor.operatorId),
         ),
       )
-      .for("update");
+      .for(ROW_LOCK);
     const isRecordChanged = await writePurchase(tx, actor, vehicleId, record, before);
     const isReadingChanged = await syncPurchaseReading(
       tx,
@@ -191,7 +192,7 @@ async function lockActiveSale(tx: AnyTransaction, operatorId: string, vehicleId:
         isNull(vehicleSales.cancelledAt),
       ),
     )
-    .for("update");
+    .for(ROW_LOCK);
   return sale;
 }
 

@@ -12,6 +12,7 @@ import {
   type ActivityAction,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser, type UserChange } from "../acting-user";
@@ -68,7 +69,7 @@ async function lockTemplate(tx: AnyTransaction, operatorId: string, templateId: 
         isNull(contractTemplates.archivedAt),
       ),
     )
-    .for("update");
+    .for(ROW_LOCK);
   return template;
 }
 

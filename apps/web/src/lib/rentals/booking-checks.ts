@@ -26,6 +26,7 @@ import {
   stripeAccounts,
   vehicles,
 } from "@fleetapp/db/schema";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, asc, countDistinct, eq, isNull, ne } from "drizzle-orm";
 
 import { bondAccountOf, selectBondMovements } from "../bonds/bond-account";
@@ -135,7 +136,7 @@ async function findRenter(
         options.isArchivedAllowed ? undefined : isNull(renters.archivedAt),
       ),
     );
-  const [renter] = options.shouldLock ? await query.for("update") : await query;
+  const [renter] = options.shouldLock ? await query.for(ROW_LOCK) : await query;
   return renter;
 }
 
@@ -236,7 +237,7 @@ async function findCarStatus(
         isNull(vehicles.archivedAt),
       ),
     );
-  const [car] = shouldLock ? await carQuery.for("update") : await carQuery;
+  const [car] = shouldLock ? await carQuery.for(ROW_LOCK) : await carQuery;
   return car?.status;
 }
 

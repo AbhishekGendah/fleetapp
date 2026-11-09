@@ -20,6 +20,7 @@ import {
   vehicles,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import type { EmailSender } from "@fleetapp/email";
 import { and, eq, isNull } from "drizzle-orm";
 
@@ -259,7 +260,7 @@ async function isRenterStillActive(
     .where(
       and(eq(renters.id, renterId), eq(renters.operatorId, operatorId), isNull(renters.archivedAt)),
     )
-    .for("update");
+    .for(ROW_LOCK);
   return renter?.status === "active";
 }
 
@@ -273,7 +274,7 @@ async function lockRentalDriver(
     .select({ driverId: rentals.driverId })
     .from(rentals)
     .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, operatorId)))
-    .for("update");
+    .for(ROW_LOCK);
   return rental?.driverId;
 }
 

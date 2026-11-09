@@ -19,6 +19,7 @@ import {
   type ActivityAction,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, eq } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser, type UserChange } from "../acting-user";
@@ -244,7 +245,7 @@ async function lockRental(
     .select()
     .from(rentals)
     .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, operatorId)))
-    .for("update");
+    .for(ROW_LOCK);
   return rental;
 }
 

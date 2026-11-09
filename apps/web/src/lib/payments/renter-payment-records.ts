@@ -20,6 +20,7 @@ import {
   rentals,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, asc, eq, lte, ne, sql } from "drizzle-orm";
 
 import { bondAccountIn, type BondMovementRow } from "../bonds/bond-account";
@@ -187,7 +188,7 @@ function lockRenterMandates(tx: AnyTransaction, operatorId: string, renterId: st
     .select({ id: paymentMandates.id, setUpAt: paymentMandates.setUpAt })
     .from(paymentMandates)
     .where(and(eq(paymentMandates.operatorId, operatorId), eq(paymentMandates.renterId, renterId)))
-    .for("update");
+    .for(ROW_LOCK);
 }
 
 function logSystem(
@@ -379,7 +380,7 @@ async function recordBondPayment(
         .select({ id: payments.id, status: payments.status })
         .from(payments)
         .where(eq(payments.stripeCheckoutSessionId, outcome.sessionId))
-        .for("update");
+        .for(ROW_LOCK);
   if (!row) {
     return;
   }
@@ -479,7 +480,7 @@ export async function applyMandateStatus(
     })
     .from(paymentMandates)
     .where(eq(paymentMandates.stripeMandateId, update.mandateId))
-    .for("update");
+    .for(ROW_LOCK);
   const status = mandateStatusOf(update.stripeStatus);
   if (!mandate || mandate.status === "inactive" || mandate.status === status) {
     return;

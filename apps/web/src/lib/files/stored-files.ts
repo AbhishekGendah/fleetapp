@@ -20,6 +20,7 @@ import {
   inspections,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, eq, inArray, isNotNull, isNull, ne, or, type SQL } from "drizzle-orm";
 
 import type { FileStorage, UploadPermission } from "../storage/file-storage";
@@ -182,7 +183,7 @@ async function isLinkAlreadySent(
     .select({ renterId: renterLinks.renterId })
     .from(renterLinks)
     .where(and(eq(renterLinks.id, renterLinkId), eq(renterLinks.operatorId, operatorId)))
-    .for("update");
+    .for(ROW_LOCK);
   if (!link) {
     return true;
   }
@@ -330,7 +331,7 @@ async function claimConfirmed(
       .select({ id: files.id })
       .from(files)
       .where(and(eq(files.id, file.id), eq(files.operatorId, actor.operatorId), isPending()))
-      .for("update");
+      .for(ROW_LOCK);
     if (!claimed) {
       return "not_found";
     }

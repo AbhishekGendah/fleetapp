@@ -25,6 +25,7 @@ import {
   type ActivityAction,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import type { EmailSender } from "@fleetapp/email";
 import { renderRenterLinkCodeEmail } from "@fleetapp/email";
 import { and, eq, sql } from "drizzle-orm";
@@ -189,7 +190,7 @@ async function lockLink(tx: AnyTransaction, linkId: string) {
     .select()
     .from(renterLinks)
     .where(eq(renterLinks.id, linkId))
-    .for("update");
+    .for(ROW_LOCK);
   if (!link) {
     throw new Error("The link vanished while it was open.");
   }

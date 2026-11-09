@@ -19,6 +19,7 @@ import {
   renters,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { renderRenterSigningLinkEmail } from "@fleetapp/email";
 import { and, desc, eq, isNull } from "drizzle-orm";
 
@@ -109,7 +110,7 @@ async function sendLinkFor(
       })
       .from(rentals)
       .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, actor.operatorId)))
-      .for("update");
+      .for(ROW_LOCK);
     if (!rental) {
       return { status: "not_found" as const };
     }

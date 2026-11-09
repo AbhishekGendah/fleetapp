@@ -26,6 +26,7 @@ import {
   signingEvidence,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import type { EmailSender } from "@fleetapp/email";
 import { and, asc, eq, ne } from "drizzle-orm";
 
@@ -545,7 +546,7 @@ export async function signContract(
           .select({ cancelledAt: renterLinks.cancelledAt, usedAt: renterLinks.usedAt })
           .from(renterLinks)
           .where(eq(renterLinks.id, visit.linkId))
-          .for("update");
+          .for(ROW_LOCK);
         if (link?.usedAt) {
           throw new SignedAlreadyError();
         }

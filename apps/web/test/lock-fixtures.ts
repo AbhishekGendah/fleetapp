@@ -20,32 +20,64 @@ export async function openTransactionAs(
   return { client, pid };
 }
 
-/**
- * Resolves once this many connections wait behind the given backend: on a
- * lock it holds, or queued behind one that does.
- */
+/** How many connections wait behind the given backend: on a lock it holds, or queued behind one that does. */
+async function countWaitingBehind(superuser: Client, pid: number): Promise<number> {
+  const result = await superuser.query<{ waiting: number }>(
+    `with recursive behind(pid) as (
+       select pid from pg_stat_activity where $1 = any(pg_blocking_pids(pid))
+       union
+       select activity.pid from pg_stat_activity activity, behind
+       where behind.pid = any(pg_blocking_pids(activity.pid))
+     )
+     select count(*)::int as waiting from behind`,
+    [pid],
+  );
+  return result.rows[0]?.waiting ?? 0;
+}
+
+const pause = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, LOCK_WAIT_STEP_MS));
+
+/** Resolves once this many connections wait behind the given backend. */
 export async function waitUntilBlockedBy(
   superuser: Client,
   pid: number,
   waiting = 1,
 ): Promise<void> {
   for (let attempt = 0; attempt < LOCK_WAIT_ATTEMPTS; attempt += 1) {
-    const result = await superuser.query<{ waiting: number }>(
-      `with recursive behind(pid) as (
-         select pid from pg_stat_activity where $1 = any(pg_blocking_pids(pid))
-         union
-         select activity.pid from pg_stat_activity activity, behind
-         where behind.pid = any(pg_blocking_pids(activity.pid))
-       )
-       select count(*)::int as waiting from behind`,
-      [pid],
-    );
-    if ((result.rows[0]?.waiting ?? 0) >= waiting) {
+    if ((await countWaitingBehind(superuser, pid)) >= waiting) {
       return;
     }
-    await new Promise((resolve) => setTimeout(resolve, LOCK_WAIT_STEP_MS));
+    await pause();
   }
   throw new Error("Nothing waited for the lock.");
+}
+
+/**
+ * What a call came to while the given backend still holds its locks, or
+ * "waited" once this many connections wait behind that backend instead: a
+ * call that must not wait for what the holder's queue holds shows its
+ * outcome, one that does (the way to a deadlock) shows "waited".
+ */
+export async function outcomeWhileHeld(
+  outcome: Promise<string>,
+  superuser: Client,
+  pid: number,
+  waiting: number,
+): Promise<string> {
+  let settled: string | undefined;
+  void outcome.then((value) => {
+    settled = value;
+  });
+  for (let attempt = 0; attempt < LOCK_WAIT_ATTEMPTS; attempt += 1) {
+    await pause();
+    if (settled !== undefined) {
+      return settled;
+    }
+    if ((await countWaitingBehind(superuser, pid)) >= waiting) {
+      return "waited";
+    }
+  }
+  throw new Error("The call neither finished nor waited.");
 }
 
 /**

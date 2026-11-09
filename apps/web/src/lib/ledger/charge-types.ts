@@ -8,6 +8,7 @@ import { recordActivity } from "@fleetapp/db/activity";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, chargeTypes } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, asc, eq, isNull } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
@@ -183,7 +184,7 @@ async function setChargeTypeArchived(
       .select()
       .from(chargeTypes)
       .where(and(eq(chargeTypes.id, chargeTypeId), eq(chargeTypes.operatorId, actor.operatorId)))
-      .for("update");
+      .for(ROW_LOCK);
     if (!row || (row.archivedAt !== null) === shouldArchive) {
       return "not_found";
     }

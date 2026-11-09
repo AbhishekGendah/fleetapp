@@ -1,4 +1,5 @@
 import { operators } from "@fleetapp/db/schema";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { eq } from "drizzle-orm";
 
 import type { Transaction } from "./dependencies";
@@ -28,7 +29,7 @@ export async function lockOperator(tx: Transaction, operatorId: string): Promise
     })
     .from(operators)
     .where(eq(operators.id, operatorId))
-    .for("update");
+    .for(ROW_LOCK);
 
   if (!operator) {
     throw new OperatorNotFoundError();

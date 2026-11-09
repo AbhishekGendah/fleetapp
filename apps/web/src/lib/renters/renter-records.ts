@@ -15,6 +15,7 @@ import {
   type ActivityAction,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
 import { hasRenterRentalUnderWay } from "../rentals/rentals-under-way";
@@ -87,7 +88,7 @@ export async function lockCurrentRenter(
     .where(
       and(eq(renters.id, renterId), eq(renters.operatorId, operatorId), isNull(renters.archivedAt)),
     )
-    .for("update");
+    .for(ROW_LOCK);
   return renter;
 }
 
@@ -271,7 +272,7 @@ async function setRenterArchived(
       .select({ kind: renters.kind })
       .from(renters)
       .where(and(eq(renters.id, renterId), eq(renters.operatorId, actor.operatorId)))
-      .for("update");
+      .for(ROW_LOCK);
     if (!locked) {
       return "not_found";
     }

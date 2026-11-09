@@ -10,6 +10,7 @@ import {
   type ActivityAction,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
@@ -79,7 +80,7 @@ async function lockPerson(tx: AnyTransaction, operatorId: string, renterId: stri
     .from(renters)
     // A row the filter leaves out is never locked.
     .where(and(which, eq(renters.kind, "person")))
-    .for("update");
+    .for(ROW_LOCK);
   if (person) {
     return person;
   }
@@ -106,7 +107,7 @@ export async function currentLinkOf(
         isNull(organisationDrivers.removedAt),
       ),
     );
-  const [link] = shouldLock ? await query.for("update") : await query;
+  const [link] = shouldLock ? await query.for(ROW_LOCK) : await query;
   return link;
 }
 

@@ -22,6 +22,7 @@ import {
   vehicles,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { eq } from "drizzle-orm";
 
 import { lockCurrentVehicle } from "../vehicles/current-vehicle";
@@ -570,7 +571,7 @@ async function recordSwapped(
     .select({ status: carSwaps.status })
     .from(carSwaps)
     .where(eq(carSwaps.id, views.swap.id))
-    .for("update");
+    .for(ROW_LOCK);
   if (locked?.status !== "in_progress") {
     throw new FinishedAlreadyError();
   }

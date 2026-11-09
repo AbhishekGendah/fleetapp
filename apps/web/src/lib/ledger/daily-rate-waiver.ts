@@ -2,6 +2,7 @@ import { blocksBetween, MILLISECONDS_PER_DAY } from "@fleetapp/core";
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, ledgerLines, rentals } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
@@ -95,7 +96,7 @@ export async function waiveDailyRate(
       .select()
       .from(rentals)
       .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, actor.operatorId)))
-      .for("update");
+      .for(ROW_LOCK);
     if (!rental) {
       return "not_found";
     }

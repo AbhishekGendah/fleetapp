@@ -2,6 +2,7 @@ import { describeErrorForLog, LICENCE_SIDES, type LicenceSide } from "@fleetapp/
 import type { AnyTransaction } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, files, renterLinks, renterSubmissions } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { renderRenterDetailsSentBackEmail } from "@fleetapp/email";
 import { and, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 
@@ -88,7 +89,7 @@ export async function findWaiting(
         eq(renterSubmissions.status, "waiting"),
       ),
     );
-  const [found] = shouldLock ? await query.for("update") : await query;
+  const [found] = shouldLock ? await query.for(ROW_LOCK) : await query;
   return found;
 }
 

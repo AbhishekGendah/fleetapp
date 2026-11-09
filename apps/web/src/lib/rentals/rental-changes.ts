@@ -37,6 +37,7 @@ import {
   rentals,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
@@ -87,7 +88,7 @@ async function lockRental(
     })
     .from(rentals)
     .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, operatorId)))
-    .for("update");
+    .for(ROW_LOCK);
   return rental ?? null;
 }
 
@@ -451,7 +452,12 @@ export async function proposeRateChange(
   });
 }
 
-/** The change, locked; null if it is not this business's. */
+/**
+ * The change, locked; null if it is not this business's. Locked FOR UPDATE,
+ * unlike other rows ("Lock order", lock modes): signing it writes its
+ * document id, a unique key, which takes that lock anyway, so it is taken
+ * here at the start rather than raised to halfway through.
+ */
 export async function lockChange(
   tx: AnyTransaction,
   operatorId: string,
@@ -461,6 +467,7 @@ export async function lockChange(
     .select()
     .from(rentalChanges)
     .where(and(eq(rentalChanges.id, changeId), eq(rentalChanges.operatorId, operatorId)))
+    // eslint-disable-next-line no-restricted-syntax -- a unique key is written: see above.
     .for("update");
   return change ?? null;
 }
@@ -486,7 +493,7 @@ async function withdrawOutOfTimeRateChanges(
         eq(rentalChanges.status, "waiting_for_signature"),
       ),
     )
-    .for("update");
+    .for(ROW_LOCK);
   for (const change of waiting.filter((candidate) =>
     isRateChangeOutOfTime(candidate, rental, now),
   )) {

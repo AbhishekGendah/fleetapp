@@ -22,6 +22,7 @@ import {
   vehicles,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, eq } from "drizzle-orm";
 
 import {
@@ -58,7 +59,7 @@ export async function loadBillingRental(
 ): Promise<BillingRental | null> {
   const ofRental = and(eq(rentals.id, rentalId), eq(rentals.operatorId, operatorId));
   if (shouldLock) {
-    await tx.select({ id: rentals.id }).from(rentals).where(ofRental).for("update");
+    await tx.select({ id: rentals.id }).from(rentals).where(ofRental).for(ROW_LOCK);
   }
   const [row] = await tx
     .select({

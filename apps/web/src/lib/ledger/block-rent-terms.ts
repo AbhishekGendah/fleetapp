@@ -9,6 +9,7 @@ import {
 } from "@fleetapp/core";
 import type { AnyTransaction } from "@fleetapp/db/client";
 import { ledgerLines, rentals } from "@fleetapp/db/schema";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
@@ -64,7 +65,7 @@ export async function readBlockRental(
         eq(rentals.rentModel, "blocks"),
       ),
     );
-  const [row] = shouldLock ? await query.for("update") : await query;
+  const [row] = shouldLock ? await query.for(ROW_LOCK) : await query;
   if (!row || row.isLongTerm === null) {
     return null;
   }

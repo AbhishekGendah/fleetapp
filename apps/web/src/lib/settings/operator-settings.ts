@@ -12,6 +12,7 @@ import {
 import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, operatorSettings } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { eq, sql } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
@@ -33,7 +34,7 @@ async function readStoredSettings(
     .select({ settings: operatorSettings.settings, version: operatorSettings.version })
     .from(operatorSettings)
     .where(eq(operatorSettings.operatorId, operatorId));
-  const [row] = shouldLock ? await query.for("update") : await query;
+  const [row] = shouldLock ? await query.for(ROW_LOCK) : await query;
   return row ? { stored: row.settings, version: row.version } : null;
 }
 

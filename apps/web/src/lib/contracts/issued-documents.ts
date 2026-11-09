@@ -19,6 +19,7 @@ import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, desc, eq, isNotNull } from "drizzle-orm";
 
 import { recordActivity } from "@fleetapp/db/activity";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import type { FileDependencies } from "../files/stored-files";
 
 const PURPOSE = "issued_document";
@@ -182,7 +183,7 @@ export async function recordIssuedDocument(
     .select({ id: rentals.id })
     .from(rentals)
     .where(eq(rentals.id, request.rentalId))
-    .for("update");
+    .for(ROW_LOCK);
   const version = await nextVersion(tx, actor.operatorId, request.rentalId, request.kind);
   await tx
     .update(files)

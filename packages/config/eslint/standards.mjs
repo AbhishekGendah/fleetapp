@@ -27,6 +27,21 @@ export const standards = [
     },
   },
   {
+    // A row the app changes is locked with ROW_LOCK (@fleetapp/db/row-lock):
+    // FOR UPDATE also blocks every link (foreign key) to the row, which is
+    // how two changes deadlock (docs/plans/business-renters.md, "Lock order").
+    files: ["**/*.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "CallExpression[callee.property.name='for'] > Literal[value='update']",
+          message: 'Lock the row with ROW_LOCK from @fleetapp/db/row-lock, not "update".',
+        },
+      ],
+    },
+  },
+  {
     // Command-line scripts talk to the person running them.
     files: ["**/scripts/**"],
     rules: { "no-console": "off" },

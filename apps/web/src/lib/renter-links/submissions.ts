@@ -10,6 +10,7 @@ import {
   renters,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, eq, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
 
 import type { PlannedFile } from "../files/car-files";
@@ -161,7 +162,7 @@ export async function submitDetails(
       .select({ id: renterLinks.id })
       .from(renterLinks)
       .where(and(eq(renterLinks.id, visit.linkId), eq(renterLinks.operatorId, visit.operatorId)))
-      .for("update");
+      .for(ROW_LOCK);
     if (await waitingSubmission(tx, visit)) {
       return "already_sent";
     }

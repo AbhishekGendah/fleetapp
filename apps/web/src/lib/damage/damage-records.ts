@@ -11,6 +11,7 @@ import {
   type ActivityAction,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, asc, eq, isNull } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
@@ -175,7 +176,7 @@ async function lockDamage(tx: AnyTransaction, operatorId: string, damageId: stri
         isNull(damageRecords.archivedAt),
       ),
     )
-    .for("update");
+    .for(ROW_LOCK);
   return record ?? null;
 }
 

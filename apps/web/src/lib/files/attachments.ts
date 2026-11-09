@@ -11,6 +11,7 @@ import {
 } from "@fleetapp/db/schema";
 import { qualified } from "@fleetapp/db/qualified";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, count, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
@@ -80,7 +81,7 @@ async function lockParent(
           isNull(insurancePolicies.archivedAt),
         ),
       )
-      .for("update");
+      .for(ROW_LOCK);
     return policy
       ? { vehicleId: null, nameBase: `${policy.insurer} ${policy.policyNumber}` }
       : null;
@@ -118,7 +119,7 @@ async function lockCarRecord(
     select ${qualified(table.vehicleId)} as vehicle_id, ${qualified(vehicles.rego)} as rego, ${describedAs} as described_as
     from ${table} join ${vehicles} on ${qualified(vehicles.id)} = ${qualified(table.vehicleId)}
     where ${qualified(table.id)} = ${recordId} and ${qualified(table.operatorId)} = ${operatorId}
-    for update of ${table}
+    for ${sql.raw(ROW_LOCK)} of ${table}
   `);
   const [row] = lockedRecordSchema.parse(result).rows;
   return row ? { vehicleId: row.vehicle_id, rego: row.rego, describedAs: row.described_as } : null;

@@ -8,6 +8,7 @@ import {
   vehicles,
 } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
@@ -55,7 +56,7 @@ export async function swapUnderWay(
         eq(carSwaps.status, "in_progress"),
       ),
     );
-  const [swap] = shouldLock ? await query.for("update") : await query;
+  const [swap] = shouldLock ? await query.for(ROW_LOCK) : await query;
   return swap ?? null;
 }
 
@@ -98,7 +99,7 @@ export async function startSwap(
       .select()
       .from(rentals)
       .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, actor.operatorId)))
-      .for("update");
+      .for(ROW_LOCK);
     if (!rental) {
       return { status: "not_found" };
     }
@@ -201,7 +202,7 @@ export async function cancelSwap(
       .select({ id: rentals.id })
       .from(rentals)
       .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, actor.operatorId)))
-      .for("update");
+      .for(ROW_LOCK);
     if (!rental) {
       return "not_found";
     }

@@ -9,6 +9,7 @@ import type { AnyDatabase, AnyTransaction } from "@fleetapp/db/client";
 import { ACTIVITY_ACTIONS, ACTIVITY_ENTITY_TYPES, documentNumbering } from "@fleetapp/db/schema";
 import { recordActivity } from "@fleetapp/db/activity";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { and, eq, sql } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
@@ -132,7 +133,7 @@ export async function saveNumbering(
       })
       .from(documentNumbering)
       .where(ofSeries(actor.operatorId, series))
-      .for("update");
+      .for(ROW_LOCK);
     if (!before) {
       throw new Error("The business's numbering could not be found.");
     }

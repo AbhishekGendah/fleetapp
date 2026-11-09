@@ -17,6 +17,7 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import type { ActingUser } from "../src/lib/acting-user";
 import { emailDocumentAgain } from "../src/lib/contracts/document-emails";
 import { createTemplate } from "../src/lib/contracts/templates";
+import { recordFoundDamage } from "../src/lib/damage/damage-records";
 import { completeHandover } from "../src/lib/handover/complete-handover";
 import {
   completeDriverChange,
@@ -60,6 +61,7 @@ import {
   holdNextPhotoName,
   openTransactionAs,
   outcomeOf,
+  outcomeWhileHeld,
   waitUntilBlockedBy,
 } from "./lock-fixtures";
 import {
@@ -874,6 +876,37 @@ describe("changing a business's driver while the car is out", () => {
       expect((await signed).status).toBe("completed");
       expect(await cancelled).toBe("finished_already");
       expect(await statusOf(change.id)).toBe("completed");
+    });
+
+    it("records damage on the car while the change is signed, holding its rental", async () => {
+      const out = await carOutWithSam();
+      const change = await changeUnderWay(out);
+      // Signing takes the rental, the change and the check-in, then waits for the new driver's checklist.
+      const holder = await openTransactionAs(actor.operatorId);
+      await holder.client.query("select id from inspections where id = $1 for update", [
+        change.handoverInspectionId,
+      ]);
+      const signed = outcomeOf(signChange(out.rentalId, null));
+      await waitUntilBlockedBy(superuser, holder.pid);
+      // Its links take the car and then the rental "key shared", which signing's locks leave free.
+      const found = outcomeOf(
+        recordFoundDamage(web.db, actor, out.vehicleId, {
+          foundOn: "2026-11-01",
+          description: "Dent in the rear door",
+          x: null,
+          y: null,
+          rentalId: out.rentalId,
+        }),
+      );
+      const whileHeld = await outcomeWhileHeld(found, superuser, holder.pid, 2);
+      await holder.client.query("commit");
+      await holder.client.end();
+
+      expect({ whileHeld, found: await found, signed: await signed }).toEqual({
+        whileHeld: "added",
+        found: "added",
+        signed: "completed",
+      });
     });
 
     it("cancels the change that reached the rental first; signing is then refused as finished", async () => {
