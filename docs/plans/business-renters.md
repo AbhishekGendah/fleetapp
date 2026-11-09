@@ -1021,6 +1021,7 @@ unchanged and passing).
   | Sending a signing link | rental, change of terms, Renter, their links |
   | Sending a payments link (also after signing) | Renter, their links |
   | Sending a details link | Renter, their links |
+  | A business's statement across its cars (slice 5) | the business (its statements take versions in turn) |
   | Retirement job | the Renter, then their rentals' records: the one exception, as nothing it reaches is in use |
 
   The database's rules: the driver change and swap start checks lock the
@@ -1407,3 +1408,112 @@ Abhi's go: 9 Nov 2026. Person Renters behave as before.
   Log" line under Why the change reads "Not written into the Log" (rule 7).
   The step bars use the strip's pale teal for done steps. No "Driver
   change" in the demo data yet.
+
+#### As built (slice 5, 9 Nov 2026)
+
+Abhi's go: 9 Nov 2026. Person Renters' documents are as before (their own
+tests unchanged and passing), but for a sole trader's ABN (decision 8).
+
+- **Migration B.** `0061_renter_statements`, a new file:
+  `issued_documents.renter_id` (two-column link to the Renter), `rental_id`
+  made optional, `issued_documents_one_owner` (exactly one of the two) and
+  `issued_documents_renter_statement` (only a statement is a Renter's), and
+  `issued_documents_renter_version_unique (operator_id, renter_id, kind,
+  version)`, whose index also serves listing a Renter's statements. The
+  table's grants, forced row-level security and append-only rules cover the
+  column as they are. Tested on a database filled at 0060
+  (`renter-statements-update.test.ts`): the documents already issued stay
+  as they were, the deployed code still issues a rental's documents, a
+  Renter's statements are numbered 1, 2 … and a repeat is refused, both
+  owners or neither and a Renter's contract are refused, another
+  Operator's business can't be named and can't be seen, the admin login
+  can't read the table, and nothing can be changed or removed. Every query
+  joining `issued_documents` to `rentals` was checked: each reads a
+  rental's own documents (by rental id, an inspection or a swap), so a
+  Renter's statement is never among them; "Everything we hold" for a
+  business now includes its statements ("All its cars" in the Rental
+  column).
+- **Invoices, receipts and credit notes to a business.** Addressed to its
+  legal name, "Trading as" its trading name, its ABN, "Attention" its
+  contact and its postal address (else its business address)
+  (`billed-to.ts`); every line names its car and the driver who had it then
+  ("Weekly rent: Rent, 2 to 9 Nov (1BRT482, driver Sam Lee)"), the driver
+  found from the possession records by the same rule as the line's car
+  (`LedgerLineView.driverId`), names only. A person's are as before; a
+  sole trader's ABN is printed under their name. Emails go to the contact,
+  "Hi Dana Wells", "The tax invoice from … to Acme Rideshare Pty Ltd for
+  1BRT482 … is attached." A rental's own statement for a business is
+  addressed the same way and names the car and driver on each line.
+  Numbering, GST, idempotency and the ledger are untouched (no money
+  calculation changed).
+- **The statement across its cars (mockup 8).** `businessStatementFigures`
+  in packages/core: each rental's own `statementFigures`, each line under
+  Charged or Paid by how it moved its rental's balance, so a car's
+  brought-forward plus charged less paid is its closing balance and the
+  business's totals are the sum of its cars'. The PDF: STATEMENT, the
+  Operator's details, To (as an invoice), made, days, "AUD, GST included",
+  "This is a statement, not a tax invoice.", the totals across all cars,
+  then a table per car headed "1BRT482 · Toyota Camry · driver Sam Lee"
+  (each driver in turn when it changed, "driver to be named" while none
+  was), its lines with their invoice numbers, and its subtotals; How to
+  pay; bonds held separately ("$1,000.00 held across 2 rentals"). Issued
+  once (rule 12) as the business's own document, its version taken under
+  the business's lock; emailed to the contact when ticked, every try kept
+  in `document_emails`, the send logged by ids only.
+- **Money tab across cars.** Two columns on a computer, one on a phone:
+  Car by car and Charges and payments across cars (as in slice 2), beside
+  Statement (From and To, "Email it to Dana Wells" ticked when there is an
+  email, Make statement; each statement made, how it was last emailed,
+  Open and Email again), How Acme Rides pays (its one direct debit's state;
+  "One setup covers all its cars; each car is debited on its own"), Bonds
+  (held, car by car, from each rental's bond account) and Latest invoices
+  (the five newest invoices and credit notes across cars, each with its
+  car, opening the PDF from its rental). The Overview's Money across cars
+  card has Send a statement, opening the Money tab at the statement.
+- **Owing.** The strip's Owing across cars names the late car: "5 days
+  late · 1BRT482" (the longest-late rental, each worked out from its own
+  lines). The Renters list's Owing for a business reads "across 3 cars"
+  (or "1 car") under the amount: its rentals with money on them.
+- **A sole trader's ABN (decision 8).** An ABN box under "Sole trader" on
+  the Operator's person form (grouped as typed, the ATO checksum, the same
+  Zod rule in the browser and on save), on the Details tab and in
+  Everything we hold. Not on the Renter's own details link, and approving
+  what a Renter sends never touches it.
+- **Tests.** `business-statement.test.ts` (core): the statement adds up to
+  the whole ledger and to each rental's own, credit on one car never hides
+  another's arrears, brought forward into a later range.
+  `business-money-documents.test.ts`: a business's invoices addressed and
+  emailed to it, each line's driver from the possessions, GST on its
+  invoices equal to the ledger lines', invoice numbers gapless when two
+  cars' invoices are issued at once on two connections (both waiting on
+  the numbering held by a third), the statement equal to the sum of its
+  rentals to the cent car by car, issued, emailed, listed, emailed again,
+  two at once taking versions in turn, logged without names, none for a
+  person, and tenancy (another Operator can't prepare, issue, list, open
+  or email one, reads no cards, and its own business's statement holds
+  only its lines). `billing-pdf.test.ts`: the To lines, a business's and a
+  person's invoice lines, the statement's totals, car headings and
+  subtotals. Browser: `business-rentals.e2e.ts` (the invoice emailed to the
+  contact, Send a statement, the Money tab's cards, a statement made by
+  keyboard and emailed, its PDF, "1 car" on the list; phone width, axe,
+  the tab's JavaScript budget) and `renters.e2e.ts` (the ABN box).
+- **Departures from mockup 8 and the slice 2 drawings, and why.**
+  - The statement form has one button, Make statement, with "Email it to
+    Dana Wells" ticked, not "Email to Dana Wells" and "Download PDF": the
+    shared change form sends one way; every statement made is listed with
+    Open (the PDF) and Email again.
+  - A statement is listed as "Statement 1, made Sun 1 Nov", not "Statement,
+    12 to 31 Oct": the days are printed on the PDF but not stored beside it
+    (that would be a column beyond Migration B).
+  - The PDF has no coloured Charged/Paid/Owing boxes and reads "Balance:
+    Owing $380.00": the shared PDF layout prints label and value lines;
+    "Balance" because the value already says owing or in credit.
+  - How it pays shows the direct debit's state, not "Set up by Dana Wells
+    Tue 6 Oct": who set it up and when are not recorded on it.
+  - Bonds lists the bond held on each car, not the bond refunded on a
+    finished one; each car's own rental page has its bond's full account.
+  - The Log doesn't list statements (a rental's Log doesn't list its papers
+    either); the send is in the activity log, by ids.
+- **Not built here, for Abhi:** retention of a business's statements across
+  its cars (launch checklist): `app.retire_renter` bins a rental's papers
+  only, so these are kept until a migration adds them.

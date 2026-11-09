@@ -1113,3 +1113,48 @@ As built slice 2).
   contract should say that the business asks for a driver change through
   the Operator, brings the car in for it, and stays responsible for the
   car (and its fines) until the new driver has signed (launch checklist).
+
+## Business Renters, slice 5: business money documents (9 Nov 2026, built)
+
+- **Tax invoices to a business (GST Act; ATO tax invoice rules).** A
+  business's invoices and adjustment notes name it as the buyer by its
+  legal name, trading name, ABN, contact ("Attention") and postal (or
+  business) address, beside the Operator's own name, ABN and address, the
+  date, each line with its GST, and the GST total, as before. The ATO asks
+  for the buyer's identity or ABN only on a tax invoice of $1,000 or more
+  (GST included); we print it on every one, so the business can claim its
+  GST credits from any of them. For the accountant (already on the list):
+  is the legal name the right buyer identity (we print it first, the trading
+  name under it), and does naming the driver on each line matter?
+- **A sole trader's ABN (decision 8).** A person Renter may have an ABN,
+  typed by the Operator, checked by the ATO's checksum (the government
+  ABN Lookup is a later step: decision 9) and printed under their name on
+  their invoices. It is the person's personal information like their other
+  details: shown on the Details tab, in "Everything we hold", never logged
+  (the Log says the ABN changed, never what to). It is not on the Renter's
+  own details link, so a Renter's own submission never changes it.
+- **Who had the car, on a business's documents.** Each line of a business's
+  invoice and statement names the car and the driver who had it then, from
+  the possession records (rule 15), by name only. This is what each
+  driver's privacy notice already says the business sees (slice 2): their
+  name and the car's use. Never their licence number, date of birth,
+  address or scans.
+- **The statement across its cars is not a tax invoice.** It says so twice,
+  takes no invoice number (rule 17), lists each charge's own invoice number
+  against it, and keeps bonds apart ("held separately and not included").
+  Issued once and kept unchanged as the business's own document, with its
+  SHA-256 fingerprint (rule 12); kept as a tax record like the invoices.
+- **Emails.** Invoices, receipts, credit notes and statements go to the
+  business's contact (the Renter's email), greeting them by name and naming
+  the business they are for, from the Operator (replies go to the
+  Operator). Transactional under the Spam Act (no unsubscribe needed);
+  the same email provider as every other copy, so overseas disclosure is
+  unchanged. Each try at emailing a statement is kept (sent, failed, no
+  address) and the send is logged by ids only (rule 7).
+- **Retention (APP 11.2), to do.** The retention job bins a rental's papers
+  once all its parties are past seven years. A business's statement across
+  its cars belongs to the business, not to one rental, so the job doesn't
+  reach it yet: it is kept as a tax record and holds its drivers' names.
+  Binning it with the business's other records when the business is retired
+  needs a change to the retention function (a migration): on the launch
+  checklist, for Abhi's go.
