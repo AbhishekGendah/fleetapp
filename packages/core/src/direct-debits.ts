@@ -35,9 +35,25 @@ export type MandateEndReason = (typeof MANDATE_END_REASONS)[number];
 export const PAYMENT_STATUSES = ["pending", "succeeded", "failed", "refunded"] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
-/** What a payment through Stripe is for. Weekly debits ("rent") come with slice 5. */
-export const PAYMENT_PURPOSES = ["bond"] as const;
+/**
+ * What a payment through Stripe is for: the bond on Stripe's page, a rent
+ * week's debit under the Renter's direct debit, or a one-off charge debited
+ * on its own (docs/plans/phase-4-slice-5.md).
+ */
+export const PAYMENT_PURPOSES = ["bond", "scheduled_debit", "one_off_debit"] as const;
 export type PaymentPurpose = (typeof PAYMENT_PURPOSES)[number];
+
+/** The purposes the app debits itself, under the Renter's direct debit. */
+export const DEBIT_PURPOSES: ReadonlySet<PaymentPurpose> = new Set([
+  "scheduled_debit",
+  "one_off_debit",
+]);
+
+export const PAYMENT_PURPOSE_LABELS: Readonly<Record<PaymentPurpose, string>> = {
+  bond: "Bond",
+  scheduled_debit: "Weekly debit",
+  one_off_debit: "One-off debit",
+};
 
 /** What a visit to Stripe's page is for, carried in the session's metadata. */
 export const CHECKOUT_PURPOSES = ["direct_debit", "bond"] as const;

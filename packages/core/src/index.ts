@@ -64,6 +64,7 @@ export * from "./rental-changes";
 export * from "./car-swaps";
 export * from "./driver-changes";
 export * from "./direct-debits";
+export * from "./weekly-debits";
 export * from "./picture-size";
 export * from "./privacy-notice";
 export * from "./renter-retention";

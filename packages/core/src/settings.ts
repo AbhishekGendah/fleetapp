@@ -36,6 +36,7 @@ import {
   MINIMUM_EXPIRY_WARNING_DAYS,
 } from "./expiry";
 import { DEFAULT_PAYMENT_GRACE_DAYS, MAXIMUM_PAYMENT_GRACE_DAYS } from "./overdue";
+import { DEBIT_COLLECTION_PLANS, DEFAULT_ONE_OFF_COLLECTION } from "./weekly-debits";
 
 /**
  * Every Operator setting that is not a business detail, as one validated
@@ -141,6 +142,12 @@ export const operatorSettingsSchema = z.object({
   // Money (Phase 4).
   /** One-off charges: on the next weekly invoice, or invoiced at once. Copied onto each rental. */
   oneOffChargeInvoicing: z.enum(ONE_OFF_CHARGE_INVOICING).default("with_next_rent"),
+  /**
+   * How a one-off charge is collected when the Renter pays by direct debit:
+   * invoice only unless the business picks otherwise for the charge
+   * (decision 2 as changed on 9 Nov). Copied onto each rental (rule 14).
+   */
+  oneOffChargeCollection: z.enum(DEBIT_COLLECTION_PLANS).default(DEFAULT_ONE_OFF_COLLECTION),
   /** Whether invoices, credit notes and receipts are emailed to the Renter as they are issued. */
   isInvoiceEmailedAutomatically: z.boolean().default(true),
   /** Printed on every invoice: how to pay, e.g. the business's bank details for a transfer. */
