@@ -29,6 +29,8 @@ export function ManualPaymentForm(props: {
   today: string;
   initialValues: Record<ManualPaymentField, string>;
   submitLabel: string;
+  /** Said before saving, e.g. a debit already on its way (slice 5). */
+  warning?: string;
 }) {
   const form = useChangeForm({
     action: props.action,
@@ -40,6 +42,7 @@ export function ManualPaymentForm(props: {
   const { fields } = form;
   return (
     <ChangeFormShell form={form} submitLabel={props.submitLabel}>
+      {props.warning ? <p className="text-sm font-medium">{props.warning}</p> : null}
       <FormField
         htmlFor={fields.idFor("amountCents")}
         label="Amount"

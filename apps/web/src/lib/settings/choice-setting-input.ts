@@ -1,4 +1,6 @@
 import {
+  DEBIT_COLLECTION_PLAN_LABELS,
+  DEBIT_COLLECTION_PLANS,
   ONE_OFF_CHARGE_INVOICING,
   ONE_OFF_CHARGE_INVOICING_LABELS,
   REQUIRED_MESSAGE,
@@ -43,6 +45,11 @@ const CHOICE_SETTING_OPTIONS = {
     value: choice,
     label: ONE_OFF_CHARGE_INVOICING_LABELS[choice],
     stored: choice,
+  })),
+  oneOffChargeCollection: DEBIT_COLLECTION_PLANS.map((plan) => ({
+    value: plan,
+    label: DEBIT_COLLECTION_PLAN_LABELS[plan],
+    stored: plan,
   })),
   isInvoiceEmailedAutomatically: YES_NO(
     "Yes, email each one to the Renter as it is issued",

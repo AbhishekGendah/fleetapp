@@ -3,6 +3,7 @@ import {
   DIRECT_DEBIT_STATE_LABELS,
   formatCalendarDate,
   formatCents,
+  formatDateTimeInTimeZone,
   formatDayInTimeZone,
   renterShownName,
   todayInTimeZone,
@@ -32,6 +33,7 @@ import {
 } from "../../../lib/renters/business-money-cards";
 import type { RenterDetail } from "../../../lib/renters/renter-queries";
 import { DIRECT_DEBIT_TONES } from "../../rentals/[rentalId]/payments-card";
+import { loadRenterDebitSummary, type RenterDebitSummary } from "../../../lib/debits/debit-queries";
 import type { BusinessPageData } from "./business-page-data";
 import { QUIET_LINE_CLASSES, TWO_COLUMNS_CLASSES } from "./card-lines";
 import { CarsMoneyCard, LedgerCard } from "./money-tab";
@@ -153,7 +155,10 @@ function StatementCard(props: {
 function HowItPaysCard(props: {
   renter: RenterDetail;
   directDebit: keyof typeof DIRECT_DEBIT_STATE_LABELS;
+  debits: RenterDebitSummary;
+  timeZone: string;
 }) {
+  const { pendingCents, pendingCars, lastCleared } = props.debits;
   return (
     <SectionCard heading={`How ${renterShownName(props.renter)} pays`}>
       <div className="flex flex-col gap-2 border-t py-3 text-sm">
@@ -163,8 +168,14 @@ function HowItPaysCard(props: {
             {DIRECT_DEBIT_STATE_LABELS[props.directDebit]}
           </Badge>
         </p>
+        {pendingCents > 0 ? (
+          <p>{`Debits pending: ${formatCents(pendingCents)} across ${pendingCars} ${pendingCars === 1 ? "car" : "cars"}.`}</p>
+        ) : null}
+        {lastCleared ? (
+          <p>{`Last debit ${formatCents(lastCleared.amountCents)} cleared on ${formatDateTimeInTimeZone(lastCleared.settledAt, props.timeZone)}.`}</p>
+        ) : null}
         <p className="text-muted-foreground">
-          {`From ${props.renter.fullName}'s bank. One setup covers all its cars; each car is debited on its own. Stripe holds the bank details.`}
+          {`From ${props.renter.fullName}'s bank. One setup covers all its cars; each car is debited on its own, shown on its rental. Stripe holds the bank details.`}
         </p>
       </div>
     </SectionCard>
@@ -247,9 +258,10 @@ export async function BusinessMoneyTab(props: {
   clock: RentalClock;
 }) {
   const { renter, user, business, clock } = props;
-  const [cards, statements] = await Promise.all([
+  const [cards, statements, debits] = await Promise.all([
     loadBusinessMoneyCards(appDb, user.operatorId, renter.id),
     listRenterStatements(appDb, user.operatorId, renter.id),
+    loadRenterDebitSummary(appDb, user.operatorId, renter.id),
   ]);
   const firstDay = todayInTimeZone(renter.createdAt, clock.timeZone);
   return (
@@ -260,7 +272,12 @@ export async function BusinessMoneyTab(props: {
       </div>
       <div className="flex flex-col gap-4">
         <StatementCard renter={renter} statements={statements} firstDay={firstDay} clock={clock} />
-        <HowItPaysCard renter={renter} directDebit={cards.directDebit} />
+        <HowItPaysCard
+          renter={renter}
+          directDebit={cards.directDebit}
+          debits={debits}
+          timeZone={clock.timeZone}
+        />
         <BondsCard bonds={cards.bonds} />
         <LatestInvoicesCard renter={renter} invoices={cards.latestInvoices} />
       </div>

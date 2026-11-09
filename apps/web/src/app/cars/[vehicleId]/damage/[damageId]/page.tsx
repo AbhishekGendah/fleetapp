@@ -47,6 +47,7 @@ import {
 } from "../../damage-actions";
 import { PhotoUploads } from "../../photo-uploads";
 import { ChargeForm } from "../../../../rentals/[rentalId]/charge-form";
+import { loadCollectionChoices } from "../../../../../lib/debits/rental-debits";
 import { addChargeAction } from "../../../../rentals/[rentalId]/money-actions";
 import { LedgerLineList } from "../../../../rentals/ledger-line-list";
 import { ClaimForm } from "./claim-form";
@@ -297,9 +298,10 @@ async function ChargeRenterCard({
   if (!rentalId) {
     return null;
   }
-  const [charges, chargeTypes] = await Promise.all([
+  const [charges, chargeTypes, collection] = await Promise.all([
     loadDamageCharges(appDb, user.operatorId, ids.damageId),
     listChargeTypes(appDb, user.operatorId),
+    loadCollectionChoices(appDb, user.operatorId, rentalId),
   ]);
   const usable = chargeTypes.filter((type) => !type.isArchived);
   const excessCents = detail.claim?.excessCents ?? null;
@@ -337,6 +339,8 @@ async function ChargeRenterCard({
               },
               todayInTimeZone(new Date(), user.operatorTimezone),
             )}
+            collectionChoices={collection.choices}
+            defaultCollection={collection.defaultCollection}
           />
         </FormDialog>
       </CardContent>

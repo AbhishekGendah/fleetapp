@@ -1,6 +1,6 @@
 "use client";
 
-import { fieldErrorsOf } from "@fleetapp/core";
+import { fieldErrorsOf, type DebitCollectionPlan } from "@fleetapp/core";
 import type { ChangeFormState } from "@fleetapp/ui/change-form-state";
 import { FormField } from "@fleetapp/ui/form-field";
 import { Input } from "@fleetapp/ui/input";
@@ -8,26 +8,48 @@ import { MoneyInput } from "@fleetapp/ui/money-input";
 import { Select } from "@fleetapp/ui/select";
 
 import { ChangeFormShell, useChangeForm } from "../../../components/change-form-shell";
+import { CollectionFields } from "./collection-form";
 import {
-  CHARGE_FIELDS,
-  chargeInputSchema,
-  type ChargeField,
-} from "../../../lib/ledger/ledger-input";
+  chargeWithCollectionSchema,
+  COLLECTION_FIELDS,
+  type CollectionField,
+} from "../../../lib/debits/debit-plan-input";
+import { CHARGE_FIELDS, type ChargeField } from "../../../lib/ledger/ledger-input";
 
-const alwaysRequired = (): boolean => true;
+const FIELDS = [...CHARGE_FIELDS, ...COLLECTION_FIELDS] as const;
+type Field = ChargeField | CollectionField;
 
-/** A one-off charge: what for (its type sets the GST), how much, what the Renter reads, and the day. */
+/** Every box is required, but the weeks only for a split. */
+function isRequired(field: Field, values: Readonly<Record<Field, string>>): boolean {
+  return field === "splitWeeks"
+    ? values.collection === "split"
+    : field !== "collection" || values.collection !== "";
+}
+
+/**
+ * A one-off charge: what for (its type sets the GST), how much, what the
+ * Renter reads, the day, and, for a Renter paying by direct debit, how it
+ * is collected.
+ */
 export function ChargeForm(props: {
   action: (state: ChangeFormState, formData: FormData) => Promise<ChangeFormState>;
   chargeTypes: readonly { id: string; label: string }[];
   initialValues: Record<ChargeField, string>;
+  /** The ways it can be collected; none when the Renter has no working direct debit. */
+  collectionChoices: readonly DebitCollectionPlan[];
+  /** The rental's default (its settings copy, rule 14), if it is one of the choices. */
+  defaultCollection: DebitCollectionPlan;
 }) {
-  const form = useChangeForm({
+  const { collectionChoices } = props;
+  const firstChoice = collectionChoices.includes(props.defaultCollection)
+    ? props.defaultCollection
+    : (collectionChoices[0] ?? "");
+  const form = useChangeForm<Field>({
     action: props.action,
-    fields: CHARGE_FIELDS,
-    initialValues: props.initialValues,
-    validate: (values) => fieldErrorsOf(chargeInputSchema.safeParse(values)),
-    isRequired: alwaysRequired,
+    fields: FIELDS,
+    initialValues: { ...props.initialValues, collection: firstChoice, splitWeeks: "" },
+    validate: (values) => fieldErrorsOf(chargeWithCollectionSchema.safeParse(values)),
+    isRequired,
     shouldClearOnSave: true,
   });
   const { fields } = form;
@@ -81,6 +103,9 @@ export function ChargeForm(props: {
       >
         <Input {...fields.textBoxProps("effectiveOn")} type="date" />
       </FormField>
+      {collectionChoices.length > 0 ? (
+        <CollectionFields fields={fields} choices={collectionChoices} />
+      ) : null}
     </ChangeFormShell>
   );
 }

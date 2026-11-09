@@ -1,6 +1,8 @@
 import {
+  debitFailureText,
   DIRECT_DEBIT_STATE_LABELS,
   formatCents,
+  PAYMENT_PURPOSE_LABELS,
   formatDateTimeInTimeZone,
   PAYMENT_METHOD_LABELS,
   PAYMENT_STATUS_LABELS,
@@ -8,17 +10,22 @@ import {
   type DirectDebitState,
 } from "@fleetapp/core";
 import { ActionButton } from "@fleetapp/ui/action-button";
+import { ConfirmButton } from "@fleetapp/ui/confirm-button";
+import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { Badge } from "@fleetapp/ui/badge";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
-import { Settings, XCircle } from "lucide-react";
+import { PauseCircle, PlayCircle, Settings, XCircle } from "lucide-react";
 import Link from "next/link";
 
 import { LinkSendChoices } from "../../../components/link-send-choices";
+import { CorrectionForm } from "../../../components/money-forms";
 import { RenterLinkStatus } from "../../../components/renter-link-status";
 import { appDb } from "../../../lib/app-db";
 import { BOND_OPEN_STATUSES } from "../../../lib/bonds/bond-account";
+import type { RentalDebitRow } from "../../../lib/debits/debit-queries";
+import { loadRentalDebitState, type RentalDebitState } from "../../../lib/debits/rental-debits";
 import { appPaymentsLinkDependencies } from "../../../lib/payments/app-payments-links";
 import { loadPaymentsLink } from "../../../lib/payments/payments-links";
 import { isStripeOfferedToRenters } from "../../../lib/payments/renter-checkout";
@@ -34,6 +41,8 @@ import type { SignedInUser } from "../../../lib/require-user";
 import {
   cancelPaymentsLinkAction,
   emailPaymentsLinkAction,
+  pauseDebitsAction,
+  resumeDebitsAction,
   showPaymentsLinkAction,
 } from "./payments-actions";
 
@@ -108,6 +117,79 @@ function PaymentRecords(props: { payments: RentalPayments; timeZone: string }) {
   );
 }
 
+/** What a debit was for: the rent week it is for, or a one-off charge. */
+function debitTitle(debit: RentalDebitRow, timeZone: string): string {
+  return debit.periodStartsAt
+    ? `${PAYMENT_PURPOSE_LABELS[debit.purpose]} · week from ${formatDateTimeInTimeZone(debit.periodStartsAt, timeZone)}`
+    : PAYMENT_PURPOSE_LABELS[debit.purpose];
+}
+
+/** Every debit the business asked Stripe for on this rental, newest first. */
+function DebitRecords(props: { debits: readonly RentalDebitRow[]; timeZone: string }) {
+  if (props.debits.length === 0) {
+    return null;
+  }
+  return (
+    <RecordList label="Debits from the Renter's bank">
+      {props.debits.map((debit) => (
+        <RecordItem
+          key={debit.id}
+          title={debitTitle(debit, props.timeZone)}
+          amount={formatCents(debit.amountCents)}
+          details={
+            <>
+              <span>{PAYMENT_STATUS_LABELS[debit.status]}</span>
+              <span>Asked for {formatDateTimeInTimeZone(debit.requestedAt, props.timeZone)}</span>
+              {debit.feeCents !== null ? (
+                <span>Stripe fee {formatCents(debit.feeCents)}</span>
+              ) : null}
+              {debit.status === "failed" ? (
+                <span>{debitFailureText(debit.failureCode)}</span>
+              ) : null}
+            </>
+          }
+        />
+      ))}
+    </RecordList>
+  );
+}
+
+/**
+ * Pausing a rental's automatic debits (a payment arrangement, a dispute),
+ * with why, or resuming them. Charges and invoices carry on either way.
+ */
+function DebitPauseActions(props: { rentalId: string; state: RentalDebitState }) {
+  if (props.state.isPaused) {
+    return (
+      <ConfirmButton
+        label="Resume automatic debits"
+        icon={<PlayCircle aria-hidden />}
+        variant="outline"
+        title="Resume automatic debits?"
+        description="Weekly debits start again from the next rent week. Weeks that began while paused stay owing, to collect another way."
+        confirmLabel="Yes, resume"
+        pendingLabel="Resuming…"
+        keepLabel="No, keep them paused"
+        action={resumeDebitsAction.bind(null, props.rentalId)}
+      />
+    );
+  }
+  return (
+    <FormDialog
+      triggerLabel="Pause automatic debits"
+      title="Pause automatic debits"
+      triggerIcon={<PauseCircle aria-hidden />}
+    >
+      <CorrectionForm
+        action={pauseDebitsAction.bind(null, props.rentalId)}
+        label="Why are they paused?"
+        hint="For a payment arrangement or a dispute. Kept for you; not shown to the Renter. Charges and invoices carry on, and weeks that begin while paused are never debited later."
+        submitLabel="Pause automatic debits"
+      />
+    </FormDialog>
+  );
+}
+
 /** Sending the Renter the link that gets their direct debit and bond done, while Stripe is offered. */
 async function PaymentsLinkActions(props: { rentalId: string; user: SignedInUser; now: Date }) {
   const link = await loadPaymentsLink(appDb, props.user.operatorId, props.rentalId, props.now);
@@ -153,13 +235,17 @@ export async function PaymentsCard(props: {
   const { rental, user, clock } = props;
   const isOpen = BOND_OPEN_STATUSES.has(rental.status);
   const deps = appPaymentsLinkDependencies(user.operatorTimezone);
-  const [isOffered, payments] = await Promise.all([
+  const [isOffered, payments, debits] = await Promise.all([
     isStripeOfferedToRenters(deps, user.operatorId),
     loadRentalPayments(appDb, user.operatorId, rental),
+    loadRentalDebitState(appDb, user.operatorId, rental),
   ]);
   // "How Jamie pays": direct debit and the bond, by Stripe.
   const heading = `How ${renterFirstName(rental.renterFullName, rental.renterPreferredName)} pays`;
-  const hasRecords = payments.payments.length > 0 || payments.directDebit !== "not_set_up";
+  const hasRecords =
+    payments.payments.length > 0 ||
+    debits.debits.length > 0 ||
+    payments.directDebit !== "not_set_up";
   if (!hasRecords) {
     if (!isOpen) {
       return null;
@@ -179,13 +265,18 @@ export async function PaymentsCard(props: {
       <CardHeader>
         <SectionLabel>{heading}</SectionLabel>
         <CardDescription>
-          Direct debit and bond by Stripe. The Renter sets up their direct debit and pays the bond
-          on Stripe&apos;s secure page. To change bank account, send the link again: the new direct
-          debit replaces the old.
+          Direct debit, weekly debits and bond by Stripe. The Renter sets up their direct debit and
+          pays the bond on Stripe&apos;s secure page; each rent week is then debited from their
+          bank, and counts as paid once the bank clears it. To change bank account, send the link
+          again: the new direct debit replaces the old.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <PaymentRecords payments={payments} timeZone={user.operatorTimezone} />
+        <DebitRecords debits={debits.debits} timeZone={user.operatorTimezone} />
+        {rental.status === "active" && rental.isLongTerm && payments.directDebit === "active" ? (
+          <DebitPauseActions rentalId={rental.id} state={debits} />
+        ) : null}
         {isOpen && payments.bond.toCollectCents > 0 ? (
           <p className="text-sm">Bond still to pay: {formatCents(payments.bond.toCollectCents)}.</p>
         ) : null}

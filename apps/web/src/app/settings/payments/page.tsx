@@ -21,8 +21,11 @@ import {
 } from "../../../lib/payments/payment-accounts";
 import { SETTINGS_PATH } from "../../../lib/paths";
 import { requireUser } from "../../../lib/require-user";
+import { wasRefusedOverLimitRecently } from "../../../lib/debits/debit-queries";
+import { choiceSettingValue } from "../../../lib/settings/choice-setting-input";
 import { loadOperatorSettings } from "../../../lib/settings/operator-settings";
 import { AppShell } from "../../app-shell";
+import { ChoiceSettingForm } from "../choice-setting-form";
 import { NumberSettingForm } from "../number-setting-form";
 import { connectStripeAction } from "./actions";
 
@@ -88,9 +91,10 @@ function laterRequirementsText(count: number): string {
 /** The business's own Stripe account: connecting it, and what Stripe says it can do. */
 export default async function PaymentSettingsPage() {
   const user = await requireUser();
-  const [account, settings] = await Promise.all([
+  const [account, settings, isOverLimit] = await Promise.all([
     currentAccount(user.operatorId),
     loadOperatorSettings(appDb, user.operatorId),
+    wasRefusedOverLimitRecently(appDb, user.operatorId, new Date()),
   ]);
   const state = account?.state ?? "not_connected";
   const isConnected = state !== "not_connected";
@@ -117,6 +121,19 @@ export default async function PaymentSettingsPage() {
               <p className="text-sm">{STATE_HELP[state]}</p>
               {laterCount > 0 ? (
                 <p className="text-muted-foreground text-sm">{laterRequirementsText(laterCount)}</p>
+              ) : null}
+              {isOverLimit ? (
+                <p className="text-sm font-medium">
+                  Stripe refused a debit in the last 30 days for being over your direct-debit limit.
+                  Ask Stripe to raise your limits, in your Stripe dashboard.
+                </p>
+              ) : null}
+              {isConnected ? (
+                <p className="text-muted-foreground text-sm">
+                  Leave Stripe&apos;s emails to customers about direct debits switched on in your
+                  Stripe settings: they tell each Renter before and after a debit, as Stripe&apos;s
+                  direct debit terms promise.
+                </p>
               ) : null}
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 {state === "ready" || state === "disconnected" ? null : (
@@ -145,6 +162,25 @@ export default async function PaymentSettingsPage() {
               each rental as now.
             </p>
           )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Direct debits</CardTitle>
+          <CardDescription>
+            Each rent week is debited from the Renter&apos;s bank once it is charged, from the
+            second week on. One-off charges (damage, excess, cleaning, fees) are only debited when
+            you choose to, charge by charge.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <RequiredFieldsNote />
+          <ChoiceSettingForm
+            setting="oneOffChargeCollection"
+            label="A new one-off charge starts as"
+            value={choiceSettingValue("oneOffChargeCollection", settings.oneOffChargeCollection)}
+            hint="You can change it on each charge. Invoice only is safest: nothing disputed is taken from a bank without the Renter agreeing. Each new rental keeps the choice it was made with."
+          />
         </CardContent>
       </Card>
       <Card>

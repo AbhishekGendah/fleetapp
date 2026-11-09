@@ -240,3 +240,76 @@ export async function recordUnpaidCharge(
     await client.end();
   }
 }
+
+/**
+ * Gives a rental's Renter a working direct debit and three debits on the
+ * rental, straight in the test database, as Stripe's stand-in leaves them:
+ * one on its way, one cleared (its payment line on the ledger) and one the
+ * bank bounced. For the rental page's screens, as the debits themselves are
+ * proven against the stand-in in the app's own tests (weekly-debits.test.ts).
+ */
+export async function recordDebits(rentalId: string): Promise<void> {
+  const client = new Client({ connectionString: process.env.E2E_SUPERUSER_URL });
+  await client.connect();
+  const madeUp = (prefix: string) => `${prefix}_e2e${randomUUID().replaceAll("-", "")}`;
+  try {
+    const { rows } = await client.query<{
+      operator_id: string;
+      renter_id: string;
+      handed_over_at: Date;
+    }>("SELECT operator_id, renter_id, handed_over_at FROM rentals WHERE id = $1", [rentalId]);
+    const rental = rows[0]!;
+    await client.query(
+      `INSERT INTO renter_stripe_customers (operator_id, renter_id, stripe_customer_id)
+       VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+      [rental.operator_id, rental.renter_id, madeUp("cus")],
+    );
+    const mandate = await client.query<{ id: string }>(
+      `INSERT INTO payment_mandates (operator_id, renter_id, method, status, stripe_setup_intent_id,
+         stripe_payment_method_id, stripe_mandate_id, set_up_at, activated_at)
+       VALUES ($1, $2, 'becs_debit', 'active', $3, $4, $5, now(), now()) RETURNING id`,
+      [rental.operator_id, rental.renter_id, madeUp("seti"), madeUp("pm"), madeUp("mandate")],
+    );
+    const debit = async (week: number, status: string, values: { fee?: number; code?: string }) => {
+      const result = await client.query<{ id: string }>(
+        `INSERT INTO payments (operator_id, renter_id, rental_id, purpose, method, amount_cents, status,
+           mandate_id, period_starts_at, requested_at, stripe_payment_intent_id, stripe_fee_cents,
+           failure_code, settled_at)
+         VALUES ($1, $2, $3, 'scheduled_debit', 'becs_debit', 35000, $4::payment_status, $5,
+           $6::timestamptz + make_interval(days => $7::int), now(), $8, $9, $10,
+           CASE WHEN $4::text = 'pending' THEN NULL ELSE now() END)
+         RETURNING id`,
+        [
+          rental.operator_id,
+          rental.renter_id,
+          rentalId,
+          status,
+          mandate.rows[0]!.id,
+          rental.handed_over_at,
+          week * 7,
+          madeUp("pi"),
+          values.fee ?? null,
+          values.code ?? null,
+        ],
+      );
+      return result.rows[0]!.id;
+    };
+    await debit(3, "pending", {});
+    await debit(2, "failed", { code: "insufficient_funds" });
+    const cleared = await debit(1, "succeeded", { fee: 150 });
+    const line = await client.query<{ id: string }>(
+      `INSERT INTO ledger_lines (operator_id, rental_id, kind, amount_cents, gst_cents, description,
+         effective_on, method)
+       VALUES ($1, $2, 'payment', 35000, 0, 'Direct debit received', current_date, 'becs_debit')
+       RETURNING id`,
+      [rental.operator_id, rentalId],
+    );
+    await client.query(
+      `INSERT INTO payment_ledger_lines (operator_id, rental_id, payment_id, ledger_line_id, reason)
+       VALUES ($1, $2, $3, $4, 'settled')`,
+      [rental.operator_id, rentalId, cleared, line.rows[0]!.id],
+    );
+  } finally {
+    await client.end();
+  }
+}

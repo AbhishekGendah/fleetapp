@@ -103,7 +103,14 @@ async function selectRentalPayments(
       settledAt: payments.settledAt,
     })
     .from(payments)
-    .where(and(eq(payments.operatorId, operatorId), eq(payments.rentalId, rentalId)))
+    .where(
+      and(
+        eq(payments.operatorId, operatorId),
+        eq(payments.rentalId, rentalId),
+        // Debits are listed on their own, with what each was for (slice 5).
+        eq(payments.purpose, "bond"),
+      ),
+    )
     .orderBy(asc(payments.createdAt));
   // The database allows only card and BECS here (payments_method).
   return rows.map((row) => ({ ...row, method: row.method as StripePaymentMethod }));
