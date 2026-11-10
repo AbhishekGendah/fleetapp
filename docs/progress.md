@@ -1365,6 +1365,15 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
   cycle (three event types to add to the connected-accounts destination
   first). Test sheet rows O-556 to O-571 (O-307, O-309, O-326 to O-328,
   O-331, O-343, O-347, O-348, O-549 updated).
+  - Set up by Abhi on 10 Nov 2026: the sandbox had only the platform
+    destination, so Renter payment news from businesses' accounts never
+    reached the dev site. He added "Fleet dev connected events"
+    (Connected accounts, thin, Webhook endpoint at the dev site's
+    /api/stripe/events) with all 14 v1 events the app handles (Checkout
+    x4, mandate.updated, payment_intent x3, refund x3, dispute x2,
+    account.application.deauthorized), its signing secret in Bitwarden and
+    as STRIPE_CONNECT_WEBHOOK_SECRET in the web project (Production and
+    Preview).
 
 ## Next
 
