@@ -22,6 +22,37 @@ describe("describing an error for a log", () => {
     });
   });
 
+  it("names the object a refused permission was about, and nothing else", () => {
+    const denied = Object.assign(new Error("wrapped"), {
+      cause: { code: "42501", message: "permission denied for table issued_documents" },
+    });
+    const policy = Object.assign(new Error("wrapped"), {
+      cause: {
+        code: "42501",
+        message: 'new row violates row-level security policy for table "files"',
+      },
+    });
+
+    expect(describeErrorForLog(denied)).toEqual({
+      errorType: "Error",
+      code: "42501",
+      refusedObject: "table issued_documents",
+    });
+    expect(describeErrorForLog(policy)).toEqual({
+      errorType: "Error",
+      code: "42501",
+      refusedObject: "row-level security on table files",
+    });
+  });
+
+  it("keeps no part of any other error's message", () => {
+    const error = Object.assign(new Error("wrapped"), {
+      cause: { code: "23505", message: "permission denied for table jo@example.test" },
+    });
+
+    expect(JSON.stringify(describeErrorForLog(error))).not.toContain("example.test");
+  });
+
   it("copes with things that are not errors", () => {
     expect(describeErrorForLog("oops")).toEqual({ errorType: "string" });
     expect(describeErrorForLog(null)).toEqual({ errorType: "object" });
