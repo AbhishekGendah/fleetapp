@@ -58,6 +58,34 @@ WHERE rolname IN ('web_app_role', 'web_auth_role', 'admin_app_role', 'admin_auth
 
 Every row must show `false`, `false`.
 
+## Transactions must hold together
+
+Each app also checks, as it starts, that a transaction really is one
+transaction on its connection (`packages/db/src/transaction-check.ts`):
+it opens one the way every tenant query does (`withTenant`, with a made-up
+business id that no Operator has), runs four statements at once inside it,
+and requires every one to report the same transaction and the business it
+set. Nothing is read from or written to any table. If they don't all
+match, the app refuses to start, and its logs say "does not keep a
+transaction together" and what was wrong. A failure here means every
+business's records rest on luck instead of the tenant lock: don't work
+round it, find why (for example a database proxy that doesn't keep a
+transaction on one connection, or a driver change).
+
+The checks open their own short-lived connections and close them, so the
+start-up code never makes the pool the pages run on.
+
+Why it exists: from 5 to 11 Nov 2026 the dev site's start-up check made
+the shared database pool with its own bundled copy of Neon's driver. The
+pages' copy of Drizzle didn't recognise that pool, so it didn't hold each
+transaction to one connection: statements went to whichever connection
+was free, and a write after reads made at once could run with no business
+set (the demo data stopped on "new row violates row-level security
+policy for table bond_movements"). Pools are now kept per copy of the
+driver (`packages/db/src/client.ts`), and
+`packages/db/test/neon-driver-transactions.test.ts` runs Neon's real
+driver through a local relay to prove both the failure and the fix.
+
 ## If a login was made on Neon's screen (it shows `t` above)
 
 Neon won't let the database owner change such a login ("permission denied

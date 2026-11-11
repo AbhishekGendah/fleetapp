@@ -1205,3 +1205,23 @@ As built slice 2).
   records: kept at least 5 years, only ever added to (the database refuses
   changes and deletes), and never removed by the retention jobs.
 
+## Database transactions not held together on the dev site (5 to 11 Nov 2026)
+
+- **What happened.** On the dev site only, from 5 Nov (when the start-up
+  login check was added) to 11 Nov 2026, the app's database transactions
+  were not held to one connection, so a statement could run on a
+  connection without the business it was meant for set. Row-level
+  security mostly refused such statements (that is how it was found: the
+  demo data stopped), but in theory one request's statement could have run
+  inside another business's transaction on the same connection and read
+  that business's records.
+- **Why it doesn't need notifying.** The dev site holds made-up data only
+  (CLAUDE.md: real Renter data never exists outside production), and
+  production is not live yet. No real person's information was involved,
+  so there is nothing notifiable under the Notifiable Data Breaches scheme
+  and no one to tell.
+- **What was done.** Fixed in `packages/db/src/client.ts`, and each app
+  now refuses to start if a transaction doesn't hold together
+  (docs/runbooks/database-roles.md). Keep this note as part of the
+  security record (APP 11: reasonable steps to protect information).
+

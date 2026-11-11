@@ -1375,6 +1375,21 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
     as STRIPE_CONNECT_WEBHOOK_SECRET in the web project (Production and
     Preview).
 
+- **Database transactions held together (11 Nov 2026, approved by Abhi).**
+  The dev site's demo data stopped on "Rentals that are out now" with a
+  row-level security refusal on bonds. Cause: since 5 Nov the start-up
+  login check made the shared database pool with its own bundled copy of
+  Neon's driver, which the pages' Drizzle didn't recognise, so their
+  transactions weren't held to one connection. Fixed: pools are kept per
+  copy of the driver; the start-up checks use their own connections and
+  close them; each app now refuses to start if a transaction's statements
+  don't all run in one transaction with the business set
+  (docs/runbooks/database-roles.md). A test runs Neon's real driver
+  through a local relay. Dev data only, nothing notifiable
+  (docs/legal-notes.md). Demo rentals booked without a bond by the failed
+  presses stay as they are; add demo data on a fresh business to see the
+  whole set.
+
 ## Next
 
 **Money side first (Abhi, 9 Nov: "lets finish the money side"):** Phase 4

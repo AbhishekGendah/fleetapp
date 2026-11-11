@@ -250,6 +250,17 @@ Add to this list whenever something is relaxed or put off "until launch".
       Stripe's and the app's ids only. There is no Operator-facing notice of
       it yet (no record to hang one on without a new table).
 
+## Database transactions (11 Nov 2026 fix)
+
+- [ ] Production starts on its own fresh database (already planned), never
+      a copy of the dev one: dev records made 5 to 11 Nov 2026 may be half
+      saved, because transactions weren't held together then (see
+      docs/runbooks/database-roles.md).
+- [ ] In the full security review, confirm on the production deployment's
+      start-up logs that both apps passed the transaction check, and that
+      the production database URL's proxy keeps a transaction on one
+      connection (Neon's pooled address does, in transaction mode).
+
 ## Weekly debits leftovers
 
 From the weekly debits review (Phase 4 slice 5, 9 Nov 2026), not blocking:
