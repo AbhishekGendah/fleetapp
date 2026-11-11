@@ -260,6 +260,18 @@ Add to this list whenever something is relaxed or put off "until launch".
       start-up logs that both apps passed the transaction check, and that
       the production database URL's proxy keeps a transaction on one
       connection (Neon's pooled address does, in transaction mode).
+- [ ] From the fix's two reviews: the start-up check tests only the
+      start-up bundle's own copy of the driver, not the pages' or route
+      handlers' copies, so a return of cross-copy pool sharing would pass it
+      (the per-driver pool key and its unit test are the real guard). Add a
+      once-per-pool check on first use, or a preview smoke test of a
+      withTenant read-then-write against Neon.
+- [ ] Also from the reviews: if a pool `max` is ever set, keep it above 1;
+      give the start-up checks a connect/statement timeout; don't let a
+      failing `close()` hide the original error; replace the deprecated
+      `txid_current()` with `pg_current_xact_id()`; watch Neon's connection
+      limit (one pool per driver copy per URL); browser tests use
+      node-postgres, so run the built app through Neon once before launch.
 
 ## Weekly debits leftovers
 
