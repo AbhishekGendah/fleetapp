@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
-import { assertSafeDatabaseRole, databaseRoleProblems } from "../src/role-check";
+import { assertSafeDatabaseRole, databaseRoleProblems, prepareServer } from "../src/role-check";
+import { transactionProblems } from "../src/transaction-check";
 import { connectAs, type TestConnection } from "./fixtures";
 
 /** Each app refuses to start on a database login that would skip the tenant lock (review G1-4). */
@@ -39,5 +40,25 @@ describe("the start-up database login check", () => {
     await expect(
       assertSafeDatabaseRole(connect(inject("superuserUrl")).db, "test"),
     ).rejects.toThrow(/superuser/);
+  });
+
+  it("finds each app login's transactions held together", async () => {
+    for (const url of roleUrls) {
+      expect(await transactionProblems(connect(url).db)).toEqual([]);
+    }
+  });
+
+  it("checks on connections of its own, leaving no pool for the app to pick up", async () => {
+    const [webUrl, , webAuthUrl] = roleUrls;
+    await prepareServer({ app: webUrl!, login: webAuthUrl! });
+
+    const sharedPools = [...(globalThis.__fleetappDbPoolsByDriver?.values() ?? [])];
+    expect(sharedPools.some((pools) => pools.has(webUrl!) || pools.has(webAuthUrl!))).toBe(false);
+  });
+
+  it("refuses to start on an unsafe login, after closing its connection", async () => {
+    await expect(prepareServer({ app: inject("ownerUrl") })).rejects.toThrow(
+      /owns the app's tables/,
+    );
   });
 });

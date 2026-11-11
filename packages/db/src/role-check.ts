@@ -3,7 +3,8 @@ import { z } from "zod";
 
 import { installSafeErrorLogging } from "@fleetapp/core/server";
 
-import type { AnyDatabase } from "./client";
+import { openShortLivedDb, type AnyDatabase } from "./client";
+import { assertTransactionsHold } from "./transaction-check";
 
 const roleRowSchema = z.object({
   rows: z.array(
@@ -62,11 +63,20 @@ export async function assertSafeDatabaseRole(database: AnyDatabase, which: strin
 /**
  * What each app does as its server starts: makes server error logging safe
  * (review A7-1), then refuses to start if any of its database logins could
- * skip the tenant lock (review G1-4).
+ * skip the tenant lock (review G1-4) or its transactions don't hold together.
+ * Each check runs on a connection of its own, closed after: the start-up
+ * hook is bundled apart from the pages, so a pool it made and left behind
+ * could be picked up by them (the dev site, 5 to 11 Nov 2026).
  */
-export async function prepareServer(databases: Record<string, AnyDatabase>): Promise<void> {
+export async function prepareServer(connectionStrings: Record<string, string>): Promise<void> {
   installSafeErrorLogging();
-  for (const [which, database] of Object.entries(databases)) {
-    await assertSafeDatabaseRole(database, which);
+  for (const [which, connectionString] of Object.entries(connectionStrings)) {
+    const { db, close } = openShortLivedDb(connectionString);
+    try {
+      await assertSafeDatabaseRole(db, which);
+      await assertTransactionsHold(db, which);
+    } finally {
+      await close();
+    }
   }
 }

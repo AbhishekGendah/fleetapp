@@ -29,9 +29,13 @@ export type AnyTransaction = Parameters<Parameters<AnyDatabase["transaction"]>[0
 /** Idle connections are let go after this, before Neon's own timeout closes them under us. */
 const IDLE_CONNECTION_MS = 10_000;
 
+/** Either driver's pool class: Neon's for real databases, node-postgres's for local ones. */
+type PoolClass = typeof Pool | typeof NodePostgresPool;
+type AnyPool = Pool | NodePostgresPool;
+
 declare global {
   // `var` is required here: ambient global declarations don't support `let`/`const`.
-  var __fleetappDbPools: Map<string, Pool | NodePostgresPool> | undefined;
+  var __fleetappDbPoolsByDriver: Map<PoolClass, Map<string, AnyPool>> | undefined;
 }
 
 /**
@@ -45,44 +49,89 @@ function isLocalDatabase(connectionString: string): boolean {
   return LOCAL_DATABASE_HOSTS.has(new URL(connectionString).hostname);
 }
 
-/**
- * One pool per connection string, reused across requests.
- *
- * There is more than one connection string now: each app has its own database
- * role, and the login system has a third that can reach the credential tables
- * the rest of the app cannot. Keying by connection string keeps those pools
- * separate, which is the whole point of the separate roles.
- */
-function getPool(connectionString: string): Pool | NodePostgresPool {
-  const pools = (globalThis.__fleetappDbPools ??= new Map<string, Pool | NodePostgresPool>());
+function driverPoolFor(connectionString: string): PoolClass {
+  return isLocalDatabase(connectionString) ? NodePostgresPool : Pool;
+}
 
-  const existing = pools.get(connectionString);
-  if (existing) {
-    return existing;
-  }
-
-  const settings = { connectionString, idleTimeoutMillis: IDLE_CONNECTION_MS };
-  const pool = isLocalDatabase(connectionString)
-    ? new NodePostgresPool(settings)
-    : new Pool(settings);
+function newPool(connectionString: string): AnyPool {
+  const DriverPool = driverPoolFor(connectionString);
+  const pool = new DriverPool({ connectionString, idleTimeoutMillis: IDLE_CONNECTION_MS });
   // Neon closes idle connections when its database sleeps; the pool reports
   // that as an "error" event, which with no listener would crash the server.
   // A dropped idle connection is simply replaced on the next query.
   pool.on("error", (error: unknown) => {
     console.warn("An idle database connection was closed", describeErrorForLog(error));
   });
+  return pool;
+}
+
+/**
+ * One pool per driver and connection string, reused across requests.
+ *
+ * There is more than one connection string: each app has its own database
+ * role, and the login system has a third that can reach the credential tables
+ * the rest of the app cannot. Keying by connection string keeps those pools
+ * separate, which is the whole point of the separate roles.
+ *
+ * Keyed by the driver's own pool class too, because one server can load more
+ * than one copy of the driver: Next.js bundles its start-up hook apart from
+ * the pages. Drizzle holds a transaction to one connection only when the pool
+ * is an instance of the very class it imported; a pool made by another copy
+ * fails that check, so each statement of a "transaction" ran on whichever
+ * connection was free, and some ran with no business set (the dev site,
+ * 5 to 11 Nov 2026). Each copy now only ever gets the pools it made itself.
+ * The map stays on globalThis so a hot reload in development, which runs
+ * this file again but not the driver, keeps its pools.
+ */
+function getPool(connectionString: string): AnyPool {
+  const byDriver = (globalThis.__fleetappDbPoolsByDriver ??= new Map());
+  const DriverPool = driverPoolFor(connectionString);
+  let pools = byDriver.get(DriverPool);
+  if (!pools) {
+    pools = new Map<string, AnyPool>();
+    byDriver.set(DriverPool, pools);
+  }
+  const existing = pools.get(connectionString);
+  if (existing) {
+    return existing;
+  }
+  const pool = newPool(connectionString);
   pools.set(connectionString, pool);
   return pool;
 }
 
-export function createDb(connectionString: string): AnyDatabase {
+function requireConnectionString(connectionString: string): void {
   if (!connectionString) {
     throw new Error("A connection string is required to create a database client.");
   }
-  const pool = getPool(connectionString);
+}
+
+function drizzleOn(pool: AnyPool): AnyDatabase {
   return pool instanceof NodePostgresPool
     ? drizzleNodePostgres(pool, { schema })
     : drizzle(pool, { schema });
+}
+
+export function createDb(connectionString: string): AnyDatabase {
+  requireConnectionString(connectionString);
+  return drizzleOn(getPool(connectionString));
+}
+
+/** A connection of its own, never shared, for a one-off job such as the start-up checks. */
+export interface ShortLivedDb {
+  db: AnyDatabase;
+  close: () => Promise<void>;
+}
+
+/**
+ * A database client on a pool of its own, which the caller closes when done.
+ * The start-up checks use it so they never make, or keep, the pool the app's
+ * requests then run on.
+ */
+export function openShortLivedDb(connectionString: string): ShortLivedDb {
+  requireConnectionString(connectionString);
+  const pool = newPool(connectionString);
+  return { db: drizzleOn(pool), close: () => pool.end() };
 }
 
 /** The app's own database client, using the role that app runs as. */
