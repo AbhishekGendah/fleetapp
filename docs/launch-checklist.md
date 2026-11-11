@@ -267,6 +267,7 @@ From the weekly debits review (Phase 4 slice 5, 9 Nov 2026), not blocking:
 - [ ] A debit Stripe refused that later reports succeeded only writes a server log line (no AGS alert email), so the money stays off the ledger until someone notices; send the AGS alert email.
 - [ ] Asking Stripe again (within 23 hours) checks pause, suspension and Stripe readiness, but not that the rental is still out or the direct debit still usable.
 - [ ] A not-sent debit whose PaymentIntent sits at "processing" is not re-read by the 7-day sweep, so recording it relies on Stripe's succeeded message arriving.
+- [ ] Found in the sandbox (11 Nov 2026): removing a business's Stripe account from the platform ("Remove account" in Connect) sends no event to either destination (Accounts v2), and the app's own read of the account then fails, so Settings → Payments keeps showing the last state forever (Renters stay safely off Stripe's page). Treat a read refused for a removed account as disconnected. Separately, a disconnected business can't connect a different account yet ("Contact us"; review-fixes-batch-2 deferred it to its own plan): build that before launch.
 - [ ] Recovery's lookup uses Stripe's created time with a 10-minute margin; a larger clock gap could still give a wrong "not sent" (now recorded if Stripe later says succeeded).
 
 ## Documents
