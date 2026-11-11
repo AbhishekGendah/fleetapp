@@ -1491,6 +1491,13 @@ generator needs Abhi's say-so.
 
 ## Open items
 
+- Abhi's request (11 Nov, for later, needs a plan and his go): a new
+  Operator's first sign-in should take them to an onboarding page where
+  they fill in all their details (business details, then the rest of the
+  setup) before using the app, instead of landing on the home page with a
+  "Finish setting up" card. Found while making the "Debit Test" business
+  for the Stripe sandbox test.
+
 - Late-car review follow-up (8 Nov, low): if a car's status were ever wrong
   (out but marked Available), a swap or handover into it is refused by the
   possessions overlap rule as an error page rather than a message. Catch
