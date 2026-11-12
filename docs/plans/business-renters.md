@@ -1018,13 +1018,14 @@ unchanged and passing).
   | Bond by hand, or a correction of it | rental |
   | A new Stripe bond page kept (`startRenterCheckout`) | rental, the page |
   | Stripe's news of a bond, a direct debit or a debit (message, or the Renter back from Stripe's page) | rental, the page, the payment, direct debits, bond entry |
-  | Reserving a debit (the nightly run, "Take it now") | rental, then writes the payment and its items (Renter, direct debit and charge lines key shared) |
+  | Reserving a debit (the nightly run: a week's debit and each "Debit on [date]" charge whose day has come; one-off charge notice, 12 Nov 2026) | rental, then writes the payment and its items (Renter, direct debit and charge lines key shared) |
   | Saving Stripe's answer, or the run's recovery of one | rental, the payment |
   | Stripe's news of a debit (cleared or failed) | rental, the payment, the ledger line and its link |
   | Stripe's news of a refund or dispute (bond or debit) | rental, the payment, then the bond entry or the ledger line and its link |
   | Pausing or resuming automatic debits | rental |
   | A one-off charge with how it is collected (charge form, damage) | rental, then writes the charge and its plan |
   | Changing how a one-off charge is collected | rental, the plan |
+  | A one-off charge's invoice emailed, its notice date set (one-off charge notice, 12 Nov 2026) | rental, the plan (after the email is sent, never while it is sent) |
   | Sending a signing link | rental, change of terms, Renter, their links |
   | Sending a payments link (also after signing) | Renter, their links |
   | Sending a details link | Renter, their links |

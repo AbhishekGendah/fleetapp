@@ -105,7 +105,9 @@ bank transfer), which is also what many Operators will keep doing.
 
 - **Invoice per weekly charge**, plus one per one-off charge (or grouped
   with the next weekly invoice: the Operator's setting, default grouped).
-  Emailed to the Renter automatically (setting, default on).
+  Emailed to the Renter automatically (setting, default on). Since 12 Nov
+  2026 (docs/plans/one-off-charge-notice.md) every one-off charge has its
+  own invoice at once, always emailed; the grouping choice is gone.
 - **Numbers in sequence per Operator with no gaps (rule 17):** a counter
   per Operator, taken and moved on inside the same database transaction
   that records the invoice, so a failure takes neither. Format set by the
@@ -141,7 +143,9 @@ bank transfer), which is also what many Operators will keep doing.
 - One-off charges wait for the next weekly invoice while rent is still to
   come (booked or out); on a returned rental they are invoiced at once;
   "Invoice now" on the rental's page issues them early. The setting is
-  copied onto each rental (rule 14).
+  copied onto each rental (rule 14). Superseded on 12 Nov 2026
+  (docs/plans/one-off-charge-notice.md): each one-off charge is invoiced on
+  its own at once and always emailed; "Invoice now" is gone.
 - Statements are per rental, for any range of days, and kept as issued
   documents. The closing statement comes with slice 7.
 - "How to pay" (Settings → Invoices) prints under every invoice; CLAUDE.md

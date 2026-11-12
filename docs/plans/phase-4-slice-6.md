@@ -3,6 +3,10 @@
 Status: draft for Abhi's approval (5 Nov 2026). Touches money, schema and
 Stripe: nothing is built until approved.
 
+Brought up to date with the one-off charge notice (docs/plans/
+one-off-charge-notice.md, built 12 Nov 2026), which changes some of this
+plan's assumptions; see "Since the one-off charge notice" below.
+
 Outline already approved: docs/plans/phase-4.md (slice 6). Design:
 docs/design/06-money.md (failed payments, arrears). Builds on slice 5
 (docs/plans/phase-4-slice-5.md: debits as `payments` rows, `debit_items`,
@@ -14,6 +18,29 @@ decision 2 (a payment counts only once Stripe says it succeeded), a failed
 debit never had a ledger line, so nothing is reversed: the charge simply
 stays owing. A debit that bounces after succeeding arrives as a dispute,
 which slice 5 already reverses.
+
+## Since the one-off charge notice (12 Nov 2026)
+
+What changed under this plan, to settle when it is approved:
+
+- **One-off debits are made by the nightly run**, on or after each
+  charge's notice date ("Debit on [date]"), never at once; "Take it now"
+  is gone. A retry of a failed one-off debit (below) is a debit of a charge
+  whose notice was already given, so it may go on its retry day; the
+  database checks only that the notice date has come.
+- **The database refuses a debit item for a one-off charge before its
+  notice date, or without one** (migration 0064). Any debit this slice
+  makes from one-off charges, a retry with items or "Debit what's owing
+  now", must either leave such charges out or carry no items for them.
+- **"Debit what's owing now" needs a decision**: as written it can take a
+  one-off charge the Renter has not yet been given notice of (it debits
+  the amount owing). Recommendation: cap it at what is owing less one-off
+  charges whose notice date hasn't come, so a charge is never taken early;
+  tradeoff: the business may have to wait for a charge's date even when the
+  Renter agrees to pay now.
+- **The late fee** is a one-off charge: it now gets its own invoice at once,
+  always emailed, and if debited, waits for its notice date like any other.
+- **Migration number**: 0065 (after 0064), not 0053.
 
 ## What it delivers
 
@@ -157,7 +184,8 @@ says "Add your state in Business details so its holidays count".
   using the built-in `late_fee` charge type (its GST treatment, rule 9),
   linked to the rent charge it is for. A unique rule allows only one per
   rent charge, so a re-run never adds it twice (rule 20). It is invoiced
-  and collected as a one-off charge (slice 5's default).
+  and collected as a one-off charge (slice 5's default): its own invoice,
+  emailed at once, and if debited, not before its notice date.
 - Reversing a late fee works as for any charge, logged.
 
 ## Debit what's owing now
@@ -200,12 +228,12 @@ MoneyInput, Input, ConfirmButton, Badge, ToggleGroup). Two new emails in
 packages/email (business and Renter), one for the cancelled direct debit
 (business), from the shared email layout.
 
-## Database changes (migration 0053, after slice 5's 0052)
+## Database changes (migration 0065, after 0064)
 
 Backwards compatible, proved on a filled database (batch 6).
 
 - **`payments`:** purpose `owing_now` (rules compare it as text, as in
-  0052); `retry_of_payment_id` (a link within the same business and
+  0063); `retry_of_payment_id` (a link within the same business and
   rental, unique: one retry per failed debit; only attempt 2 has one); a
   rule that one pending `owing_now` debit per rental at most; `created_by_user_id`
   for "owing now".
@@ -226,7 +254,7 @@ Backwards compatible, proved on a filled database (batch 6).
 
 1. **Core:** banking days (`addBankingDays`, with the holiday library),
    retryable reason codes, retry amount, late-fee rule, age bands. Tests.
-2. **Database:** migration 0053, database tests.
+2. **Database:** migration 0065, database tests.
 3. **Server:** failure handling and emails, the retry in the debit run,
    late fees in the rent run, "Debit what's owing now", the cancelled
    direct debit alert.

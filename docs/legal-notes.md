@@ -545,8 +545,9 @@ of service) and the countries.
   Renter's name (the ATO asks for the buyer's identity from $1,000; it is
   always shown). Otherwise it is an "Invoice" with no GST shown.
   **Ask the accountant:** whether issuing each week's invoice in advance
-  on the charge day is the right tax point; whether a one-off charge held
-  for the next weekly invoice is fine; and that the address and contact
+  on the charge day is the right tax point; (since 12 Nov 2026 a one-off
+  charge is never held for the next weekly invoice: it has its own at
+  once); and that the address and contact
   lines are enough (they come from Settings → Business details).
 - **Adjustment notes:** a correction (a reversed charge, unused days
   credited) is issued as an "Adjustment note" while registered (GST Act
@@ -1204,6 +1205,53 @@ As built slice 2).
   Stripe's news made and how each one-off charge was collected are tax
   records: kept at least 5 years, only ever added to (the database refuses
   changes and deletes), and never removed by the retention jobs.
+
+## One-off charges: told, then notice before any debit (12 Nov 2026, built)
+
+docs/plans/one-off-charge-notice.md, approved by Abhi on 12 Nov 2026 with a
+3-day notice.
+
+- **What it does.** Every one-off charge (cleaning, damage, excess, a fee)
+  gets its own tax invoice at once, always emailed to the Renter (or a
+  business's contact), stating the charge, its amount and GST, the car,
+  the business's phone and email, and, if it will be debited, the date and
+  the last four digits of the account. Nothing is debited before that date
+  (the day of the email plus the business's notice period, at least 3
+  days), and nothing at all if the email didn't go. The database refuses
+  an early debit too.
+- **Lawyer to confirm (before launch):**
+  - **The 3-day minimum** against the BECS Procedures and the BECS user
+    guidelines (which suggest at least 14 days' notice of a debit, not
+    mandatory), Stripe's BECS Direct Debit Request Service Agreement (its
+    notice terms for debits of a varying amount; Stripe gives 30 days for a
+    change to the agreement, and its own pre-debit email goes the day
+    before), and the Australian Consumer Law (unfair contract terms, and
+    whether a one-off charge such as damage may be debited without the
+    Renter agreeing to the amount; until answered the default stays
+    "Invoice only, don't debit", decision 2 of slice 5).
+  - **The email's wording**: "It will be debited from your account ending
+    3456 on Sun 15 Nov 2026." (or "with your first weekly debit on or
+    after …", or "in N weekly parts, the first on or after …"), and
+    "Questions about a charge? Contact [business] on [phone] or at [email]
+    before [date]." Whether it is enough as the BECS notice of the debit,
+    and whether it must also say how to dispute it with their bank.
+  - **The rental contract template** should say that one-off charges may
+    be debited under the Direct Debit Request after notice by email.
+- **Spam Act.** The invoice email is transactional (about the Renter's own
+  rental), so it needs no unsubscribe; it names the business and goes from
+  it, as other invoices do.
+- **Privacy (APP 8, APP 11).** The last four digits are read from Stripe
+  when the email is made and never stored by us (rule 7); nothing new goes
+  to Stripe. The email goes only to the Renter's (or contact's) address on
+  file; each try is recorded without the address. Logs carry ids only.
+- **Record keeping.** Each invoice is a fixed document (rule 12); each
+  email try, the notice date and who gave it (the activity log) are kept
+  with the money records, at least 5 years.
+- **Going live.** Charges already planned for a debit when this went live
+  were emailed their invoice the first night and their notice ran from
+  then. Each open rental's switch to "one-off charges invoiced at once" is
+  logged as a change to its terms (rule 14). Only the dev site (made-up
+  data) had any.
 
 ## Database transactions not held together on the dev site (5 to 11 Nov 2026)
 

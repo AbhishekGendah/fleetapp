@@ -295,6 +295,16 @@ From the weekly debits review (Phase 4 slice 5, 9 Nov 2026), not blocking:
 - [ ] Found in the sandbox (12 Nov 2026): the admin site's "Stripe payments" / "Stripe not ready" reads the old operators.stripe_charges_enabled / stripe_payouts_enabled columns, which nothing updates since Stripe moved to the stripe_accounts table (slice 3), so every business shows "Stripe not ready" in admin even when Settings → Payments says Ready. Give admin the account state (e.g. a SECURITY DEFINER summary returning only the state, no ids) and drop the old operators.stripe_* columns. Schema change: plan first.
 - [ ] Recovery's lookup uses Stripe's created time with a 10-minute margin; a larger clock gap could still give a wrong "not sent" (now recorded if Stripe later says succeeded).
 
+## One-off charge notice leftovers (12 Nov 2026)
+
+docs/plans/one-off-charge-notice.md, put off on purpose:
+
+- [ ] The lawyer confirms the 3-day minimum and the invoice email's wording against the BECS rules, Stripe's DDR service agreement and consumer law (docs/legal-notes.md); change `MINIMUM_ONE_OFF_NOTICE_DAYS` (packages/core/src/one-off-notice.ts) if told to.
+- [ ] Confirm in the Stripe sandbox that reading a direct debit's last four digits (`paymentMethods.retrieve` on the connected account, `au_becs_debit.last4`) works with Accounts v2, on the dev site, with a real one-off charge planned "Debit on [date]".
+- [ ] A browser test for "Invoice not sent" and Email invoice again (the browser tests' email always sends; covered by the app's own tests only).
+- [ ] An email that bounces after it was sent keeps its notice date (we did send it); decide whether a bounce should stop the debit once bounces are recorded from Postmark.
+- [ ] Later (not in this slice): an AGS check for a business with unusually many one-off debits or disputes, and a Renter "I dispute this charge" button that pauses the charge's debit.
+
 ## Documents
 
 - [ ] The lawyer confirms 7 years: a Renter's personal details, signed PDFs
