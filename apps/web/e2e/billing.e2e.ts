@@ -9,8 +9,8 @@ import type { RentalParties } from "./rental-steps";
 /**
  * A rental's invoices and receipts on the Operator's phone: the first
  * invoice issued by the daily run, a receipt for a payment, a one-off
- * charge invoiced now, a statement, a document emailed again; and
- * Settings → Invoices.
+ * charge invoiced on its own at once and emailed, a statement, a document
+ * emailed again; and Settings → Invoices.
  */
 const RENTER = { name: "Ivy Invoice", email: "ivy.invoice@example.test", phone: "0412002002" };
 const CAR_REGO = "E2E2002";
@@ -80,9 +80,12 @@ test.describe.serial("invoices and receipts", () => {
       ).toBeVisible();
     });
 
-    test("a one-off charge waits for the weekly invoice, or is invoiced now", async ({ page }) => {
+    test("a one-off charge is invoiced on its own at once and emailed, its line says so", async ({
+      page,
+    }) => {
       await openRental(page);
-      await page.getByRole("button", { name: "Add charge" }).click();
+      await page.getByRole("button", { name: "Add charge" }).focus();
+      await page.keyboard.press("Enter");
       const charge = page.getByRole("dialog");
       await charge.getByLabel(/^What for/).selectOption({ label: "Cleaning" });
       await charge.getByRole("textbox", { name: /^Amount/ }).pressSequentially("60");
@@ -90,22 +93,20 @@ test.describe.serial("invoices and receipts", () => {
       await charge.getByRole("button", { name: "Add charge" }).click();
       await expect(charge).toBeHidden();
       await expect(
-        page.getByText("1 charge is waiting for the next weekly invoice."),
-      ).toBeVisible();
-
-      // From the keyboard.
-      await page.getByRole("button", { name: "Invoice now" }).focus();
-      await page.keyboard.press("Enter");
-      // The button goes once nothing is waiting; the new invoice is listed instead.
-      await expect(page.getByText("1 charge is waiting for the next weekly invoice.")).toHaveCount(
-        0,
-      );
-      await expect(
         page
           .getByRole("listitem")
           .filter({ has: page.getByText(INVOICE_TITLE) })
           .filter({ hasText: "$60.00" }),
       ).toBeVisible();
+      // Nothing waits for the next weekly invoice any more.
+      await expect(page.getByRole("button", { name: "Invoice now" })).toHaveCount(0);
+      const line = page
+        .getByRole("list", { name: "Money lines" })
+        .getByRole("listitem")
+        .filter({ hasText: "Vacuumed" });
+      await expect(line.getByText(/^Invoice emailed \w{3} \d{1,2} \w{3}/)).toBeVisible();
+      await expectNoSidewaysScroll(page);
+      await expectAccessible(page);
     });
 
     test("makes a statement for the days asked, and emails a document again", async ({ page }) => {
@@ -152,6 +153,10 @@ test.describe.serial("invoices and receipts", () => {
       await expect(prefix).toHaveValue("INV-");
       await invoices.getByRole("button", { name: "Save numbering" }).click();
       await expect(invoices.getByText("Saved. The next one issued uses it.")).toBeVisible();
+
+      // One-off charges are always invoiced and emailed at once: no choice to make.
+      await expect(page.getByText(/^Each one-off charge .* is invoiced on its own/)).toBeVisible();
+      await expect(page.getByLabel(/One-off charges .* go/)).toHaveCount(0);
 
       const howToPay = page.getByRole("textbox", { name: /^How to pay/ });
       await howToPay.fill("Bank transfer: BSB 000-000, account 12345678. Use your rego.");
