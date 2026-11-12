@@ -17,6 +17,15 @@ export interface BillingDocumentEmailProps extends ReplyAware {
   businessName?: string | undefined;
   /** The line the Renter most needs, already worded, e.g. "Total $350.00". */
   amountLine: string;
+  /**
+   * An invoice for one-off charges (docs/plans/one-off-charge-notice.md): each
+   * charge with its amount and GST, e.g. "Cleaning: $120.00, including GST of $10.91."
+   */
+  chargeLines?: readonly string[] | undefined;
+  /** When and from which account it will be debited, if it will be; already worded. */
+  debitLine?: string | undefined;
+  /** How to reach the business about it, already worded. */
+  contactLine?: string | undefined;
 }
 
 /** The heading and subject's name for a document: "Tax invoice INV-1001", "Statement". */
@@ -41,7 +50,12 @@ export function BillingDocumentEmail(props: BillingDocumentEmailProps): ReactEle
           ? `The ${props.title.toLowerCase()} from ${props.operatorName} to ${props.businessName} for ${props.rentalSummary} is attached.`
           : `Your ${props.title.toLowerCase()} from ${props.operatorName} for ${props.rentalSummary} is attached.`}
       </Text>
+      {props.chargeLines?.map((line) => (
+        <Text key={line}>{line}</Text>
+      ))}
       <Text>{props.amountLine}</Text>
+      {props.debitLine ? <Text>{props.debitLine}</Text> : null}
+      {props.contactLine ? <Text>{props.contactLine}</Text> : null}
       <SmallPrint>
         Keep it for your records. It is fixed once issued: any correction comes as a credit note.
         {props.canReply

@@ -418,6 +418,35 @@ describe("the contract emails", () => {
     expect(message.text).toContain("Total $350.00, including GST of $31.82");
   });
 
+  it("states a one-off charge, its GST, the debit date, the account's last digits and the contact", async () => {
+    const message = await renderBillingDocumentEmail({
+      to: "sam@example.test",
+      title: "Tax invoice",
+      numberText: "INV-1002",
+      renterName: "Sam",
+      operatorName: "Sam's Cars Pty Ltd",
+      rentalSummary: "1ABC234 Toyota Corolla",
+      amountLine: "Total $120.00, including GST of $10.91.",
+      chargeLines: ["Cleaning (Interior cleaning): $120.00, including GST of $10.91."],
+      debitLine: "It will be debited from your account ending 3456 on Sun 15 Nov 2026.",
+      contactLine: "Questions about it? Contact Sam's Cars Pty Ltd on 08 9000 0000 before then.",
+      attachment: {
+        fileName: "INV-1002.pdf",
+        contentType: "application/pdf",
+        content: new Uint8Array([1]),
+      },
+    });
+
+    expect(message.text).toContain(
+      "Cleaning (Interior cleaning): $120.00, including GST of $10.91.",
+    );
+    expect(message.text).toContain("1ABC234 Toyota Corolla");
+    expect(message.text).toContain(
+      "It will be debited from your account ending 3456 on Sun 15 Nov 2026.",
+    );
+    expect(message.text).toContain("Contact Sam's Cars Pty Ltd on 08 9000 0000");
+  });
+
   it("greets a business's contact and names the business the invoice is to", async () => {
     const message = await renderBillingDocumentEmail({
       to: "dana@acme.test",
