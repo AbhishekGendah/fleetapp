@@ -1025,7 +1025,7 @@ unchanged and passing).
   | Pausing or resuming automatic debits | rental |
   | A one-off charge with how it is collected (charge form, damage) | rental, then writes the charge and its plan |
   | Changing how a one-off charge is collected | rental, the plan |
-  | A one-off charge's invoice emailed, its notice date set (one-off charge notice, 12 Nov 2026) | rental, the plan (after the email is sent, never while it is sent) |
+  | A one-off charge's invoice emailed, its notice recorded (one-off charge notice, 12 Nov 2026) | rental, the plan, then writes the notice and the plan's link to it (after the email is sent, never while it is sent) |
   | Sending a signing link | rental, change of terms, Renter, their links |
   | Sending a payments link (also after signing) | Renter, their links |
   | Sending a details link | Renter, their links |

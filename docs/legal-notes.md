@@ -1215,12 +1215,15 @@ docs/plans/one-off-charge-notice.md, approved by Abhi on 12 Nov 2026 with a
   gets its own tax invoice at once, always emailed to the Renter (or a
   business's contact), stating the charge, its amount and GST, the car,
   the business's phone and email, and, if it will be debited, the date and
-  the last four digits of the account. Nothing is debited before that date
-  (the day of the email plus the business's notice period, at least 3
-  days), and nothing at all if the email didn't go. The database refuses
-  an early debit too.
+  the last four digits of the account. Nothing is debited outside the
+  window that email stated (from the day of the email plus the business's
+  notice period, at least 3 days, to 7 days after), and nothing at all if
+  the email didn't go. A change of how the charge is taken, or a window
+  that passes, needs a new email. The database refuses anything else.
 - **Lawyer to confirm (before launch):**
-  - **The 3-day minimum** against the BECS Procedures and the BECS user
+  - **The 3-day minimum, counted in calendar days** (an email at 23:59
+    gives about 2 days 5 hours of real notice before the earliest debit),
+    against the BECS Procedures and the BECS user
     guidelines (which suggest at least 14 days' notice of a debit, not
     mandatory), Stripe's BECS Direct Debit Request Service Agreement (its
     notice terms for debits of a varying amount; Stripe gives 30 days for a
@@ -1230,8 +1233,10 @@ docs/plans/one-off-charge-notice.md, approved by Abhi on 12 Nov 2026 with a
     Renter agreeing to the amount; until answered the default stays
     "Invoice only, don't debit", decision 2 of slice 5).
   - **The email's wording**: "It will be debited from your account ending
-    3456 on Sun 15 Nov 2026." (or "with your first weekly debit on or
-    after …", or "in N weekly parts, the first on or after …"), and
+    3456 on or after Sun 15 Nov 2026, and no later than Sun 22 Nov 2026."
+    (or "with your first weekly debit on or after …", or "in N weekly
+    parts, the first on or after … and no later than …, then one each
+    week"), and
     "Questions about a charge? Contact [business] on [phone] or at [email]
     before [date]." Whether it is enough as the BECS notice of the debit,
     and whether it must also say how to dispute it with their bank.

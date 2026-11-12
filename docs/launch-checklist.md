@@ -305,6 +305,14 @@ docs/plans/one-off-charge-notice.md, put off on purpose:
 - [ ] Confirm in the Stripe sandbox that reading a direct debit's last four digits (`paymentMethods.retrieve` on the connected account, `au_becs_debit.last4`) works with Accounts v2, on the dev site, with a real one-off charge planned "Debit on [date]".
 - [ ] A browser test for "Invoice not sent" and Email invoice again (the browser tests' email always sends; covered by the app's own tests only).
 - [ ] An email that bounces after it was sent keeps its notice date (we did send it); decide whether a bounce should stop the debit once bounces are recorded from Postmark.
+- [ ] Notice is counted in calendar days: an invoice emailed at 23:59 gives about 2 days 5 hours of real notice before a 3-day debit; the lawyer to say whether that is enough (docs/legal-notes.md).
+- [ ] A one-off debit capped at what is owing records the full charge as its item, so the rest counts as collected; check it was really paid another way.
+- [ ] Two sends of one invoice either side of midnight can state different dates; only the one recorded counts, the other's date is never debited on.
+- [ ] If recording a notice (or an email try) fails after the email went, the Renter was told but no notice stands, so the run emails them again with a new date.
+- [ ] operators_with_debits_due and operators_with_charge_notices_due also name businesses with only reversed charges or notices whose date hasn't come; harmless (the app checks), but they wake the run for nothing.
+- [ ] PayTo (later) needs its own read of the account's last digits; the email's wording is BECS's.
+- [ ] Invoices issued by the 0063 code show "Invoice not sent" until the first notice run, and their Renters get a second email.
+- [ ] Dev site only: a debit the 0063 code reserved but never sent could be sent by the new code's recovery without its one-off items' notice; check the dev site has none pending before the deploy.
 - [ ] Later (not in this slice): an AGS check for a business with unusually many one-off debits or disputes, and a Renter "I dispute this charge" button that pauses the charge's debit.
 
 ## Documents
