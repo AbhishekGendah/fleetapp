@@ -1373,7 +1373,31 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
     x4, mandate.updated, payment_intent x3, refund x3, dispute x2,
     account.application.deauthorized), its signing secret in Bitwarden and
     as STRIPE_CONNECT_WEBHOOK_SECRET in the web project (Production and
-    Preview).
+    Preview). He also added v2.core.account.closed to the platform
+    destination (5 events).
+  - Sandbox run by Abhi, 11-13 Nov, on a fresh business "Debit Test 2"
+    (demo data, Stripe connected and Ready): Renter set up a direct debit
+    on Stripe's page; "Take it now" $10 went pending → Paid with Stripe's
+    fee ($0.40), a payment line and receipt, no Reverse on it; a failing
+    account (111111113) gave Failed "The bank account is closed" and the
+    direct debit Cancelled by the bank; after a new direct debit, the debit
+    run (Run in Vercel) took exactly this rent week ($420), cleared, receipt
+    issued, older weeks and the $10 untouched; a second Run took nothing.
+    Still to try: a disputed debit, the over-BECS-limit code.
+  - Found on the way (11 Nov) and fixed the same day after two reviews:
+    on the dev site since 5 Nov, database transactions weren't held on one
+    connection (two copies of the database driver shared one pool), so a
+    business's work wasn't all-or-nothing and could run untagged; it
+    showed as demo data failing on a bond (RLS 42501). Fix: pools per
+    driver copy, a start-up transaction self-test, a regression test (main
+    a938de8). Dev data only; production must start on a fresh database.
+    Also found: Stripe "Remove account" sends no event, no way yet to
+    connect a different account, a brief "limited" after onboarding,
+    admin always shows "Stripe not ready" (all on the launch checklist).
+  - Abhi's question (12 Nov): what stops a business silently debiting
+    small amounts? Plan approved 12 Nov with a 3-day notice period:
+    docs/plans/one-off-charge-notice.md (every one-off charge invoiced and
+    emailed at once, debited no sooner than 3 days later). Being built.
 
 - **Database transactions held together (11 Nov 2026, approved by Abhi).**
   The dev site's demo data stopped on "Rentals that are out now" with a
