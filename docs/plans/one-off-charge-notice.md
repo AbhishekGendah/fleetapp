@@ -1,6 +1,6 @@
 # One-off charges: always told, then a notice period before any debit
 
-Status: draft for Abhi's approval (12 Nov 2026). Touches money, so nothing is
+Status: draft for Abhi's approval (12 Nov 2026). Abhi, 12 Nov: notice period 3 days, not 14. Touches money, so nothing is
 built until he says go. Comes before Phase 4 slices 6 to 8.
 
 ## Why
@@ -44,9 +44,10 @@ end.
    [date]"; "With the next weekly debit" means the first weekly debit on or
    after the notice date; "Split" starts on or after it. "Invoice only,
    don't debit" stays the default.
-3. **Notice period setting:** Settings → Payments, default 14 days, the
-   business can make it longer, never shorter than 14 (to be confirmed with
-   the lawyer). Copied onto each rental when it is made (rule 14).
+3. **Notice period setting:** Settings → Payments, default 3 days (Abhi,
+   12 Nov), the business can make it longer, never shorter than 3 (the
+   lawyer to confirm; the BECS guidelines suggest 14, not mandatory, and
+   Stripe's own pre-debit email goes the day before). Copied onto each rental when it is made (rule 14).
 4. **No email, no debit.** If the invoice email could not be sent (no email
    address, or the send failed), the charge can't be debited until it has
    been sent (Email again); the screen says so.
@@ -67,7 +68,7 @@ end.
 
 Charges already planned for debiting but not yet debited get their notice
 date from when this goes live: their invoice is issued and emailed then if
-it hasn't been, and the 14 days run from that email. Nothing already
+it hasn't been, and the 3 days run from that email. Nothing already
 debited changes. Only the dev site has any today.
 
 ## Schema (plan first; outline only)
@@ -75,7 +76,7 @@ debited changes. Only the dev site has any today.
 - `debit_plans.notice_date` (date, Operator's timezone day the debit may
   first happen), set once when the charge's invoice email is recorded as
   sent; null until then. A plan with a null notice date is never debited.
-- Rental settings snapshot gains `oneOffNoticeDays` (default 14).
+- Rental settings snapshot gains `oneOffNoticeDays` (default 3).
 - Settings: `oneOffChargeInvoicing` loses `with_next_rent` for new rentals;
   existing rentals keep their snapshot, but one-off charges on them are
   invoiced at once from go-live (an explicit, logged change for every open
@@ -119,7 +120,7 @@ form's wording, the waiting debits list, keyboard and phone width, axe.
 
 ## Legal
 
-Add to docs/legal-notes.md: the lawyer to confirm the 14-day minimum and
+Add to docs/legal-notes.md: the lawyer to confirm the 3-day minimum and
 the email wording against the BECS scheme rules, Stripe's DDR service
 agreement and consumer law (unfair contract terms, unsolicited debits).
 
