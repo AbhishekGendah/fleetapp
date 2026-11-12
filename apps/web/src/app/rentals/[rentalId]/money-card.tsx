@@ -78,9 +78,9 @@ function CollectionButton(props: {
         choices={props.choices}
         current={plan}
         notice={{
-          noticeDate: plan.noticeDate ?? notice.expectedNoticeDate,
+          noticeDate: notice.expectedNoticeDate,
           today: notice.today,
-          isGiven: plan.noticeDate !== null,
+          givenDate: plan.noticeDate,
         }}
       />
     </FormDialog>

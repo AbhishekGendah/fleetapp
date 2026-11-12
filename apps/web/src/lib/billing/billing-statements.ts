@@ -138,13 +138,15 @@ export async function emailBillingDocumentAgain(
     },
     { userId: actor.userId },
   );
-  // Who sent it and when, never to which address (rule 7).
-  await withTenant(deps.database, operatorId, (tx) =>
-    recordUserChange(tx, actor, {
-      entityType: ACTIVITY_ENTITY_TYPES.issuedDocument,
-      entityId: document.issuedDocumentId,
-      action: ACTIVITY_ACTIONS.sent,
-    }),
-  );
+  // Who sent it and when, never to which address (rule 7); only when it went.
+  if (outcome === "sent") {
+    await withTenant(deps.database, operatorId, (tx) =>
+      recordUserChange(tx, actor, {
+        entityType: ACTIVITY_ENTITY_TYPES.issuedDocument,
+        entityId: document.issuedDocumentId,
+        action: ACTIVITY_ACTIONS.sent,
+      }),
+    );
+  }
   return EMAIL_AGAIN_RESULTS[outcome];
 }

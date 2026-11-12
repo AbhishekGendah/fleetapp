@@ -1,6 +1,6 @@
 import {
   instalmentShares,
-  isNoticeDateReached,
+  isWithinNotice,
   isRentWeekDebitable,
   ledgerBalanceCents,
   rentWeekCents,
@@ -13,6 +13,7 @@ import {
   ACTIVITY_ACTIONS,
   ACTIVITY_ENTITY_TYPES,
   debitItems,
+  debitNotices,
   debitPlans,
   ledgerLines,
   payments,
@@ -20,6 +21,7 @@ import {
 } from "@fleetapp/db/schema";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 
+import { currentNoticeOf, NOTICE_OF_PLAN, PLAN_NOTICE_COLUMNS } from "./plan-notices";
 import {
   debitsResumedAt,
   pendingDebitCents,
@@ -70,7 +72,12 @@ async function partsDebited(
   return new Map(rows.map((row) => [row.lineId, row.parts]));
 }
 
-/** The rental's one-off charges planned for a debit whose notice date has come by `today`. */
+/**
+ * The rental's one-off charges planned for a debit whose next part is inside
+ * the notice the Renter was emailed for exactly that plan, on `today` (the
+ * business's day): no email, no debit, never before its date nor after its
+ * window (docs/plans/one-off-charge-notice.md).
+ */
 async function noticedPlans(
   tx: AnyTransaction,
   operatorId: string,
@@ -82,17 +89,21 @@ async function noticedPlans(
       lineId: debitPlans.ledgerLineId,
       plan: debitPlans.plan,
       weeks: debitPlans.weeks,
-      noticeDate: debitPlans.noticeDate,
+      ...PLAN_NOTICE_COLUMNS,
     })
     .from(debitPlans)
+    .leftJoin(debitNotices, NOTICE_OF_PLAN)
     .where(and(eq(debitPlans.operatorId, operatorId), eq(debitPlans.rentalId, rentalId)));
-  // No email, no debit, and never before its notice date (docs/plans/one-off-charge-notice.md).
-  return plans.filter((plan) => isNoticeDateReached(plan.noticeDate, today));
+  const debited = await partsDebited(tx, operatorId, rentalId);
+  return plans.filter((plan) => {
+    const done = debited.get(plan.lineId) ?? 0;
+    return isWithinNotice(currentNoticeOf(plan, done, today), done + 1, today);
+  });
 }
 
 /**
  * The one-off charges planned for the next weekly debit, and the next
- * instalment of each split, once their notice date has come: a charge
+ * instalment of each split, inside their notice: a charge
  * reversed before it is debited drops out (its reversal stands on the ledger).
  */
 async function oneOffItemsDue(

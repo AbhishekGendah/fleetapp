@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { paymentMandates, renterStripeCustomers } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
+import { sql } from "drizzle-orm";
 import type { TestConnection } from "@fleetapp/db/testing";
 
 import type { ActingUser } from "../src/lib/acting-user";
@@ -72,4 +73,44 @@ export function debitTestKit(current: () => { web: TestConnection; superuser: Te
   }
 
   return { addDirectDebit, rentalOut };
+}
+
+/**
+ * Notices as if emailed some days ago (docs/plans/one-off-charge-notice.md):
+ * the rules only record one at least 3 days ahead, so a test that needs one
+ * whose date has come (or passed) sets it on the superuser's connection
+ * with the rules skipped, as time passing would leave it.
+ */
+export function noticeTestKit(current: () => { superuser: TestConnection }) {
+  /** Gives the charge's plan a notice for its plan as it is, from `noticeDate`. */
+  async function giveNotice(owner: ActingUser, ledgerLineId: string, noticeDate: string) {
+    await current().superuser.db.transaction(async (tx) => {
+      await tx.execute(sql`SET LOCAL session_replication_role = replica`);
+      await tx.execute(sql`
+        with plan as (
+          select id, rental_id, plan, weeks,
+            (select count(*) from debit_items where ledger_line_id = ${ledgerLineId})::integer as parts
+          from debit_plans where ledger_line_id = ${ledgerLineId} and operator_id = ${owner.operatorId}
+        ), given as (
+          insert into debit_notices (operator_id, rental_id, debit_plan_id, plan, weeks, notice_date,
+            parts_before, issued_document_id)
+          select ${owner.operatorId}, rental_id, id, plan, weeks, ${noticeDate}::date, parts,
+            gen_random_uuid() from plan
+          returning id, debit_plan_id
+        )
+        update debit_plans set notice_id = given.id from given where debit_plans.id = given.debit_plan_id`);
+    });
+  }
+
+  /** Moves the charge's current notice `days` earlier, as if it had been emailed then. */
+  async function ageNotice(ledgerLineId: string, days: number) {
+    await current().superuser.db.transaction(async (tx) => {
+      await tx.execute(sql`SET LOCAL session_replication_role = replica`);
+      await tx.execute(sql`
+        update debit_notices set notice_date = notice_date - ${days}::integer
+        where id = (select notice_id from debit_plans where ledger_line_id = ${ledgerLineId})`);
+    });
+  }
+
+  return { giveNotice, ageNotice };
 }

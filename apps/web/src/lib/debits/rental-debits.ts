@@ -7,13 +7,14 @@ import {
   type RentalStatus,
 } from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
-import { debitItems, debitPlans, ledgerLines, rentals } from "@fleetapp/db/schema";
+import { debitItems, debitNotices, debitPlans, ledgerLines, rentals } from "@fleetapp/db/schema";
 import { qualified } from "@fleetapp/db/qualified";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, sql } from "drizzle-orm";
 
 import { collectionChoicesFor, isStripeReadyFor } from "./debit-plans";
 import { loadRentalDebits, type RentalDebitRow } from "./debit-queries";
+import { currentNoticeOf, NOTICE_OF_PLAN, PLAN_NOTICE_COLUMNS } from "./plan-notices";
 
 /** A one-off charge's plan, as the rental's Money card shows and changes it. */
 export interface ChargePlanRow {
@@ -22,7 +23,10 @@ export interface ChargePlanRow {
   weeks: number | null;
   /** Parts already in a debit: none means it can still be changed. */
   partsDebited: number;
-  /** The first day it may be debited; none until its invoice is emailed with the debit stated. */
+  /**
+   * Its current notice's first debit day; none until its invoice is emailed
+   * with this plan's debit stated, after a change of plan, or once it lapsed.
+   */
   noticeDate: string | null;
   /** The charge itself, as the Renter reads it. */
   description: string;
@@ -99,13 +103,14 @@ export async function loadRentalDebitState(
             where ${qualified(debitItems.ledgerLineId)} = ${qualified(debitPlans.ledgerLineId)})`.mapWith(
             Number,
           ),
-          noticeDate: debitPlans.noticeDate,
+          ...PLAN_NOTICE_COLUMNS,
           description: ledgerLines.description,
           amountCents: ledgerLines.amountCents,
           isReversed: sql<boolean>`exists (select 1 from ${ledgerLines} reversal
             where reversal.reverses_id = ${qualified(debitPlans.ledgerLineId)})`,
         })
         .from(debitPlans)
+        .leftJoin(debitNotices, NOTICE_OF_PLAN)
         .innerJoin(
           ledgerLines,
           and(
@@ -124,7 +129,15 @@ export async function loadRentalDebitState(
     defaultCollection: readSettings(operatorSettingsSchema, rental.settingsSnapshot)
       .oneOffChargeCollection,
     isPaused: Boolean(inTenant.paused[0]?.at),
-    plans: inTenant.plans,
+    plans: inTenant.plans.map(({ noticeId, noticeDate, partsBefore, ...plan }) => ({
+      ...plan,
+      noticeDate:
+        currentNoticeOf(
+          { noticeId, noticeDate, partsBefore },
+          plan.partsDebited,
+          todayInTimeZone(clock.now, clock.timeZone),
+        )?.noticeDate ?? null,
+    })),
     pending: oldestPending
       ? {
           cents: pendingDebits.reduce((total, debit) => total + debit.amountCents, 0),

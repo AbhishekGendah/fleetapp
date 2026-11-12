@@ -4,7 +4,6 @@ import { addDays, debitDescription, todayInTimeZone } from "@fleetapp/core";
 import {
   activityLog,
   debitItems,
-  debitPlans,
   operators,
   paymentLedgerLines,
   paymentMandates,
@@ -25,7 +24,6 @@ import { loadRentalDebitState } from "../src/lib/debits/rental-debits";
 import { listChargeTypes } from "../src/lib/ledger/charge-types";
 import { loadRentalLedger } from "../src/lib/ledger/ledger-queries";
 import { addCharge, recordPayment, reverseLine } from "../src/lib/ledger/ledger-records";
-import { chargeRentFor } from "../src/lib/ledger/rent-job";
 import { handlePaymentEvent, type PaymentDependencies } from "../src/lib/payments/payment-accounts";
 import {
   createStandInPayments,
@@ -33,7 +31,7 @@ import {
   type StandInPayments,
 } from "../src/lib/payments/stand-in-provider";
 import { seedOperatorWithUser } from "./car-fixtures";
-import { debitTestKit, OUT_FOR_MS } from "./debit-fixtures";
+import { debitTestKit, noticeTestKit, OUT_FOR_MS } from "./debit-fixtures";
 import { oneAfterTheOther } from "./lock-fixtures";
 import { PAYMENTS_WEBHOOK_SECRET, paymentsTestKit } from "./payment-fixtures";
 import { addTestRenter } from "./rental-fixtures";
@@ -134,11 +132,10 @@ describe("weekly debits", () => {
    * As the charge's invoice email leaves it (docs/plans/one-off-charge-notice.md):
    * its plan's first debit day, `days` from today on the business's (Perth) clock.
    */
+  const notices = noticeTestKit(() => ({ superuser }));
   async function giveNotice(ledgerLineId: string, days = 0, owner: ActingUser = actor) {
     const noticeDate = addDays(todayInTimeZone(new Date(), "Australia/Perth"), days);
-    await withTenant(web.db, owner.operatorId, (tx) =>
-      tx.update(debitPlans).set({ noticeDate }).where(eq(debitPlans.ledgerLineId, ledgerLineId)),
-    );
+    await notices.giveNotice(owner, ledgerLineId, noticeDate);
   }
 
   beforeAll(async () => {
@@ -589,22 +586,22 @@ describe("weekly debits", () => {
       expect((await onlyDebit(rentalId)).amountCents).toBe(RENT_CENTS + 120_00);
     });
 
-    it("waits for the notice date, then goes with the first weekly debit on or after it", async () => {
-      const { rentalId, handedOverAt } = await rentalOut();
-      const lineId = await addCleaning(rentalId, {
-        plan: "next_debit",
-        weeks: null,
-        isStripeReady: true,
-      });
-      await giveNotice(lineId, 1);
-      await runAt(new Date());
-      expect((await onlyDebit(rentalId)).amountCents).toBe(RENT_CENTS);
-      // The third rent week, two weeks after the handover: the first weekly debit after the date.
-      const thirdWeek = new Date(handedOverAt.getTime() + 14 * DAY_MS + HOUR_MS);
-      await chargeRentFor(web.db, actor.operatorId, thirdWeek, [rentalId]);
-      await runAt(thirdWeek);
-      const amounts = (await debitsOf(rentalId)).map((debit) => debit.amountCents).sort();
-      expect(amounts).toEqual([RENT_CENTS, RENT_CENTS + 120_00]);
+    it("leaves a charge out of the week's debit before its notice date, and after it lapsed", async () => {
+      for (const days of [1, -8]) {
+        const { rentalId } = await rentalOut();
+        const lineId = await addCleaning(rentalId, {
+          plan: "next_debit",
+          weeks: null,
+          isStripeReady: true,
+        });
+        await giveNotice(lineId, days);
+        await runAt(new Date());
+        expect((await onlyDebit(rentalId)).amountCents).toBe(RENT_CENTS);
+        const items = await withTenant(web.db, actor.operatorId, (tx) =>
+          tx.select().from(debitItems).where(eq(debitItems.ledgerLineId, lineId)),
+        );
+        expect(items).toEqual([]);
+      }
     });
 
     it("never debits a charge whose invoice wasn't emailed: no email, no debit", async () => {
@@ -667,15 +664,15 @@ describe("weekly debits", () => {
         weeks: null,
         isStripeReady: true,
       });
-      await giveNotice(lineId, 3);
       const ownDebits = async () =>
         (await debitsOf(rentalId)).filter((debit) => debit.purpose === "one_off_debit");
+      await giveNotice(lineId, 1);
       await runAt(new Date());
-      await runAt(new Date(Date.now() + 2 * DAY_MS));
       expect(await ownDebits()).toEqual([]);
-      const onItsDay = new Date(Date.now() + 3 * DAY_MS);
-      await runAt(onItsDay);
-      await runAt(onItsDay);
+      // A day later (the notice emailed a day earlier), on its date.
+      await notices.ageNotice(lineId, 1);
+      await runAt(new Date());
+      await runAt(new Date());
       const [debit, ...others] = await ownDebits();
       expect(others).toEqual([]);
       expect(debit).toMatchObject({ amountCents: 120_00, periodStartsAt: null });

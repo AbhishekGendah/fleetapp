@@ -7,6 +7,7 @@ import {
 } from "@fleetapp/core";
 import {
   debitItems,
+  debitNotices,
   debitPlans,
   ledgerLines,
   operators,
@@ -21,6 +22,7 @@ import { lockPaymentRental } from "../bonds/bond-records";
 import { findDueOperators, forEachOperator, type OperatorRun } from "../jobs/due-operators";
 import { loadPaymentAccount, type PaymentDependencies } from "../payments/payment-accounts";
 import type { DebitRead } from "../payments/payments-provider";
+import { NOTICE_OF_PLAN } from "./plan-notices";
 import { applyDebitRead, failReservedDebit, NOT_SENT } from "./debit-outcome";
 import { IS_DEBIT, stripeCustomerOf } from "./debit-queries";
 import { reserveNoticedOwnDebits, reserveWeeklyDebit, type ReservedDebit } from "./debit-reserve";
@@ -209,6 +211,7 @@ async function rentalsToDebit(
     ...(await tx
       .selectDistinct({ id: rentals.id })
       .from(debitPlans)
+      .innerJoin(debitNotices, NOTICE_OF_PLAN)
       .innerJoin(
         rentals,
         and(eq(rentals.id, debitPlans.rentalId), eq(rentals.operatorId, debitPlans.operatorId)),
@@ -217,7 +220,7 @@ async function rentalsToDebit(
         and(
           eq(debitPlans.operatorId, operatorId),
           eq(debitPlans.plan, "own_debit"),
-          lte(debitPlans.noticeDate, today),
+          lte(debitNotices.noticeDate, today),
           inArray(rentals.status, [...OWN_DEBIT_STATUSES]),
           isNull(rentals.debitsPausedAt),
           sql`not exists (select 1 from ${debitItems}

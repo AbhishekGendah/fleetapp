@@ -2,6 +2,7 @@ import { addDays, InvalidSettingsError, todayInTimeZone } from "@fleetapp/core";
 import {
   activityLog,
   billingDocuments,
+  debitItems,
   debitPlans,
   documentEmails,
   operators,
@@ -25,7 +26,9 @@ import {
   giveChargeNotice,
   loadChargeNotices,
   runChargeNoticeCatchUp,
+  sendMissingChargeNotices,
 } from "../src/lib/billing/charge-notice-run";
+import { setDebitsPaused } from "../src/lib/debits/debit-pause";
 import { changeDebitPlan } from "../src/lib/debits/debit-plans";
 import { debitsForOperator } from "../src/lib/debits/debit-run";
 import { listChargeTypes } from "../src/lib/ledger/charge-types";
@@ -42,13 +45,12 @@ import {
   type MemoryFileStorage,
 } from "../src/lib/storage/memory-file-storage";
 import { seedOperatorWithUser } from "./car-fixtures";
-import { debitTestKit } from "./debit-fixtures";
+import { debitTestKit, noticeTestKit } from "./debit-fixtures";
 import { oneAfterTheOther } from "./lock-fixtures";
 import { PAYMENTS_WEBHOOK_SECRET, paymentsTestKit } from "./payment-fixtures";
 import { recordingEmailSender } from "./renter-link-fixtures";
 
 const PERTH = "Australia/Perth";
-const DAY_MS = 24 * 60 * 60 * 1000;
 const CHARGE_CENTS = 120_00;
 const RENT_CENTS = 350_00;
 const RENTER_EMAIL = "renter.notice@example.test";
@@ -75,6 +77,7 @@ describe("one-off charge notice", () => {
   let otherActor: ActingUser;
   const kit = paymentsTestKit(() => ({ web, stripe }));
   const debitKit = debitTestKit(() => ({ web, superuser }));
+  const notices = noticeTestKit(() => ({ superuser }));
 
   function deps(emailSender: EmailSender = recordingEmailSender(sentEmails)): BillingDependencies {
     return { database: web.db, storage, emailSender, payments: stripe, now: () => new Date() };
@@ -183,8 +186,9 @@ describe("one-off charge notice", () => {
       const text = sentEmails[0]!.text;
       expect(text).toContain("Cleaning (Interior cleaning): $120.00, including GST of $10.91.");
       expect(text).toContain(
-        `It will be debited from your account ending ${STAND_IN_ACCOUNT_ENDING} on`,
+        `It will be debited from your account ending ${STAND_IN_ACCOUNT_ENDING} on or after`,
       );
+      expect(text).toContain(", and no later than");
       expect(text).toContain(
         "Contact Notice Rentals Pty Ltd on (08) 9000 1234 or at hello@notice.test before",
       );
@@ -199,7 +203,12 @@ describe("one-off charge notice", () => {
           .from(activityLog)
           .where(eq(activityLog.action, "notice_given")),
       );
-      expect(given?.valuesAfter).toEqual({ ledgerLineId: lineId, noticeDate });
+      expect(given?.valuesAfter).toEqual({
+        ledgerLineId: lineId,
+        plan: "own_debit",
+        weeks: null,
+        noticeDate,
+      });
     });
 
     it("tells an invoice-only charge without a debit, and gives it no notice date", async () => {
@@ -241,7 +250,7 @@ describe("one-off charge notice", () => {
       const notice = await noticeOf(rentalId, lineId);
       expect(notice).toMatchObject({ emailedOn: null, noticeDate: null, isEmailTried: true });
 
-      await debitsForOperator(debitDeps(new Date(Date.now() + 10 * DAY_MS)), actor.operatorId);
+      await debitsForOperator(debitDeps(new Date()), actor.operatorId);
       expect(await oneOffDebitsOf(rentalId)).toEqual([]);
 
       await withTenant(web.db, actor.operatorId, (tx) =>
@@ -258,7 +267,7 @@ describe("one-off charge notice", () => {
       });
     });
 
-    it("gives no notice when the email fails, or Stripe can't name the account", async () => {
+    it("gives no notice when the email fails; without Stripe's account digits it goes without a debit", async () => {
       const failed = await rentalOut();
       const failedLine = await addCleaning(failed.rentalId, "next_debit");
       await issuePendingDocuments(deps(failingSender), actor, failed.rentalId);
@@ -271,13 +280,128 @@ describe("one-off charge notice", () => {
       const unreachableLine = await addCleaning(unreachable.rentalId, "own_debit");
       stripe.failNextAccountReads(1);
       await issuePendingDocuments(deps(), actor, unreachable.rentalId);
-      // Nothing sent rather than an email that can't say which account.
-      expect(sentEmails).toEqual([]);
+      // The invoice still goes, with no debit stated, so no notice.
+      expect(sentEmails).toHaveLength(1);
+      expect(sentEmails[0]!.text).not.toContain("debited");
       expect(await noticeOf(unreachable.rentalId, unreachableLine)).toMatchObject({
-        emailedOn: null,
+        emailedOn: todayInPerth(),
         noticeDate: null,
-        isEmailTried: true,
       });
+      // Tonight's notice run tells the Renter, now Stripe answers.
+      sentEmails.length = 0;
+      await sendMissingChargeNotices(deps(), actor.operatorId);
+      expect(sentEmails.some((email) => email.text.includes("on or after"))).toBe(true);
+      expect((await noticeOf(unreachable.rentalId, unreachableLine))?.noticeDate).toBe(
+        addDays(todayInPerth(), 3),
+      );
+    });
+
+    it("sends the invoice without a debit while the business's Stripe isn't ready, and tells the Renter once it is", async () => {
+      const { rentalId } = await rentalOut();
+      const lineId = await addCleaning(rentalId, "own_debit");
+      const setDebits = (state: string) =>
+        superuser.db.execute(
+          sql`update stripe_accounts set becs_debit_payments = ${state} where operator_id = ${actor.operatorId}`,
+        );
+      await setDebits("pending");
+      try {
+        await issuePendingDocuments(deps(), actor, rentalId);
+        expect(sentEmails).toHaveLength(1);
+        expect(sentEmails[0]!.text).not.toContain("debited");
+        sentEmails.length = 0;
+        await sendMissingChargeNotices(deps(), actor.operatorId);
+        expect(sentEmails).toEqual([]);
+        expect((await noticeOf(rentalId, lineId))?.noticeDate).toBeNull();
+      } finally {
+        await setDebits("active");
+      }
+      await sendMissingChargeNotices(deps(), actor.operatorId);
+      expect((await noticeOf(rentalId, lineId))?.noticeDate).toBe(addDays(todayInPerth(), 3));
+    });
+
+    it("logs Email again as sent only when it went", async () => {
+      const { rentalId } = await rentalOut();
+      const lineId = await addCleaning(rentalId, "own_debit");
+      await issuePendingDocuments(deps(failingSender), actor, rentalId);
+      const notice = await noticeOf(rentalId, lineId);
+      const target = { rentalId, issuedDocumentId: notice!.issuedDocumentId! };
+      const sentLogs = () =>
+        withTenant(web.db, actor.operatorId, (tx) =>
+          tx
+            .select()
+            .from(activityLog)
+            .where(
+              and(
+                eq(activityLog.entityId, target.issuedDocumentId),
+                eq(activityLog.action, "sent"),
+              ),
+            ),
+        );
+      expect(await emailBillingDocumentAgain(deps(failingSender), actor, target)).toBe("failed");
+      expect(await sentLogs()).toEqual([]);
+      expect(await emailBillingDocumentAgain(deps(), actor, target)).toBe("sent");
+      expect(await sentLogs()).toHaveLength(1);
+    });
+  });
+
+  describe("a notice is for the exact terms emailed", () => {
+    it("voids it on any change of plan, emails the new terms, and never debits on the old one", async () => {
+      for (const change of [
+        { plan: "own_debit" as const, weeks: null },
+        { plan: "split" as const, weeks: 2 },
+      ]) {
+        const { rentalId } = await rentalOut();
+        const lineId = await addCleaning(rentalId, "split");
+        await issuePendingDocuments(deps(), actor, rentalId);
+        // The split's notice, as if emailed 3 days ago: its date has come.
+        await notices.ageNotice(lineId, 3);
+        const target = { rentalId, ledgerLineId: lineId };
+        sentEmails.length = 0;
+        expect(await changeDebitPlan(web.db, actor, target, change)).toBe("changed");
+        const notice = await giveChargeNotice(deps(), actor, target);
+        expect(sentEmails).toHaveLength(1);
+        expect(notice?.noticeDate).toBe(addDays(todayInPerth(), 3));
+        await debitsForOperator(debitDeps(new Date()), actor.operatorId);
+        const items = await withTenant(web.db, actor.operatorId, (tx) =>
+          tx.select().from(debitItems).where(eq(debitItems.ledgerLineId, lineId)),
+        );
+        expect(items).toEqual([]);
+      }
+    });
+
+    it("voids it on a change to invoice only, and a later change back gives a new notice", async () => {
+      const { rentalId } = await rentalOut();
+      const lineId = await addCleaning(rentalId, "own_debit");
+      await issuePendingDocuments(deps(), actor, rentalId);
+      await notices.ageNotice(lineId, 3);
+      const target = { rentalId, ledgerLineId: lineId };
+      await changeDebitPlan(web.db, actor, target, { plan: "not_debited", weeks: null });
+      expect((await noticeOf(rentalId, lineId))?.noticeDate).toBeNull();
+      sentEmails.length = 0;
+      await changeDebitPlan(web.db, actor, target, { plan: "own_debit", weeks: null });
+      await giveChargeNotice(deps(), actor, target);
+      expect(sentEmails).toHaveLength(1);
+      await debitsForOperator(debitDeps(new Date()), actor.operatorId);
+      expect(await oneOffDebitsOf(rentalId)).toEqual([]);
+    });
+
+    it("lets a notice lapse 7 days after its date, then emails a new one, not while paused", async () => {
+      const { rentalId } = await rentalOut();
+      const lineId = await addCleaning(rentalId, "own_debit");
+      await issuePendingDocuments(deps(), actor, rentalId);
+      // Emailed 11 days ago: its date passed 8 days ago, while debits were paused.
+      await notices.ageNotice(lineId, 11);
+      await setDebitsPaused(web.db, actor, rentalId, { reason: "Talking it over" });
+      sentEmails.length = 0;
+      await sendMissingChargeNotices(deps(), actor.operatorId);
+      expect(sentEmails.filter((email) => email.to === RENTER_EMAIL)).toHaveLength(0);
+      await setDebitsPaused(web.db, actor, rentalId, null);
+      await debitsForOperator(debitDeps(new Date()), actor.operatorId);
+      expect(await oneOffDebitsOf(rentalId)).toEqual([]);
+      await sendMissingChargeNotices(deps(), actor.operatorId);
+      expect((await noticeOf(rentalId, lineId))?.noticeDate).toBe(addDays(todayInPerth(), 3));
+      await debitsForOperator(debitDeps(new Date()), actor.operatorId);
+      expect(await oneOffDebitsOf(rentalId)).toEqual([]);
     });
   });
 
@@ -307,18 +431,17 @@ describe("one-off charge notice", () => {
 
     it('debits a "Debit on [date]" charge once on its date and not a day before', async () => {
       const { rentalId } = await rentalOut();
-      await addCleaning(rentalId, "own_debit");
+      const lineId = await addCleaning(rentalId, "own_debit");
       await issuePendingDocuments(deps(), actor, rentalId);
       for (const daysOn of [0, 1, 2]) {
-        await debitsForOperator(
-          debitDeps(new Date(Date.now() + daysOn * DAY_MS)),
-          actor.operatorId,
-        );
+        // As if emailed `daysOn` days ago.
+        await notices.ageNotice(lineId, daysOn === 0 ? 0 : 1);
+        await debitsForOperator(debitDeps(new Date()), actor.operatorId);
       }
       expect(await oneOffDebitsOf(rentalId)).toEqual([]);
-      const onItsDay = new Date(Date.now() + 3 * DAY_MS);
-      await debitsForOperator(debitDeps(onItsDay), actor.operatorId);
-      await debitsForOperator(debitDeps(onItsDay), actor.operatorId);
+      await notices.ageNotice(lineId, 1);
+      await debitsForOperator(debitDeps(new Date()), actor.operatorId);
+      await debitsForOperator(debitDeps(new Date()), actor.operatorId);
       expect((await oneOffDebitsOf(rentalId)).map((debit) => debit.amountCents)).toEqual([
         CHARGE_CENTS,
       ]);
@@ -345,9 +468,12 @@ describe("one-off charge notice", () => {
       sentEmails.length = 0;
 
       await runChargeNoticeCatchUp(deps());
+      const sentByFirstRun = sentEmails.length;
       await runChargeNoticeCatchUp(deps());
 
-      expect(sentEmails.filter((email) => email.to === RENTER_EMAIL)).toHaveLength(2);
+      // Each told once: a second run sends nothing.
+      expect(sentByFirstRun).toBeGreaterThanOrEqual(2);
+      expect(sentEmails).toHaveLength(sentByFirstRun);
       for (const [rentalId, lineId] of [
         [invoiced.rentalId, invoicedLine],
         [notInvoiced.rentalId, notInvoicedLine],
@@ -365,14 +491,13 @@ describe("one-off charge notice", () => {
       expect(debit?.amountCents).toBe(RENT_CENTS);
     });
 
-    it("leaves a charge whose email was tried to the business's Email again", async () => {
+    it("emails again tonight a charge whose email failed, so its notice runs from then", async () => {
       const { rentalId } = await rentalOut();
       const lineId = await addCleaning(rentalId, "own_debit");
       await issuePendingDocuments(deps(failingSender), actor, rentalId);
-      sentEmails.length = 0;
-      await runChargeNoticeCatchUp(deps());
-      expect(sentEmails).toEqual([]);
       expect((await noticeOf(rentalId, lineId))?.noticeDate).toBeNull();
+      await runChargeNoticeCatchUp(deps());
+      expect((await noticeOf(rentalId, lineId))?.noticeDate).toBe(addDays(todayInPerth(), 3));
     });
   });
 
@@ -409,7 +534,10 @@ describe("one-off charge notice", () => {
             ? { first: "sent", second: "changed" }
             : { first: "changed", second: "sent" },
         );
-        expect((await noticeOf(rentalId, lineId))?.noticeDate).toBe(addDays(todayInPerth(), 3));
+        // Either way the email stated the plan before the change: no notice stands for the split.
+        expect((await noticeOf(rentalId, lineId))?.noticeDate).toBeNull();
+        const told = await giveChargeNotice(deps(), actor, { rentalId, ledgerLineId: lineId });
+        expect(told?.noticeDate).toBe(addDays(todayInPerth(), 3));
       }
     });
   });

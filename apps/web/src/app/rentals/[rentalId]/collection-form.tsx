@@ -101,8 +101,11 @@ export function CollectionForm(props: {
   action: (state: ChangeFormState, formData: FormData) => Promise<ChangeFormState>;
   choices: readonly DebitCollectionPlan[];
   current: { plan: DebitCollectionPlan; weeks: number | null };
-  /** Its own notice date if it has one, or the day it would have if its invoice were emailed now. */
-  notice: CollectionNotice & { isGiven: boolean };
+  /**
+   * The day it could first be debited after a change (its invoice emailed
+   * again now), and its current notice's date, if it has one.
+   */
+  notice: CollectionNotice & { givenDate: string | null };
 }) {
   const form = useChangeForm({
     action: props.action,
@@ -121,8 +124,8 @@ export function CollectionForm(props: {
         choices={props.choices}
         notice={props.notice}
         hint={
-          props.notice.isGiven
-            ? `The Renter was told it may be debited from ${formatShortCalendarDate(props.notice.noticeDate, props.notice.today)}; nothing is debited before then.`
+          props.notice.givenDate
+            ? `The Renter was told it may be debited from ${formatShortCalendarDate(props.notice.givenDate, props.notice.today)}. A change cancels that notice: its invoice is emailed again with the new terms, and nothing is debited before ${formatShortCalendarDate(props.notice.noticeDate, props.notice.today)}.`
             : `If it is to be debited, its invoice is emailed to the Renter again with the date, and nothing is debited before ${formatShortCalendarDate(props.notice.noticeDate, props.notice.today)}.`
         }
       />

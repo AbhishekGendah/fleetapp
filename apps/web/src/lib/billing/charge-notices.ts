@@ -9,7 +9,9 @@ import {
   oneOffNoticeDate,
   operatorSettingsSchema,
   readSettings,
+  todayInTimeZone,
   type BillingDocumentKind,
+  type ChargeNoticeTerms,
   type DebitCollectionPlan,
   type DocumentEmailOutcome,
 } from "@fleetapp/core";
@@ -20,15 +22,23 @@ import {
   ACTIVITY_ENTITY_TYPES,
   billingDocuments,
   debitItems,
+  debitNotices,
   debitPlans,
 } from "@fleetapp/db/schema";
 import { qualified } from "@fleetapp/db/qualified";
+import { ROW_LOCK } from "@fleetapp/db/row-lock";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { lockPaymentRental } from "../bonds/bond-records";
 import { recordEmailTries } from "../contracts/document-copies";
-import { usableMandateOf } from "../debits/debit-queries";
+import { stripeCustomerOf, usableMandateOf } from "../debits/debit-queries";
+import {
+  currentNoticeOf,
+  NOTICE_OF_PLAN,
+  PLAN_NOTICE_COLUMNS,
+  type SelectedNotice,
+} from "../debits/plan-notices";
 import { selectRentalLedger, type LedgerLineView } from "../ledger/ledger-queries";
 import { loadPaymentAccount } from "../payments/payment-accounts";
 import type { BillingContext, BillingDependencies } from "./billing-context";
@@ -36,11 +46,10 @@ import type { BillingRental } from "./billing-documents";
 import { emailBillingDocument } from "./billing-email";
 
 /** How a one-off charge on an invoice is collected, if the Renter pays by direct debit. */
-interface ChargePlan {
+interface ChargePlan extends SelectedNotice {
   id: string;
   plan: DebitCollectionPlan;
   weeks: number | null;
-  noticeDate: string | null;
   partsDebited: number;
 }
 
@@ -94,13 +103,14 @@ async function loadInvoiceCharges(
       ledgerLineId: debitPlans.ledgerLineId,
       plan: debitPlans.plan,
       weeks: debitPlans.weeks,
-      noticeDate: debitPlans.noticeDate,
+      ...PLAN_NOTICE_COLUMNS,
       partsDebited: sql<number>`(select count(*) from ${debitItems}
         where ${qualified(debitItems.ledgerLineId)} = ${qualified(debitPlans.ledgerLineId)})`.mapWith(
         Number,
       ),
     })
     .from(debitPlans)
+    .leftJoin(debitNotices, NOTICE_OF_PLAN)
     .where(
       and(
         eq(debitPlans.operatorId, operatorId),
@@ -136,26 +146,37 @@ function isStillToDebit(charge: InvoiceCharge): charge is InvoiceCharge & { plan
 
 /**
  * The last four digits of the account the Renter's direct debit takes from,
- * read from Stripe now. Null when there is nothing to debit with (no
- * working direct debit, no Stripe), so the email states no debit; throws
- * when Stripe can't be asked, so nothing is sent (no email, no debit).
+ * read from Stripe now. Null when no debit can be stated (the business's
+ * Stripe account not ready or disconnected, no working direct debit, or
+ * Stripe not answering): the invoice then goes without a debit line and
+ * gives no notice, and the nightly notice run tells the Renter once a debit
+ * could be made.
  */
 async function accountEndingFor(
   deps: BillingDependencies,
   operatorId: string,
   renterId: string,
 ): Promise<string | null> {
-  const [mandate, account] = await Promise.all([
+  const [mandate, customerId, account] = await Promise.all([
     withTenant(deps.database, operatorId, (tx) => usableMandateOf(tx, operatorId, renterId)),
+    withTenant(deps.database, operatorId, (tx) => stripeCustomerOf(tx, operatorId, renterId)),
     loadPaymentAccount(deps.database, operatorId),
   ]);
-  if (!mandate || !account || !deps.payments) {
+  if (!mandate || !customerId || account?.state !== "ready" || !deps.payments) {
     return null;
   }
-  return deps.payments.readBankAccountEnding(
-    account.stripeAccountId,
-    mandate.stripePaymentMethodId,
-  );
+  try {
+    return await deps.payments.readBankAccountEnding(
+      account.stripeAccountId,
+      mandate.stripePaymentMethodId,
+    );
+  } catch (error) {
+    console.error(
+      "Reading the account a charge is debited from failed",
+      describeErrorForLog(error),
+    );
+    return null;
+  }
 }
 
 /** "Cleaning (Interior cleaning): $120.00, including GST of $10.91." */
@@ -186,89 +207,142 @@ function contactLineText(
   return `Questions about a charge? Contact ${context.operatorName}${how}${before}.`;
 }
 
-/** What the email says of the charges, and the notice date each debited one gets once it is sent. */
+/** A notice to record once the email is sent: exactly the terms it stated. */
+interface StatedNotice {
+  planId: string;
+  ledgerLineId: string;
+  plan: DebitCollectionPlan;
+  weeks: number | null;
+  noticeDate: string;
+  partsBefore: number;
+}
+
+/** What the email says of the charges, and the new notices it gives once sent. */
 interface ChargeWording {
   chargeLines: string[];
   contactLine: string;
-  /** The plans whose debit the email states, each with its notice date (kept or new). */
-  noticed: { planId: string; ledgerLineId: string; noticeDate: string }[];
+  noticed: StatedNotice[];
 }
 
+/**
+ * Each charge's words; a charge to be debited also its window and account.
+ * A notice that still covers its next part is stated again as it was; one
+ * voided by a change of plan, lapsed, or never given gets a new date.
+ */
 function chargeWordingOf(
   context: Pick<BillingContext, "business" | "operatorName">,
   charges: readonly InvoiceCharge[],
-  debit: { accountEnding: string; newNoticeDate: string } | null,
+  debit: { accountEnding: string; newNoticeDate: string; today: string } | null,
 ): ChargeWording {
-  const noticed: ChargeWording["noticed"] = [];
+  const noticed: StatedNotice[] = [];
+  const debitDays: string[] = [];
   const chargeLines = charges.map((charge) => {
     const text = chargeLineText(charge.line);
     if (!debit || !isStillToDebit(charge)) {
       return text;
     }
-    // A notice already given stands: the Renter was told that day.
-    const noticeDate = charge.plan.noticeDate ?? debit.newNoticeDate;
-    noticed.push({ planId: charge.plan.id, ledgerLineId: charge.line.id, noticeDate });
+    const { plan } = charge;
+    const current: ChargeNoticeTerms | null = currentNoticeOf(plan, plan.partsDebited, debit.today);
+    const noticeDate = current?.noticeDate ?? debit.newNoticeDate;
+    if (!current) {
+      noticed.push({
+        planId: plan.id,
+        ledgerLineId: charge.line.id,
+        plan: plan.plan,
+        weeks: plan.weeks,
+        noticeDate,
+        partsBefore: plan.partsDebited,
+      });
+    }
+    debitDays.push(noticeDate);
     const debitText = chargeDebitNoticeText({
-      plan: charge.plan.plan,
-      weeks: partsLeft(charge.plan),
+      plan: plan.plan,
+      weeks: partsLeft(plan),
       noticeDate,
       accountEnding: debit.accountEnding,
     });
     return debitText ? `${text} ${debitText}` : text;
   });
-  const firstDebitOn = noticed.map((each) => each.noticeDate).sort()[0] ?? null;
+  const firstDebitOn = debitDays.sort()[0] ?? null;
   return { chargeLines, contactLine: contactLineText(context, firstDebitOn), noticed };
 }
 
 /**
- * Sets each stated plan's notice date, once, now its invoice's email went
- * (rule 19: logged), under the rental's lock then the plan's ("Lock order":
- * rental, the plan). A plan changed meanwhile to invoice only, or given a
- * date by another send, is left as it is.
+ * Records each notice the email gave, now it is sent (logged, rule 19),
+ * under the rental's lock then the plan's ("Lock order": rental, the plan),
+ * only while the plan still has exactly the terms the email stated and no
+ * part was debited since. The database checks it gives the full notice.
  */
 async function recordNoticesGiven(
   deps: BillingDependencies,
   operatorId: string,
   rentalId: string,
-  noticed: ChargeWording["noticed"],
+  given: { issuedDocumentId: string; noticed: readonly StatedNotice[] },
   requester: EmailRequester,
 ): Promise<void> {
-  if (noticed.length === 0) {
+  if (given.noticed.length === 0) {
     return;
   }
   await withTenant(deps.database, operatorId, async (tx) => {
     await lockPaymentRental(tx, operatorId, rentalId);
-    for (const notice of noticed) {
-      const [given] = await tx
-        .update(debitPlans)
-        .set({ noticeDate: notice.noticeDate })
-        .where(
-          and(
-            eq(debitPlans.operatorId, operatorId),
-            eq(debitPlans.id, notice.planId),
-            isNull(debitPlans.noticeDate),
-            sql`${qualified(debitPlans.plan)}::text <> 'not_debited'`,
+    for (const notice of given.noticed) {
+      const [plan] = await tx
+        .select({
+          plan: debitPlans.plan,
+          weeks: debitPlans.weeks,
+          partsDebited: sql<number>`(select count(*) from ${debitItems}
+            where ${qualified(debitItems.ledgerLineId)} = ${qualified(debitPlans.ledgerLineId)})`.mapWith(
+            Number,
           ),
-        )
-        .returning({ id: debitPlans.id });
-      if (given) {
-        await recordActivity(tx, {
-          operatorId,
-          actor: requester ? { type: "user", id: requester.userId } : { type: "system", id: null },
-          entityType: ACTIVITY_ENTITY_TYPES.debitPlan,
-          entityId: given.id,
-          action: ACTIVITY_ACTIONS.noticeGiven,
-          valuesAfter: { ledgerLineId: notice.ledgerLineId, noticeDate: notice.noticeDate },
-        });
+        })
+        .from(debitPlans)
+        .where(and(eq(debitPlans.operatorId, operatorId), eq(debitPlans.id, notice.planId)))
+        .for(ROW_LOCK);
+      const isAsStated =
+        plan?.plan === notice.plan &&
+        plan.weeks === notice.weeks &&
+        plan.partsDebited === notice.partsBefore;
+      if (!isAsStated) {
+        continue;
       }
+      const [recorded] = await tx
+        .insert(debitNotices)
+        .values({
+          operatorId,
+          rentalId,
+          debitPlanId: notice.planId,
+          plan: notice.plan,
+          weeks: notice.weeks,
+          noticeDate: notice.noticeDate,
+          partsBefore: notice.partsBefore,
+          issuedDocumentId: given.issuedDocumentId,
+          givenByUserId: requester?.userId ?? null,
+        })
+        .returning({ id: debitNotices.id });
+      await tx
+        .update(debitPlans)
+        .set({ noticeId: recorded!.id })
+        .where(eq(debitPlans.id, notice.planId));
+      await recordActivity(tx, {
+        operatorId,
+        actor: requester ? { type: "user", id: requester.userId } : { type: "system", id: null },
+        entityType: ACTIVITY_ENTITY_TYPES.debitPlan,
+        entityId: notice.planId,
+        action: ACTIVITY_ACTIONS.noticeGiven,
+        valuesAfter: {
+          ledgerLineId: notice.ledgerLineId,
+          plan: notice.plan,
+          weeks: notice.weeks,
+          noticeDate: notice.noticeDate,
+        },
+      });
     }
   });
 }
 
 /**
- * What the email says of an invoice's one-off charges: null when it has
- * none (rent, a credit note, a receipt), "unreachable" when Stripe can't
- * say which account a charge will be debited from.
+ * What the email says of an invoice's one-off charges: null when it has none
+ * (rent, a credit note, a receipt).
  */
 async function chargeWordingFor(
   deps: BillingDependencies,
@@ -276,32 +350,24 @@ async function chargeWordingFor(
   context: Pick<BillingContext, "business" | "operatorName">,
   rental: Pick<BillingRental, "id" | "renterId" | "settingsSnapshot">,
   issuedDocumentId: string,
-): Promise<ChargeWording | null | "unreachable"> {
+): Promise<ChargeWording | null> {
   const charges = await withTenant(deps.database, operatorId, (tx) =>
     loadInvoiceCharges(tx, operatorId, rental.id, issuedDocumentId),
   );
   if (charges.length === 0) {
     return null;
   }
-  if (!charges.some(isStillToDebit)) {
-    return chargeWordingOf(context, charges, null);
-  }
-  let accountEnding: string | null;
-  try {
-    accountEnding = await accountEndingFor(deps, operatorId, rental.renterId);
-  } catch (error) {
-    console.error(
-      "Reading the account a charge is debited from failed",
-      describeErrorForLog(error),
-    );
-    return "unreachable";
-  }
+  const accountEnding = charges.some(isStillToDebit)
+    ? await accountEndingFor(deps, operatorId, rental.renterId)
+    : null;
   // The rental's own notice period, from its settings copy (rule 14).
   const { oneOffNoticeDays } = readSettings(operatorSettingsSchema, rental.settingsSnapshot);
+  const now = deps.now();
   const debit = accountEnding
     ? {
         accountEnding,
-        newNoticeDate: oneOffNoticeDate(deps.now(), context.business.timezone, oneOffNoticeDays),
+        newNoticeDate: oneOffNoticeDate(now, context.business.timezone, oneOffNoticeDays),
+        today: todayInTimeZone(now, context.business.timezone),
       }
     : null;
   return chargeWordingOf(context, charges, debit);
@@ -312,10 +378,11 @@ async function chargeWordingFor(
  * records the try against it (never the address: rule 7). An invoice with
  * one-off charges (docs/plans/one-off-charge-notice.md) states each charge,
  * its amount and GST, and how to reach the business; a charge to be debited
- * also its date and the account's last four digits, and once the email is
- * sent its notice date is set, so it can be debited from that day. If Stripe
- * can't say which account, nothing is sent: no email, no debit. Never
- * throws: the document is kept either way.
+ * also the days it may be taken in and the account's last four digits, and
+ * once the email is sent that notice is recorded, so it can be debited in
+ * those days only. When no debit can be stated (Stripe not ready, no working
+ * direct debit, Stripe not answering) it goes without one and gives no
+ * notice. Never throws: the document is kept either way.
  */
 export async function emailBillingDocumentRecorded(
   deps: BillingDependencies,
@@ -329,14 +396,16 @@ export async function emailBillingDocumentRecorded(
   requester: EmailRequester,
 ): Promise<DocumentEmailOutcome> {
   let outcome: DocumentEmailOutcome = "no_address";
-  let noticed: ChargeWording["noticed"] = [];
+  let noticed: StatedNotice[] = [];
   try {
-    const wording = rental.renterEmail
-      ? await chargeWordingFor(deps, operatorId, context, rental, document.issuedDocumentId)
-      : null;
-    if (wording === "unreachable") {
-      outcome = "failed";
-    } else if (rental.renterEmail) {
+    if (rental.renterEmail) {
+      const wording = await chargeWordingFor(
+        deps,
+        operatorId,
+        context,
+        rental,
+        document.issuedDocumentId,
+      );
       const isSent = await emailBillingDocument(deps, context, rental, {
         ...document,
         chargeLines: wording?.chargeLines,
@@ -355,10 +424,16 @@ export async function emailBillingDocumentRecorded(
     [{ recipient: "renter", outcome }],
   );
   try {
-    await recordNoticesGiven(deps, operatorId, rental.id, noticed, requester);
+    await recordNoticesGiven(
+      deps,
+      operatorId,
+      rental.id,
+      { issuedDocumentId: document.issuedDocumentId, noticed },
+      requester,
+    );
   } catch (error) {
-    // The plan keeps no date, so it is not debited until the invoice is emailed again.
-    console.error("Recording a charge's notice date failed", describeErrorForLog(error));
+    // No notice is kept, so nothing is debited: the nightly notice run emails it again.
+    console.error("Recording a charge's notice failed", describeErrorForLog(error));
   }
   return outcome;
 }
