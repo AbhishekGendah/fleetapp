@@ -227,6 +227,10 @@ describe("the weekly debits update on a filled database", () => {
       `insert into debit_plans (operator_id, rental_id, ledger_line_id, plan) values ($1, $2, $3, 'next_debit')`,
       [filled.operatorId, filled.rentalId, charge!.id],
     );
+    // Since 0064 a one-off part is debited only once its invoice gave notice.
+    await asWeb(`update debit_plans set notice_date = '2026-01-01' where ledger_line_id = $1`, [
+      charge!.id,
+    ]);
     const [debit] = await reserveDebit({ week: "2026-12-01T01:00:00Z" });
     await asWeb(
       `insert into debit_items (operator_id, rental_id, payment_id, ledger_line_id, instalment, amount_cents)

@@ -119,6 +119,7 @@ const ACTIVITY_ACTION_LABELS = {
   [ACTIVITY_ACTIONS.checkoutStarted]: "opened on Stripe's page",
   [ACTIVITY_ACTIONS.debitsPaused]: "automatic debits paused",
   [ACTIVITY_ACTIONS.debitsResumed]: "automatic debits resumed",
+  [ACTIVITY_ACTIONS.noticeGiven]: "invoice emailed: debit date set",
   [ACTIVITY_ACTIONS.codeSent]: "code emailed",
   [ACTIVITY_ACTIONS.phoneVerified]: "opened on a new phone",
   [ACTIVITY_ACTIONS.locked]: "locked after too many wrong codes",

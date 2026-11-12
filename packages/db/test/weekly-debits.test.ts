@@ -303,6 +303,13 @@ describe("weekly debits", () => {
           .set({ plan: "next_debit", weeks: null })
           .where(eq(schema.debitPlans.ledgerLineId, chargeId)),
       );
+    // Its invoice was emailed with the debit stated (migration 0064): it may be debited now.
+    await asA((tx) =>
+      tx
+        .update(schema.debitPlans)
+        .set({ noticeDate: "2026-01-01" })
+        .where(eq(schema.debitPlans.ledgerLineId, chargeId)),
+    );
     const paymentId = await reserveDebit({ periodStartsAt: new Date("2026-12-20T01:00:00Z") });
     await asA((tx) =>
       tx.insert(schema.debitItems).values({
@@ -331,7 +338,11 @@ describe("weekly debits", () => {
         ),
       ),
     ).toBe(CHECK_VIOLATION);
-    const rentLine = await addLine({ description: "Rent" });
+    const rentLine = await addLine({
+      description: "Rent",
+      periodStartsAt: new Date("2026-12-27T01:00:00Z"),
+      periodEndsAt: new Date("2027-01-03T01:00:00Z"),
+    });
     const paymentId = await reserveDebit({ periodStartsAt: new Date("2026-12-27T01:00:00Z") });
     const item = () =>
       asA((tx) =>

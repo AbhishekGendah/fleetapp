@@ -141,6 +141,11 @@ export const ACTIVITY_ACTIONS = {
   /** A rental's automatic debits paused, or resumed (docs/plans/phase-4-slice-5.md). */
   debitsPaused: "debits_paused",
   debitsResumed: "debits_resumed",
+  /**
+   * A one-off charge's invoice emailed with its debit stated: its notice date
+   * set (docs/plans/one-off-charge-notice.md).
+   */
+  noticeGiven: "notice_given",
   /** A one-time code emailed for a Renter link. */
   codeSent: "code_sent",
   /** A right code typed on a phone the link had not seen, which is now remembered. */

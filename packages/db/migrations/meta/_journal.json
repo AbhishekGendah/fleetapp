@@ -449,6 +449,13 @@
       "when": 1794236776465,
       "tag": "0063_weekly_debits",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1794500830787,
+      "tag": "0064_one_off_charge_notice",
+      "breakpoints": true
     }
   ]
 }

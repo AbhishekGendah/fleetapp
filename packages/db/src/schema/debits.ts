@@ -8,6 +8,7 @@ import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
   check,
+  date,
   foreignKey,
   index,
   integer,
@@ -58,7 +59,8 @@ function paymentLink(
  * How a one-off charge is collected when the Renter pays by direct debit
  * (docs/plans/phase-4-slice-5.md): invoice only (the default), with the
  * next weekly debit, on its own now, or split over 2 to 12 weekly debits.
- * One per charge; the database refuses a change once any part is in a debit.
+ * One per charge; the database refuses a change once any part is in a debit,
+ * and a debit of any part before its notice date.
  */
 export const debitPlans = pgTable(
   "debit_plans",
@@ -71,6 +73,13 @@ export const debitPlans = pgTable(
     /** For a split: how many weekly debits. */
     weeks: integer("weeks"),
     chosenByUserId: uuid("chosen_by_user_id").references(() => users.id),
+    /**
+     * The first day it may be debited, on the business's calendar: the day its
+     * invoice was emailed with the debit stated, plus the notice period
+     * (docs/plans/one-off-charge-notice.md). None until then, and a plan with
+     * none is never debited. Set once, never changed (migration 0064).
+     */
+    noticeDate: date("notice_date"),
     ...timestampColumns,
   },
   (table) => [
