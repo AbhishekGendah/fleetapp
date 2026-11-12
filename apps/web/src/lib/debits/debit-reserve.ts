@@ -1,5 +1,6 @@
 import {
   instalmentShares,
+  isNoticeDateReached,
   isRentWeekDebitable,
   ledgerBalanceCents,
   rentWeekCents,
@@ -27,9 +28,6 @@ import {
 } from "./debit-queries";
 
 const SYSTEM_ACTOR = { type: "system", id: null } as const;
-
-/** Who asked for a debit: the nightly run (the system), or a User pressing "Take it now". */
-type DebitActor = typeof SYSTEM_ACTOR | { type: "user"; id: string };
 
 /** One part of what a debit takes: a charge line (or one instalment of a split). */
 interface PlannedItem {
@@ -72,21 +70,39 @@ async function partsDebited(
   return new Map(rows.map((row) => [row.lineId, row.parts]));
 }
 
+/** The rental's one-off charges planned for a debit whose notice date has come by `today`. */
+async function noticedPlans(
+  tx: AnyTransaction,
+  operatorId: string,
+  rentalId: string,
+  today: string,
+) {
+  const plans = await tx
+    .select({
+      lineId: debitPlans.ledgerLineId,
+      plan: debitPlans.plan,
+      weeks: debitPlans.weeks,
+      noticeDate: debitPlans.noticeDate,
+    })
+    .from(debitPlans)
+    .where(and(eq(debitPlans.operatorId, operatorId), eq(debitPlans.rentalId, rentalId)));
+  // No email, no debit, and never before its notice date (docs/plans/one-off-charge-notice.md).
+  return plans.filter((plan) => isNoticeDateReached(plan.noticeDate, today));
+}
+
 /**
  * The one-off charges planned for the next weekly debit, and the next
- * instalment of each split: a charge reversed before it is debited drops
- * out (its reversal stands on the ledger).
+ * instalment of each split, once their notice date has come: a charge
+ * reversed before it is debited drops out (its reversal stands on the ledger).
  */
 async function oneOffItemsDue(
   tx: AnyTransaction,
   operatorId: string,
   rentalId: string,
   lines: readonly RentalLine[],
+  today: string,
 ): Promise<PlannedItem[]> {
-  const plans = await tx
-    .select({ lineId: debitPlans.ledgerLineId, plan: debitPlans.plan, weeks: debitPlans.weeks })
-    .from(debitPlans)
-    .where(and(eq(debitPlans.operatorId, operatorId), eq(debitPlans.rentalId, rentalId)));
+  const plans = await noticedPlans(tx, operatorId, rentalId, today);
   const debited = await partsDebited(tx, operatorId, rentalId);
   const reversed = new Set(lines.flatMap((line) => (line.reversesId ? [line.reversesId] : [])));
   const amounts = new Map(lines.map((line) => [line.id, line.amountCents]));
@@ -151,7 +167,6 @@ async function insertDebit(
   operatorId: string,
   debit: Omit<typeof payments.$inferInsert, "operatorId" | "method" | "status">,
   items: readonly PlannedItem[],
-  actor: DebitActor = SYSTEM_ACTOR,
 ): Promise<ReservedDebit | null> {
   const [reserved] = await tx
     .insert(payments)
@@ -174,7 +189,7 @@ async function insertDebit(
   }
   await recordActivity(tx, {
     operatorId,
-    actor,
+    actor: SYSTEM_ACTOR,
     entityType: ACTIVITY_ENTITY_TYPES.payment,
     entityId: reserved.id,
     action: ACTIVITY_ACTIONS.created,
@@ -215,16 +230,18 @@ async function debitableRental(tx: AnyTransaction, operatorId: string, rentalId:
  * The week's debit for one long-term rental that is out, with the rental
  * already locked by the caller: the rent week that started in the last 7
  * days (not the first, not one begun while paused) and has no debit yet,
- * plus the one-off charges due with it, capped at what is owing less what
- * is pending, skipped under 50c. Only the scheduled amount, never the whole
- * balance (design 06). Null when there is nothing to debit.
+ * plus the one-off charges due with it (their notice date come by `today`,
+ * the business's day), capped at what is owing less what is pending,
+ * skipped under 50c. Only the scheduled amount, never the whole balance
+ * (design 06). Null when there is nothing to debit.
  */
 export async function reserveWeeklyDebit(
   tx: AnyTransaction,
   operatorId: string,
   rentalId: string,
-  now: Date,
+  clock: { now: Date; today: string },
 ): Promise<ReservedDebit | null> {
+  const { now, today } = clock;
   const rental = await debitableRental(tx, operatorId, rentalId);
   const mandate = rental ? await debitableMandateOf(tx, operatorId, rental.renterId) : null;
   if (!rental || !mandate) {
@@ -252,7 +269,7 @@ export async function reserveWeeklyDebit(
     instalment: 1,
     amountCents: rentWeekCents(lines, week.periodStartsAt),
   };
-  const items = [rentItem, ...(await oneOffItemsDue(tx, operatorId, rentalId, lines))];
+  const items = [rentItem, ...(await oneOffItemsDue(tx, operatorId, rentalId, lines, today))];
   const plannedCents = items.reduce((total, item) => total + item.amountCents, 0);
   const amountCents = await cappedCents(tx, operatorId, rentalId, plannedCents, lines);
   if (amountCents === 0) {
@@ -275,26 +292,51 @@ export async function reserveWeeklyDebit(
 }
 
 /**
- * A one-off charge debited on its own now ("Take it now"), with the rental
- * already locked by the caller: its amount, capped at what is owing less
- * what is pending, logged as the User's. Null when the Renter has no usable
- * direct debit, the charge was reversed or is already in a debit, or
- * nothing is left to take.
+ * The rental's "Debit on [date]" charges whose day has come, each debited on
+ * its own by the nightly run (never at once: docs/plans/one-off-charge-notice.md),
+ * with the rental already locked by the caller: its amount, capped at what
+ * is owing less what is pending. None when the Renter has no usable direct
+ * debit; a charge reversed, already in a debit, or with nothing left to
+ * take is left. The rental must not be paused (the caller checks).
  */
-export async function reserveOwnDebit(
+export async function reserveNoticedOwnDebits(
   tx: AnyTransaction,
-  actor: { operatorId: string; userId: string },
+  operatorId: string,
   rental: { id: string; renterId: string },
+  clock: { now: Date; today: string },
+): Promise<ReservedDebit[]> {
+  const plans = (await noticedPlans(tx, operatorId, rental.id, clock.today)).filter(
+    (plan) => plan.plan === "own_debit",
+  );
+  const mandate =
+    plans.length > 0 ? await debitableMandateOf(tx, operatorId, rental.renterId) : null;
+  if (!mandate) {
+    return [];
+  }
+  const reserved: ReservedDebit[] = [];
+  for (const plan of plans) {
+    const debit = await reserveOwnDebit(tx, operatorId, rental, mandate, plan.lineId, clock.now);
+    if (debit) {
+      reserved.push(debit);
+    }
+  }
+  return reserved;
+}
+
+/** One "Debit on [date]" charge reserved on its own, read afresh so the cap counts the ones before it. */
+async function reserveOwnDebit(
+  tx: AnyTransaction,
+  operatorId: string,
+  rental: { id: string; renterId: string },
+  mandate: { id: string },
   ledgerLineId: string,
   now: Date,
 ): Promise<ReservedDebit | null> {
-  const { operatorId } = actor;
-  const mandate = await debitableMandateOf(tx, operatorId, rental.renterId);
   const lines = await rentalLines(tx, operatorId, rental.id);
   const charge = lines.find((line) => line.id === ledgerLineId && line.kind === "charge");
   const isReversed = lines.some((line) => line.reversesId === ledgerLineId);
   const isDebited = (await partsDebited(tx, operatorId, rental.id)).has(ledgerLineId);
-  if (!mandate || !charge || isReversed || isDebited) {
+  if (!charge || isReversed || isDebited) {
     return null;
   }
   const amountCents = await cappedCents(tx, operatorId, rental.id, charge.amountCents, lines);
@@ -313,6 +355,5 @@ export async function reserveOwnDebit(
       requestedAt: now,
     },
     [{ ledgerLineId, instalment: 1, amountCents: charge.amountCents }],
-    { type: "user", id: actor.userId },
   );
 }

@@ -5,27 +5,10 @@ import { appDb } from "../app-db";
 import { billingDependencies } from "../billing/billing-dependencies";
 import { issuePendingDocumentsQuietly } from "../billing/billing-run";
 import type { PaymentDependencies } from "./payment-accounts";
-import type { PaymentsProvider } from "./payments-provider";
-import { createStandInPayments, type StandInPayments } from "./stand-in-provider";
-import { createStripeProvider } from "./stripe-provider";
+import { appPayments } from "./app-payments-provider";
+import type { StandInPayments } from "./stand-in-provider";
 
-function paymentsForThisSite(): PaymentsProvider | null {
-  if (env.PAYMENTS_TRANSPORT === "stripe") {
-    // Both are required with "stripe" by the env check at start-up.
-    const secrets = [env.STRIPE_WEBHOOK_SECRET, env.STRIPE_CONNECT_WEBHOOK_SECRET];
-    return createStripeProvider(
-      env.STRIPE_SECRET_KEY ?? "",
-      secrets.filter((secret): secret is string => Boolean(secret)),
-    );
-  }
-  if (env.PAYMENTS_TRANSPORT === "stand_in") {
-    return createStandInPayments(env.STRIPE_WEBHOOK_SECRET ?? "");
-  }
-  return null;
-}
-
-/** The app's way to Stripe; null while payments by Stripe are not set up on this site. */
-export const appPayments: PaymentsProvider | null = paymentsForThisSite();
+export { appPayments };
 
 /**
  * Whether Renters can be sent to Stripe's page: only once we can hear back

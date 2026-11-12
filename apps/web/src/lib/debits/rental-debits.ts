@@ -1,11 +1,14 @@
 import {
+  oneOffNoticeDate,
   operatorSettingsSchema,
   readSettings,
+  todayInTimeZone,
   type DebitCollectionPlan,
   type RentalStatus,
 } from "@fleetapp/core";
 import type { AnyDatabase } from "@fleetapp/db/client";
-import { debitItems, debitPlans, rentals } from "@fleetapp/db/schema";
+import { debitItems, debitPlans, ledgerLines, rentals } from "@fleetapp/db/schema";
+import { qualified } from "@fleetapp/db/qualified";
 import { withTenant } from "@fleetapp/db/tenant-context";
 import { and, eq, sql } from "drizzle-orm";
 
@@ -19,6 +22,38 @@ export interface ChargePlanRow {
   weeks: number | null;
   /** Parts already in a debit: none means it can still be changed. */
   partsDebited: number;
+  /** The first day it may be debited; none until its invoice is emailed with the debit stated. */
+  noticeDate: string | null;
+  /** The charge itself, as the Renter reads it. */
+  description: string;
+  amountCents: number;
+  /** Reversed: no longer owed, so never debited. */
+  isReversed: boolean;
+}
+
+/** A planned charge still to be debited (in part, for a split): planned for a debit, not reversed. */
+export function isWaitingForDebit(plan: ChargePlanRow): boolean {
+  const parts = plan.plan === "split" ? (plan.weeks ?? 0) : 1;
+  return plan.plan !== "not_debited" && !plan.isReversed && plan.partsDebited < parts;
+}
+
+/** The day a one-off charge added now could first be debited, and today, on the business's clock. */
+export interface NoticeClock {
+  today: string;
+  /** Today plus the rental's notice period (its settings copy, rule 14). */
+  expectedNoticeDate: string;
+}
+
+/** The rental's notice clock, from its settings copy. */
+function noticeClockOf(
+  settingsSnapshot: Record<string, unknown>,
+  clock: { now: Date; timeZone: string },
+): NoticeClock {
+  const { oneOffNoticeDays } = readSettings(operatorSettingsSchema, settingsSnapshot);
+  return {
+    today: todayInTimeZone(clock.now, clock.timeZone),
+    expectedNoticeDate: oneOffNoticeDate(clock.now, clock.timeZone, oneOffNoticeDays),
+  };
 }
 
 /** What the rental's page shows about its debits (docs/plans/phase-4-slice-5.md, Screens). */
@@ -32,6 +67,7 @@ export interface RentalDebitState {
   plans: ChargePlanRow[];
   pending: { cents: number; since: Date } | null;
   lastCleared: RentalDebitRow | null;
+  notice: NoticeClock;
 }
 
 export async function loadRentalDebitState(
@@ -43,6 +79,7 @@ export async function loadRentalDebitState(
     status: RentalStatus;
     settingsSnapshot: Record<string, unknown>;
   },
+  clock: { now: Date; timeZone: string },
 ): Promise<RentalDebitState> {
   const isStripeReady = await isStripeReadyFor(database, operatorId);
   const [debits, inTenant] = await Promise.all([
@@ -59,9 +96,23 @@ export async function loadRentalDebitState(
           plan: debitPlans.plan,
           weeks: debitPlans.weeks,
           partsDebited: sql<number>`(select count(*) from ${debitItems}
-            where ${debitItems.ledgerLineId} = ${debitPlans.ledgerLineId})`.mapWith(Number),
+            where ${qualified(debitItems.ledgerLineId)} = ${qualified(debitPlans.ledgerLineId)})`.mapWith(
+            Number,
+          ),
+          noticeDate: debitPlans.noticeDate,
+          description: ledgerLines.description,
+          amountCents: ledgerLines.amountCents,
+          isReversed: sql<boolean>`exists (select 1 from ${ledgerLines} reversal
+            where reversal.reverses_id = ${qualified(debitPlans.ledgerLineId)})`,
         })
         .from(debitPlans)
+        .innerJoin(
+          ledgerLines,
+          and(
+            eq(ledgerLines.id, debitPlans.ledgerLineId),
+            eq(ledgerLines.operatorId, debitPlans.operatorId),
+          ),
+        )
         .where(and(eq(debitPlans.operatorId, operatorId), eq(debitPlans.rentalId, rental.id))),
     })),
   ]);
@@ -82,15 +133,20 @@ export async function loadRentalDebitState(
       : null,
     lastCleared:
       debits.find((debit) => debit.status === "succeeded" || debit.status === "refunded") ?? null,
+    notice: noticeClockOf(rental.settingsSnapshot, clock),
   };
 }
 
-/** The ways a new one-off charge on this rental can be collected, and its default (from a damage record). */
+/**
+ * The ways a new one-off charge on this rental can be collected, its
+ * default, and the day it could first be debited (from a damage record).
+ */
 export async function loadCollectionChoices(
   database: AnyDatabase,
   operatorId: string,
   rentalId: string,
-): Promise<Pick<RentalDebitState, "choices" | "defaultCollection">> {
+  clock: { now: Date; timeZone: string },
+): Promise<Pick<RentalDebitState, "choices" | "defaultCollection" | "notice">> {
   const isStripeReady = await isStripeReadyFor(database, operatorId);
   return withTenant(database, operatorId, async (tx) => {
     const [rental] = await tx
@@ -101,13 +157,12 @@ export async function loadCollectionChoices(
       })
       .from(rentals)
       .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, operatorId)));
-    const defaultCollection = readSettings(
-      operatorSettingsSchema,
-      rental?.settingsSnapshot ?? {},
-    ).oneOffChargeCollection;
+    const snapshot = rental?.settingsSnapshot ?? {};
+    const defaultCollection = readSettings(operatorSettingsSchema, snapshot).oneOffChargeCollection;
     return {
       choices: rental ? await collectionChoicesFor(tx, operatorId, rental, isStripeReady) : [],
       defaultCollection,
+      notice: noticeClockOf(snapshot, clock),
     };
   });
 }

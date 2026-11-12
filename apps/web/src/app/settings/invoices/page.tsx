@@ -68,18 +68,23 @@ export default async function InvoiceSettingsPage() {
         <CardContent className="flex flex-col gap-8">
           <ChoiceSettingForm
             setting="isInvoiceEmailedAutomatically"
-            label="Email each one to the Renter as it is issued?"
+            label="Email rent invoices, credit notes and receipts to the Renter as they are issued?"
             value={choiceSettingValue(
               "isInvoiceEmailedAutomatically",
               settings.isInvoiceEmailedAutomatically,
             )}
           />
-          <ChoiceSettingForm
-            setting="oneOffChargeInvoicing"
-            label="One-off charges (cleaning, tolls, damage) go"
-            value={choiceSettingValue("oneOffChargeInvoicing", settings.oneOffChargeInvoicing)}
-            hint="Each new rental keeps the choice it was made with. A rental's page can invoice a waiting charge at once."
-          />
+          <section className="flex flex-col gap-1" aria-labelledby="one-off-invoices">
+            <h2 id="one-off-invoices" className="font-semibold">
+              One-off charges
+            </h2>
+            <p className="text-sm">
+              Each one-off charge (cleaning, tolls, damage, a fee) is invoiced on its own as soon as
+              you add it, and that invoice is always emailed to the Renter, or to a business&apos;s
+              contact, whatever you choose above. If it is to be debited, the email says when and
+              from which account, and nothing is debited before then (Settings → Payments).
+            </p>
+          </section>
         </CardContent>
       </Card>
       <Card>

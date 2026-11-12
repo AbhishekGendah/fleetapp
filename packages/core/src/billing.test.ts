@@ -6,6 +6,7 @@ import {
   documentTotals,
   gstMarking,
   hasPendingDocuments,
+  isOneOffCharge,
   isTaxDocumentOn,
   pendingDocuments,
   type BillableLine,
@@ -22,8 +23,6 @@ function billable(
 const RENT = billable("rent", "charge", { periodStart: "2026-11-03" });
 const CLEANING = billable("cleaning", "charge");
 const PAYMENT = billable("payment", "payment");
-const WAITING = { isOneOffWaitingForRent: true };
-const NOT_WAITING = { isOneOffWaitingForRent: false };
 
 describe("document numbers and titles", () => {
   it("prints the prefix and the number", () => {
@@ -62,73 +61,70 @@ describe("document numbers and titles", () => {
 });
 
 describe("what still needs a document", () => {
-  it("puts rent and every one-off charge waiting on one invoice, and each payment on a receipt", () => {
-    const pending = pendingDocuments([CLEANING, RENT, PAYMENT], WAITING);
+  it("invoices rent first, then each one-off charge on its own, and each payment on a receipt", () => {
+    const pending = pendingDocuments([CLEANING, RENT, PAYMENT]);
 
-    expect(pending.invoiceLineIds).toEqual(["cleaning", "rent"]);
+    expect(pending.invoiceLineIds).toEqual(["rent"]);
     expect(pending.receiptLineIds).toEqual(["payment"]);
     expect(pending.creditNotes).toEqual([]);
+    const afterRent = pendingDocuments([CLEANING, { ...RENT, documentId: "inv-1" }]);
+    expect(afterRent.invoiceLineIds).toEqual(["cleaning"]);
   });
 
-  it("holds a one-off charge for the next weekly invoice, unless it goes at once or now", () => {
-    expect(pendingDocuments([CLEANING], WAITING).invoiceLineIds).toEqual([]);
-    expect(pendingDocuments([CLEANING], NOT_WAITING).invoiceLineIds).toEqual(["cleaning"]);
-    expect(
-      pendingDocuments([CLEANING], { ...WAITING, isInvoicedNow: true }).invoiceLineIds,
-    ).toEqual(["cleaning"]);
+  it("never holds a one-off charge back, and puts two waiting on an invoice each", () => {
+    const towing = billable("towing", "charge");
+    expect(pendingDocuments([CLEANING]).invoiceLineIds).toEqual(["cleaning"]);
+    expect(pendingDocuments([CLEANING, towing]).invoiceLineIds).toEqual(["cleaning"]);
+    expect(pendingDocuments([{ ...CLEANING, documentId: "inv-1" }, towing]).invoiceLineIds).toEqual(
+      ["towing"],
+    );
+  });
+
+  it("tells a one-off charge from rent and its corrections", () => {
+    expect(isOneOffCharge(CLEANING)).toBe(true);
+    expect(isOneOffCharge(RENT)).toBe(false);
+    expect(isOneOffCharge(PAYMENT)).toBe(false);
   });
 
   it("needs nothing for lines already on a document", () => {
-    const pending = pendingDocuments(
-      [
-        { ...RENT, documentId: "inv-1" },
-        { ...PAYMENT, documentId: "rct-1" },
-      ],
-      NOT_WAITING,
-    );
+    const pending = pendingDocuments([
+      { ...RENT, documentId: "inv-1" },
+      { ...PAYMENT, documentId: "rct-1" },
+    ]);
     expect(hasPendingDocuments(pending)).toBe(false);
   });
 
   it("needs nothing for a charge reversed before it was invoiced, nor for its reversal", () => {
-    const pending = pendingDocuments(
-      [CLEANING, billable("undo", "reversal", { reversesId: "cleaning" })],
-      NOT_WAITING,
-    );
+    const pending = pendingDocuments([
+      CLEANING,
+      billable("undo", "reversal", { reversesId: "cleaning" }),
+    ]);
     expect(hasPendingDocuments(pending)).toBe(false);
   });
 
   it("corrects an invoiced charge with a credit note naming its invoice", () => {
-    const pending = pendingDocuments(
-      [
-        { ...CLEANING, documentId: "inv-1" },
-        billable("undo", "reversal", { reversesId: "cleaning" }),
-      ],
-      NOT_WAITING,
-    );
+    const pending = pendingDocuments([
+      { ...CLEANING, documentId: "inv-1" },
+      billable("undo", "reversal", { reversesId: "cleaning" }),
+    ]);
     expect(pending.creditNotes).toEqual([{ relatesToDocumentId: "inv-1", lineIds: ["undo"] }]);
   });
 
   it("credits unused days against the invoice with that period's rent", () => {
-    const pending = pendingDocuments(
-      [
-        { ...RENT, documentId: "inv-2" },
-        billable("unused", "credit", { periodStart: "2026-11-03" }),
-      ],
-      NOT_WAITING,
-    );
+    const pending = pendingDocuments([
+      { ...RENT, documentId: "inv-2" },
+      billable("unused", "credit", { periodStart: "2026-11-03" }),
+    ]);
     expect(pending.creditNotes).toEqual([{ relatesToDocumentId: "inv-2", lineIds: ["unused"] }]);
   });
 
   it("makes one credit note per invoice corrected", () => {
-    const pending = pendingDocuments(
-      [
-        { ...RENT, documentId: "inv-1" },
-        { ...CLEANING, documentId: "inv-2" },
-        billable("unused", "credit", { periodStart: "2026-11-03" }),
-        billable("undo", "reversal", { reversesId: "cleaning" }),
-      ],
-      NOT_WAITING,
-    );
+    const pending = pendingDocuments([
+      { ...RENT, documentId: "inv-1" },
+      { ...CLEANING, documentId: "inv-2" },
+      billable("unused", "credit", { periodStart: "2026-11-03" }),
+      billable("undo", "reversal", { reversesId: "cleaning" }),
+    ]);
     expect(pending.creditNotes).toEqual([
       { relatesToDocumentId: "inv-1", lineIds: ["unused"] },
       { relatesToDocumentId: "inv-2", lineIds: ["undo"] },
@@ -136,26 +132,20 @@ describe("what still needs a document", () => {
   });
 
   it("keeps a reversed payment's receipt and makes no document for the reversal", () => {
-    const pending = pendingDocuments(
-      [
-        { ...PAYMENT, documentId: "rct-1" },
-        billable("undo", "reversal", { reversesId: "payment" }),
-      ],
-      NOT_WAITING,
-    );
+    const pending = pendingDocuments([
+      { ...PAYMENT, documentId: "rct-1" },
+      billable("undo", "reversal", { reversesId: "payment" }),
+    ]);
     expect(hasPendingDocuments(pending)).toBe(false);
   });
 
   it("invoices a block-rent correction at once and credits against its period's invoice", () => {
     const weekStart = "2026-11-26T23:00:00.000Z";
-    const pending = pendingDocuments(
-      [
-        billable("week", "charge", { periodStart: weekStart, documentId: "inv-4" }),
-        billable("repriced", "charge", { periodStart: weekStart, isCorrection: true }),
-        billable("unused", "credit", { periodStart: weekStart, isCorrection: true }),
-      ],
-      WAITING,
-    );
+    const pending = pendingDocuments([
+      billable("week", "charge", { periodStart: weekStart, documentId: "inv-4" }),
+      billable("repriced", "charge", { periodStart: weekStart, isCorrection: true }),
+      billable("unused", "credit", { periodStart: weekStart, isCorrection: true }),
+    ]);
     expect(pending.invoiceLineIds).toEqual(["repriced"]);
     expect(pending.creditNotes).toEqual([{ relatesToDocumentId: "inv-4", lineIds: ["unused"] }]);
   });
@@ -165,35 +155,29 @@ describe("what still needs a document", () => {
       periodStart: "2026-11-03",
       documentId: "cn-1",
     });
-    const pending = pendingDocuments(
-      [
-        { ...RENT, documentId: "inv-1" },
-        credited,
-        billable("undo", "reversal", { reversesId: "unused" }),
-      ],
-      WAITING,
-    );
+    const pending = pendingDocuments([
+      { ...RENT, documentId: "inv-1" },
+      credited,
+      billable("undo", "reversal", { reversesId: "unused" }),
+    ]);
     expect(pending.invoiceLineIds).toEqual(["undo"]);
     expect(pending.creditNotes).toEqual([]);
   });
 
   it("gives no document for a credit reversed before its credit note", () => {
-    const pending = pendingDocuments(
-      [
-        { ...RENT, documentId: "inv-1" },
-        billable("unused", "credit", { periodStart: "2026-11-03" }),
-        billable("undo", "reversal", { reversesId: "unused" }),
-      ],
-      NOT_WAITING,
-    );
+    const pending = pendingDocuments([
+      { ...RENT, documentId: "inv-1" },
+      billable("unused", "credit", { periodStart: "2026-11-03" }),
+      billable("undo", "reversal", { reversesId: "unused" }),
+    ]);
     expect(hasPendingDocuments(pending)).toBe(false);
   });
 
   it("gives no receipt for a payment reversed before its receipt", () => {
-    const pending = pendingDocuments(
-      [PAYMENT, billable("undo", "reversal", { reversesId: "payment" })],
-      NOT_WAITING,
-    );
+    const pending = pendingDocuments([
+      PAYMENT,
+      billable("undo", "reversal", { reversesId: "payment" }),
+    ]);
     expect(pending.receiptLineIds).toEqual([]);
   });
 });

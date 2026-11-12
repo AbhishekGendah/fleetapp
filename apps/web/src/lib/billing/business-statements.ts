@@ -37,7 +37,7 @@ import {
   selectRenterRentalCars,
   type RenterRentalCar,
 } from "../renters/business-money-cards";
-import { emailBillingDocument } from "./billing-run";
+import { emailBillingDocument } from "./billing-email";
 import {
   BUSINESS_STATEMENT_TITLE,
   renderBusinessStatementPdf,

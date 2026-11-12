@@ -105,6 +105,17 @@ const lineDriverId = fromLinePossession<string | null>(
   qualified(rentals.driverId),
 );
 
+/** A ledger line's place on a document (to join), within its business. */
+export const LINE_ON_DOCUMENT = and(
+  eq(billingDocumentLines.ledgerLineId, ledgerLines.id),
+  eq(billingDocumentLines.operatorId, ledgerLines.operatorId),
+);
+/** The document that place is on (to join after LINE_ON_DOCUMENT), within its business. */
+export const DOCUMENT_OF_LINE = and(
+  eq(billingDocuments.id, billingDocumentLines.billingDocumentId),
+  eq(billingDocuments.operatorId, billingDocumentLines.operatorId),
+);
+
 async function selectLedgerLines(
   tx: AnyTransaction,
   operatorId: string,
@@ -139,20 +150,8 @@ async function selectLedgerLines(
         eq(chargeTypes.operatorId, ledgerLines.operatorId),
       ),
     )
-    .leftJoin(
-      billingDocumentLines,
-      and(
-        eq(billingDocumentLines.ledgerLineId, ledgerLines.id),
-        eq(billingDocumentLines.operatorId, ledgerLines.operatorId),
-      ),
-    )
-    .leftJoin(
-      billingDocuments,
-      and(
-        eq(billingDocuments.id, billingDocumentLines.billingDocumentId),
-        eq(billingDocuments.operatorId, billingDocumentLines.operatorId),
-      ),
-    )
+    .leftJoin(billingDocumentLines, LINE_ON_DOCUMENT)
+    .leftJoin(billingDocuments, DOCUMENT_OF_LINE)
     .where(and(eq(ledgerLines.operatorId, operatorId), where))
     .orderBy(asc(ledgerLines.effectiveOn), asc(ledgerLines.createdAt));
   return rows.map(({ line, rego, driverId, builtIn, typeName, ...billing }) => ({

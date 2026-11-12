@@ -13,11 +13,9 @@ import { and, eq } from "drizzle-orm";
 
 import { recordUserChange, type ActingUser } from "../acting-user";
 import { lockPaymentRental } from "../bonds/bond-records";
-import { loadPaymentAccount, type PaymentDependencies } from "../payments/payment-accounts";
+import { loadPaymentAccount } from "../payments/payment-accounts";
 import type { DebitCollection } from "./debit-plan-input";
 import { usableMandateOf } from "./debit-queries";
-import { reserveOwnDebit } from "./debit-reserve";
-import { sendReservedDebit } from "./debit-send";
 
 /** The rental states a one-off charge can still be debited in. */
 const DEBITABLE_STATUSES: ReadonlySet<RentalStatus> = new Set(["booked", "active", "returned"]);
@@ -109,7 +107,9 @@ async function isLineReversed(
 /**
  * Changes how a one-off charge is collected, until any part of it is in a
  * debit (the database refuses it after), logged. The rental first, then the
- * plan ("Lock order").
+ * plan ("Lock order"). Its notice date, once given, stays: a charge first
+ * planned as invoice only gets one when its invoice is next emailed with
+ * the debit stated (the caller sends it).
  */
 export async function changeDebitPlan(
   database: AnyDatabase,
@@ -177,35 +177,4 @@ export async function changeDebitPlan(
     });
     return "changed";
   });
-}
-
-/**
- * "Take it now": the charge debited on its own, reserved in its own short
- * transaction with the rental locked first, then sent to Stripe after it.
- * Whether it was asked for (false when nothing could be: no working direct
- * debit, nothing owing, or already in a debit).
- */
-export async function collectChargeNow(
-  deps: PaymentDependencies,
-  actor: ActingUser,
-  target: { rentalId: string; ledgerLineId: string },
-): Promise<boolean> {
-  const { operatorId } = actor;
-  const reserved = await withTenant(deps.database, operatorId, async (tx) => {
-    const rental = await lockPaymentRental(tx, operatorId, target.rentalId);
-    return rental
-      ? reserveOwnDebit(
-          tx,
-          actor,
-          { id: rental.id, renterId: rental.renterId },
-          target.ledgerLineId,
-          deps.now(),
-        )
-      : null;
-  });
-  if (!reserved) {
-    return false;
-  }
-  await sendReservedDebit(deps, operatorId, reserved);
-  return true;
 }

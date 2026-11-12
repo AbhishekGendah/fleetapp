@@ -74,15 +74,6 @@ export function gstMarking(gstCents: number, treatment: GstTreatment): string {
   return treatment === "gst_free" ? "GST-free" : "No GST";
 }
 
-/** One-off charges: on the next weekly invoice (the default), or on one of their own at once. */
-export const ONE_OFF_CHARGE_INVOICING = ["with_next_rent", "own_invoice"] as const;
-export type OneOffChargeInvoicing = (typeof ONE_OFF_CHARGE_INVOICING)[number];
-
-export const ONE_OFF_CHARGE_INVOICING_LABELS: Readonly<Record<OneOffChargeInvoicing, string>> = {
-  with_next_rent: "On the next weekly invoice",
-  own_invoice: "On an invoice of their own, at once",
-};
-
 export const HOW_TO_PAY_MAX_LENGTH = 500;
 
 /** A ledger line as far as documents go: what it is, and the document it is on, if any. */
@@ -108,25 +99,25 @@ export interface PendingCreditNote {
 }
 
 export interface PendingDocuments {
+  /** The next invoice's lines (issued one invoice at a time). */
   invoiceLineIds: string[];
   creditNotes: PendingCreditNote[];
   /** One receipt each. */
   receiptLineIds: string[];
 }
 
-export interface PendingOptions {
-  /**
-   * One-off charges wait for the next weekly invoice: the rental's setting
-   * says so, and rent is still to come (booked or out).
-   */
-  isOneOffWaitingForRent: boolean;
-  /** "Invoice now": everything waiting goes on an invoice. */
-  isInvoicedNow?: boolean;
-}
-
-/** Rent, or a correction to it: invoiced at once, never held for the next weekly invoice. */
+/** Rent, or a correction to it: invoiced together, at once. */
 function isRentLine(line: BillableLine): boolean {
   return line.kind === "charge" && line.periodStart !== null;
+}
+
+/**
+ * A one-off charge (cleaning, damage, a fee): a charge for no rent period.
+ * Each goes on an invoice of its own at once, emailed to the Renter before
+ * it can ever be debited (docs/plans/one-off-charge-notice.md).
+ */
+export function isOneOffCharge(line: Pick<BillableLine, "kind" | "periodStart">): boolean {
+  return line.kind === "charge" && line.periodStart === null;
 }
 
 /** A period's own rent charge, which its corrections and credits point back to. */
@@ -134,10 +125,23 @@ function isOriginalRentLine(line: BillableLine): boolean {
   return isRentLine(line) && line.isCorrection !== true;
 }
 
-function invoiceLineIdsOf(waiting: readonly BillableLine[], options: PendingOptions): string[] {
-  const hasRent = waiting.some(isRentLine);
-  const isAllAtOnce = options.isInvoicedNow === true || hasRent || !options.isOneOffWaitingForRent;
-  return isAllAtOnce ? waiting.map((line) => line.id) : [];
+/**
+ * The next invoice's lines: waiting rent (with any credit taken back) on
+ * one, before each waiting one-off charge on its own.
+ */
+function nextInvoiceLineIds(
+  waitingCharges: readonly BillableLine[],
+  creditReversalIds: readonly string[],
+): string[] {
+  const rentIds = [
+    ...waitingCharges.filter(isRentLine).map((line) => line.id),
+    ...creditReversalIds,
+  ];
+  if (rentIds.length > 0) {
+    return rentIds;
+  }
+  const oneOff = waitingCharges.find(isOneOffCharge);
+  return oneOff ? [oneOff.id] : [];
 }
 
 /** The invoice a credit corrects: the one with the charge it reverses, or the rent of its period. */
@@ -200,25 +204,20 @@ function creditReversalIdsOf(
 }
 
 /**
- * The documents a rental's lines still need, in the order to issue them
- * (invoices before the credit notes that correct them). A line reversed
- * before it was on a document needs none, and neither does its reversal;
- * a reversed payment keeps its receipt (the statement shows both).
+ * The documents a rental's lines still need, the next invoice first (rent,
+ * then each one-off charge on its own), then the credit notes that correct
+ * invoices. A line reversed before it was on a document needs none, and
+ * neither does its reversal; a reversed payment keeps its receipt (the
+ * statement shows both).
  */
-export function pendingDocuments(
-  lines: readonly BillableLine[],
-  options: PendingOptions,
-): PendingDocuments {
+export function pendingDocuments(lines: readonly BillableLine[]): PendingDocuments {
   const reversedIds = new Set(lines.flatMap((line) => (line.reversesId ? [line.reversesId] : [])));
   const isWaiting = (line: BillableLine) => line.documentId === null && !reversedIds.has(line.id);
   return {
-    invoiceLineIds: [
-      ...invoiceLineIdsOf(
-        lines.filter((line) => line.kind === "charge" && isWaiting(line)),
-        options,
-      ),
-      ...creditReversalIdsOf(lines, isWaiting),
-    ],
+    invoiceLineIds: nextInvoiceLineIds(
+      lines.filter((line) => line.kind === "charge" && isWaiting(line)),
+      creditReversalIdsOf(lines, isWaiting),
+    ),
     creditNotes: creditNotesOf(lines, reversedIds),
     receiptLineIds: lines
       .filter((line) => line.kind === "payment" && isWaiting(line))

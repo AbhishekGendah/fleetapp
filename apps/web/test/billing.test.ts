@@ -15,6 +15,7 @@ import { listChargeTypes } from "../src/lib/ledger/charge-types";
 import { loadRentalLedger } from "../src/lib/ledger/ledger-queries";
 import { addCharge, recordPayment, reverseLine } from "../src/lib/ledger/ledger-records";
 import { chargeRentFor } from "../src/lib/ledger/rent-job";
+import { saveOperatorSettings } from "../src/lib/settings/operator-settings";
 import {
   createMemoryFileStorage,
   type MemoryFileStorage,
@@ -120,33 +121,57 @@ describe("invoices, credit notes and receipts", () => {
     expect(new TextDecoder().decode(pdf!.pdf.slice(0, 5))).toBe("%PDF-");
   });
 
-  it("holds a one-off charge for the next weekly invoice, unless invoiced now", async () => {
+  it("invoices each one-off charge on its own at once, and always emails it", async () => {
     const rentalId = await rentalCharged();
     await issuePendingDocuments(deps(WEDNESDAY_3RD), actor, rentalId);
-    await addCharge(web.db, actor, rentalId, {
-      chargeTypeId: await typeId("Cleaning"),
-      amountCents: 80_00,
-      description: "Seats cleaned",
-      effectiveOn: "2030-04-04",
-    });
+    // Even with the automatic emails switched off, the one-off charges' invoices go.
+    await saveOperatorSettings(web.db, actor, { isInvoiceEmailedAutomatically: false });
+    try {
+      for (const charge of [
+        { label: "Cleaning", amountCents: 80_00, description: "Seats cleaned" },
+        { label: "Toll", amountCents: 12_50, description: "Bridge toll" },
+      ]) {
+        await addCharge(web.db, actor, rentalId, {
+          chargeTypeId: await typeId(charge.label),
+          amountCents: charge.amountCents,
+          description: charge.description,
+          effectiveOn: "2030-04-04",
+        });
+      }
+      sentEmails.length = 0;
+      const issued = await issuePendingDocuments(deps(WEDNESDAY_3RD), actor, rentalId);
+      expect(issued.map((document) => document.totalCents)).toEqual([80_00, 12_50]);
+      expect(sentEmails).toHaveLength(2);
+      expect(sentEmails[0]!.text).toContain(
+        "Cleaning (Seats cleaned): $80.00, including GST of $7.27.",
+      );
+      expect(sentEmails[0]!.text).toContain("Contact Invoice Rentals Pty Ltd at hi@invoice.test.");
 
-    const waiting = await issuePendingDocuments(deps(WEDNESDAY_3RD), actor, rentalId);
-    await chargeRentFor(web.db, actor.operatorId, EARLY_WEDNESDAY_10TH, [rentalId]);
-    const weekly = await issuePendingDocuments(deps(EARLY_WEDNESDAY_10TH), actor, rentalId);
+      // Taking one back: its adjustment note goes too.
+      const cleaning = (await loadRentalLedger(web.db, actor.operatorId, rentalId)).lines.find(
+        (line) => line.description === "Seats cleaned",
+      );
+      await reverseLine(
+        web.db,
+        actor,
+        { rentalId, lineId: cleaning!.id },
+        { note: "Not needed" },
+        "2030-04-04",
+      );
+      sentEmails.length = 0;
+      const corrected = await issuePendingDocuments(deps(WEDNESDAY_3RD), actor, rentalId);
+      expect(corrected.map((document) => document.title)).toEqual(["Adjustment note"]);
+      expect(sentEmails).toHaveLength(1);
 
-    expect(waiting).toEqual([]);
-    expect(weekly.map((document) => document.totalCents)).toEqual([350_00 + 80_00]);
-
-    await addCharge(web.db, actor, rentalId, {
-      chargeTypeId: await typeId("Toll"),
-      amountCents: 12_50,
-      description: "Bridge toll",
-      effectiveOn: "2030-04-10",
-    });
-    const now = await issuePendingDocuments(deps(EARLY_WEDNESDAY_10TH), actor, rentalId, {
-      isInvoicedNow: true,
-    });
-    expect(now.map((document) => document.totalCents)).toEqual([12_50]);
+      // Rent is still as the setting says: issued, not emailed.
+      sentEmails.length = 0;
+      await chargeRentFor(web.db, actor.operatorId, EARLY_WEDNESDAY_10TH, [rentalId]);
+      const weekly = await issuePendingDocuments(deps(EARLY_WEDNESDAY_10TH), actor, rentalId);
+      expect(weekly.map((document) => document.totalCents)).toEqual([350_00]);
+      expect(sentEmails).toEqual([]);
+    } finally {
+      await saveOperatorSettings(web.db, actor, { isInvoiceEmailedAutomatically: true });
+    }
   });
 
   it("gives each payment a receipt, and corrects an invoiced charge with an adjustment note", async () => {
@@ -222,7 +247,7 @@ describe("invoices, credit notes and receipts", () => {
       toDate: "2030-04-30",
     });
     const issuedDocumentId = statement.status === "issued" ? statement.issuedDocumentId : "";
-    const emailed = await emailBillingDocumentAgain(deps(WEDNESDAY_3RD), actor.operatorId, {
+    const emailed = await emailBillingDocumentAgain(deps(WEDNESDAY_3RD), actor, {
       rentalId,
       issuedDocumentId,
     });
@@ -276,9 +301,7 @@ describe("invoices, credit notes and receipts", () => {
     await issuePendingDocuments(deps(WEDNESDAY_3RD), actor, rentalId);
     const [ours] = await listBillingDocuments(web.db, actor.operatorId, rentalId);
 
-    const intoA = await issuePendingDocuments(deps(WEDNESDAY_3RD), otherOperator, rentalId, {
-      isInvoicedNow: true,
-    });
+    const intoA = await issuePendingDocuments(deps(WEDNESDAY_3RD), otherOperator, rentalId);
     const listed = await listBillingDocuments(web.db, otherOperator.operatorId, rentalId);
     const opened = await loadBillingDocumentPdf(deps(WEDNESDAY_3RD), otherOperator.operatorId, {
       rentalId,

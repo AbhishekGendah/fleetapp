@@ -592,6 +592,15 @@ export function createStripeProvider(
       );
     },
 
+    async readBankAccountEnding(accountId, paymentMethodId) {
+      const method = await stripe.paymentMethods.retrieve(
+        paymentMethodId,
+        {},
+        { stripeAccount: accountId },
+      );
+      return method.au_becs_debit?.last4 ?? null;
+    },
+
     async detachPaymentMethod(accountId, paymentMethodId) {
       try {
         await stripe.paymentMethods.detach(paymentMethodId, {}, { stripeAccount: accountId });

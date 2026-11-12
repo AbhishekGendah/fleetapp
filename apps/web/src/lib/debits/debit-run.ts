@@ -3,10 +3,19 @@ import {
   DEBIT_REREAD_AFTER_MS,
   debitRecoveryStep,
   describeErrorForLog,
+  todayInTimeZone,
 } from "@fleetapp/core";
-import { operators, payments, rentals } from "@fleetapp/db/schema";
+import {
+  debitItems,
+  debitPlans,
+  ledgerLines,
+  operators,
+  payments,
+  rentals,
+} from "@fleetapp/db/schema";
+import { qualified } from "@fleetapp/db/qualified";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm";
 
 import { lockPaymentRental } from "../bonds/bond-records";
 import { findDueOperators, forEachOperator, type OperatorRun } from "../jobs/due-operators";
@@ -14,7 +23,7 @@ import { loadPaymentAccount, type PaymentDependencies } from "../payments/paymen
 import type { DebitRead } from "../payments/payments-provider";
 import { applyDebitRead, failReservedDebit, NOT_SENT } from "./debit-outcome";
 import { IS_DEBIT, stripeCustomerOf } from "./debit-queries";
-import { reserveWeeklyDebit, type ReservedDebit } from "./debit-reserve";
+import { reserveNoticedOwnDebits, reserveWeeklyDebit, type ReservedDebit } from "./debit-reserve";
 import { sendReservedDebit } from "./debit-send";
 
 /** A debit of ours still pending, as recovery and the re-read look at it. */
@@ -149,22 +158,43 @@ async function finishEarlierDebits(
   }
 }
 
-/** Whether new debits can be made: not suspended (decision 4), its Stripe account ready. */
-async function canDebitNow(deps: PaymentDependencies, operatorId: string): Promise<boolean> {
+/**
+ * The business's own day, when new debits can be made: not suspended
+ * (decision 4), its Stripe account ready. Null when they can't.
+ */
+async function debitDayNow(deps: PaymentDependencies, operatorId: string): Promise<string | null> {
   const [operator] = await withTenant(deps.database, operatorId, (tx) =>
     tx
-      .select({ suspendedAt: operators.suspendedAt })
+      .select({ suspendedAt: operators.suspendedAt, timezone: operators.timezone })
       .from(operators)
       .where(eq(operators.id, operatorId)),
   );
   const account = await loadPaymentAccount(deps.database, operatorId);
-  return operator !== undefined && operator.suspendedAt === null && account?.state === "ready";
+  const canDebit =
+    operator !== undefined && operator.suspendedAt === null && account?.state === "ready";
+  return canDebit ? todayInTimeZone(deps.now(), operator.timezone) : null;
 }
 
-/** The business's long-term rentals out with automatic debits on. */
-async function rentalsToDebit(deps: PaymentDependencies, operatorId: string): Promise<string[]> {
-  const rows = await withTenant(deps.database, operatorId, (tx) =>
-    tx
+/** Whether new debits can be made: not suspended (decision 4), its Stripe account ready. */
+async function canDebitNow(deps: PaymentDependencies, operatorId: string): Promise<boolean> {
+  return (await debitDayNow(deps, operatorId)) !== null;
+}
+
+/** The rentals a one-off charge can still be debited on (as "Debit on [date]" allows). */
+const OWN_DEBIT_STATUSES = ["booked", "active", "returned"] as const;
+
+/**
+ * The business's rentals to look at tonight, automatic debits not paused:
+ * its long-term rentals out (the week's debit), and any rental with a
+ * "Debit on [date]" charge whose day has come by `today`.
+ */
+async function rentalsToDebit(
+  deps: PaymentDependencies,
+  operatorId: string,
+  today: string,
+): Promise<string[]> {
+  const rows = await withTenant(deps.database, operatorId, async (tx) => [
+    ...(await tx
       .select({ id: rentals.id })
       .from(rentals)
       .where(
@@ -175,33 +205,68 @@ async function rentalsToDebit(deps: PaymentDependencies, operatorId: string): Pr
           eq(rentals.isLongTerm, true),
           isNull(rentals.debitsPausedAt),
         ),
-      ),
-  );
-  return rows.map((row) => row.id);
+      )),
+    ...(await tx
+      .selectDistinct({ id: rentals.id })
+      .from(debitPlans)
+      .innerJoin(
+        rentals,
+        and(eq(rentals.id, debitPlans.rentalId), eq(rentals.operatorId, debitPlans.operatorId)),
+      )
+      .where(
+        and(
+          eq(debitPlans.operatorId, operatorId),
+          eq(debitPlans.plan, "own_debit"),
+          lte(debitPlans.noticeDate, today),
+          inArray(rentals.status, [...OWN_DEBIT_STATUSES]),
+          isNull(rentals.debitsPausedAt),
+          sql`not exists (select 1 from ${debitItems}
+            where ${qualified(debitItems.ledgerLineId)} = ${qualified(debitPlans.ledgerLineId)})`,
+          sql`not exists (select 1 from ${ledgerLines} reversal
+            where reversal.reverses_id = ${qualified(debitPlans.ledgerLineId)})`,
+        ),
+      )),
+  ]);
+  return [...new Set(rows.map((row) => row.id))];
 }
 
-/** One rental's week: reserved in its own short transaction with the rental locked first, then sent. */
+/**
+ * One rental's debits for the night, reserved in its own short transaction
+ * with the rental locked first (then sent, each after it): the week's
+ * debit, and each "Debit on [date]" charge whose day has come.
+ */
 async function debitRental(
   deps: PaymentDependencies,
   operatorId: string,
   rentalId: string,
-): Promise<boolean> {
-  const reserved = await withTenant(deps.database, operatorId, async (tx) =>
-    (await lockPaymentRental(tx, operatorId, rentalId))
-      ? reserveWeeklyDebit(tx, operatorId, rentalId, deps.now())
-      : null,
-  );
-  if (!reserved) {
-    return false;
+  today: string,
+): Promise<number> {
+  const clock = { now: deps.now(), today };
+  const reserved = await withTenant(deps.database, operatorId, async (tx) => {
+    const rental = await lockPaymentRental(tx, operatorId, rentalId);
+    const [paused] = rental
+      ? await tx
+          .select({ at: rentals.debitsPausedAt })
+          .from(rentals)
+          .where(and(eq(rentals.id, rentalId), eq(rentals.operatorId, operatorId)))
+      : [];
+    if (!rental || paused?.at) {
+      return [];
+    }
+    const weekly = await reserveWeeklyDebit(tx, operatorId, rentalId, clock);
+    const own = await reserveNoticedOwnDebits(tx, operatorId, rental, clock);
+    return weekly ? [weekly, ...own] : own;
+  });
+  for (const debit of reserved) {
+    await sendReservedDebit(deps, operatorId, debit);
   }
-  await sendReservedDebit(deps, operatorId, reserved);
-  return true;
+  return reserved.length;
 }
 
 /**
  * One business's debits for the night (docs/plans/phase-4-slice-5.md):
- * what earlier runs left finished first, then each long-term rental's week,
- * one rental at a time so one failure never stops the rest. Safe to run
+ * what earlier runs left finished first, then each rental's debits, one
+ * rental at a time so one failure never stops the rest. Safe to run
  * again: nothing is debited twice (rule 20). Gives back the debits asked for.
  */
 export async function debitsForOperator(
@@ -213,17 +278,18 @@ export async function debitsForOperator(
     return 0;
   }
   await finishEarlierDebits(deps, operatorId, account.stripeAccountId);
-  if (!(await canDebitNow(deps, operatorId))) {
+  const today = await debitDayNow(deps, operatorId);
+  if (!today) {
     return 0;
   }
   let asked = 0;
   let failed = 0;
-  for (const rentalId of await rentalsToDebit(deps, operatorId)) {
+  for (const rentalId of await rentalsToDebit(deps, operatorId, today)) {
     try {
-      asked += (await debitRental(deps, operatorId, rentalId)) ? 1 : 0;
+      asked += await debitRental(deps, operatorId, rentalId, today);
     } catch (error) {
       failed += 1;
-      console.error("One rental's weekly debit failed", {
+      console.error("One rental's debits failed", {
         operatorId,
         rentalId,
         ...describeErrorForLog(error),

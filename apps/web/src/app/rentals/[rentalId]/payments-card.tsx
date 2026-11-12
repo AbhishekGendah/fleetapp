@@ -1,5 +1,6 @@
 import {
   debitFailureText,
+  debitPlanLabelOn,
   DIRECT_DEBIT_STATE_LABELS,
   formatCents,
   PAYMENT_PURPOSE_LABELS,
@@ -25,7 +26,12 @@ import { RenterLinkStatus } from "../../../components/renter-link-status";
 import { appDb } from "../../../lib/app-db";
 import { BOND_OPEN_STATUSES } from "../../../lib/bonds/bond-account";
 import type { RentalDebitRow } from "../../../lib/debits/debit-queries";
-import { loadRentalDebitState, type RentalDebitState } from "../../../lib/debits/rental-debits";
+import {
+  isWaitingForDebit,
+  loadRentalDebitState,
+  type ChargePlanRow,
+  type RentalDebitState,
+} from "../../../lib/debits/rental-debits";
 import { appPaymentsLinkDependencies } from "../../../lib/payments/app-payments-links";
 import { loadPaymentsLink } from "../../../lib/payments/payments-links";
 import { isStripeOfferedToRenters } from "../../../lib/payments/renter-checkout";
@@ -124,14 +130,47 @@ function debitTitle(debit: RentalDebitRow, timeZone: string): string {
     : PAYMENT_PURPOSE_LABELS[debit.purpose];
 }
 
-/** Every debit the business asked Stripe for on this rental, newest first. */
-function DebitRecords(props: { debits: readonly RentalDebitRow[]; timeZone: string }) {
-  if (props.debits.length === 0) {
+/**
+ * A one-off charge still waiting for its debit (docs/plans/one-off-charge-notice.md):
+ * from its day once its invoice was emailed, or not at all until it is.
+ */
+function WaitingDebit({ plan, today }: { plan: ChargePlanRow; today: string }) {
+  const parts =
+    plan.plan === "split" ? ` · ${(plan.weeks ?? 0) - plan.partsDebited} weekly parts left` : "";
+  return (
+    <RecordItem
+      title={`One-off charge · ${plan.description}`}
+      aside={<Badge>Waiting</Badge>}
+      amount={formatCents(plan.amountCents)}
+      details={
+        <>
+          <span>
+            {plan.noticeDate
+              ? `${debitPlanLabelOn(plan.plan, plan.noticeDate, today)}${parts}`
+              : "Not debited until its invoice is emailed to the Renter"}
+          </span>
+        </>
+      }
+    />
+  );
+}
+
+/**
+ * Every debit the business asked Stripe for on this rental, newest first,
+ * after the one-off charges still waiting for theirs.
+ */
+function DebitRecords(props: { state: RentalDebitState; timeZone: string }) {
+  const { debits } = props.state;
+  const waiting = props.state.plans.filter(isWaitingForDebit);
+  if (debits.length === 0 && waiting.length === 0) {
     return null;
   }
   return (
     <RecordList label="Debits from the Renter's bank">
-      {props.debits.map((debit) => (
+      {waiting.map((plan) => (
+        <WaitingDebit key={plan.ledgerLineId} plan={plan} today={props.state.notice.today} />
+      ))}
+      {debits.map((debit) => (
         <RecordItem
           key={debit.id}
           title={debitTitle(debit, props.timeZone)}
@@ -238,13 +277,17 @@ export async function PaymentsCard(props: {
   const [isOffered, payments, debits] = await Promise.all([
     isStripeOfferedToRenters(deps, user.operatorId),
     loadRentalPayments(appDb, user.operatorId, rental),
-    loadRentalDebitState(appDb, user.operatorId, rental),
+    loadRentalDebitState(appDb, user.operatorId, rental, {
+      now: clock.now,
+      timeZone: user.operatorTimezone,
+    }),
   ]);
   // "How Jamie pays": direct debit and the bond, by Stripe.
   const heading = `How ${renterFirstName(rental.renterFullName, rental.renterPreferredName)} pays`;
   const hasRecords =
     payments.payments.length > 0 ||
     debits.debits.length > 0 ||
+    debits.plans.some(isWaitingForDebit) ||
     payments.directDebit !== "not_set_up";
   if (!hasRecords) {
     if (!isOpen) {
@@ -273,7 +316,7 @@ export async function PaymentsCard(props: {
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <PaymentRecords payments={payments} timeZone={user.operatorTimezone} />
-        <DebitRecords debits={debits.debits} timeZone={user.operatorTimezone} />
+        <DebitRecords state={debits} timeZone={user.operatorTimezone} />
         {rental.status === "active" && rental.isLongTerm && payments.directDebit === "active" ? (
           <DebitPauseActions rentalId={rental.id} state={debits} />
         ) : null}

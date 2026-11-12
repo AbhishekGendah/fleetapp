@@ -8,7 +8,11 @@ import { MoneyInput } from "@fleetapp/ui/money-input";
 import { Select } from "@fleetapp/ui/select";
 
 import { ChangeFormShell, useChangeForm } from "../../../components/change-form-shell";
-import { CollectionFields } from "./collection-form";
+import {
+  CollectionFields,
+  newChargeCollectionHint,
+  type CollectionNotice,
+} from "./collection-form";
 import {
   chargeWithCollectionSchema,
   COLLECTION_FIELDS,
@@ -39,6 +43,8 @@ export function ChargeForm(props: {
   collectionChoices: readonly DebitCollectionPlan[];
   /** The rental's default (its settings copy, rule 14), if it is one of the choices. */
   defaultCollection: DebitCollectionPlan;
+  /** The first day it could be debited, its invoice emailed now. */
+  notice: CollectionNotice;
 }) {
   const { collectionChoices } = props;
   const firstChoice = collectionChoices.includes(props.defaultCollection)
@@ -104,7 +110,12 @@ export function ChargeForm(props: {
         <Input {...fields.textBoxProps("effectiveOn")} type="date" />
       </FormField>
       {collectionChoices.length > 0 ? (
-        <CollectionFields fields={fields} choices={collectionChoices} />
+        <CollectionFields
+          fields={fields}
+          choices={collectionChoices}
+          notice={props.notice}
+          hint={newChargeCollectionHint(props.notice)}
+        />
       ) : null}
     </ChangeFormShell>
   );

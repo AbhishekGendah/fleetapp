@@ -1,14 +1,14 @@
 import { randomUUID } from "node:crypto";
 
-import { debitDescription, todayInTimeZone } from "@fleetapp/core";
+import { addDays, debitDescription, todayInTimeZone } from "@fleetapp/core";
 import {
   activityLog,
   debitItems,
+  debitPlans,
   operators,
   paymentLedgerLines,
   paymentMandates,
   payments,
-  renterStripeCustomers,
 } from "@fleetapp/db/schema";
 import { connectAs, type TestConnection } from "@fleetapp/db/testing";
 import { withTenant } from "@fleetapp/db/tenant-context";
@@ -18,9 +18,10 @@ import { afterAll, beforeAll, describe, expect, inject, it, vi } from "vitest";
 
 import type { ActingUser } from "../src/lib/acting-user";
 import { setDebitsPaused } from "../src/lib/debits/debit-pause";
-import { changeDebitPlan, collectChargeNow } from "../src/lib/debits/debit-plans";
+import { changeDebitPlan } from "../src/lib/debits/debit-plans";
 import { wasRefusedOverLimitRecently } from "../src/lib/debits/debit-queries";
 import { debitsForOperator, runDebitJob } from "../src/lib/debits/debit-run";
+import { loadRentalDebitState } from "../src/lib/debits/rental-debits";
 import { listChargeTypes } from "../src/lib/ledger/charge-types";
 import { loadRentalLedger } from "../src/lib/ledger/ledger-queries";
 import { addCharge, recordPayment, reverseLine } from "../src/lib/ledger/ledger-records";
@@ -31,23 +32,17 @@ import {
   type SignedEvent,
   type StandInPayments,
 } from "../src/lib/payments/stand-in-provider";
-import { addCurrentPaperwork, addTestCar, seedOperatorWithUser } from "./car-fixtures";
+import { seedOperatorWithUser } from "./car-fixtures";
+import { debitTestKit, OUT_FOR_MS } from "./debit-fixtures";
 import { oneAfterTheOther } from "./lock-fixtures";
 import { PAYMENTS_WEBHOOK_SECRET, paymentsTestKit } from "./payment-fixtures";
-import {
-  addTestRenter,
-  bookTestRentalOn,
-  recordTestHandover,
-  TEST_RENTAL_PERIOD,
-} from "./rental-fixtures";
+import { addTestRenter } from "./rental-fixtures";
 
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
 /** The test booking's weekly rent (attemptTestBooking). */
 const RENT_CENTS = 350_00;
-/** A rental out for eight and a half days: its second rent week began a day and a half ago. */
-const OUT_FOR_MS = 8 * DAY_MS + 12 * HOUR_MS;
 const LOCK_RENTAL = "select id from rentals where id = $1 for no key update";
 
 function stripeId(prefix: string): string {
@@ -82,49 +77,12 @@ describe("weekly debits", () => {
   const deliver = (event: SignedEvent, now = new Date()) =>
     handlePaymentEvent(depsAt(now), event.payload, event.signature);
 
-  /** The Renter's direct debit as Stripe's page leaves it: a customer and an active mandate. */
-  async function addDirectDebit(owner: ActingUser, renterId: string): Promise<void> {
-    await withTenant(web.db, owner.operatorId, async (tx) => {
-      await tx.insert(renterStripeCustomers).values({
-        operatorId: owner.operatorId,
-        renterId,
-        stripeCustomerId: stripeId("cus"),
-      });
-      await tx.insert(paymentMandates).values({
-        operatorId: owner.operatorId,
-        renterId,
-        method: "becs_debit",
-        status: "active",
-        stripeSetupIntentId: stripeId("seti"),
-        stripePaymentMethodId: stripeId("pm"),
-        stripeMandateId: stripeId("mandate"),
-        setUpAt: new Date(),
-        activatedAt: new Date(),
-      });
-    });
-  }
-
-  /** An ongoing rental out since `handedOverAt` with its rent charged to now, for a Renter paying by direct debit. */
-  async function rentalOut(
+  const debitKit = debitTestKit(() => ({ web, superuser }));
+  const { addDirectDebit } = debitKit;
+  const rentalOut = (
     owner: ActingUser = actor,
     options: { renterId?: string; handedOverAt?: Date } = {},
-  ) {
-    const renterId = options.renterId ?? (await addTestRenter(web, owner));
-    if (!options.renterId) {
-      await addDirectDebit(owner, renterId);
-    }
-    const vehicleId = await addTestCar(web, owner);
-    await addCurrentPaperwork(web, owner, vehicleId);
-    const { rentalId } = await bookTestRentalOn(web, owner, {
-      renterId,
-      vehicleId,
-      period: { plannedStart: TEST_RENTAL_PERIOD.plannedStart, plannedEnd: null },
-    });
-    const handedOverAt = options.handedOverAt ?? new Date(Date.now() - OUT_FOR_MS);
-    await recordTestHandover(superuser, rentalId, handedOverAt);
-    await chargeRentFor(web.db, owner.operatorId, new Date(), [rentalId]);
-    return { rentalId, renterId, vehicleId, handedOverAt };
-  }
+  ) => debitKit.rentalOut(owner, options);
 
   async function debitsOf(rentalId: string, owner: ActingUser = actor) {
     return withTenant(web.db, owner.operatorId, (tx) =>
@@ -170,6 +128,17 @@ describe("weekly debits", () => {
       throw new Error(added.status);
     }
     return added.lineId;
+  }
+
+  /**
+   * As the charge's invoice email leaves it (docs/plans/one-off-charge-notice.md):
+   * its plan's first debit day, `days` from today on the business's (Perth) clock.
+   */
+  async function giveNotice(ledgerLineId: string, days = 0, owner: ActingUser = actor) {
+    const noticeDate = addDays(todayInTimeZone(new Date(), "Australia/Perth"), days);
+    await withTenant(web.db, owner.operatorId, (tx) =>
+      tx.update(debitPlans).set({ noticeDate }).where(eq(debitPlans.ledgerLineId, ledgerLineId)),
+    );
   }
 
   beforeAll(async () => {
@@ -608,11 +577,43 @@ describe("weekly debits", () => {
   });
 
   describe("one-off charges", () => {
-    it("takes a charge planned for the next weekly debit with the week's rent", async () => {
+    it("takes a noticed charge planned for the next weekly debit with the week's rent", async () => {
       const { rentalId } = await rentalOut();
-      await addCleaning(rentalId, { plan: "next_debit", weeks: null, isStripeReady: true });
+      const lineId = await addCleaning(rentalId, {
+        plan: "next_debit",
+        weeks: null,
+        isStripeReady: true,
+      });
+      await giveNotice(lineId);
       await runAt(new Date());
       expect((await onlyDebit(rentalId)).amountCents).toBe(RENT_CENTS + 120_00);
+    });
+
+    it("waits for the notice date, then goes with the first weekly debit on or after it", async () => {
+      const { rentalId, handedOverAt } = await rentalOut();
+      const lineId = await addCleaning(rentalId, {
+        plan: "next_debit",
+        weeks: null,
+        isStripeReady: true,
+      });
+      await giveNotice(lineId, 1);
+      await runAt(new Date());
+      expect((await onlyDebit(rentalId)).amountCents).toBe(RENT_CENTS);
+      // The third rent week, two weeks after the handover: the first weekly debit after the date.
+      const thirdWeek = new Date(handedOverAt.getTime() + 14 * DAY_MS + HOUR_MS);
+      await chargeRentFor(web.db, actor.operatorId, thirdWeek, [rentalId]);
+      await runAt(thirdWeek);
+      const amounts = (await debitsOf(rentalId)).map((debit) => debit.amountCents).sort();
+      expect(amounts).toEqual([RENT_CENTS, RENT_CENTS + 120_00]);
+    });
+
+    it("never debits a charge whose invoice wasn't emailed: no email, no debit", async () => {
+      const { rentalId } = await rentalOut();
+      await addCleaning(rentalId, { plan: "next_debit", weeks: null, isStripeReady: true });
+      await addCleaning(rentalId, { plan: "own_debit", weeks: null, isStripeReady: true });
+      const later = new Date(Date.now() + 5 * DAY_MS);
+      await runAt(later);
+      expect((await onlyDebit(rentalId)).amountCents).toBe(RENT_CENTS);
     });
 
     it("splits a charge over weekly debits to the cent, and keeps the plan once a part is debited", async () => {
@@ -622,6 +623,7 @@ describe("weekly debits", () => {
         { plan: "split", weeks: 3, isStripeReady: true },
         100_00,
       );
+      await giveNotice(lineId);
       await runAt(new Date());
       expect((await onlyDebit(rentalId)).amountCents).toBe(RENT_CENTS + 33_34);
       const items = await withTenant(web.db, actor.operatorId, (tx) =>
@@ -646,6 +648,7 @@ describe("weekly debits", () => {
         weeks: null,
         isStripeReady: true,
       });
+      await giveNotice(reversedId);
       await reverseLine(
         web.db,
         actor,
@@ -657,53 +660,100 @@ describe("weekly debits", () => {
       expect((await onlyDebit(rentalId)).amountCents).toBe(RENT_CENTS);
     });
 
-    it("takes a charge now on its own, once", async () => {
+    it('debits a "Debit on [date]" charge on its own on its date, once, never before, as the system', async () => {
       const { rentalId } = await rentalOut();
       const lineId = await addCleaning(rentalId, {
         plan: "own_debit",
         weeks: null,
         isStripeReady: true,
       });
-      const target = { rentalId, ledgerLineId: lineId };
-      expect(await collectChargeNow(depsAt(new Date()), actor, target)).toBe(true);
-      expect(await collectChargeNow(depsAt(new Date()), actor, target)).toBe(false);
-      expect(
-        (await debitsOf(rentalId)).filter((debit) => debit.purpose === "one_off_debit"),
-      ).toEqual([expect.objectContaining({ amountCents: 120_00, periodStartsAt: null })]);
-    });
-
-    it("never takes now, nor changes the plan of, a charge that was reversed", async () => {
-      const { rentalId } = await rentalOut();
-      const lineId = await addCleaning(rentalId, {
-        plan: "not_debited",
-        weeks: null,
-        isStripeReady: true,
-      });
-      await reverseLine(web.db, actor, { rentalId, lineId }, { note: "Not owed" }, "2026-11-10");
-      const target = { rentalId, ledgerLineId: lineId };
-      expect(await collectChargeNow(depsAt(new Date()), actor, target)).toBe(false);
-      expect(
-        await changeDebitPlan(web.db, actor, target, { plan: "next_debit", weeks: null }),
-      ).toBe("reversed");
-      expect(await debitsOf(rentalId)).toEqual([]);
-    });
-
-    it("logs Take it now as the User's", async () => {
-      const { rentalId } = await rentalOut();
-      const lineId = await addCleaning(rentalId, {
-        plan: "own_debit",
-        weeks: null,
-        isStripeReady: true,
-      });
-      await collectChargeNow(depsAt(new Date()), actor, { rentalId, ledgerLineId: lineId });
-      const [debit] = await debitsOf(rentalId);
+      await giveNotice(lineId, 3);
+      const ownDebits = async () =>
+        (await debitsOf(rentalId)).filter((debit) => debit.purpose === "one_off_debit");
+      await runAt(new Date());
+      await runAt(new Date(Date.now() + 2 * DAY_MS));
+      expect(await ownDebits()).toEqual([]);
+      const onItsDay = new Date(Date.now() + 3 * DAY_MS);
+      await runAt(onItsDay);
+      await runAt(onItsDay);
+      const [debit, ...others] = await ownDebits();
+      expect(others).toEqual([]);
+      expect(debit).toMatchObject({ amountCents: 120_00, periodStartsAt: null });
+      expect(madeFor(debit!.id)).toHaveLength(1);
       const [entry] = await withTenant(web.db, actor.operatorId, (tx) =>
         tx
           .select({ actorType: activityLog.actorType, actorId: activityLog.actorId })
           .from(activityLog)
           .where(and(eq(activityLog.entityId, debit!.id), eq(activityLog.action, "created"))),
       );
-      expect(entry).toEqual({ actorType: "user", actorId: actor.userId });
+      expect(entry).toEqual({ actorType: "system", actorId: null });
+    });
+
+    it('debits a "Debit on [date]" charge after the car is back, but not while debits are paused', async () => {
+      const { rentalId } = await rentalOut();
+      const lineId = await addCleaning(rentalId, {
+        plan: "own_debit",
+        weeks: null,
+        isStripeReady: true,
+      });
+      await giveNotice(lineId);
+      await setDebitsPaused(web.db, actor, rentalId, { reason: "Talking it over" });
+      await runAt(new Date());
+      expect(await debitsOf(rentalId)).toEqual([]);
+      await setDebitsPaused(web.db, actor, rentalId, null);
+      await superuser.db.execute(
+        sql`update rentals set status = 'returned', returned_at = now() where id = ${rentalId}`,
+      );
+      await runAt(new Date());
+      expect((await debitsOf(rentalId)).map((debit) => [debit.purpose, debit.amountCents])).toEqual(
+        [["one_off_debit", 120_00]],
+      );
+    });
+
+    it("never debits, nor changes the plan of, a charge that was reversed", async () => {
+      const { rentalId } = await rentalOut();
+      const lineId = await addCleaning(rentalId, {
+        plan: "own_debit",
+        weeks: null,
+        isStripeReady: true,
+      });
+      await giveNotice(lineId);
+      await reverseLine(web.db, actor, { rentalId, lineId }, { note: "Not owed" }, "2026-11-10");
+      const target = { rentalId, ledgerLineId: lineId };
+      expect(
+        await changeDebitPlan(web.db, actor, target, { plan: "next_debit", weeks: null }),
+      ).toBe("reversed");
+      await runAt(new Date());
+      expect((await debitsOf(rentalId)).map((debit) => debit.purpose)).toEqual(["scheduled_debit"]);
+    });
+
+    it("counts only a charge's own parts debited, so another's debit never locks its plan", async () => {
+      // Fixed in the one-off notice slice: the count read every debit item of the business.
+      const debited = await rentalOut();
+      const splitId = await addCleaning(
+        debited.rentalId,
+        { plan: "split", weeks: 3, isStripeReady: true },
+        90_00,
+      );
+      await giveNotice(splitId);
+      await runAt(new Date());
+      const { rentalId, renterId } = await rentalOut();
+      const lineId = await addCleaning(rentalId, {
+        plan: "next_debit",
+        weeks: null,
+        isStripeReady: true,
+      });
+      const clock = { now: new Date(), timeZone: "Australia/Perth" };
+      const rental = { id: rentalId, renterId, status: "active" as const, settingsSnapshot: {} };
+      const state = await loadRentalDebitState(web.db, actor.operatorId, rental, clock);
+      expect(state.plans.find((plan) => plan.ledgerLineId === lineId)?.partsDebited).toBe(0);
+      const other = await loadRentalDebitState(
+        web.db,
+        actor.operatorId,
+        { ...rental, id: debited.rentalId, renterId: debited.renterId },
+        clock,
+      );
+      expect(other.plans.find((plan) => plan.ledgerLineId === splitId)?.partsDebited).toBe(1);
     });
 
     it("offers no weekly plan once the car is back, and none without a direct debit", async () => {
@@ -815,9 +865,8 @@ describe("weekly debits", () => {
         await (isDebitFirst
           ? oneAfterTheOther(superuserClient, held, debit, charge)
           : oneAfterTheOther(superuserClient, held, charge, debit));
-        expect((await onlyDebit(rentalId)).amountCents).toBe(
-          isDebitFirst ? RENT_CENTS : RENT_CENTS + 120_00,
-        );
+        // Either way the new charge waits for its invoice's notice (no email yet).
+        expect((await onlyDebit(rentalId)).amountCents).toBe(RENT_CENTS);
       }
     });
 

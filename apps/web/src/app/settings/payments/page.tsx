@@ -170,7 +170,8 @@ export default async function PaymentSettingsPage() {
           <CardDescription>
             Each rent week is debited from the Renter&apos;s bank once it is charged, from the
             second week on. One-off charges (damage, excess, cleaning, fees) are only debited when
-            you choose to, charge by charge.
+            you choose to, charge by charge, and never before the Renter has been emailed its
+            invoice and given notice.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -180,6 +181,12 @@ export default async function PaymentSettingsPage() {
             label="A new one-off charge starts as"
             value={choiceSettingValue("oneOffChargeCollection", settings.oneOffChargeCollection)}
             hint="You can change it on each charge. Invoice only is safest: nothing disputed is taken from a bank without the Renter agreeing. Each new rental keeps the choice it was made with."
+          />
+          <NumberSettingForm
+            setting="oneOffNoticeDays"
+            label="Days' notice before a one-off charge is debited"
+            hint="Counted from the day its invoice is emailed to the Renter, who is told the date. At least 3. Each new rental keeps the number it was made with."
+            value={settings.oneOffNoticeDays}
           />
         </CardContent>
       </Card>

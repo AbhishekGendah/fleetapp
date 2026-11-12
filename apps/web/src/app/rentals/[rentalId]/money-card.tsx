@@ -1,20 +1,24 @@
 import {
-  DEBIT_COLLECTION_PLAN_LABELS,
+  chargeNoticeStatusText,
+  debitPlanLabelOn,
   formatCents,
   formatDateTimeInTimeZone,
+  isDebitingPlan,
   todayInTimeZone,
-  WEEKLY_DEBIT_PLANS,
   type RentalStatus,
 } from "@fleetapp/core";
+import { ActionButton } from "@fleetapp/ui/action-button";
 import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
-import { BadgePercent, Landmark, Plus, ReceiptText, Undo2 } from "lucide-react";
+import { BadgePercent, Landmark, Mail, Plus, ReceiptText, Undo2 } from "lucide-react";
 import Link from "next/link";
 
 import { CorrectionForm, ManualPaymentForm } from "../../../components/money-forms";
 import { appDb } from "../../../lib/app-db";
+import { loadChargeNotices, type ChargeNotice } from "../../../lib/billing/charge-notice-run";
 import {
+  isWaitingForDebit,
   loadRentalDebitState,
   type ChargePlanRow,
   type RentalDebitState,
@@ -30,6 +34,7 @@ import type { RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { RentalClock } from "../../../lib/rentals/rental-records";
 import type { SignedInUser } from "../../../lib/require-user";
 import { LedgerSummary } from "../ledger-line-list";
+import { emailDocumentAgainAction } from "./billing-actions";
 import { ChargeForm } from "./charge-form";
 import { CollectionForm } from "./collection-form";
 import {
@@ -59,7 +64,9 @@ function CollectionButton(props: {
   rentalId: string;
   plan: ChargePlanRow;
   choices: RentalDebitState["choices"];
+  notice: RentalDebitState["notice"];
 }) {
+  const { plan, notice } = props;
   return (
     <FormDialog
       triggerLabel="How it's collected"
@@ -67,33 +74,51 @@ function CollectionButton(props: {
       triggerIcon={<Landmark aria-hidden />}
     >
       <CollectionForm
-        action={changeDebitPlanAction.bind(null, props.rentalId, props.plan.ledgerLineId)}
+        action={changeDebitPlanAction.bind(null, props.rentalId, plan.ledgerLineId)}
         choices={props.choices}
-        current={props.plan}
+        current={plan}
+        notice={{
+          noticeDate: plan.noticeDate ?? notice.expectedNoticeDate,
+          today: notice.today,
+          isGiven: plan.noticeDate !== null,
+        }}
       />
     </FormDialog>
   );
 }
 
+/** Whether a one-off charge's invoice still has to go (again) before anything can be debited. */
+function isNoticeMissing(notice: ChargeNotice): boolean {
+  const isDebited = notice.plan !== null && isDebitingPlan(notice.plan);
+  return notice.emailedOn === null || (isDebited && notice.noticeDate === null);
+}
+
+/** Emailing a one-off charge's invoice again, when it didn't go, so it can be debited. */
+function EmailInvoiceButton({ rentalId, notice }: { rentalId: string; notice: ChargeNotice }) {
+  return notice.issuedDocumentId ? (
+    <ActionButton
+      action={emailDocumentAgainAction.bind(null, rentalId, notice.issuedDocumentId)}
+      label="Email invoice again"
+      pendingLabel="Sending…"
+      icon={<Mail aria-hidden />}
+    />
+  ) : null;
+}
+
+/** "Debit on Sun 15 Nov" as it reads after a colon: "debit on Sun 15 Nov". */
+function lowerFirst(text: string): string {
+  return `${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+}
+
 /**
  * The rental's debits in a few words (docs/plans/phase-4-slice-5.md): what
  * is on its way (never counted as paid), the last one that cleared, whether
- * automatic debits are paused, and the one-off charges waiting for one.
+ * automatic debits are paused, and the one-off charges waiting for one,
+ * each with its first day (docs/plans/one-off-charge-notice.md).
  */
-function DebitSummary(props: {
-  state: RentalDebitState;
-  lines: readonly LedgerLineView[];
-  timeZone: string;
-}) {
+function DebitSummary(props: { state: RentalDebitState; timeZone: string }) {
   const { state, timeZone } = props;
-  const reversed = new Set(props.lines.flatMap((line) => line.reversesId ?? []));
-  const waiting = state.plans.filter(
-    (plan) =>
-      WEEKLY_DEBIT_PLANS.has(plan.plan) &&
-      !reversed.has(plan.ledgerLineId) &&
-      plan.partsDebited < (plan.plan === "split" ? (plan.weeks ?? 0) : 1),
-  );
-  const descriptions = new Map(props.lines.map((line) => [line.id, line.description]));
+  const waiting = state.plans.filter(isWaitingForDebit);
   const notes = [
     state.pending
       ? `Debit of ${formatCents(state.pending.cents)} pending since ${formatDateTimeInTimeZone(state.pending.since, timeZone)}: not counted as paid until the bank clears it.`
@@ -102,9 +127,10 @@ function DebitSummary(props: {
       ? `Last debit ${formatCents(state.lastCleared.amountCents)} cleared on ${formatDateTimeInTimeZone(state.lastCleared.settledAt, timeZone)}.`
       : null,
     state.isPaused ? "Automatic debits paused." : null,
-    ...waiting.map(
-      (plan) =>
-        `${descriptions.get(plan.ledgerLineId) ?? "A charge"}: ${DEBIT_COLLECTION_PLAN_LABELS[plan.plan].toLowerCase()}. Waiting for the next weekly debit.`,
+    ...waiting.map((plan) =>
+      plan.noticeDate
+        ? `${plan.description}: ${lowerFirst(debitPlanLabelOn(plan.plan, plan.noticeDate, state.notice.today))}.`
+        : `${plan.description}: not debited until its invoice is emailed.`,
     ),
   ].filter((note): note is string => note !== null);
   return notes.length > 0 ? (
@@ -148,10 +174,11 @@ export async function MoneyCard(props: {
   if (!HAS_MONEY.has(rental.status) && rental.status !== "cancelled") {
     return null;
   }
-  const [ledger, chargeTypes, debits] = await Promise.all([
+  const [ledger, chargeTypes, debits, notices] = await Promise.all([
     loadRentalLedger(appDb, user.operatorId, rental.id),
     listChargeTypes(appDb, user.operatorId),
-    loadRentalDebitState(appDb, user.operatorId, rental),
+    loadRentalDebitState(appDb, user.operatorId, rental, clock),
+    loadChargeNotices(appDb, user.operatorId, rental.id, clock.timeZone),
   ]);
   // A reversed charge is no longer owed, so how it is collected can't change.
   const reversedIds = new Set(ledger.lines.flatMap((line) => line.reversesId ?? []));
@@ -181,21 +208,36 @@ export async function MoneyCard(props: {
           ledger={ledger}
           label="Money lines"
           limit={LINES_SHOWN}
+          noteFor={(line) => {
+            const notice = notices.get(line.id);
+            return notice && !reversedIds.has(line.id)
+              ? chargeNoticeStatusText({ ...notice, today })
+              : null;
+          }}
           actionsFor={(line) => {
             const plan = changeablePlans.get(line.id);
+            const notice = notices.get(line.id);
             const canReverse = isOpen && ledger.reversibleIds.has(line.id);
             const canChangePlan = plan !== undefined && debits.choices.length > 0;
-            return canReverse || canChangePlan ? (
+            const canEmailAgain =
+              notice !== undefined && !reversedIds.has(line.id) && isNoticeMissing(notice);
+            return canReverse || canChangePlan || canEmailAgain ? (
               <>
+                {canEmailAgain ? <EmailInvoiceButton rentalId={rental.id} notice={notice} /> : null}
                 {canReverse ? <ReverseButton rentalId={rental.id} line={line} /> : null}
                 {canChangePlan ? (
-                  <CollectionButton rentalId={rental.id} plan={plan} choices={debits.choices} />
+                  <CollectionButton
+                    rentalId={rental.id}
+                    plan={plan}
+                    choices={debits.choices}
+                    notice={debits.notice}
+                  />
                 ) : null}
               </>
             ) : null;
           }}
         />
-        <DebitSummary state={debits} lines={ledger.lines} timeZone={clock.timeZone} />
+        <DebitSummary state={debits} timeZone={clock.timeZone} />
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           {isOpen ? (
             <>
@@ -211,6 +253,7 @@ export async function MoneyCard(props: {
                   initialValues={chargeStart({}, today)}
                   collectionChoices={debits.choices}
                   defaultCollection={debits.defaultCollection}
+                  notice={{ noticeDate: debits.notice.expectedNoticeDate, today }}
                 />
               </FormDialog>
               <FormDialog

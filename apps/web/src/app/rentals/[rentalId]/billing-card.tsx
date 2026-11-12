@@ -2,7 +2,6 @@ import {
   billingDocumentTitle,
   formatCents,
   formatDayInTimeZone,
-  pendingDocuments,
   todayInTimeZone,
   type RentalStatus,
 } from "@fleetapp/core";
@@ -11,7 +10,7 @@ import { Button } from "@fleetapp/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, SectionLabel } from "@fleetapp/ui/card";
 import { FormDialog } from "@fleetapp/ui/form-dialog";
 import { RecordItem, RecordList } from "@fleetapp/ui/record-list";
-import { FileText, Mail, ReceiptText } from "lucide-react";
+import { FileText, Mail } from "lucide-react";
 
 import { appDb } from "../../../lib/app-db";
 import {
@@ -19,16 +18,11 @@ import {
   type BillingDocumentSummary,
 } from "../../../lib/billing/billing-queries";
 import { STATEMENT_TITLE } from "../../../lib/billing/billing-statements";
-import { loadRentalLedger } from "../../../lib/ledger/ledger-queries";
 import { rentalDocumentPath } from "../../../lib/paths";
 import type { RentalDetail } from "../../../lib/rentals/rental-queries";
 import type { RentalClock } from "../../../lib/rentals/rental-records";
 import type { SignedInUser } from "../../../lib/require-user";
-import {
-  emailDocumentAgainAction,
-  issueInvoiceNowAction,
-  issueStatementAction,
-} from "./billing-actions";
+import { emailDocumentAgainAction, issueStatementAction } from "./billing-actions";
 import { StatementForm } from "../../../components/statement-form";
 
 /**
@@ -96,7 +90,7 @@ function DocumentItem(props: {
 /**
  * The rental's invoices, credit notes, receipts and statements (rule 12):
  * each fixed once issued, opened as its PDF or emailed to the Renter again.
- * One-off charges waiting for the next weekly invoice can be invoiced now.
+ * Nothing waits for an invoice: each one-off charge has its own at once.
  */
 export async function BillingCard(props: {
   rental: RentalDetail;
@@ -107,14 +101,7 @@ export async function BillingCard(props: {
   if (!HAS_DOCUMENTS.has(rental.status)) {
     return null;
   }
-  const [documents, ledger] = await Promise.all([
-    listBillingDocuments(appDb, user.operatorId, rental.id),
-    loadRentalLedger(appDb, user.operatorId, rental.id),
-  ]);
-  const waitingCount = pendingDocuments(ledger.lines, {
-    isOneOffWaitingForRent: true,
-    isInvoicedNow: true,
-  }).invoiceLineIds.length;
+  const documents = await listBillingDocuments(appDb, user.operatorId, rental.id);
   const today = todayInTimeZone(clock.now, clock.timeZone);
   const firstDay = todayInTimeZone(rental.handedOverAt ?? clock.now, clock.timeZone);
   return (
@@ -122,25 +109,11 @@ export async function BillingCard(props: {
       <CardHeader>
         <SectionLabel>Invoices and receipts</SectionLabel>
         <CardDescription>
-          Issued by themselves as rent is charged and payments are recorded, and emailed to the
-          Renter. Each is fixed once issued: a mistake is put right with a credit note.
+          Issued by themselves as rent and charges are added and payments are recorded, and emailed
+          to the Renter. Each is fixed once issued: a mistake is put right with a credit note.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {waitingCount > 0 ? (
-          <div className="flex flex-col gap-2">
-            <p className="text-sm">
-              {waitingCount === 1 ? "1 charge is" : `${waitingCount} charges are`} waiting for the
-              next weekly invoice.
-            </p>
-            <ActionButton
-              action={issueInvoiceNowAction.bind(null, rental.id)}
-              label="Invoice now"
-              pendingLabel="Issuing…"
-              icon={<ReceiptText aria-hidden />}
-            />
-          </div>
-        ) : null}
         {documents.length > 0 ? (
           <RecordList label="Invoices and receipts">
             {documents.map((document) => (

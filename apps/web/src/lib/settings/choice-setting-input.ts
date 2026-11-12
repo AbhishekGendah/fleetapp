@@ -1,8 +1,6 @@
 import {
   DEBIT_COLLECTION_PLAN_LABELS,
   DEBIT_COLLECTION_PLANS,
-  ONE_OFF_CHARGE_INVOICING,
-  ONE_OFF_CHARGE_INVOICING_LABELS,
   REQUIRED_MESSAGE,
   type OperatorSettings,
 } from "@fleetapp/core";
@@ -41,11 +39,6 @@ const CHOICE_SETTING_OPTIONS = {
     "Yes, the Renter must be there to sign",
     "No, a car dropped off after hours can be returned without them",
   ),
-  oneOffChargeInvoicing: ONE_OFF_CHARGE_INVOICING.map((choice) => ({
-    value: choice,
-    label: ONE_OFF_CHARGE_INVOICING_LABELS[choice],
-    stored: choice,
-  })),
   oneOffChargeCollection: DEBIT_COLLECTION_PLANS.map((plan) => ({
     value: plan,
     label: DEBIT_COLLECTION_PLAN_LABELS[plan],
@@ -53,7 +46,7 @@ const CHOICE_SETTING_OPTIONS = {
   })),
   isInvoiceEmailedAutomatically: YES_NO(
     "Yes, email each one to the Renter as it is issued",
-    "No, I will send them myself",
+    "No, I will send them myself (one-off charges' invoices are still emailed)",
   ),
 } as const satisfies {
   [Setting in keyof OperatorSettings]?: readonly ChoiceOption<OperatorSettings[Setting]>[];

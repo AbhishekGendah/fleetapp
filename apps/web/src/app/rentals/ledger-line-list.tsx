@@ -38,8 +38,9 @@ export function signedAmount(line: LedgerLineView, ledger: LedgerView): string {
 /**
  * A ledger's lines, newest first: what each was for, the signed amount, its
  * date, GST and reference, and which were reversed. `actionsFor` adds a
- * line's buttons (the rental page's Reverse); `showRego` names the car for
- * a Renter's whole ledger.
+ * line's buttons (the rental page's Reverse); `noteFor` a line of its own
+ * (a one-off charge's invoice email and debit day); `showRego` names the
+ * car for a Renter's whole ledger.
  */
 type LedgerLineListProps = {
   ledger: LedgerView;
@@ -47,6 +48,7 @@ type LedgerLineListProps = {
   limit?: number;
   showRego?: boolean;
   actionsFor?: (line: LedgerLineView) => React.ReactNode;
+  noteFor?: (line: LedgerLineView) => string | null;
 };
 
 export function LedgerLineList(props: LedgerLineListProps) {
@@ -71,6 +73,7 @@ export function LedgerLineList(props: LedgerLineListProps) {
               {line.gstCents > 0 ? <span>Includes GST {formatCents(line.gstCents)}</span> : null}
               {line.reference ? <span>Reference {line.reference}</span> : null}
               {line.documentNumberText ? <span>On {line.documentNumberText}</span> : null}
+              {props.noteFor?.(line) ? <span>{props.noteFor(line)}</span> : null}
             </>
           }
           actions={props.actionsFor?.(line)}

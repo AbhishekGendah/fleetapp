@@ -301,7 +301,10 @@ async function ChargeRenterCard({
   const [charges, chargeTypes, collection] = await Promise.all([
     loadDamageCharges(appDb, user.operatorId, ids.damageId),
     listChargeTypes(appDb, user.operatorId),
-    loadCollectionChoices(appDb, user.operatorId, rentalId),
+    loadCollectionChoices(appDb, user.operatorId, rentalId, {
+      now: new Date(),
+      timeZone: user.operatorTimezone,
+    }),
   ]);
   const usable = chargeTypes.filter((type) => !type.isArchived);
   const excessCents = detail.claim?.excessCents ?? null;
@@ -341,6 +344,10 @@ async function ChargeRenterCard({
             )}
             collectionChoices={collection.choices}
             defaultCollection={collection.defaultCollection}
+            notice={{
+              noticeDate: collection.notice.expectedNoticeDate,
+              today: collection.notice.today,
+            }}
           />
         </FormDialog>
       </CardContent>

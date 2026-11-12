@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { HOW_TO_PAY_MAX_LENGTH, ONE_OFF_CHARGE_INVOICING } from "./billing";
+import { HOW_TO_PAY_MAX_LENGTH } from "./billing";
 
 import {
   DEFAULT_RENTER_LINK_DAYS,
@@ -37,6 +37,11 @@ import {
 } from "./expiry";
 import { DEFAULT_PAYMENT_GRACE_DAYS, MAXIMUM_PAYMENT_GRACE_DAYS } from "./overdue";
 import { DEBIT_COLLECTION_PLANS, DEFAULT_ONE_OFF_COLLECTION } from "./weekly-debits";
+import {
+  DEFAULT_ONE_OFF_NOTICE_DAYS,
+  MAXIMUM_ONE_OFF_NOTICE_DAYS,
+  MINIMUM_ONE_OFF_NOTICE_DAYS,
+} from "./one-off-notice";
 
 /**
  * Every Operator setting that is not a business detail, as one validated
@@ -140,15 +145,30 @@ export const operatorSettingsSchema = z.object({
     .default(DEFAULT_ONGOING_NOTICE_DAYS),
 
   // Money (Phase 4).
-  /** One-off charges: on the next weekly invoice, or invoiced at once. Copied onto each rental. */
-  oneOffChargeInvoicing: z.enum(ONE_OFF_CHARGE_INVOICING).default("with_next_rent"),
+  // One-off charges are always invoiced and emailed at once, each on its own invoice
+  // (docs/plans/one-off-charge-notice.md): the old `oneOffChargeInvoicing` choice is gone.
+  // A stored document or rental copy that still has it is read without it.
   /**
    * How a one-off charge is collected when the Renter pays by direct debit:
    * invoice only unless the business picks otherwise for the charge
    * (decision 2 as changed on 9 Nov). Copied onto each rental (rule 14).
    */
   oneOffChargeCollection: z.enum(DEBIT_COLLECTION_PLANS).default(DEFAULT_ONE_OFF_COLLECTION),
-  /** Whether invoices, credit notes and receipts are emailed to the Renter as they are issued. */
+  /**
+   * Days' notice before a one-off charge can be debited, counted from the day
+   * its invoice is emailed (docs/plans/one-off-charge-notice.md): at least 3.
+   * Copied onto each rental (rule 14); rentals made before it read the default.
+   */
+  oneOffNoticeDays: z
+    .number()
+    .int()
+    .min(MINIMUM_ONE_OFF_NOTICE_DAYS)
+    .max(MAXIMUM_ONE_OFF_NOTICE_DAYS)
+    .default(DEFAULT_ONE_OFF_NOTICE_DAYS),
+  /**
+   * Whether rent invoices, credit notes and receipts are emailed to the Renter
+   * as they are issued. A one-off charge's invoice is always emailed.
+   */
   isInvoiceEmailedAutomatically: z.boolean().default(true),
   /** Printed on every invoice: how to pay, e.g. the business's bank details for a transfer. */
   howToPay: z.string().trim().max(HOW_TO_PAY_MAX_LENGTH).default(""),

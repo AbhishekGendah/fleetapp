@@ -88,6 +88,8 @@ export interface StandInPayments extends PaymentsProvider {
   isDetached(paymentMethodId: string): boolean;
   /** The next detaches fail, as if Stripe were down, so a test can prove the retry. */
   failNextDetaches(count: number): void;
+  /** The next reads of a bank account's last digits fail, as if Stripe were down. */
+  failNextAccountReads(count: number): void;
 }
 
 export interface SignedEvent {
@@ -102,6 +104,9 @@ export interface StandInDebit {
   read: DebitRead;
   createdAt: Date;
 }
+
+/** The last four digits of every stand-in bank account. */
+export const STAND_IN_ACCOUNT_ENDING = "3456";
 
 /** The stand-in's fee for a debit that cleared, unless a test sets one. */
 const STAND_IN_DEBIT_FEE_CENTS = 1_50;
@@ -156,6 +161,7 @@ export function createStandInPayments(webhookSecret: string): StandInPayments {
   const checkouts = new Map<string, StandInCheckout>();
   const detached = new Set<string>();
   let failingDetaches = 0;
+  let failingAccountReads = 0;
   const takenBack = new Map<
     string,
     MoneyTakenBack & { accountId: string; kind: "refund" | "dispute" }
@@ -444,6 +450,16 @@ export function createStandInPayments(webhookSecret: string): StandInPayments {
         (each) => each.outcome.setup?.mandateId === mandateId,
       );
       return checkout?.mandateStatus ?? "inactive";
+    },
+    async readBankAccountEnding(_accountId, paymentMethodId) {
+      if (failingAccountReads > 0) {
+        failingAccountReads -= 1;
+        throw new Error("The stand-in's Stripe is down.");
+      }
+      return detached.has(paymentMethodId) ? null : STAND_IN_ACCOUNT_ENDING;
+    },
+    failNextAccountReads(count) {
+      failingAccountReads = count;
     },
     async detachPaymentMethod(_accountId, paymentMethodId) {
       if (failingDetaches > 0) {

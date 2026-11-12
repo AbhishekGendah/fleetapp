@@ -3,9 +3,7 @@ import {
   documentTotals,
   isTaxDocumentOn,
   ledgerBalanceCents,
-  operatorSettingsSchema,
   pendingDocuments,
-  readSettings,
   SERIES_OF_KIND,
   type BillingDocumentKind,
   type RentalStatus,
@@ -38,12 +36,10 @@ import type { BillingContext, BillingDependencies } from "./billing-context";
 import { renderItemDocumentPdf, renderReceiptPdf, type BillingPdfParties } from "./billing-pdf";
 import { takeDocumentNumber } from "./numbering";
 
-/** Rent is still to come: a one-off charge can wait for the next weekly invoice. */
-const RENT_STILL_COMING: ReadonlySet<RentalStatus> = new Set(["booked", "active"]);
-
 /** The rental as its documents name it. */
 export interface BillingRental {
   id: string;
+  renterId: string;
   status: RentalStatus;
   settingsSnapshot: Record<string, unknown>;
   billedTo: BilledTo;
@@ -66,6 +62,7 @@ export async function loadBillingRental(
   const [row] = await tx
     .select({
       id: rentals.id,
+      renterId: rentals.renterId,
       status: rentals.status,
       settingsSnapshot: rentals.settingsSnapshot,
       renter: {
@@ -128,18 +125,12 @@ interface PlannedDocument {
   relatesToId: string | null;
 }
 
-/** The next document the rental's lines need, in order: invoices, then credit notes, then receipts. */
-function nextDocumentFor(
-  rental: BillingRental,
-  lines: readonly LedgerLineView[],
-  isInvoicedNow: boolean,
-): PlannedDocument | null {
-  const { oneOffChargeInvoicing } = readSettings(operatorSettingsSchema, rental.settingsSnapshot);
-  const pending = pendingDocuments(lines, {
-    isOneOffWaitingForRent:
-      oneOffChargeInvoicing === "with_next_rent" && RENT_STILL_COMING.has(rental.status),
-    isInvoicedNow,
-  });
+/**
+ * The next document the rental's lines need, in order: invoices (rent, then
+ * each one-off charge on its own, at once), then credit notes, then receipts.
+ */
+function nextDocumentFor(lines: readonly LedgerLineView[]): PlannedDocument | null {
+  const pending = pendingDocuments(lines);
   const [creditNote] = pending.creditNotes;
   const [receiptLineId] = pending.receiptLineIds;
   if (pending.invoiceLineIds.length > 0) {
@@ -154,6 +145,8 @@ function nextDocumentFor(
 /** A document just issued, ready to email. */
 export interface IssuedBilling {
   billingDocumentId: string;
+  /** The fixed PDF's record, which each email of it is recorded against. */
+  issuedDocumentId: string;
   kind: BillingDocumentKind;
   title: string;
   numberText: string;
@@ -324,12 +317,11 @@ async function hasDocumentWaiting(
   deps: BillingDependencies,
   operatorId: string,
   rentalId: string,
-  isInvoicedNow: boolean,
 ): Promise<boolean> {
   return withTenant(deps.database, operatorId, async (tx) => {
     const rental = await loadBillingRental(tx, operatorId, rentalId, false);
     const lines = rental ? await selectRentalLedger(tx, operatorId, rentalId) : [];
-    return rental !== null && nextDocumentFor(rental, lines, isInvoicedNow) !== null;
+    return rental !== null && nextDocumentFor(lines) !== null;
   });
 }
 
@@ -343,36 +335,43 @@ export async function issueNextDocument(
   deps: BillingDependencies,
   actor: IssuingActor,
   context: BillingContext,
-  rental: { id: string; isInvoicedNow: boolean },
+  rentalId: string,
 ): Promise<IssuedBilling | null> {
-  if (!(await hasDocumentWaiting(deps, actor.operatorId, rental.id, rental.isInvoicedNow))) {
+  if (!(await hasDocumentWaiting(deps, actor.operatorId, rentalId))) {
     return null;
   }
-  const reserved = await reserveDocumentFile(deps, actor, rental.id, 0);
+  const reserved = await reserveDocumentFile(deps, actor, rentalId, 0);
   if (!reserved) {
     return null;
   }
   return withTenant(deps.database, actor.operatorId, async (tx) => {
-    const locked = await loadBillingRental(tx, actor.operatorId, rental.id, true);
-    const lines = locked ? await selectRentalLedger(tx, actor.operatorId, rental.id) : [];
-    const planned = locked ? nextDocumentFor(locked, lines, rental.isInvoicedNow) : null;
+    const locked = await loadBillingRental(tx, actor.operatorId, rentalId, true);
+    const lines = locked ? await selectRentalLedger(tx, actor.operatorId, rentalId) : [];
+    const planned = locked ? nextDocumentFor(lines) : null;
     if (!locked || !planned) {
       return null;
     }
     const drafted = await draftDocument(tx, actor.operatorId, context, planned, lines);
     const driverNames = await loadLineDriverNames(tx, actor.operatorId, locked.billedTo, lines);
     const pdf = await renderDrafted(context, locked, drafted, lines, driverNames);
-    const request = { rentalId: rental.id, kind: planned.kind, templateVersionId: null, pdf };
+    const request = { rentalId, kind: planned.kind, templateVersionId: null, pdf };
     const stored = await saveReservedPdf(deps, reserved, request);
     if ("status" in stored) {
       throw new Error("The document's PDF was too big to keep.");
     }
     const issued = await recordIssuedDocument(tx, deps, actor, stored);
-    const saved = await recordBillingDocument(tx, actor, rental.id, {
+    const saved = await recordBillingDocument(tx, actor, rentalId, {
       ...drafted,
       issuedDocumentId: issued.documentId,
       issuedOn: context.today,
     });
-    return { billingDocumentId: saved.id, ...drafted, ...saved, kind: planned.kind, pdf };
+    return {
+      billingDocumentId: saved.id,
+      issuedDocumentId: issued.documentId,
+      ...drafted,
+      ...saved,
+      kind: planned.kind,
+      pdf,
+    };
   });
 }

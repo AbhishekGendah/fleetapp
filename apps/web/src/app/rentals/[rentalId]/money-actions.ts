@@ -1,19 +1,27 @@
 "use server";
 
-import { formTextValues, isRecordId, todayInTimeZone } from "@fleetapp/core";
+import {
+  chargeNoticeStatusText,
+  formTextValues,
+  isRecordId,
+  todayInTimeZone,
+} from "@fleetapp/core";
 import { failedState, savedState, type ChangeFormState } from "@fleetapp/ui/change-form-state";
 
-import type { ActingUser } from "../../../lib/acting-user";
 import { appDb } from "../../../lib/app-db";
 import { billingDependencies } from "../../../lib/billing/billing-dependencies";
 import {
   issuedDocumentsText,
   issuePendingDocumentsQuietly,
 } from "../../../lib/billing/billing-run";
+import {
+  giveChargeNotice,
+  loadChargeNotices,
+  type ChargeNotice,
+} from "../../../lib/billing/charge-notice-run";
 import type { IssuingActor } from "../../../lib/contracts/issued-documents";
 import {
   changeDebitPlan,
-  collectChargeNow,
   isStripeReadyFor,
   type DebitPlanChange,
 } from "../../../lib/debits/debit-plans";
@@ -23,7 +31,6 @@ import {
   collectionInputSchema,
   collectionOf,
 } from "../../../lib/debits/debit-plan-input";
-import { appPaymentDependencies } from "../../../lib/payments/app-payments";
 import {
   CHARGE_FIELDS,
   REVERSAL_FIELDS,
@@ -101,7 +108,7 @@ export async function addChargeAction(
       rentalPath(rentalId),
       ...(damage ? [carDamagePath(damage.vehicleId, damage.recordId)] : []),
     ],
-    change: async (actor) => {
+    change: async (actor, user) => {
       const collection = collectionOf(parsed.data);
       const result = await addCharge(appDb, actor, rentalId, {
         ...parsed.data,
@@ -110,26 +117,43 @@ export async function addChargeAction(
           ? { ...collection, isStripeReady: await isStripeReadyFor(appDb, actor.operatorId) }
           : null,
       });
-      const debitText =
-        result.status === "saved" && collection?.plan === "own_debit"
-          ? await takeChargeNow(actor, rentalId, result.lineId)
-          : "";
-      return answerFor(actor, rentalId, result, `Charge added.${debitText}`);
+      const answer = await answerFor(actor, rentalId, result, "Charge added.");
+      if (result.status !== "saved" || answer.status !== "saved") {
+        return answer;
+      }
+      // Its invoice was issued and emailed with the rest: say whether it went, and its debit day.
+      const notices = await loadChargeNotices(
+        appDb,
+        actor.operatorId,
+        rentalId,
+        user.operatorTimezone,
+      );
+      const notice = noticeSentence(notices.get(result.lineId), user.operatorTimezone);
+      return savedState(`${answer.message}${notice.text}`, notice.isWarning);
     },
   });
 }
 
-/** "Take it now": the charge debited on its own, after it is saved. */
-async function takeChargeNow(
-  actor: ActingUser,
-  rentalId: string,
-  ledgerLineId: string,
-): Promise<string> {
-  const deps = appPaymentDependencies();
-  const isAsked = deps ? await collectChargeNow(deps, actor, { rentalId, ledgerLineId }) : false;
-  return isAsked
-    ? " Its debit is on its way: it counts as paid once the bank clears it."
-    : " It could not be debited now (nothing owing, or no working direct debit), so it stays on the invoice.";
+/**
+ * " Invoice emailed Thu 12 Nov · debit on Sun 15 Nov." for the business's
+ * confirmation; a warning when the invoice didn't go, so nothing is debited.
+ */
+function noticeSentence(
+  notice: ChargeNotice | null | undefined,
+  timeZone: string,
+): { text: string; isWarning: boolean } {
+  if (!notice) {
+    return { text: "", isWarning: false };
+  }
+  const status = chargeNoticeStatusText({
+    ...notice,
+    today: todayInTimeZone(new Date(), timeZone),
+  });
+  const isDebited = notice.plan !== null && notice.plan !== "not_debited";
+  return {
+    text: ` ${status}.`,
+    isWarning: notice.emailedOn === null || (isDebited && notice.noticeDate === null),
+  };
 }
 
 /** Bound to one rental: a payment received by bank transfer or cash. */
@@ -250,14 +274,18 @@ export async function changeDebitPlanAction(
   return runUserChange({
     description: "Changing how a charge is collected",
     pagesToRefresh: [rentalPath(rentalId)],
-    change: async (actor) => {
+    change: async (actor, user) => {
       const result = await changeDebitPlan(appDb, actor, { rentalId, ledgerLineId }, collection);
       if (result !== "changed") {
         return failedState(PLAN_CHANGE_MESSAGES[result]);
       }
-      const debitText =
-        collection.plan === "own_debit" ? await takeChargeNow(actor, rentalId, ledgerLineId) : "";
-      return savedState(`How it is collected is changed.${debitText}`);
+      // A charge first planned as invoice only is told again, with its debit, before it is debited.
+      const notice = await giveChargeNotice(billingDependencies(), actor, {
+        rentalId,
+        ledgerLineId,
+      });
+      const told = noticeSentence(notice, user.operatorTimezone);
+      return savedState(`How it is collected is changed.${told.text}`, told.isWarning);
     },
   });
 }

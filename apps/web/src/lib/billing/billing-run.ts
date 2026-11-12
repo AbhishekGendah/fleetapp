@@ -1,24 +1,18 @@
-import { describeErrorForLog, formatCents, MILLISECONDS_PER_DAY } from "@fleetapp/core";
+import { describeErrorForLog, MILLISECONDS_PER_DAY } from "@fleetapp/core";
 import { billingDocumentLines, ledgerLines } from "@fleetapp/db/schema";
 import { withTenant } from "@fleetapp/db/tenant-context";
-import { renderBillingDocumentEmail } from "@fleetapp/email";
 import { and, eq, gte, isNull, sql } from "drizzle-orm";
 
 import type { IssuingActor } from "../contracts/issued-documents";
 import { findDueOperators, forEachOperator, type OperatorRun } from "../jobs/due-operators";
-import { balanceText } from "../ledger/balance-text";
-import { greetingNameOf } from "./billed-to";
 import {
   loadBillingContext,
   type BillingContext,
   type BillingDependencies,
 } from "./billing-context";
-import {
-  issueNextDocument,
-  loadBillingRental,
-  type BillingRental,
-  type IssuedBilling,
-} from "./billing-documents";
+import { issueNextDocument, loadBillingRental, type IssuedBilling } from "./billing-documents";
+import { amountLineOf } from "./billing-email";
+import { emailBillingDocumentRecorded, isAlwaysEmailed } from "./charge-notices";
 
 /**
  * A rental never needs this many documents at once; the limit only stops a
@@ -28,106 +22,62 @@ const MOST_DOCUMENTS_PER_RUN = 50;
 /** Lines this old with no document are left to the Operator: the run has tried every night. */
 const CATCH_UP_LOOKBACK_DAYS = 60;
 
-/** The line the Renter most needs in the email. A receipt's balance is left out when not known. */
-export function amountLineOf(issued: {
-  kind: IssuedBilling["kind"];
-  totalCents: number;
-  gstCents: number;
-  balanceAfterCents: number | null;
-}): string {
-  if (issued.kind === "receipt") {
-    const balance =
-      issued.balanceAfterCents === null
-        ? ""
-        : ` Balance: ${balanceText(issued.balanceAfterCents).toLowerCase()}.`;
-    return `Received ${formatCents(issued.totalCents)}.${balance}`;
-  }
-  const gst = issued.gstCents > 0 ? `, including GST of ${formatCents(issued.gstCents)}` : "";
-  return issued.kind === "credit_note"
-    ? `Credit ${formatCents(issued.totalCents)}${gst}.`
-    : `Total ${formatCents(issued.totalCents)}${gst}.`;
-}
-
-/** Emails a document to the Renter (a business's contact) from the business. It is kept either way, so a failure is logged, never raised. */
-export async function emailBillingDocument(
-  deps: BillingDependencies,
-  context: Pick<BillingContext, "business" | "operatorName">,
-  rental: Pick<BillingRental, "renterEmail" | "billedTo" | "rentalSummary">,
-  document: { title: string; numberText: string | null; amountLine: string; pdf: Uint8Array },
-): Promise<boolean> {
-  if (!rental.renterEmail) {
-    return false;
-  }
-  try {
-    await deps.emailSender.send(
-      await renderBillingDocumentEmail({
-        to: rental.renterEmail,
-        replyTo: context.business.email ?? undefined,
-        title: document.title,
-        numberText: document.numberText,
-        renterName: greetingNameOf(rental.billedTo),
-        businessName: rental.billedTo.kind === "organisation" ? rental.billedTo.name : undefined,
-        operatorName: context.operatorName,
-        rentalSummary: rental.rentalSummary,
-        amountLine: document.amountLine,
-        attachment: {
-          fileName: `${document.numberText ?? document.title}.pdf`,
-          contentType: "application/pdf",
-          content: document.pdf,
-        },
-      }),
-    );
-    return true;
-  } catch (error) {
-    console.error(`Emailing a ${document.title.toLowerCase()} failed`, describeErrorForLog(error));
-    return false;
-  }
-}
-
 /**
  * Issues every document the rental's lines still need, one at a time, and
  * emails each to the Renter when the business has that on (the default).
- * `isInvoicedNow` puts one-off charges that are waiting on an invoice now.
+ * An invoice for a one-off charge, and a credit note taking one back, is
+ * always emailed, so the Renter is told before it can ever be debited
+ * (docs/plans/one-off-charge-notice.md).
  */
 export async function issuePendingDocuments(
   deps: BillingDependencies,
   actor: IssuingActor,
   rentalId: string,
-  options: { isInvoicedNow?: boolean } = {},
 ): Promise<IssuedBilling[]> {
   const context = await loadBillingContext(deps, actor.operatorId);
   const issued: IssuedBilling[] = [];
   for (let round = 0; round < MOST_DOCUMENTS_PER_RUN; round += 1) {
-    const next = await issueNextDocument(deps, actor, context, {
-      id: rentalId,
-      isInvoicedNow: options.isInvoicedNow === true,
-    });
+    const next = await issueNextDocument(deps, actor, context, rentalId);
     if (!next) {
       break;
     }
     issued.push(next);
   }
-  if (context.isEmailedAutomatically && issued.length > 0) {
-    await emailIssued(deps, actor.operatorId, context, rentalId, issued);
+  if (issued.length > 0) {
+    await emailIssued(deps, actor, context, rentalId, issued);
   }
   return issued;
 }
 
 async function emailIssued(
   deps: BillingDependencies,
-  operatorId: string,
+  actor: IssuingActor,
   context: BillingContext,
   rentalId: string,
   issued: readonly IssuedBilling[],
 ): Promise<void> {
+  const { operatorId } = actor;
   const rental = await withTenant(deps.database, operatorId, (tx) =>
     loadBillingRental(tx, operatorId, rentalId, false),
   );
-  for (const document of rental ? issued : []) {
-    await emailBillingDocument(deps, context, rental!, {
-      ...document,
-      amountLine: amountLineOf(document),
-    });
+  if (!rental) {
+    return;
+  }
+  const requester = "userId" in actor ? { userId: actor.userId } : null;
+  for (const document of issued) {
+    if (
+      context.isEmailedAutomatically ||
+      (await isAlwaysEmailed(deps, operatorId, rentalId, document))
+    ) {
+      await emailBillingDocumentRecorded(
+        deps,
+        operatorId,
+        context,
+        rental,
+        { ...document, amountLine: amountLineOf(document) },
+        requester,
+      );
+    }
   }
 }
 

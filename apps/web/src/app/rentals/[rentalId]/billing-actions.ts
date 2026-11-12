@@ -4,7 +4,6 @@ import { formTextValues, isRecordId } from "@fleetapp/core";
 import { failedState, savedState, type ChangeFormState } from "@fleetapp/ui/change-form-state";
 
 import { billingDependencies } from "../../../lib/billing/billing-dependencies";
-import { issuedDocumentsText, issuePendingDocuments } from "../../../lib/billing/billing-run";
 import {
   emailBillingDocumentAgain,
   issueStatement,
@@ -22,28 +21,6 @@ const EMAIL_AGAIN_MESSAGES: Readonly<Record<EmailAgainResult, string>> = {
   failed: "The email could not be sent. Try again in a minute.",
 };
 
-/** Bound to one rental: every one-off charge waiting for the next weekly invoice goes on one now. */
-export async function issueInvoiceNowAction(
-  rentalId: string,
-  _previous: ChangeFormState,
-): Promise<ChangeFormState> {
-  if (!isRecordId(rentalId)) {
-    return failedState(NOT_FOUND_MESSAGE);
-  }
-  return runUserChange({
-    description: "Issuing an invoice now",
-    pagesToRefresh: [rentalPath(rentalId)],
-    change: async (actor) => {
-      const issued = await issuePendingDocuments(billingDependencies(), actor, rentalId, {
-        isInvoicedNow: true,
-      });
-      return issued.length > 0
-        ? savedState(issuedDocumentsText(issued))
-        : failedState("Nothing is waiting for an invoice.");
-    },
-  });
-}
-
 /** Bound to one rental and one of its documents: sends it to the Renter again. */
 export async function emailDocumentAgainAction(
   rentalId: string,
@@ -55,9 +32,10 @@ export async function emailDocumentAgainAction(
   }
   return runUserChange({
     description: "Emailing a document again",
-    pagesToRefresh: [],
+    // A one-off charge's line says whether its invoice went, and its debit date.
+    pagesToRefresh: [rentalPath(rentalId)],
     change: async (actor) => {
-      const result = await emailBillingDocumentAgain(billingDependencies(), actor.operatorId, {
+      const result = await emailBillingDocumentAgain(billingDependencies(), actor, {
         rentalId,
         issuedDocumentId,
       });

@@ -13,6 +13,8 @@ import {
   MAXIMUM_GRACE_MINUTES,
   MAXIMUM_LONG_TERM_MINIMUM_DAYS,
   MAXIMUM_PAYMENT_GRACE_DAYS,
+  MAXIMUM_ONE_OFF_NOTICE_DAYS,
+  MINIMUM_ONE_OFF_NOTICE_DAYS,
 } from "@fleetapp/core";
 import { z } from "zod";
 
@@ -58,6 +60,12 @@ const NUMBER_SETTING_RANGES = {
   ongoingNoticeDays: { min: 0, max: MAXIMUM_ONGOING_NOTICE_DAYS, unit: "days" },
   /** Grace days: money still owing this many days after it was due counts as overdue. */
   paymentGraceDays: { min: 0, max: MAXIMUM_PAYMENT_GRACE_DAYS, unit: "days" },
+  /** Notice before a one-off charge is debited, from the day its invoice is emailed. */
+  oneOffNoticeDays: {
+    min: MINIMUM_ONE_OFF_NOTICE_DAYS,
+    max: MAXIMUM_ONE_OFF_NOTICE_DAYS,
+    unit: "days",
+  },
 } as const;
 
 export type NumberSetting = keyof typeof NUMBER_SETTING_RANGES;

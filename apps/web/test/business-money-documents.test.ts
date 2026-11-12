@@ -196,9 +196,7 @@ describe("a business's money documents", () => {
     it("emails each car's invoices to the contact, greeting her and naming the business", async () => {
       sentEmails.length = 0;
 
-      const issued = await issuePendingDocuments(deps(), actor, acme.camryId, {
-        isInvoicedNow: true,
-      });
+      const issued = await issuePendingDocuments(deps(), actor, acme.camryId);
 
       expect(issued.map((document) => document.title)).toContain("Tax invoice");
       expect(sentEmails.every((email) => email.to === CONTACT_EMAIL)).toBe(true);
@@ -206,7 +204,22 @@ describe("a business's money documents", () => {
       expect(sentEmails[0]!.text).toContain(`to ${LEGAL_NAME} for 1BRT482`);
     });
 
+    it("emails a one-off charge's own invoice to the contact, with the charge and its GST", async () => {
+      await issuePendingDocuments(deps(), actor, acme.camryId);
+      await charge(acme.camryId, 55_00, "2026-11-03");
+      sentEmails.length = 0;
+
+      const issued = await issuePendingDocuments(deps(), actor, acme.camryId);
+
+      expect(issued.map((document) => document.totalCents)).toEqual([55_00]);
+      expect(sentEmails.map((email) => email.to)).toEqual([CONTACT_EMAIL]);
+      expect(sentEmails[0]!.text).toContain("Cleaning (Cleaned): $55.00, including GST of $5.00.");
+      expect(sentEmails[0]!.text).toContain(`to ${LEGAL_NAME} for 1BRT482`);
+    });
+
     it("issues each car's invoices in one numbering, with no gaps, two at once", async () => {
+      // Each one-off charge has an invoice of its own: rent issued first, one charge per car waits.
+      await issuePendingDocuments(deps(), actor, acme.ceratoId);
       await charge(acme.camryId, 20_00, "2026-11-03");
       await charge(acme.ceratoId, 30_00, "2026-11-03");
       const holder = await openTransactionAs(actor.operatorId);
@@ -219,7 +232,7 @@ describe("a business's money documents", () => {
         );
         const both = Promise.all(
           [acme.camryId, acme.ceratoId].map((rentalId) =>
-            issuePendingDocuments(deps(), actor, rentalId, { isInvoicedNow: true }),
+            issuePendingDocuments(deps(), actor, rentalId),
           ),
         );
         await waitUntilBlockedBy(superuser, holder.pid, 2);
@@ -252,7 +265,7 @@ describe("a business's money documents", () => {
 
     it("keeps the GST on every car's invoices exactly what its ledger lines hold", async () => {
       for (const rentalId of [acme.camryId, acme.ceratoId]) {
-        await issuePendingDocuments(deps(), actor, rentalId, { isInvoicedNow: true });
+        await issuePendingDocuments(deps(), actor, rentalId);
         const ledger = await loadRentalLedger(web.db, actor.operatorId, rentalId);
         const documents = await listBillingDocuments(web.db, actor.operatorId, rentalId);
         const invoiced = documents.filter((document) => document.kind === "invoice");

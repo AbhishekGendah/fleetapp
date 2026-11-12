@@ -3,13 +3,19 @@ import type { EmailSender } from "@fleetapp/email";
 
 import { loadPdfBranding } from "../contracts/contract-pdf";
 import type { FileDependencies } from "../files/stored-files";
+import type { PaymentsProvider } from "../payments/payments-provider";
 import { loadBusinessDetails, type BusinessDetails } from "../settings/business-details";
 import { loadOperatorSettings } from "../settings/operator-settings";
 import type { BillingPdfParties } from "./billing-pdf";
 
-/** What issuing needs: the database, file storage, the clock and email. */
+/**
+ * What issuing needs: the database, file storage, the clock and email, and
+ * Stripe (when payments by Stripe are set up) to name the account a one-off
+ * charge will be debited from.
+ */
 export interface BillingDependencies extends FileDependencies {
   emailSender: EmailSender;
+  payments?: PaymentsProvider | null;
 }
 
 /** The business-wide facts every document of one business is made with. */
@@ -21,6 +27,7 @@ export interface BillingContext {
   /** Null when not GST-registered. */
   gstRegisteredFrom: string | null;
   howToPay: string;
+  /** Rent invoices, credit notes and receipts; a one-off charge's invoice is always emailed. */
   isEmailedAutomatically: boolean;
   /** The name a Renter's email comes from. */
   operatorName: string;

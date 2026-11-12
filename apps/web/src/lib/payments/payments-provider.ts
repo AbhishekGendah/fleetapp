@@ -195,6 +195,13 @@ export interface PaymentsProvider {
     accountId: string,
     reference: { customerId: string; paymentId: string; createdSince: Date },
   ): Promise<DebitRead | null>;
+  /**
+   * The last four digits of the bank account a direct debit takes from, to
+   * tell the Renter which account a one-off charge will come from
+   * (docs/plans/one-off-charge-notice.md). Read from Stripe each time, never
+   * kept (rule 7); null when Stripe has none.
+   */
+  readBankAccountEnding(accountId: string, paymentMethodId: string): Promise<string | null>;
   /** Tells Stripe the Renter's current name and email (review A5-6). */
   updateCustomer(
     accountId: string,

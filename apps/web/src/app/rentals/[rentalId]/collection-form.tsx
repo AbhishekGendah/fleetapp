@@ -1,8 +1,9 @@
 "use client";
 
 import {
-  DEBIT_COLLECTION_PLAN_LABELS,
+  debitPlanLabelOn,
   fieldErrorsOf,
+  formatShortCalendarDate,
   SPLIT_WEEKS_MAX_DIGITS,
   typedDigits,
   type DebitCollectionPlan,
@@ -28,23 +29,34 @@ function isCollectionRequired(
   return field === "collection" || values.collection === "split";
 }
 
+/** The first day a charge may be debited, and today, both on the business's calendar. */
+export interface CollectionNotice {
+  noticeDate: string;
+  today: string;
+}
+
 /**
  * How a one-off charge is collected when the Renter pays by direct debit
  * (slice 5): the plan, and for a split how many weekly debits (2 to 12,
- * digits only). Shared by the charge form and changing a charge's plan.
+ * digits only), each named with the first day it may be debited: never
+ * before its invoice has been emailed and the notice period has run
+ * (docs/plans/one-off-charge-notice.md). Shared by the charge form and
+ * changing a charge's plan.
  */
 export function CollectionFields<Field extends string>(props: {
   fields: FormFields<Field | CollectionField>;
   choices: readonly DebitCollectionPlan[];
+  notice: CollectionNotice;
+  hint: string;
 }) {
-  const { fields } = props;
+  const { fields, notice } = props;
   return (
     <>
       <FormField
         htmlFor={fields.idFor("collection")}
         label="How to collect it"
         isRequired
-        hint="The Renter pays by direct debit. A debit counts as paid once the bank clears it."
+        hint={props.hint}
         error={fields.errorFor("collection")}
       >
         <Select
@@ -53,7 +65,7 @@ export function CollectionFields<Field extends string>(props: {
         >
           {props.choices.map((plan) => (
             <option key={plan} value={plan}>
-              {DEBIT_COLLECTION_PLAN_LABELS[plan]}
+              {debitPlanLabelOn(plan, notice.noticeDate, notice.today)}
             </option>
           ))}
         </Select>
@@ -79,11 +91,18 @@ export function CollectionFields<Field extends string>(props: {
   );
 }
 
+/** The hint for a new charge: its invoice goes now, and nothing is debited before its day. */
+export function newChargeCollectionHint(notice: CollectionNotice): string {
+  return `The Renter pays by direct debit. The invoice is emailed to them now, and nothing is debited before ${formatShortCalendarDate(notice.noticeDate, notice.today)}. A debit counts as paid once the bank clears it.`;
+}
+
 /** Changes how a one-off charge is collected, until any part of it is debited. */
 export function CollectionForm(props: {
   action: (state: ChangeFormState, formData: FormData) => Promise<ChangeFormState>;
   choices: readonly DebitCollectionPlan[];
   current: { plan: DebitCollectionPlan; weeks: number | null };
+  /** Its own notice date if it has one, or the day it would have if its invoice were emailed now. */
+  notice: CollectionNotice & { isGiven: boolean };
 }) {
   const form = useChangeForm({
     action: props.action,
@@ -97,7 +116,16 @@ export function CollectionForm(props: {
   });
   return (
     <ChangeFormShell form={form} submitLabel="Save">
-      <CollectionFields fields={form.fields} choices={props.choices} />
+      <CollectionFields
+        fields={form.fields}
+        choices={props.choices}
+        notice={props.notice}
+        hint={
+          props.notice.isGiven
+            ? `The Renter was told it may be debited from ${formatShortCalendarDate(props.notice.noticeDate, props.notice.today)}; nothing is debited before then.`
+            : `If it is to be debited, its invoice is emailed to the Renter again with the date, and nothing is debited before ${formatShortCalendarDate(props.notice.noticeDate, props.notice.today)}.`
+        }
+      />
     </ChangeFormShell>
   );
 }
