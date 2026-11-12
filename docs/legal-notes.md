@@ -1253,6 +1253,17 @@ docs/plans/one-off-charge-notice.md, approved by Abhi on 12 Nov 2026 with a
   logged as a change to its terms (rule 14). Only the dev site (made-up
   data) had any.
 
+## Surcharges and direct debit fees (question, 12 Nov 2026)
+
+Abhi asked whether Stripe's fees can be passed on to Renters. Card
+surcharges on eftpos, Visa and Mastercard are banned from 1 Oct 2026 (RBA
+standard), so if card payment is ever added for rent no surcharge may be
+added. BECS direct debit is not a card scheme, but an extra "direct debit
+fee" must be shown upfront in the price (no drip pricing, ACL), be in the
+signed contract and not exceed the real cost (about $3.50 a debit at most).
+The app adds no such fee; businesses set their rent to cover costs. For the
+lawyer: confirm this, and what a business may write into its own contract.
+
 ## Database transactions not held together on the dev site (5 to 11 Nov 2026)
 
 - **What happened.** On the dev site only, from 5 Nov (when the start-up

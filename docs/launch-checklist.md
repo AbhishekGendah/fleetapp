@@ -277,6 +277,8 @@ Add to this list whenever something is relaxed or put off "until launch".
 
 From the weekly debits review (Phase 4 slice 5, 9 Nov 2026), not blocking:
 
+- [ ] Found in the sandbox (13 Nov 2026): a debit that failed ("The bank account is closed") showed "Stripe fee $0.40", read from the failed charge's balance transaction. Check in Stripe what a failed BECS debit really costs the business (no fee, or a separate failure fee) and show that instead.
+
 - [ ] A one-off charge or instalment in a debit that the cap made smaller counts as fully collected; check the rest really was paid another way, or plan it again.
 - [ ] A failed debit's items count as debited: slice 6 must handle its retry, as the debit_items unique rule (charge line, instalment) blocks putting them in a second debit.
 - [ ] Confirm in the sandbox whether a BECS PaymentIntent can go succeeded → failed (the app expects a later bounce as a dispute).
