@@ -227,10 +227,24 @@ describe("the weekly debits update on a filled database", () => {
       `insert into debit_plans (operator_id, rental_id, ledger_line_id, plan) values ($1, $2, $3, 'next_debit')`,
       [filled.operatorId, filled.rentalId, charge!.id],
     );
-    // Since 0064 a one-off part is debited only once its invoice gave notice.
-    await asWeb(`update debit_plans set notice_date = '2026-01-01' where ledger_line_id = $1`, [
-      charge!.id,
-    ]);
+    // Since 0064 a one-off part is debited only inside a notice the Renter was emailed.
+    const owner = new Client({ connectionString: url("postgres", inject("superuserUrl")) });
+    await owner.connect();
+    try {
+      await owner.query(`set session_replication_role = replica`);
+      await owner.query(
+        `with given as (
+           insert into debit_notices (operator_id, rental_id, debit_plan_id, plan, weeks, notice_date,
+             parts_before, issued_document_id)
+           select operator_id, rental_id, id, plan, weeks,
+             (now() at time zone 'Australia/Perth')::date, 0, gen_random_uuid()
+           from debit_plans where ledger_line_id = $1 returning id, debit_plan_id)
+         update debit_plans set notice_id = given.id from given where debit_plans.id = given.debit_plan_id`,
+        [charge!.id],
+      );
+    } finally {
+      await owner.end();
+    }
     const [debit] = await reserveDebit({ week: "2026-12-01T01:00:00Z" });
     await asWeb(
       `insert into debit_items (operator_id, rental_id, payment_id, ledger_line_id, instalment, amount_cents)

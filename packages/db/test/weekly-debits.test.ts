@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { todayInTimeZone } from "@fleetapp/core";
 import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
@@ -10,6 +11,7 @@ import {
   addTestCar,
   addTestRenter,
   connectAs,
+  giveTestNotice,
   POSTGRES_ERROR_CODES,
   postgresErrorCodeOf,
   seedTwoOperators,
@@ -304,12 +306,17 @@ describe("weekly debits", () => {
           .where(eq(schema.debitPlans.ledgerLineId, chargeId)),
       );
     // Its invoice was emailed with the debit stated (migration 0064): it may be debited now.
-    await asA((tx) =>
-      tx
-        .update(schema.debitPlans)
-        .set({ noticeDate: "2026-01-01" })
-        .where(eq(schema.debitPlans.ledgerLineId, chargeId)),
-    );
+    const superuser = connectAs(inject("superuserUrl"));
+    try {
+      await giveTestNotice(superuser.db, {
+        operatorId: operatorAId,
+        rentalId,
+        ledgerLineId: chargeId,
+        noticeDate: todayInTimeZone(new Date(), "Australia/Perth"),
+      });
+    } finally {
+      await superuser.close();
+    }
     const paymentId = await reserveDebit({ periodStartsAt: new Date("2026-12-20T01:00:00Z") });
     await asA((tx) =>
       tx.insert(schema.debitItems).values({

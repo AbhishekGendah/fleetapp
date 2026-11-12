@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { addDays, todayInTimeZone } from "@fleetapp/core";
 import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
@@ -10,6 +11,8 @@ import {
   addTestCar,
   addTestRenter,
   connectAs,
+  giveTestNotice,
+  POSTGRES_ERROR_CODES,
   postgresErrorCodeOf,
   seedTwoOperators,
   testRentalRow,
@@ -18,18 +21,21 @@ import {
 
 const CHECK_VIOLATION = "23514";
 const CHARGE_CENTS = 120_00;
-/** 1:30 am Sun 15 Nov in Sydney, still 10:30 pm Sat 14 Nov in Perth. */
-const DEBITED_AT = new Date("2026-11-14T14:30:00Z");
+const PERTH = "Australia/Perth";
+/** 1:30 am Sun 2 Nov in Sydney, still 10:30 pm Sat 1 Nov in Perth. */
+const PAST_MOMENT = new Date("2026-11-01T14:30:00Z");
 
 function stripeId(prefix: string): string {
   return `${prefix}_${randomUUID().replaceAll("-", "")}`;
 }
 
 /**
- * One-off charges given notice before any debit (migration 0064): a plan's
- * notice date is set once, after its invoice is emailed, and the database
- * refuses a debit of a one-off part before that day on the business's own
- * calendar, or with no notice at all. Kept to its business (rule 1).
+ * One-off charges given notice before any debit (migration 0064, review
+ * fixes 13 Nov 2026): a notice states its plan exactly and gives at least
+ * the rental's notice period; any change of plan voids it; a one-off part is
+ * debited only inside its current notice's window on the business's own
+ * calendar, never dated ahead; notices are only added to; each business's
+ * are its own (rule 1).
  */
 describe("one-off charge notice", () => {
   let web: TestConnection;
@@ -41,9 +47,11 @@ describe("one-off charge notice", () => {
   let rentalId: string;
   let mandateId: string;
   let chargeTypeId: string;
+  let documentId: string;
 
   const asA = <Result>(work: (tx: AnyTransaction) => Promise<Result>) =>
     withTenant(web.db, operatorAId, work);
+  const todayInPerth = () => todayInTimeZone(new Date(), PERTH);
 
   async function addCharge(values: Partial<typeof schema.ledgerLines.$inferInsert> = {}) {
     const [line] = await asA((tx) =>
@@ -57,7 +65,7 @@ describe("one-off charge notice", () => {
           amountCents: CHARGE_CENTS,
           gstCents: 0,
           description: "Cleaning",
-          effectiveOn: "2026-11-12",
+          effectiveOn: "2026-11-01",
           ...values,
         })
         .returning({ id: schema.ledgerLines.id }),
@@ -65,32 +73,69 @@ describe("one-off charge notice", () => {
     return line!.id;
   }
 
-  async function planFor(
-    ledgerLineId: string,
+  /** A charge with its plan; its plan's id. */
+  async function plannedCharge(
     values: Partial<typeof schema.debitPlans.$inferInsert> = {},
-  ) {
-    await asA((tx) =>
-      tx.insert(schema.debitPlans).values({
-        operatorId: operatorAId,
-        rentalId,
-        ledgerLineId,
-        plan: "own_debit",
-        ...values,
-      }),
-    );
-  }
-
-  function setNotice(ledgerLineId: string, noticeDate: string | null) {
-    return asA((tx) =>
+  ): Promise<{ lineId: string; planId: string }> {
+    const lineId = await addCharge();
+    const [plan] = await asA((tx) =>
       tx
-        .update(schema.debitPlans)
-        .set({ noticeDate })
-        .where(eq(schema.debitPlans.ledgerLineId, ledgerLineId))
+        .insert(schema.debitPlans)
+        .values({
+          operatorId: operatorAId,
+          rentalId,
+          ledgerLineId: lineId,
+          plan: "own_debit",
+          ...values,
+        })
         .returning({ id: schema.debitPlans.id }),
     );
+    return { lineId, planId: plan!.id };
   }
 
-  async function oneOffDebit(requestedAt = DEBITED_AT) {
+  /** A notice recorded as the app records it, through the rules. */
+  function recordNotice(
+    planId: string,
+    values: Partial<typeof schema.debitNotices.$inferInsert> = {},
+  ) {
+    return asA(async (tx) => {
+      const [plan] = await tx
+        .select()
+        .from(schema.debitPlans)
+        .where(eq(schema.debitPlans.id, planId));
+      const [notice] = await tx
+        .insert(schema.debitNotices)
+        .values({
+          operatorId: operatorAId,
+          rentalId,
+          debitPlanId: planId,
+          plan: plan!.plan,
+          weeks: plan!.weeks,
+          noticeDate: addDays(todayInPerth(), 3),
+          partsBefore: 0,
+          issuedDocumentId: documentId,
+          ...values,
+        })
+        .returning({ id: schema.debitNotices.id });
+      await tx
+        .update(schema.debitPlans)
+        .set({ noticeId: notice!.id })
+        .where(eq(schema.debitPlans.id, planId));
+      return notice!.id;
+    });
+  }
+
+  async function noticeIdOf(planId: string) {
+    const [plan] = await asA((tx) =>
+      tx
+        .select({ noticeId: schema.debitPlans.noticeId })
+        .from(schema.debitPlans)
+        .where(eq(schema.debitPlans.id, planId)),
+    );
+    return plan?.noticeId ?? null;
+  }
+
+  async function oneOffDebit(requestedAt = new Date()) {
     const [payment] = await asA((tx) =>
       tx
         .insert(schema.payments)
@@ -122,6 +167,15 @@ describe("one-off charge notice", () => {
       }),
     );
   }
+
+  const notice = (ledgerLineId: string, noticeDate: string, partsBefore = 0) =>
+    giveTestNotice(superuser.db, {
+      operatorId: operatorAId,
+      rentalId,
+      ledgerLineId,
+      noticeDate,
+      partsBefore,
+    });
 
   function setTimezone(timezone: string) {
     return superuser.db.execute(
@@ -171,60 +225,149 @@ describe("one-off charge notice", () => {
         .returning({ id: schema.chargeTypes.id }),
     );
     chargeTypeId = type!.id;
+    // The invoice a notice's email carried (its file is not needed here).
+    documentId = randomUUID();
+    await superuser.db.transaction(async (tx) => {
+      await tx.execute(sql`SET LOCAL session_replication_role = replica`);
+      await tx.insert(schema.issuedDocuments).values({
+        id: documentId,
+        operatorId: operatorAId,
+        rentalId,
+        kind: "invoice",
+        version: 1,
+        fileId: randomUUID(),
+        sha256: "0".repeat(64),
+      });
+    });
   });
 
   afterAll(async () => {
     await Promise.all([web.close(), admin.close(), superuser.close()]);
   });
 
-  it("starts a plan with no notice date, and sets it once, never changed", async () => {
-    const chargeId = await addCharge();
-    expect(await postgresErrorCodeOf(planFor(chargeId, { noticeDate: "2026-11-15" }))).toBe(
+  it("records a notice only with the full notice period and the plan as it is", async () => {
+    const { planId } = await plannedCharge();
+    expect(
+      await postgresErrorCodeOf(
+        asA((tx) =>
+          tx
+            .update(schema.debitPlans)
+            .set({ noticeId: randomUUID() })
+            .where(eq(schema.debitPlans.id, planId)),
+        ),
+      ),
+    ).toBeDefined();
+    // Two days is short of the platform minimum and the rental's 3.
+    expect(
+      await postgresErrorCodeOf(recordNotice(planId, { noticeDate: addDays(todayInPerth(), 2) })),
+    ).toBe(CHECK_VIOLATION);
+    expect(await postgresErrorCodeOf(recordNotice(planId, { plan: "next_debit" }))).toBe(
       CHECK_VIOLATION,
     );
-    await planFor(chargeId);
-    expect(await setNotice(chargeId, "2026-11-15")).toHaveLength(1);
-    expect(await postgresErrorCodeOf(setNotice(chargeId, "2026-11-14"))).toBe(CHECK_VIOLATION);
-    expect(await postgresErrorCodeOf(setNotice(chargeId, null))).toBe(CHECK_VIOLATION);
-    // Setting it to what it is changes nothing.
-    expect(await setNotice(chargeId, "2026-11-15")).toHaveLength(1);
+    expect(await postgresErrorCodeOf(recordNotice(planId, { partsBefore: 1 }))).toBe(
+      CHECK_VIOLATION,
+    );
+    const noticeId = await recordNotice(planId);
+    expect(await noticeIdOf(planId)).toBe(noticeId);
+    expect(
+      await postgresErrorCodeOf(
+        asA((tx) => tx.update(schema.debitNotices).set({ noticeDate: todayInPerth() })),
+      ),
+    ).toBe(POSTGRES_ERROR_CODES.insufficientPrivilege);
   });
 
-  it("refuses a one-off part with no notice, or before its notice date", async () => {
+  it("takes the rental's own longer notice period from its settings copy", async () => {
+    const vehicleId = await addTestCar(web.db, operatorAId);
+    const [longer] = await asA((tx) =>
+      tx
+        .insert(schema.rentals)
+        .values({
+          ...testRentalRow({ operatorId: operatorAId, renterId, vehicleId }),
+          settingsSnapshot: { oneOffNoticeDays: 10 },
+        })
+        .returning({ id: schema.rentals.id }),
+    );
+    const savedRentalId = rentalId;
+    rentalId = longer!.id;
+    try {
+      const { planId } = await plannedCharge();
+      expect(await postgresErrorCodeOf(recordNotice(planId))).toBe(CHECK_VIOLATION);
+      await recordNotice(planId, { noticeDate: addDays(todayInPerth(), 10) });
+    } finally {
+      rentalId = savedRentalId;
+    }
+  });
+
+  it("voids the notice on any change of plan or weeks, even to invoice only", async () => {
+    for (const change of [
+      { plan: "split" as const, weeks: 2 },
+      { plan: "not_debited" as const, weeks: null },
+    ]) {
+      const { lineId, planId } = await plannedCharge();
+      await notice(lineId, todayInPerth());
+      await asA((tx) =>
+        tx.update(schema.debitPlans).set(change).where(eq(schema.debitPlans.id, planId)),
+      );
+      expect(await noticeIdOf(planId)).toBeNull();
+      expect(await postgresErrorCodeOf(addItem(await oneOffDebit(), lineId))).toBe(CHECK_VIOLATION);
+    }
+    // A split's weeks changed: 12 to 2 voids it too.
+    const { lineId, planId } = await plannedCharge({ plan: "split", weeks: 12 });
+    await notice(lineId, todayInPerth());
+    await asA((tx) =>
+      tx.update(schema.debitPlans).set({ weeks: 2 }).where(eq(schema.debitPlans.id, planId)),
+    );
+    expect(await noticeIdOf(planId)).toBeNull();
+  });
+
+  it("refuses a one-off part with no notice, before its date, after it lapsed, or dated ahead", async () => {
     const unplanned = await addCharge();
     expect(await postgresErrorCodeOf(addItem(await oneOffDebit(), unplanned))).toBe(
       CHECK_VIOLATION,
     );
-    const chargeId = await addCharge();
-    await planFor(chargeId);
-    expect(await postgresErrorCodeOf(addItem(await oneOffDebit(), chargeId))).toBe(CHECK_VIOLATION);
-    await setNotice(chargeId, "2026-11-16");
-    expect(await postgresErrorCodeOf(addItem(await oneOffDebit(), chargeId))).toBe(CHECK_VIOLATION);
+    const { lineId } = await plannedCharge();
+    expect(await postgresErrorCodeOf(addItem(await oneOffDebit(), lineId))).toBe(CHECK_VIOLATION);
+    await notice(lineId, addDays(todayInPerth(), 1));
+    expect(await postgresErrorCodeOf(addItem(await oneOffDebit(), lineId))).toBe(CHECK_VIOLATION);
+    const lapsed = await plannedCharge();
+    await notice(lapsed.lineId, addDays(todayInPerth(), -8));
+    expect(await postgresErrorCodeOf(addItem(await oneOffDebit(), lapsed.lineId))).toBe(
+      CHECK_VIOLATION,
+    );
+    // A debit dated tomorrow can't meet a notice that comes tomorrow.
+    const ahead = await plannedCharge();
+    await notice(ahead.lineId, addDays(todayInPerth(), 1));
+    const tomorrow = new Date(Date.now() + 26 * 60 * 60 * 1000);
+    expect(await postgresErrorCodeOf(addItem(await oneOffDebit(tomorrow), ahead.lineId))).toBe(
+      CHECK_VIOLATION,
+    );
+    // Its last day is 7 days after its date.
+    const lastDay = await plannedCharge();
+    await notice(lastDay.lineId, addDays(todayInPerth(), -7));
+    await addItem(await oneOffDebit(), lastDay.lineId);
   });
 
   it("counts the debit's day on the business's own calendar", async () => {
-    const chargeId = await addCharge();
-    await planFor(chargeId);
-    await setNotice(chargeId, "2026-11-15");
+    const { lineId } = await plannedCharge();
+    await notice(lineId, "2026-11-02");
     try {
-      // In Perth the debit is still Sat 14 Nov: a day early.
-      await setTimezone("Australia/Perth");
-      expect(await postgresErrorCodeOf(addItem(await oneOffDebit(), chargeId))).toBe(
+      // In Perth the debit is still Sat 1 Nov: a day early.
+      await setTimezone(PERTH);
+      expect(await postgresErrorCodeOf(addItem(await oneOffDebit(PAST_MOMENT), lineId))).toBe(
         CHECK_VIOLATION,
       );
-      // In Sydney the same moment is Sun 15 Nov: on its day.
+      // In Sydney the same moment is Sun 2 Nov: on its day.
       await setTimezone("Australia/Sydney");
-      await addItem(await oneOffDebit(), chargeId);
+      await addItem(await oneOffDebit(PAST_MOMENT), lineId);
     } finally {
-      await setTimezone("Australia/Perth");
+      await setTimezone(PERTH);
     }
   });
 
-  it("debits a rent week with no plan, as before", async () => {
+  it("debits a rent week with no notice, as before", async () => {
     const weekStartsAt = new Date("2026-11-08T01:00:00Z");
     const rentId = await addCharge({
       description: "Rent",
-      amountCents: CHARGE_CENTS,
       periodStartsAt: weekStartsAt,
       periodEndsAt: new Date("2026-11-15T01:00:00Z"),
     });
@@ -241,64 +384,69 @@ describe("one-off charge notice", () => {
           status: "pending",
           mandateId,
           periodStartsAt: weekStartsAt,
-          requestedAt: DEBITED_AT,
+          requestedAt: new Date(),
         })
         .returning({ id: schema.payments.id }),
     );
     await addItem(payment!.id, rentId);
   });
 
-  it("lets a split already part debited get its notice date, but never a new plan", async () => {
-    const chargeId = await addCharge();
-    await planFor(chargeId, { plan: "split", weeks: 3 });
-    // As a split debited before the go-live: its first part already in a debit.
-    await superuser.db.transaction(async (tx) => {
-      await tx.execute(sql`SET LOCAL session_replication_role = replica`);
-      await tx.insert(schema.debitItems).values({
-        operatorId: operatorAId,
-        rentalId,
-        paymentId: await oneOffDebit(),
-        ledgerLineId: chargeId,
-        instalment: 1,
-        amountCents: 40_00,
-      });
-    });
-    expect(await setNotice(chargeId, "2026-11-14")).toHaveLength(1);
+  it("gives a split's parts a week each, and a new notice for the parts left", async () => {
+    const { lineId, planId } = await plannedCharge({ plan: "split", weeks: 3 });
+    await notice(lineId, addDays(todayInPerth(), -9));
+    // Part 1's window ended two days ago; part 2's runs to 14 days after the date.
+    expect(await postgresErrorCodeOf(addItem(await oneOffDebit(), lineId, 1))).toBe(
+      CHECK_VIOLATION,
+    );
+    await addItem(await oneOffDebit(), lineId, 2);
+    // Given again for the parts left: the plan keeps its terms, its notice moves on.
+    const again = await recordNotice(planId, { partsBefore: 1 });
+    expect(await noticeIdOf(planId)).toBe(again);
     expect(
       await postgresErrorCodeOf(
         asA((tx) =>
           tx
             .update(schema.debitPlans)
             .set({ plan: "own_debit", weeks: null })
-            .where(eq(schema.debitPlans.ledgerLineId, chargeId)),
+            .where(eq(schema.debitPlans.id, planId)),
         ),
       ),
     ).toBe(CHECK_VIOLATION);
-    await addItem(await oneOffDebit(), chargeId, 2);
   });
 
-  it("keeps a business's notice dates to itself", async () => {
-    const chargeId = await addCharge();
-    await planFor(chargeId);
-    const changed = await withTenant(web.db, operatorBId, (tx) =>
-      tx
-        .update(schema.debitPlans)
-        .set({ noticeDate: "2026-11-13" })
-        .where(eq(schema.debitPlans.ledgerLineId, chargeId))
-        .returning({ id: schema.debitPlans.id }),
+  it("keeps a business's notices to itself", async () => {
+    const { planId } = await plannedCharge();
+    const noticeId = await recordNotice(planId);
+    const seenByB = await withTenant(web.db, operatorBId, async (tx) => ({
+      notices: (await tx.select().from(schema.debitNotices)).length,
+      changed: (
+        await tx
+          .update(schema.debitPlans)
+          .set({ noticeId: null })
+          .where(eq(schema.debitPlans.id, planId))
+          .returning({ id: schema.debitPlans.id })
+      ).length,
+    }));
+    expect(seenByB).toEqual({ notices: 0, changed: 0 });
+    expect(await noticeIdOf(planId)).toBe(noticeId);
+    expect(
+      await postgresErrorCodeOf(
+        withTenant(web.db, operatorBId, (tx) =>
+          tx.insert(schema.debitNotices).values({
+            operatorId: operatorAId,
+            rentalId,
+            debitPlanId: planId,
+            plan: "own_debit",
+            noticeDate: addDays(todayInPerth(), 3),
+            partsBefore: 0,
+            issuedDocumentId: documentId,
+          }),
+        ),
+      ),
+    ).toBeDefined();
+    expect(await postgresErrorCodeOf(admin.db.select().from(schema.debitNotices))).toBe(
+      POSTGRES_ERROR_CODES.insufficientPrivilege,
     );
-    expect(changed).toEqual([]);
-    const [plan] = await asA((tx) =>
-      tx
-        .select({ noticeDate: schema.debitPlans.noticeDate })
-        .from(schema.debitPlans)
-        .where(eq(schema.debitPlans.ledgerLineId, chargeId)),
-    );
-    expect(plan?.noticeDate).toBeNull();
-    const seenByB = await withTenant(web.db, operatorBId, (tx) =>
-      tx.select().from(schema.debitPlans).where(eq(schema.debitPlans.ledgerLineId, chargeId)),
-    );
-    expect(seenByB).toEqual([]);
   });
 
   it("names the businesses with notices to send, and with noticed charges to debit", async () => {
@@ -313,7 +461,7 @@ describe("one-off charge notice", () => {
     );
     const renterB = await addTestRenter(web.db, operatorBId);
     const carB = await addTestCar(web.db, operatorBId);
-    const chargeId = await asB(async (tx) => {
+    const { rentalB, chargeId } = await asB(async (tx) => {
       const [rental] = await tx
         .insert(schema.rentals)
         .values(testRentalRow({ operatorId: operatorBId, renterId: renterB, vehicleId: carB }))
@@ -341,18 +489,23 @@ describe("one-off charge notice", () => {
         ledgerLineId: line!.id,
         plan: "own_debit",
       });
-      return line!.id;
+      return { rentalB: rental!.id, chargeId: line!.id };
     });
     expect(await noticesDue()).toContain(operatorBId);
     expect(await debitsDue()).not.toContain(operatorBId);
-    await asB((tx) =>
-      tx
-        .update(schema.debitPlans)
-        .set({ noticeDate: "2026-11-15" })
-        .where(eq(schema.debitPlans.ledgerLineId, chargeId)),
-    );
+    const given = (noticeDate: string) =>
+      giveTestNotice(superuser.db, {
+        operatorId: operatorBId,
+        rentalId: rentalB,
+        ledgerLineId: chargeId,
+        noticeDate,
+      });
+    await given(addDays(todayInPerth(), 3));
     expect(await noticesDue()).not.toContain(operatorBId);
     expect(await debitsDue()).toContain(operatorBId);
+    // Lapsed: its window passed, so it needs telling again.
+    await given(addDays(todayInPerth(), -8));
+    expect(await noticesDue()).toContain(operatorBId);
     await superuser.db.execute(
       sql`UPDATE operators SET suspended_at = now() WHERE id = ${operatorBId}`,
     );

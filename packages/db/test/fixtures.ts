@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { eq, sql } from "drizzle-orm";
+
 import * as schema from "../src/schema";
 import { withTenant } from "../src/tenant-context";
 import type { TestDatabase } from "../src/testing/connect";
@@ -145,4 +147,52 @@ export async function postgresErrorCodeOf(action: Promise<unknown>): Promise<str
     }
     throw error;
   }
+}
+
+/** A notice as already emailed and recorded, its date set by the test (its rules skipped). */
+export interface TestNotice {
+  operatorId: string;
+  rentalId: string;
+  ledgerLineId: string;
+  noticeDate: string;
+  partsBefore?: number;
+}
+
+/**
+ * Gives a one-off charge's plan a notice on the superuser's connection with
+ * the rules skipped, so a test can set a notice date that has already come
+ * (one recorded through the rules is always at least 3 days ahead).
+ */
+export async function giveTestNotice(
+  superuserDb: TestDatabase,
+  notice: TestNotice,
+): Promise<string> {
+  const id = randomUUID();
+  await superuserDb.transaction(async (tx) => {
+    await tx.execute(sql`SET LOCAL session_replication_role = replica`);
+    const [plan] = await tx
+      .select({
+        id: schema.debitPlans.id,
+        plan: schema.debitPlans.plan,
+        weeks: schema.debitPlans.weeks,
+      })
+      .from(schema.debitPlans)
+      .where(eq(schema.debitPlans.ledgerLineId, notice.ledgerLineId));
+    await tx.insert(schema.debitNotices).values({
+      id,
+      operatorId: notice.operatorId,
+      rentalId: notice.rentalId,
+      debitPlanId: plan!.id,
+      plan: plan!.plan,
+      weeks: plan!.weeks,
+      noticeDate: notice.noticeDate,
+      partsBefore: notice.partsBefore ?? 0,
+      issuedDocumentId: randomUUID(),
+    });
+    await tx
+      .update(schema.debitPlans)
+      .set({ noticeId: id })
+      .where(eq(schema.debitPlans.id, plan!.id));
+  });
+  return id;
 }

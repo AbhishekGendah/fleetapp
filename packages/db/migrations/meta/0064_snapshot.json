@@ -1,5 +1,5 @@
 {
-  "id": "a89b19b2-686e-4a69-8525-6188555d1ee7",
+  "id": "a5b2c2c8-c72d-452f-8714-e2f51ad615d4",
   "prevId": "aab8a798-b84c-47ea-9edc-89118de504c1",
   "version": "7",
   "dialect": "postgresql",
@@ -12002,6 +12002,201 @@
       },
       "isRLSEnabled": false
     },
+    "public.debit_notices": {
+      "name": "debit_notices",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "operator_id": {
+          "name": "operator_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rental_id": {
+          "name": "rental_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "debit_plan_id": {
+          "name": "debit_plan_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plan": {
+          "name": "plan",
+          "type": "debit_collection_plan",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "weeks": {
+          "name": "weeks",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notice_date": {
+          "name": "notice_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parts_before": {
+          "name": "parts_before",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "issued_document_id": {
+          "name": "issued_document_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "given_by_user_id": {
+          "name": "given_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "debit_notices_plan_idx": {
+          "name": "debit_notices_plan_idx",
+          "columns": [
+            {
+              "expression": "operator_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "debit_plan_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "debit_notices_operator_id_operators_id_fk": {
+          "name": "debit_notices_operator_id_operators_id_fk",
+          "tableFrom": "debit_notices",
+          "tableTo": "operators",
+          "columnsFrom": [
+            "operator_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "debit_notices_given_by_user_id_users_id_fk": {
+          "name": "debit_notices_given_by_user_id_users_id_fk",
+          "tableFrom": "debit_notices",
+          "tableTo": "users",
+          "columnsFrom": [
+            "given_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "debit_notices_rental_fk": {
+          "name": "debit_notices_rental_fk",
+          "tableFrom": "debit_notices",
+          "tableTo": "rentals",
+          "columnsFrom": [
+            "rental_id",
+            "operator_id"
+          ],
+          "columnsTo": [
+            "id",
+            "operator_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "debit_notices_plan_fk": {
+          "name": "debit_notices_plan_fk",
+          "tableFrom": "debit_notices",
+          "tableTo": "debit_plans",
+          "columnsFrom": [
+            "debit_plan_id",
+            "operator_id"
+          ],
+          "columnsTo": [
+            "id",
+            "operator_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "debit_notices_document_fk": {
+          "name": "debit_notices_document_fk",
+          "tableFrom": "debit_notices",
+          "tableTo": "issued_documents",
+          "columnsFrom": [
+            "issued_document_id",
+            "operator_id"
+          ],
+          "columnsTo": [
+            "id",
+            "operator_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "debit_notices_id_plan_unique": {
+          "name": "debit_notices_id_plan_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "operator_id",
+            "debit_plan_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "debit_notices_parts_before": {
+          "name": "debit_notices_parts_before",
+          "value": "\"debit_notices\".\"parts_before\" >= 0"
+        },
+        "debit_notices_plan": {
+          "name": "debit_notices_plan",
+          "value": "\"debit_notices\".\"plan\" <> 'not_debited' and (\"debit_notices\".\"plan\" = 'split') = (\"debit_notices\".\"weeks\" is not null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.debit_plans": {
       "name": "debit_plans",
       "schema": "",
@@ -12050,9 +12245,9 @@
           "primaryKey": false,
           "notNull": false
         },
-        "notice_date": {
-          "name": "notice_date",
-          "type": "date",
+        "notice_id": {
+          "name": "notice_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
@@ -12121,6 +12316,23 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
+        "debit_plans_notice_fk": {
+          "name": "debit_plans_notice_fk",
+          "tableFrom": "debit_plans",
+          "tableTo": "debit_notices",
+          "columnsFrom": [
+            "notice_id",
+            "operator_id",
+            "id"
+          ],
+          "columnsTo": [
+            "id",
+            "operator_id",
+            "debit_plan_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
         "debit_plans_rental_fk": {
           "name": "debit_plans_rental_fk",
           "tableFrom": "debit_plans",
@@ -12161,6 +12373,14 @@
           "nullsNotDistinct": false,
           "columns": [
             "ledger_line_id"
+          ]
+        },
+        "debit_plans_id_operator_unique": {
+          "name": "debit_plans_id_operator_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "operator_id"
           ]
         }
       },

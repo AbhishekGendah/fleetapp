@@ -188,12 +188,12 @@ describe("the one-off charge notice update on a filled database", () => {
     });
   });
 
-  it("leaves plans already made with no notice date, still changeable by the 0063 code", async () => {
-    const [plan] = await asWeb<{ notice_date: string | null }>(
-      `select notice_date from debit_plans where ledger_line_id = $1`,
+  it("leaves plans already made with no notice, still changeable by the 0063 code", async () => {
+    const [plan] = await asWeb<{ notice_id: string | null }>(
+      `select notice_id from debit_plans where ledger_line_id = $1`,
       [filled.plannedChargeId],
     );
-    expect(plan?.notice_date).toBeNull();
+    expect(plan?.notice_id).toBeNull();
     await asWeb(
       `update debit_plans set plan = 'split', weeks = 3, updated_at = now() where ledger_line_id = $1`,
       [filled.plannedChargeId],

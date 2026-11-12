@@ -6,7 +6,9 @@ import {
   debitPlanLabelOn,
   DEFAULT_ONE_OFF_NOTICE_DAYS,
   isDebitingPlan,
-  isNoticeDateReached,
+  isNoticeLapsed,
+  isWithinNotice,
+  NOTICE_LAPSE_DAYS,
   MINIMUM_ONE_OFF_NOTICE_DAYS,
   oneOffNoticeDate,
 } from "./one-off-notice";
@@ -46,11 +48,28 @@ describe("a one-off charge's notice date", () => {
     expect(oneOffNoticeDate(new Date("2026-11-11T23:00:00Z"), SYDNEY, 14)).toBe("2026-11-26");
   });
 
-  it("is never reached without an email, and is reached on its day and after", () => {
-    expect(isNoticeDateReached(null, "2026-11-15")).toBe(false);
-    expect(isNoticeDateReached("2026-11-15", "2026-11-14")).toBe(false);
-    expect(isNoticeDateReached("2026-11-15", "2026-11-15")).toBe(true);
-    expect(isNoticeDateReached("2026-11-15", "2026-12-01")).toBe(true);
+  it("lets a charge be debited only inside its notice's window, never without one", () => {
+    const notice = { noticeDate: "2026-11-15", partsBefore: 0 };
+    expect(NOTICE_LAPSE_DAYS).toBe(7);
+    expect(isWithinNotice(null, 1, "2026-11-15")).toBe(false);
+    expect(isWithinNotice(notice, 1, "2026-11-14")).toBe(false);
+    expect(isWithinNotice(notice, 1, "2026-11-15")).toBe(true);
+    expect(isWithinNotice(notice, 1, "2026-11-22")).toBe(true);
+    // A week after its last day it has lapsed: a new notice is needed.
+    expect(isWithinNotice(notice, 1, "2026-11-23")).toBe(false);
+    expect(isNoticeLapsed(notice, 1, "2026-11-22")).toBe(false);
+    expect(isNoticeLapsed(notice, 1, "2026-11-23")).toBe(true);
+  });
+
+  it("gives a split's later parts a week each, counted from the parts it was given for", () => {
+    const fresh = { noticeDate: "2026-11-15", partsBefore: 0 };
+    expect(isWithinNotice(fresh, 3, "2026-12-06")).toBe(true);
+    expect(isWithinNotice(fresh, 3, "2026-12-07")).toBe(false);
+    // Given again after its first part was debited: it covers parts 2 on, from its own date.
+    const again = { noticeDate: "2026-12-20", partsBefore: 1 };
+    expect(isWithinNotice(again, 1, "2026-12-20")).toBe(false);
+    expect(isWithinNotice(again, 2, "2026-12-20")).toBe(true);
+    expect(isNoticeLapsed(again, 2, "2026-12-28")).toBe(true);
   });
 });
 
@@ -93,10 +112,10 @@ describe("words for a one-off charge's debit", () => {
   it("tells the Renter the date and the account's last four digits, with the year", () => {
     const base = { weeks: null, noticeDate: "2026-11-15", accountEnding: "3456" };
     expect(chargeDebitNoticeText({ ...base, plan: "own_debit" })).toBe(
-      "It will be debited from your account ending 3456 on Sun 15 Nov 2026.",
+      "It will be debited from your account ending 3456 on or after Sun 15 Nov 2026, and no later than Sun 22 Nov 2026.",
     );
     expect(chargeDebitNoticeText({ ...base, plan: "split", weeks: 3 })).toBe(
-      "It will be debited from your account ending 3456 in 3 weekly parts, the first on or after Sun 15 Nov 2026.",
+      "It will be debited from your account ending 3456 in 3 weekly parts, the first on or after Sun 15 Nov 2026 and no later than Sun 22 Nov 2026, then one each week.",
     );
     expect(chargeDebitNoticeText({ ...base, plan: "not_debited" })).toBeNull();
   });
@@ -120,7 +139,7 @@ describe("words for a one-off charge's debit", () => {
     expect(
       chargeNoticeStatusText({ emailedOn: "2026-11-12", plan: "split", noticeDate: null, today }),
     ).toBe(
-      "Invoice emailed Thu 12 Nov without a debit date: email it again before it can be debited",
+      "Invoice emailed Thu 12 Nov without a current debit date: email it again before it can be debited",
     );
     expect(
       chargeNoticeStatusText({

@@ -6,8 +6,10 @@ import type { DebitCollectionPlan } from "./weekly-debits";
  * One-off charges are told before they are debited
  * (docs/plans/one-off-charge-notice.md, approved by Abhi on 12 Nov 2026):
  * every one-off charge gets its own invoice, emailed to the Renter at once,
- * and is debited no earlier than its notice date, the day that email was
- * sent (on the business's calendar) plus the notice period.
+ * and is debited only inside the window that email stated: from its notice
+ * date (the day it was sent, on the business's calendar, plus the notice
+ * period) to NOTICE_LAPSE_DAYS after. A notice is for the exact plan it
+ * stated: any change of plan voids it (review fixes, 13 Nov 2026).
  */
 
 /** The notice period a business starts with (Abhi, 12 Nov 2026: 3 days, not 14). */
@@ -33,12 +35,58 @@ export function oneOffNoticeDate(emailedAt: Date, timeZone: string, noticeDays: 
 }
 
 /**
- * Whether a one-off charge may be debited on `today` (the business's day):
- * only once its invoice was emailed (a notice date) and that date has come.
- * No email, no debit.
+ * A notice lapses if its part isn't debited within this many days of the day
+ * it was due (a pause, Stripe not ready): it is then emailed again with a new
+ * date, and nothing is taken until that one has run. The Renter is only ever
+ * debited inside the window their email stated.
  */
-export function isNoticeDateReached(noticeDate: string | null, today: string): boolean {
-  return noticeDate !== null && noticeDate <= today;
+export const NOTICE_LAPSE_DAYS = 7;
+const DAYS_PER_WEEK = 7;
+
+/** A notice as emailed: its first debit day and the parts of the charge already debited then. */
+export interface ChargeNoticeTerms {
+  noticeDate: string;
+  partsBefore: number;
+}
+
+/**
+ * The days a part (1 for a whole charge; 1 to N of a split) may be debited
+ * under a notice: from its notice date until NOTICE_LAPSE_DAYS after the
+ * week it falls in (a split's parts come a week apart, the first in the
+ * notice's first week). Null for a part the notice doesn't cover.
+ */
+export function noticeWindow(
+  notice: ChargeNoticeTerms,
+  instalment: number,
+): { from: string; until: string } | null {
+  const weeksIn = instalment - 1 - notice.partsBefore;
+  if (weeksIn < 0) {
+    return null;
+  }
+  return {
+    from: notice.noticeDate,
+    until: addDays(notice.noticeDate, weeksIn * DAYS_PER_WEEK + NOTICE_LAPSE_DAYS),
+  };
+}
+
+/** Whether a part may be debited on `today` (the business's day) under a notice. No notice, no debit. */
+export function isWithinNotice(
+  notice: ChargeNoticeTerms | null,
+  instalment: number,
+  today: string,
+): boolean {
+  const window = notice ? noticeWindow(notice, instalment) : null;
+  return window !== null && window.from <= today && today <= window.until;
+}
+
+/** Whether a notice has run out for a part: its window passed with the part still not debited. */
+export function isNoticeLapsed(
+  notice: ChargeNoticeTerms,
+  instalment: number,
+  today: string,
+): boolean {
+  const window = noticeWindow(notice, instalment);
+  return window === null || today > window.until;
 }
 
 /** How each plan reads with its first possible debit day, e.g. "Debit on Sun 15 Nov". */
@@ -61,28 +109,31 @@ export function debitPlanLabelOn(
 }
 
 /**
- * The Renter's email's words for how a charge will be debited, e.g.
- * "It will be debited from your account ending 3456 on Sun 15 Nov 2026.";
- * null when it won't be debited.
+ * The Renter's email's words for how a charge will be debited, with the
+ * whole window it may be taken in, e.g. "It will be debited from your
+ * account ending 3456 on or after Sun 15 Nov 2026, and no later than Sun 22
+ * Nov 2026."; null when it won't be debited.
  */
 export function chargeDebitNoticeText(input: {
   plan: DebitCollectionPlan;
+  /** For a split: the parts still to take. */
   weeks: number | null;
   noticeDate: string;
   accountEnding: string;
 }): string | null {
   // The Renter may read it next year, so the year is always given.
   const day = formatShortCalendarDate(input.noticeDate, "");
+  const lastDay = formatShortCalendarDate(addDays(input.noticeDate, NOTICE_LAPSE_DAYS), "");
   const account = `your account ending ${input.accountEnding}`;
   switch (input.plan) {
     case "not_debited":
       return null;
     case "own_debit":
-      return `It will be debited from ${account} on ${day}.`;
+      return `It will be debited from ${account} on or after ${day}, and no later than ${lastDay}.`;
     case "next_debit":
-      return `It will be debited from ${account} with your first weekly debit on or after ${day}.`;
+      return `It will be debited from ${account} with your first weekly debit on or after ${day}, and no later than ${lastDay}.`;
     case "split":
-      return `It will be debited from ${account} in ${input.weeks ?? 0} weekly parts, the first on or after ${day}.`;
+      return `It will be debited from ${account} in ${input.weeks ?? 0} weekly parts, the first on or after ${day} and no later than ${lastDay}, then one each week.`;
   }
 }
 
@@ -92,6 +143,7 @@ export function chargeNoticeStatusText(input: {
   emailedOn: string | null;
   /** Its plan, if it has one (a Renter paying by direct debit). */
   plan: DebitCollectionPlan | null;
+  /** Its current notice's first day; none when it has none, or it lapsed or was voided. */
   noticeDate: string | null;
   today: string;
 }): string {
@@ -105,5 +157,5 @@ export function chargeNoticeStatusText(input: {
   }
   return input.noticeDate
     ? `${emailed} · debit on ${formatShortCalendarDate(input.noticeDate, input.today)}`
-    : `${emailed} without a debit date: email it again before it can be debited`;
+    : `${emailed} without a current debit date: email it again before it can be debited`;
 }

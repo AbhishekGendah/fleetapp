@@ -14,6 +14,7 @@ import {
   integer,
   pgEnum,
   pgTable,
+  type PgTableExtraConfigValue,
   text,
   timestamp,
   unique,
@@ -22,6 +23,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { primaryKeyColumn, timestampColumns } from "./columns";
+import { issuedDocuments } from "./contracts";
 import { ledgerLines } from "./ledger";
 import { operatorIdColumn } from "./operators";
 import { payments } from "./payments";
@@ -60,7 +62,7 @@ function paymentLink(
  * (docs/plans/phase-4-slice-5.md): invoice only (the default), with the
  * next weekly debit, on its own now, or split over 2 to 12 weekly debits.
  * One per charge; the database refuses a change once any part is in a debit,
- * and a debit of any part before its notice date.
+ * and a debit of any part outside its current notice's window.
  */
 export const debitPlans = pgTable(
   "debit_plans",
@@ -74,15 +76,22 @@ export const debitPlans = pgTable(
     weeks: integer("weeks"),
     chosenByUserId: uuid("chosen_by_user_id").references(() => users.id),
     /**
-     * The first day it may be debited, on the business's calendar: the day its
-     * invoice was emailed with the debit stated, plus the notice period
-     * (docs/plans/one-off-charge-notice.md). None until then, and a plan with
-     * none is never debited. Set once, never changed (migration 0064).
+     * The notice the Renter was last emailed for exactly this plan (its date
+     * and how it is taken; docs/plans/one-off-charge-notice.md). None until
+     * then, and a plan with none is never debited. The database voids it on
+     * any change of plan or weeks (migration 0064); a new email gives a new one.
      */
-    noticeDate: date("notice_date"),
+    noticeId: uuid("notice_id"),
     ...timestampColumns,
   },
-  (table) => [
+  // Typed by hand: the plan and its notices link to each other.
+  (table): PgTableExtraConfigValue[] => [
+    unique("debit_plans_id_operator_unique").on(table.id, table.operatorId),
+    foreignKey({
+      name: "debit_plans_notice_fk",
+      columns: [table.noticeId, table.operatorId, table.id],
+      foreignColumns: [debitNotices.id, debitNotices.operatorId, debitNotices.debitPlanId],
+    }),
     rentalLink("debit_plans", table),
     ledgerLineLink("debit_plans", table),
     index("debit_plans_rental_idx").on(table.operatorId, table.rentalId),
@@ -90,6 +99,54 @@ export const debitPlans = pgTable(
       "debit_plans_weeks",
       sql`(${table.plan} = 'split') = (${table.weeks} is not null)
         and (${table.weeks} is null or ${table.weeks} between ${sql.raw(String(MINIMUM_SPLIT_WEEKS))} and ${sql.raw(String(MAXIMUM_SPLIT_WEEKS))})`,
+    ),
+  ],
+);
+
+/**
+ * Each notice of a one-off charge's debit the Renter was emailed
+ * (docs/plans/one-off-charge-notice.md, review fixes 13 Nov 2026): the plan
+ * and weeks it stated, its first debit day, and how many parts were already
+ * debited then. Added to, never changed: a plan points at its current one,
+ * and a change of plan or a lapse needs a new one.
+ */
+export const debitNotices = pgTable(
+  "debit_notices",
+  {
+    ...primaryKeyColumn,
+    ...operatorIdColumn,
+    rentalId: uuid("rental_id").notNull(),
+    debitPlanId: uuid("debit_plan_id").notNull(),
+    plan: debitCollectionPlanEnum("plan").notNull(),
+    weeks: integer("weeks"),
+    noticeDate: date("notice_date").notNull(),
+    partsBefore: integer("parts_before").notNull(),
+    /** The invoice whose email stated it. */
+    issuedDocumentId: uuid("issued_document_id").notNull(),
+    /** Who pressed Email again; none when the app emailed it itself. */
+    givenByUserId: uuid("given_by_user_id").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (table): PgTableExtraConfigValue[] => [
+    rentalLink("debit_notices", table),
+    foreignKey({
+      name: "debit_notices_plan_fk",
+      columns: [table.debitPlanId, table.operatorId],
+      foreignColumns: [debitPlans.id, debitPlans.operatorId],
+    }),
+    foreignKey({
+      name: "debit_notices_document_fk",
+      columns: [table.issuedDocumentId, table.operatorId],
+      foreignColumns: [issuedDocuments.id, issuedDocuments.operatorId],
+    }),
+    unique("debit_notices_id_plan_unique").on(table.id, table.operatorId, table.debitPlanId),
+    index("debit_notices_plan_idx").on(table.operatorId, table.debitPlanId),
+    check("debit_notices_parts_before", sql`${table.partsBefore} >= 0`),
+    check(
+      "debit_notices_plan",
+      sql`${table.plan} <> 'not_debited' and (${table.plan} = 'split') = (${table.weeks} is not null)`,
     ),
   ],
 );
