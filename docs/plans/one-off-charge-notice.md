@@ -253,6 +253,45 @@ been applied anywhere).
   31); Settings → Invoices loses the one-off choice. No new UI piece;
   download budgets unchanged.
 
+### Second-round review fixes (13 Nov 2026)
+
+- **Clock margin.** A one-off debit's request time may be up to 5 minutes
+  ahead of the database's clock (`DEBIT_CLOCK_MARGIN_MINUTES`; 0064 checks
+  `interval '5 minutes'`), as the app's server clock may run a little ahead.
+  Beyond that a one-off part is refused.
+- **A refused one-off part never takes the rent with it.** The week's debit
+  is first reserved with its one-off parts inside a savepoint; if the
+  database refuses it by a check (the notice rule, or a clock beyond the
+  margin), only that savepoint is undone and the week's rent is reserved on
+  its own. Each "Debit on [date]" charge is reserved in its own savepoint
+  too, so one refusal drops only that charge.
+- **No re-notice loop.**
+  - A charge whose next part would take nothing (owing less pending debits
+    leaves nothing, or under 50c: paid another way) is never emailed a
+    debit by the run, and its line says "covered: nothing left owing to
+    debit" with no Email again.
+  - The run emails a plan at most `AUTOMATIC_NOTICE_LIMIT` (2) times
+    (`debit_plans.automatic_notice_count`, counted before each send) since
+    its last change of plan, its last notice or the business's last Email
+    again. That covers a failed send and one retry, a send that couldn't
+    state a debit and one retry, and the re-notice after a lapse (once per
+    lapse, and only when a debit could be made then). After that its line
+    says "Couldn't email the debit date: Email invoice again" and nothing
+    more is sent by itself. A change of plan (the database) or the
+    business's Email again starts the count again; a notice recorded resets
+    it.
+- **Told again partway through a split**: the email states the next part's
+  own window (`noticeWindow`: the week it falls in, from the notice date a
+  week per part), "the next on or after … and no later than …", not the
+  first part's.
+- **A send across midnight** keeps its date: each notice stores the email's
+  send time (`debit_notices.emailed_at`) and its notice days count from the
+  day it went, not the day it was recorded. The database accepts a send
+  time only from the last hour (`NOTICE_SEND_WINDOW_MINUTES`) up to the
+  clock margin ahead, so it can't be backdated.
+- **Cast safety**: a missing or non-integer `oneOffNoticeDays` in a
+  rental's settings copy reads as the platform minimum of 3.
+
 ### Go-live: how already-planned charges and open rentals switch
 
 1. **Migration 0064** adds the table, the column and the rules, and writes

@@ -307,12 +307,15 @@ docs/plans/one-off-charge-notice.md, put off on purpose:
 - [ ] An email that bounces after it was sent keeps its notice date (we did send it); decide whether a bounce should stop the debit once bounces are recorded from Postmark.
 - [ ] Notice is counted in calendar days: an invoice emailed at 23:59 gives about 2 days 5 hours of real notice before a 3-day debit; the lawyer to say whether that is enough (docs/legal-notes.md).
 - [ ] A one-off debit capped at what is owing records the full charge as its item, so the rest counts as collected; check it was really paid another way.
-- [ ] Two sends of one invoice either side of midnight can state different dates; only the one recorded counts, the other's date is never debited on.
+- [x] A send across midnight was refused after the email went: fixed (13 Nov 2026), each notice counts from the day its email was sent (`emailed_at`).
 - [ ] If recording a notice (or an email try) fails after the email went, the Renter was told but no notice stands, so the run emails them again with a new date.
 - [ ] operators_with_debits_due and operators_with_charge_notices_due also name businesses with only reversed charges or notices whose date hasn't come; harmless (the app checks), but they wake the run for nothing.
 - [ ] PayTo (later) needs its own read of the account's last digits; the email's wording is BECS's.
 - [ ] Invoices issued by the 0063 code show "Invoice not sent" until the first notice run, and their Renters get a second email.
 - [ ] Dev site only: a debit the 0063 code reserved but never sent could be sent by the new code's recovery without its one-off items' notice; check the dev site has none pending before the deploy.
+- [ ] Two parts of a split can be debited a day apart when a weekly debit was late (its week debited on day 6, the next on time); both are inside their notices, but the Renter sees two debits close together.
+- [ ] Two sends of a charge's invoice racing each other can each record a notice, the later replacing the earlier; both stated the same terms, but the Renter may hold two dates.
+- [ ] The notice run looks up each awaiting charge's direct debit, Stripe customer and covered state one row at a time; fine for v1 sizes, move into one query if it slows.
 - [ ] Later (not in this slice): an AGS check for a business with unusually many one-off debits or disputes, and a Renter "I dispute this charge" button that pauses the charge's debit.
 
 ## Documents
