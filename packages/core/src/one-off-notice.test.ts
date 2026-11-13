@@ -179,6 +179,10 @@ describe("words for a one-off charge's debit", () => {
     expect(chargeNoticeStatusText({ ...debited, isCovered: true })).toBe(
       "Invoice emailed Thu 12 Nov · covered: nothing left owing to debit",
     );
+    // A notice already given is what the Renter was told: it shows, covered or not.
+    expect(chargeNoticeStatusText({ ...debited, noticeDate: "2026-11-15", isCovered: true })).toBe(
+      "Invoice emailed Thu 12 Nov · debit on Sun 15 Nov",
+    );
     expect(chargeNoticeStatusText({ ...debited, isGivenUp: true })).toBe(
       "Invoice emailed Thu 12 Nov · Couldn't email the debit date: Email invoice again",
     );

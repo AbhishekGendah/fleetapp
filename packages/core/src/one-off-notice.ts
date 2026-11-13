@@ -166,7 +166,7 @@ export function chargeNoticeStatusText(input: {
   plan: DebitCollectionPlan | null;
   /** Its current notice's first day; none when it has none, or it lapsed or was voided. */
   noticeDate: string | null;
-  /** Nothing is left owing for it to take (paid another way): no debit, so no notice. */
+  /** Nothing is left owing for it to take (paid another way), and no notice stands: none is coming. */
   isCovered?: boolean;
   /** The nightly run stopped emailing it (AUTOMATIC_NOTICE_LIMIT): the business must. */
   isGivenUp?: boolean;
@@ -179,11 +179,12 @@ export function chargeNoticeStatusText(input: {
   if (!isDebited) {
     return emailed;
   }
-  if (input.isCovered) {
-    return `${emailed} · covered: nothing left owing to debit`;
-  }
+  // A notice given stands (it is what the Renter was told); covered only explains why none is coming.
   if (input.noticeDate) {
     return `${emailed} · debit on ${formatShortCalendarDate(input.noticeDate, input.today)}`;
+  }
+  if (input.isCovered) {
+    return `${emailed} · covered: nothing left owing to debit`;
   }
   if (input.isGivenUp) {
     return `${emailed} · Couldn't email the debit date: Email invoice again`;

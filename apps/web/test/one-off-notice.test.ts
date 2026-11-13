@@ -480,6 +480,27 @@ describe("one-off charge notice", () => {
       );
     });
 
+    it("keeps showing a notice already given when the charge becomes covered", async () => {
+      const { rentalId } = await rentalOut();
+      // The week's rent on its way at the bank.
+      await debitsForOperator(debitDeps(new Date()), actor.operatorId);
+      const lineId = await addCleaning(rentalId, "own_debit");
+      await issuePendingDocuments(deps(), actor, rentalId);
+      // Everything but the debit on its way is paid in cash: the charge is covered.
+      const owing = (await loadRentalLedger(web.db, actor.operatorId, rentalId)).balanceCents;
+      await recordPayment(web.db, actor, rentalId, {
+        amountCents: owing - RENT_CENTS,
+        method: "cash",
+        reference: null,
+        occurredOn: todayInPerth(),
+      });
+      const notice = await noticeOf(rentalId, lineId);
+      expect(notice).toMatchObject({ isCovered: true, noticeDate: addDays(todayInPerth(), 3) });
+      expect(chargeNoticeStatusText({ ...notice!, today: todayInPerth() })).toContain(
+        "· debit on ",
+      );
+    });
+
     it("tries a failed send once more, then asks the business, and Email again still works", async () => {
       const { rentalId } = await rentalOut();
       const lineId = await addCleaning(rentalId, "own_debit");
