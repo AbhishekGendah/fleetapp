@@ -604,6 +604,27 @@ describe("weekly debits", () => {
       }
     });
 
+    it("still debits the week's rent when a one-off part is refused, as by a clock running ahead", async () => {
+      const { rentalId } = await rentalOut();
+      const weekly = await addCleaning(rentalId, {
+        plan: "next_debit",
+        weeks: null,
+        isStripeReady: true,
+      });
+      const own = await addCleaning(rentalId, {
+        plan: "own_debit",
+        weeks: null,
+        isStripeReady: true,
+      });
+      await giveNotice(weekly);
+      await giveNotice(own);
+      // The server's clock ten minutes ahead of the database's: past the 5-minute margin.
+      await runAt(new Date(Date.now() + 10 * MINUTE_MS));
+      expect((await debitsOf(rentalId)).map((debit) => [debit.purpose, debit.amountCents])).toEqual(
+        [["scheduled_debit", RENT_CENTS]],
+      );
+    });
+
     it("never debits a charge whose invoice wasn't emailed: no email, no debit", async () => {
       const { rentalId } = await rentalOut();
       await addCleaning(rentalId, { plan: "next_debit", weeks: null, isStripeReady: true });

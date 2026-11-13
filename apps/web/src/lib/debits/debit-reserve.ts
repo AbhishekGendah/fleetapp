@@ -1,5 +1,6 @@
 import {
   instalmentShares,
+  isCheckViolation,
   isWithinNotice,
   isRentWeekDebitable,
   ledgerBalanceCents,
@@ -280,26 +281,66 @@ export async function reserveWeeklyDebit(
     instalment: 1,
     amountCents: rentWeekCents(lines, week.periodStartsAt),
   };
-  const items = [rentItem, ...(await oneOffItemsDue(tx, operatorId, rentalId, lines, today))];
-  const plannedCents = items.reduce((total, item) => total + item.amountCents, 0);
-  const amountCents = await cappedCents(tx, operatorId, rentalId, plannedCents, lines);
-  if (amountCents === 0) {
-    return null;
+  const reserve = async (on: AnyTransaction, items: readonly PlannedItem[]) => {
+    const plannedCents = items.reduce((total, item) => total + item.amountCents, 0);
+    const amountCents = await cappedCents(on, operatorId, rentalId, plannedCents, lines);
+    if (amountCents === 0) {
+      return null;
+    }
+    return insertDebit(
+      on,
+      operatorId,
+      {
+        renterId: rental.renterId,
+        rentalId,
+        purpose: "scheduled_debit",
+        amountCents,
+        mandateId: mandate.id,
+        periodStartsAt: week.periodStartsAt,
+        requestedAt: now,
+      },
+      items,
+    );
+  };
+  const oneOffs = await oneOffItemsDue(tx, operatorId, rentalId, lines, today);
+  if (oneOffs.length === 0) {
+    return reserve(tx, [rentItem]);
   }
-  return insertDebit(
-    tx,
-    operatorId,
-    {
-      renterId: rental.renterId,
-      rentalId,
-      purpose: "scheduled_debit",
-      amountCents,
-      mandateId: mandate.id,
-      periodStartsAt: week.periodStartsAt,
-      requestedAt: now,
-    },
-    items,
+  // A one-off part the database refuses (its notice, or a clock running
+  // ahead) drops out on its own: the week's rent is still debited.
+  const withOneOffs = await unlessRefused(tx, (savepoint) =>
+    reserve(savepoint, [rentItem, ...oneOffs]),
   );
+  if (withOneOffs !== REFUSED) {
+    return withOneOffs;
+  }
+  console.error("A week's one-off parts were refused; its rent is debited alone", {
+    operatorId,
+    rentalId,
+  });
+  return reserve(tx, [rentItem]);
+}
+
+/** What `unlessRefused` gives back when the database refused the work by a check. */
+const REFUSED = Symbol("refused");
+
+/**
+ * Runs work in a savepoint: if the database refuses it by a check (the
+ * one-off notice rule, migration 0064), only that work is undone and the
+ * rest of the transaction carries on. Anything else is thrown as it came.
+ */
+async function unlessRefused<Result>(
+  tx: AnyTransaction,
+  work: (savepoint: AnyTransaction) => Promise<Result>,
+): Promise<Result | typeof REFUSED> {
+  try {
+    return await tx.transaction(work);
+  } catch (error) {
+    if (isCheckViolation(error)) {
+      return REFUSED;
+    }
+    throw error;
+  }
 }
 
 /**
@@ -326,8 +367,16 @@ export async function reserveNoticedOwnDebits(
   }
   const reserved: ReservedDebit[] = [];
   for (const plan of plans) {
-    const debit = await reserveOwnDebit(tx, operatorId, rental, mandate, plan.lineId, clock.now);
-    if (debit) {
+    // Each on its own: one the database refuses never takes the others, or the week's rent, with it.
+    const debit = await unlessRefused(tx, (savepoint) =>
+      reserveOwnDebit(savepoint, operatorId, rental, mandate, plan.lineId, clock.now),
+    );
+    if (debit === REFUSED) {
+      console.error("A one-off debit was refused by its notice rule", {
+        operatorId,
+        rentalId: rental.id,
+      });
+    } else if (debit) {
       reserved.push(debit);
     }
   }

@@ -6,6 +6,7 @@ import {
   formatShortCalendarDate,
   isDebitingPlan,
   isOneOffCharge,
+  noticeWindow,
   oneOffNoticeDate,
   operatorSettingsSchema,
   readSettings,
@@ -222,6 +223,8 @@ interface ChargeWording {
   chargeLines: string[];
   contactLine: string;
   noticed: StatedNotice[];
+  /** The moment the email is made and sent: its notices count from that day. */
+  emailedAt: Date;
 }
 
 /**
@@ -232,7 +235,7 @@ interface ChargeWording {
 function chargeWordingOf(
   context: Pick<BillingContext, "business" | "operatorName">,
   charges: readonly InvoiceCharge[],
-  debit: { accountEnding: string; newNoticeDate: string; today: string } | null,
+  debit: { accountEnding: string; newNoticeDate: string; today: string; emailedAt: Date } | null,
 ): ChargeWording {
   const noticed: StatedNotice[] = [];
   const debitDays: string[] = [];
@@ -243,28 +246,37 @@ function chargeWordingOf(
     }
     const { plan } = charge;
     const current: ChargeNoticeTerms | null = currentNoticeOf(plan, plan.partsDebited, debit.today);
-    const noticeDate = current?.noticeDate ?? debit.newNoticeDate;
+    const terms = current ?? { noticeDate: debit.newNoticeDate, partsBefore: plan.partsDebited };
     if (!current) {
       noticed.push({
         planId: plan.id,
         ledgerLineId: charge.line.id,
         plan: plan.plan,
         weeks: plan.weeks,
-        noticeDate,
+        noticeDate: terms.noticeDate,
         partsBefore: plan.partsDebited,
       });
     }
-    debitDays.push(noticeDate);
+    // Stated for the next part, in its own window: a split told again partway gives that part's week.
+    const nextPart = plan.partsDebited + 1;
+    const window = noticeWindow(terms, nextPart)!;
+    debitDays.push(window.from);
     const debitText = chargeDebitNoticeText({
       plan: plan.plan,
       weeks: partsLeft(plan),
-      noticeDate,
+      window,
+      isFirstPart: plan.partsDebited === 0,
       accountEnding: debit.accountEnding,
     });
     return debitText ? `${text} ${debitText}` : text;
   });
   const firstDebitOn = debitDays.sort()[0] ?? null;
-  return { chargeLines, contactLine: contactLineText(context, firstDebitOn), noticed };
+  return {
+    chargeLines,
+    contactLine: contactLineText(context, firstDebitOn),
+    noticed,
+    emailedAt: debit?.emailedAt ?? new Date(),
+  };
 }
 
 /**
@@ -277,7 +289,7 @@ async function recordNoticesGiven(
   deps: BillingDependencies,
   operatorId: string,
   rentalId: string,
-  given: { issuedDocumentId: string; noticed: readonly StatedNotice[] },
+  given: { issuedDocumentId: string; emailedAt: Date; noticed: readonly StatedNotice[] },
   requester: EmailRequester,
 ): Promise<void> {
   if (given.noticed.length === 0) {
@@ -315,13 +327,15 @@ async function recordNoticesGiven(
           weeks: notice.weeks,
           noticeDate: notice.noticeDate,
           partsBefore: notice.partsBefore,
+          // The day it went, not the day it is recorded: a send across midnight keeps its date.
+          emailedAt: given.emailedAt,
           issuedDocumentId: given.issuedDocumentId,
           givenByUserId: requester?.userId ?? null,
         })
         .returning({ id: debitNotices.id });
       await tx
         .update(debitPlans)
-        .set({ noticeId: recorded!.id })
+        .set({ noticeId: recorded!.id, automaticNoticeCount: 0 })
         .where(eq(debitPlans.id, notice.planId));
       await recordActivity(tx, {
         operatorId,
@@ -338,6 +352,23 @@ async function recordNoticesGiven(
       });
     }
   });
+}
+
+/** Starts the nightly run's count of automatic notice emails again for these plans. */
+async function restartAutomaticNotices(
+  deps: BillingDependencies,
+  operatorId: string,
+  planIds: readonly string[],
+): Promise<void> {
+  if (planIds.length === 0) {
+    return;
+  }
+  await withTenant(deps.database, operatorId, (tx) =>
+    tx
+      .update(debitPlans)
+      .set({ automaticNoticeCount: 0 })
+      .where(and(eq(debitPlans.operatorId, operatorId), inArray(debitPlans.id, [...planIds]))),
+  );
 }
 
 /**
@@ -368,6 +399,7 @@ async function chargeWordingFor(
         accountEnding,
         newNoticeDate: oneOffNoticeDate(now, context.business.timezone, oneOffNoticeDays),
         today: todayInTimeZone(now, context.business.timezone),
+        emailedAt: now,
       }
     : null;
   return chargeWordingOf(context, charges, debit);
@@ -397,6 +429,8 @@ export async function emailBillingDocumentRecorded(
 ): Promise<DocumentEmailOutcome> {
   let outcome: DocumentEmailOutcome = "no_address";
   let noticed: StatedNotice[] = [];
+  let emailedAt = deps.now();
+  let toldPlanIds: string[] = [];
   try {
     if (rental.renterEmail) {
       const wording = await chargeWordingFor(
@@ -413,6 +447,8 @@ export async function emailBillingDocumentRecorded(
       });
       outcome = isSent ? "sent" : "failed";
       noticed = isSent ? (wording?.noticed ?? []) : [];
+      emailedAt = wording?.emailedAt ?? emailedAt;
+      toldPlanIds = wording?.noticed.map((notice) => notice.planId) ?? [];
     }
   } catch (error) {
     console.error("Emailing a billing document failed", describeErrorForLog(error));
@@ -428,9 +464,13 @@ export async function emailBillingDocumentRecorded(
       deps,
       operatorId,
       rental.id,
-      { issuedDocumentId: document.issuedDocumentId, noticed },
+      { issuedDocumentId: document.issuedDocumentId, emailedAt, noticed },
       requester,
     );
+    if (requester) {
+      // The business emailed it itself: the nightly run may try again for it.
+      await restartAutomaticNotices(deps, operatorId, toldPlanIds);
+    }
   } catch (error) {
     // No notice is kept, so nothing is debited: the nightly notice run emails it again.
     console.error("Recording a charge's notice failed", describeErrorForLog(error));

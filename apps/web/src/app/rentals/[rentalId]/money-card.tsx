@@ -90,7 +90,10 @@ function CollectionButton(props: {
 /** Whether a one-off charge's invoice still has to go (again) before anything can be debited. */
 function isNoticeMissing(notice: ChargeNotice): boolean {
   const isDebited = notice.plan !== null && isDebitingPlan(notice.plan);
-  return notice.emailedOn === null || (isDebited && notice.noticeDate === null);
+  // A covered charge (nothing left owing) has no debit coming, so no date to send.
+  return (
+    notice.emailedOn === null || (isDebited && !notice.isCovered && notice.noticeDate === null)
+  );
 }
 
 /** Emailing a one-off charge's invoice again, when it didn't go, so it can be debited. */

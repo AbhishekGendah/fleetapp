@@ -1,4 +1,11 @@
-import { addDays, InvalidSettingsError, todayInTimeZone } from "@fleetapp/core";
+import {
+  addDays,
+  AUTOMATIC_NOTICE_LIMIT,
+  chargeNoticeStatusText,
+  formatShortCalendarDate,
+  InvalidSettingsError,
+  todayInTimeZone,
+} from "@fleetapp/core";
 import {
   activityLog,
   billingDocuments,
@@ -32,7 +39,8 @@ import { setDebitsPaused } from "../src/lib/debits/debit-pause";
 import { changeDebitPlan } from "../src/lib/debits/debit-plans";
 import { debitsForOperator } from "../src/lib/debits/debit-run";
 import { listChargeTypes } from "../src/lib/ledger/charge-types";
-import { addCharge } from "../src/lib/ledger/ledger-records";
+import { loadRentalLedger } from "../src/lib/ledger/ledger-queries";
+import { addCharge, recordPayment } from "../src/lib/ledger/ledger-records";
 import type { PaymentDependencies } from "../src/lib/payments/payment-accounts";
 import {
   createStandInPayments,
@@ -445,6 +453,113 @@ describe("one-off charge notice", () => {
       expect((await oneOffDebitsOf(rentalId)).map((debit) => debit.amountCents)).toEqual([
         CHARGE_CENTS,
       ]);
+    });
+  });
+
+  describe("the nightly notice run stops where it should", () => {
+    it("never tells a covered charge (paid another way) of a debit, and says it is covered", async () => {
+      const { rentalId } = await rentalOut();
+      const lineId = await addCleaning(rentalId, "own_debit");
+      await issuePendingDocuments(deps(failingSender), actor, rentalId);
+      // The Renter pays everything owing in cash: nothing is left for a debit to take.
+      const owing = (await loadRentalLedger(web.db, actor.operatorId, rentalId)).balanceCents;
+      await recordPayment(web.db, actor, rentalId, {
+        amountCents: owing,
+        method: "cash",
+        reference: null,
+        occurredOn: todayInPerth(),
+      });
+      sentEmails.length = 0;
+      await sendMissingChargeNotices(deps(), actor.operatorId);
+      await sendMissingChargeNotices(deps(), actor.operatorId);
+      expect(sentEmails).toEqual([]);
+      const notice = await noticeOf(rentalId, lineId);
+      expect(notice).toMatchObject({ isCovered: true, noticeDate: null });
+      expect(chargeNoticeStatusText({ ...notice!, today: todayInPerth() })).toBe(
+        "Invoice not sent · covered: nothing left owing to debit",
+      );
+    });
+
+    it("tries a failed send once more, then asks the business, and Email again still works", async () => {
+      const { rentalId } = await rentalOut();
+      const lineId = await addCleaning(rentalId, "own_debit");
+      await issuePendingDocuments(deps(failingSender), actor, rentalId);
+      for (let night = 0; night < 3; night += 1) {
+        await sendMissingChargeNotices(deps(failingSender), actor.operatorId);
+      }
+      const plan = async () =>
+        (
+          await withTenant(web.db, actor.operatorId, (tx) =>
+            tx
+              .select({ count: debitPlans.automaticNoticeCount })
+              .from(debitPlans)
+              .where(eq(debitPlans.ledgerLineId, lineId)),
+          )
+        )[0];
+      // Two automatic tries, then none: the charge asks the business instead.
+      expect((await plan())?.count).toBe(AUTOMATIC_NOTICE_LIMIT);
+      sentEmails.length = 0;
+      await sendMissingChargeNotices(deps(), actor.operatorId);
+      expect(sentEmails).toEqual([]);
+      const notice = await noticeOf(rentalId, lineId);
+      expect(notice).toMatchObject({ isGivenUp: true, noticeDate: null });
+      expect(chargeNoticeStatusText({ ...notice!, today: todayInPerth() })).toContain(
+        "Couldn't email the debit date: Email invoice again",
+      );
+      expect(
+        await emailBillingDocumentAgain(deps(), actor, {
+          rentalId,
+          issuedDocumentId: notice!.issuedDocumentId!,
+        }),
+      ).toBe("sent");
+      expect(await noticeOf(rentalId, lineId)).toMatchObject({
+        isGivenUp: false,
+        noticeDate: addDays(todayInPerth(), 3),
+      });
+      expect((await plan())?.count).toBe(0);
+    });
+
+    it("stops after two sends that couldn't state a debit (Stripe never naming the account)", async () => {
+      const { rentalId } = await rentalOut();
+      const lineId = await addCleaning(rentalId, "own_debit");
+      stripe.failNextAccountReads(10);
+      try {
+        await issuePendingDocuments(deps(), actor, rentalId);
+        sentEmails.length = 0;
+        for (let night = 0; night < 4; night += 1) {
+          await sendMissingChargeNotices(deps(), actor.operatorId);
+        }
+        expect(sentEmails.filter((email) => email.to === RENTER_EMAIL)).toHaveLength(
+          AUTOMATIC_NOTICE_LIMIT,
+        );
+        expect(await noticeOf(rentalId, lineId)).toMatchObject({ isGivenUp: true });
+      } finally {
+        stripe.failNextAccountReads(0);
+      }
+    });
+  });
+
+  describe("telling the Renter again partway through a split", () => {
+    it("states the next part's own window, not the first part's", async () => {
+      const { rentalId } = await rentalOut();
+      const lineId = await addCleaning(rentalId, "split");
+      await issuePendingDocuments(deps(), actor, rentalId);
+      // Emailed 3 days ago: its first part goes with this week's debit.
+      await notices.ageNotice(lineId, 3);
+      await debitsForOperator(debitDeps(new Date()), actor.operatorId);
+      const notice = await noticeOf(rentalId, lineId);
+      sentEmails.length = 0;
+      expect(
+        await emailBillingDocumentAgain(deps(), actor, {
+          rentalId,
+          issuedDocumentId: notice!.issuedDocumentId!,
+        }),
+      ).toBe("sent");
+      const nextFrom = formatShortCalendarDate(addDays(todayInPerth(), 7), "");
+      const nextUntil = formatShortCalendarDate(addDays(todayInPerth(), 14), "");
+      expect(sentEmails[0]!.text).toContain(
+        `in 2 weekly parts, the next on or after ${nextFrom} and no later than ${nextUntil}`,
+      );
     });
   });
 

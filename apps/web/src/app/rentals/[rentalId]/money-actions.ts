@@ -152,7 +152,8 @@ function noticeSentence(
   const isDebited = notice.plan !== null && notice.plan !== "not_debited";
   return {
     text: ` ${status}.`,
-    isWarning: notice.emailedOn === null || (isDebited && notice.noticeDate === null),
+    isWarning:
+      notice.emailedOn === null || (isDebited && !notice.isCovered && notice.noticeDate === null),
   };
 }
 

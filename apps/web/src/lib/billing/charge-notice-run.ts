@@ -1,4 +1,5 @@
 import {
+  AUTOMATIC_NOTICE_LIMIT,
   billingDocumentTitle,
   isDebitingPlan,
   todayInTimeZone,
@@ -25,7 +26,14 @@ import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 
 import type { ActingUser } from "../acting-user";
 import { stripeCustomerOf, usableMandateOf } from "../debits/debit-queries";
-import { currentNoticeOf, NOTICE_OF_PLAN, PLAN_NOTICE_COLUMNS } from "../debits/plan-notices";
+import {
+  coveredOnRental,
+  currentNoticeOf,
+  nextPartCents,
+  NOTICE_OF_PLAN,
+  PLAN_NOTICE_COLUMNS,
+} from "../debits/plan-notices";
+import { lockPaymentRental } from "../bonds/bond-records";
 import { loadPaymentAccount } from "../payments/payment-accounts";
 import { loadBusinessDetails } from "../settings/business-details";
 import { findDueOperators, forEachOperator, type OperatorRun } from "../jobs/due-operators";
@@ -56,6 +64,10 @@ export interface ChargeNotice {
   plan: DebitCollectionPlan | null;
   /** Its current notice's first debit day: none if never given, voided by a change, or lapsed. */
   noticeDate: string | null;
+  /** Nothing left owing for its next part to take (paid another way): no debit, so no notice. */
+  isCovered: boolean;
+  /** The nightly run stopped emailing it (AUTOMATIC_NOTICE_LIMIT): the business must. */
+  isGivenUp: boolean;
 }
 
 /**
@@ -69,10 +81,12 @@ export async function loadChargeNotices(
   rentalId: string,
   timeZone: string,
 ): Promise<ReadonlyMap<string, ChargeNotice>> {
-  const rows = await withTenant(database, operatorId, (tx) =>
-    tx
+  const { rows, isCovered } = await withTenant(database, operatorId, async (tx) => ({
+    isCovered: await coveredOnRental(tx, operatorId, rentalId),
+    rows: await tx
       .select({
         ledgerLineId: ledgerLines.id,
+        amountCents: ledgerLines.amountCents,
         issuedDocumentId: billingDocuments.issuedDocumentId,
         firstSentAt: sql<Date | null>`(select min(${qualified(documentEmails.triedAt)})
           from ${documentEmails}
@@ -83,6 +97,8 @@ export async function loadChargeNotices(
           where ${qualified(documentEmails.operatorId)} = ${qualified(ledgerLines.operatorId)}
             and ${qualified(documentEmails.documentId)} = ${qualified(billingDocuments.issuedDocumentId)})`,
         plan: debitPlans.plan,
+        weeks: debitPlans.weeks,
+        automaticNoticeCount: debitPlans.automaticNoticeCount,
         ...PLAN_NOTICE_COLUMNS,
         partsDebited: PARTS_DEBITED,
       })
@@ -106,20 +122,37 @@ export async function loadChargeNotices(
           isNull(ledgerLines.periodStartsAt),
         ),
       ),
-  );
+  }));
   const today = todayInTimeZone(new Date(), timeZone);
   return new Map(
-    rows.map((row) => [
-      row.ledgerLineId,
-      {
-        ledgerLineId: row.ledgerLineId,
-        issuedDocumentId: row.issuedDocumentId,
-        emailedOn: row.firstSentAt ? todayInTimeZone(row.firstSentAt, timeZone) : null,
-        isEmailTried: row.isEmailTried,
-        plan: row.plan,
-        noticeDate: currentNoticeOf(row, row.partsDebited, today)?.noticeDate ?? null,
-      },
-    ]),
+    rows.map((row) => {
+      const noticeDate = currentNoticeOf(row, row.partsDebited, today)?.noticeDate ?? null;
+      const isDebited = row.plan !== null && isDebitingPlan(row.plan);
+      const covered =
+        isDebited &&
+        isCovered(
+          nextPartCents(
+            { plan: row.plan!, weeks: row.weeks, partsDebited: row.partsDebited },
+            row.amountCents,
+          ),
+        );
+      return [
+        row.ledgerLineId,
+        {
+          ledgerLineId: row.ledgerLineId,
+          issuedDocumentId: row.issuedDocumentId,
+          emailedOn: row.firstSentAt ? todayInTimeZone(row.firstSentAt, timeZone) : null,
+          isEmailTried: row.isEmailTried,
+          plan: row.plan,
+          noticeDate,
+          isCovered: covered,
+          isGivenUp:
+            isDebited &&
+            noticeDate === null &&
+            (row.automaticNoticeCount ?? 0) >= AUTOMATIC_NOTICE_LIMIT,
+        },
+      ];
+    }),
   );
 }
 
@@ -154,13 +187,20 @@ async function chargesAwaitingNotice(
   deps: BillingDependencies,
   operatorId: string,
   today: string,
-): Promise<Map<string, string[]>> {
+): Promise<Map<string, { planId: string; ledgerLineId: string }[]>> {
   const rows = await withTenant(deps.database, operatorId, async (tx) => {
     const planned = await tx
       .select({
+        planId: debitPlans.id,
         rentalId: debitPlans.rentalId,
         ledgerLineId: debitPlans.ledgerLineId,
         plan: debitPlans.plan,
+        weeks: debitPlans.weeks,
+        automaticNoticeCount: debitPlans.automaticNoticeCount,
+        amountCents: sql<number>`(select ${qualified(ledgerLines.amountCents)} from ${ledgerLines}
+          where ${qualified(ledgerLines.id)} = ${qualified(debitPlans.ledgerLineId)})`.mapWith(
+          Number,
+        ),
         status: rentals.status,
         renterId: rentals.renterId,
         isPaused: sql<boolean>`${qualified(rentals.debitsPausedAt)} is not null`,
@@ -191,26 +231,57 @@ async function chargesAwaitingNotice(
             < coalesce(${qualified(debitPlans.weeks)}, 1)`,
         ),
       );
+    // The run stops after AUTOMATIC_NOTICE_LIMIT emails of a plan: the charge then asks the business.
     const untold = planned.filter(
-      (row) => couldBeDebited(row) && !currentNoticeOf(row, row.partsDebited, today),
+      (row) =>
+        couldBeDebited(row) &&
+        row.automaticNoticeCount < AUTOMATIC_NOTICE_LIMIT &&
+        !currentNoticeOf(row, row.partsDebited, today),
     );
     const debitable: typeof untold = [];
+    const coveredOn = new Map<string, (partCents: number) => boolean>();
     for (const row of untold) {
+      const isCovered =
+        coveredOn.get(row.rentalId) ?? (await coveredOnRental(tx, operatorId, row.rentalId));
+      coveredOn.set(row.rentalId, isCovered);
       const [mandate, customerId] = [
         await usableMandateOf(tx, operatorId, row.renterId),
         await stripeCustomerOf(tx, operatorId, row.renterId),
       ];
-      if (mandate && customerId) {
+      // Nothing left owing for it to take: no debit is coming, so no notice promises one.
+      if (mandate && customerId && !isCovered(nextPartCents(row, row.amountCents))) {
         debitable.push(row);
       }
     }
     return debitable;
   });
-  const byRental = new Map<string, string[]>();
+  const byRental = new Map<string, { planId: string; ledgerLineId: string }[]>();
   for (const row of rows) {
-    byRental.set(row.rentalId, [...(byRental.get(row.rentalId) ?? []), row.ledgerLineId]);
+    byRental.set(row.rentalId, [
+      ...(byRental.get(row.rentalId) ?? []),
+      { planId: row.planId, ledgerLineId: row.ledgerLineId },
+    ]);
   }
   return byRental;
+}
+
+/**
+ * Counts the run's email of these plans before it is sent (the rental
+ * first, then the plans: "Lock order"), so a crash part way never loops.
+ */
+async function countAutomaticNotices(
+  deps: BillingDependencies,
+  operatorId: string,
+  rentalId: string,
+  planIds: readonly string[],
+): Promise<void> {
+  await withTenant(deps.database, operatorId, async (tx) => {
+    await lockPaymentRental(tx, operatorId, rentalId);
+    await tx
+      .update(debitPlans)
+      .set({ automaticNoticeCount: sql`${qualified(debitPlans.automaticNoticeCount)} + 1` })
+      .where(and(eq(debitPlans.operatorId, operatorId), inArray(debitPlans.id, [...planIds])));
+  });
 }
 
 /**
@@ -223,8 +294,15 @@ async function sendRentalNotices(
   deps: BillingDependencies,
   operatorId: string,
   rentalId: string,
-  ledgerLineIds: readonly string[],
+  plans: readonly { planId: string; ledgerLineId: string }[],
 ): Promise<number> {
+  await countAutomaticNotices(
+    deps,
+    operatorId,
+    rentalId,
+    plans.map((plan) => plan.planId),
+  );
+  const ledgerLineIds = plans.map((plan) => plan.ledgerLineId);
   const issued = await issuePendingDocuments(deps, { operatorId }, rentalId);
   const context = await loadBillingContext(deps, operatorId);
   const notices = await loadChargeNotices(
@@ -345,8 +423,8 @@ export async function sendMissingChargeNotices(
   }
   const today = todayInTimeZone(deps.now(), business.timezone);
   let tried = 0;
-  for (const [rentalId, ledgerLineIds] of await chargesAwaitingNotice(deps, operatorId, today)) {
-    tried += await sendRentalNotices(deps, operatorId, rentalId, ledgerLineIds);
+  for (const [rentalId, plans] of await chargesAwaitingNotice(deps, operatorId, today)) {
+    tried += await sendRentalNotices(deps, operatorId, rentalId, plans);
   }
   return tried;
 }

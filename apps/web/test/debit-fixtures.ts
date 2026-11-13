@@ -93,9 +93,9 @@ export function noticeTestKit(current: () => { superuser: TestConnection }) {
           from debit_plans where ledger_line_id = ${ledgerLineId} and operator_id = ${owner.operatorId}
         ), given as (
           insert into debit_notices (operator_id, rental_id, debit_plan_id, plan, weeks, notice_date,
-            parts_before, issued_document_id)
+            parts_before, emailed_at, issued_document_id)
           select ${owner.operatorId}, rental_id, id, plan, weeks, ${noticeDate}::date, parts,
-            gen_random_uuid() from plan
+            now(), gen_random_uuid() from plan
           returning id, debit_plan_id
         )
         update debit_plans set notice_id = given.id from given where debit_plans.id = given.debit_plan_id`);
