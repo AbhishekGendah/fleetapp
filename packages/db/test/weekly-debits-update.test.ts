@@ -235,9 +235,9 @@ describe("the weekly debits update on a filled database", () => {
       await owner.query(
         `with given as (
            insert into debit_notices (operator_id, rental_id, debit_plan_id, plan, weeks, notice_date,
-             parts_before, issued_document_id)
+             parts_before, emailed_at, issued_document_id)
            select operator_id, rental_id, id, plan, weeks,
-             (now() at time zone 'Australia/Perth')::date, 0, gen_random_uuid()
+             (now() at time zone 'Australia/Perth')::date, 0, now(), gen_random_uuid()
            from debit_plans where ledger_line_id = $1 returning id, debit_plan_id)
          update debit_plans set notice_id = given.id from given where debit_plans.id = given.debit_plan_id`,
         [charge!.id],

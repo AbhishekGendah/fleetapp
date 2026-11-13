@@ -113,6 +113,7 @@ describe("one-off charge notice", () => {
           weeks: plan!.weeks,
           noticeDate: addDays(todayInPerth(), 3),
           partsBefore: 0,
+          emailedAt: new Date(),
           issuedDocumentId: documentId,
           ...values,
         })
@@ -274,6 +275,72 @@ describe("one-off charge notice", () => {
         asA((tx) => tx.update(schema.debitNotices).set({ noticeDate: todayInPerth() })),
       ),
     ).toBe(POSTGRES_ERROR_CODES.insufficientPrivilege);
+  });
+
+  it("counts the notice days from the day the email was sent, within the last hour only", async () => {
+    const minutes = (count: number) => new Date(Date.now() + count * 60 * 1000);
+    const { planId } = await plannedCharge();
+    expect(await postgresErrorCodeOf(recordNotice(planId, { emailedAt: minutes(-120) }))).toBe(
+      CHECK_VIOLATION,
+    );
+    expect(await postgresErrorCodeOf(recordNotice(planId, { emailedAt: minutes(10) }))).toBe(
+      CHECK_VIOLATION,
+    );
+    // A send that crossed midnight where the business is: its date counts from the day it went.
+    const sentAt = minutes(-50);
+    const zone = Intl.supportedValuesOf("timeZone").find(
+      (each) => todayInTimeZone(sentAt, each) !== todayInTimeZone(new Date(), each),
+    )!;
+    await setTimezone(zone);
+    try {
+      const sentDay = todayInTimeZone(sentAt, zone);
+      expect(
+        await postgresErrorCodeOf(
+          recordNotice(planId, { emailedAt: sentAt, noticeDate: addDays(sentDay, 2) }),
+        ),
+      ).toBe(CHECK_VIOLATION);
+      await recordNotice(planId, { emailedAt: sentAt, noticeDate: addDays(sentDay, 3) });
+    } finally {
+      await setTimezone(PERTH);
+    }
+  });
+
+  it("reads a missing or odd notice period in the settings copy as the platform minimum", async () => {
+    for (const settingsSnapshot of [{ oneOffNoticeDays: "soon" }, { oneOffNoticeDays: 1.5 }, {}]) {
+      const vehicleId = await addTestCar(web.db, operatorAId);
+      const [odd] = await asA((tx) =>
+        tx
+          .insert(schema.rentals)
+          .values({
+            ...testRentalRow({ operatorId: operatorAId, renterId, vehicleId }),
+            settingsSnapshot,
+          })
+          .returning({ id: schema.rentals.id }),
+      );
+      const savedRentalId = rentalId;
+      rentalId = odd!.id;
+      try {
+        const { planId } = await plannedCharge();
+        expect(
+          await postgresErrorCodeOf(
+            recordNotice(planId, { noticeDate: addDays(todayInPerth(), 2) }),
+          ),
+        ).toBe(CHECK_VIOLATION);
+        await recordNotice(planId);
+      } finally {
+        rentalId = savedRentalId;
+      }
+    }
+  });
+
+  it("allows a debit's time a little ahead of the database's clock, never more", async () => {
+    const minutes = (count: number) => new Date(Date.now() + count * 60 * 1000);
+    const { lineId } = await plannedCharge();
+    await notice(lineId, todayInPerth());
+    expect(await postgresErrorCodeOf(addItem(await oneOffDebit(minutes(6)), lineId))).toBe(
+      CHECK_VIOLATION,
+    );
+    await addItem(await oneOffDebit(minutes(4)), lineId);
   });
 
   it("takes the rental's own longer notice period from its settings copy", async () => {
@@ -439,6 +506,7 @@ describe("one-off charge notice", () => {
             plan: "own_debit",
             noticeDate: addDays(todayInPerth(), 3),
             partsBefore: 0,
+            emailedAt: new Date(),
             issuedDocumentId: documentId,
           }),
         ),

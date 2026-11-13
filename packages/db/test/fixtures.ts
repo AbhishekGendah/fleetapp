@@ -187,6 +187,7 @@ export async function giveTestNotice(
       weeks: plan!.weeks,
       noticeDate: notice.noticeDate,
       partsBefore: notice.partsBefore ?? 0,
+      emailedAt: new Date(),
       issuedDocumentId: randomUUID(),
     });
     await tx

@@ -9,6 +9,7 @@ import {
   isNoticeLapsed,
   isWithinNotice,
   NOTICE_LAPSE_DAYS,
+  noticeWindow,
   MINIMUM_ONE_OFF_NOTICE_DAYS,
   oneOffNoticeDate,
 } from "./one-off-notice";
@@ -63,6 +64,9 @@ describe("a one-off charge's notice date", () => {
 
   it("gives a split's later parts a week each, counted from the parts it was given for", () => {
     const fresh = { noticeDate: "2026-11-15", partsBefore: 0 };
+    // Part 3 falls two weeks on: from Sun 29 Nov to Sun 6 Dec.
+    expect(noticeWindow(fresh, 3)).toEqual({ from: "2026-11-29", until: "2026-12-06" });
+    expect(isWithinNotice(fresh, 3, "2026-11-28")).toBe(false);
     expect(isWithinNotice(fresh, 3, "2026-12-06")).toBe(true);
     expect(isWithinNotice(fresh, 3, "2026-12-07")).toBe(false);
     // Given again after its first part was debited: it covers parts 2 on, from its own date.
@@ -110,7 +114,12 @@ describe("words for a one-off charge's debit", () => {
   });
 
   it("tells the Renter the date and the account's last four digits, with the year", () => {
-    const base = { weeks: null, noticeDate: "2026-11-15", accountEnding: "3456" };
+    const base = {
+      weeks: null,
+      window: { from: "2026-11-15", until: "2026-11-22" },
+      isFirstPart: true,
+      accountEnding: "3456",
+    };
     expect(chargeDebitNoticeText({ ...base, plan: "own_debit" })).toBe(
       "It will be debited from your account ending 3456 on or after Sun 15 Nov 2026, and no later than Sun 22 Nov 2026.",
     );
@@ -118,6 +127,18 @@ describe("words for a one-off charge's debit", () => {
       "It will be debited from your account ending 3456 in 3 weekly parts, the first on or after Sun 15 Nov 2026 and no later than Sun 22 Nov 2026, then one each week.",
     );
     expect(chargeDebitNoticeText({ ...base, plan: "not_debited" })).toBeNull();
+    // Told again partway through a split: the next part's own window.
+    expect(
+      chargeDebitNoticeText({
+        ...base,
+        plan: "split",
+        weeks: 2,
+        isFirstPart: false,
+        window: { from: "2026-11-22", until: "2026-11-29" },
+      }),
+    ).toBe(
+      "It will be debited from your account ending 3456 in 2 weekly parts, the next on or after Sun 22 Nov 2026 and no later than Sun 29 Nov 2026, then one each week.",
+    );
   });
 
   it("tells the business whether the invoice went and when the debit can be", () => {
@@ -149,5 +170,17 @@ describe("words for a one-off charge's debit", () => {
         today,
       }),
     ).toBe("Invoice emailed Thu 12 Nov");
+    const debited = {
+      emailedOn: "2026-11-12",
+      plan: "own_debit" as const,
+      noticeDate: null,
+      today,
+    };
+    expect(chargeNoticeStatusText({ ...debited, isCovered: true })).toBe(
+      "Invoice emailed Thu 12 Nov · covered: nothing left owing to debit",
+    );
+    expect(chargeNoticeStatusText({ ...debited, isGivenUp: true })).toBe(
+      "Invoice emailed Thu 12 Nov · Couldn't email the debit date: Email invoice again",
+    );
   });
 });

@@ -1,5 +1,5 @@
 {
-  "id": "a5b2c2c8-c72d-452f-8714-e2f51ad615d4",
+  "id": "5b3999be-afb5-4f04-a325-cf1d33304d80",
   "prevId": "aab8a798-b84c-47ea-9edc-89118de504c1",
   "version": "7",
   "dialect": "postgresql",
@@ -12056,6 +12056,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "emailed_at": {
+          "name": "emailed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
         "issued_document_id": {
           "name": "issued_document_id",
           "type": "uuid",
@@ -12251,6 +12257,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "automatic_notice_count": {
+          "name": "automatic_notice_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -12386,6 +12399,10 @@
       },
       "policies": {},
       "checkConstraints": {
+        "debit_plans_automatic_notices": {
+          "name": "debit_plans_automatic_notices",
+          "value": "\"debit_plans\".\"automatic_notice_count\" >= 0"
+        },
         "debit_plans_weeks": {
           "name": "debit_plans_weeks",
           "value": "(\"debit_plans\".\"plan\" = 'split') = (\"debit_plans\".\"weeks\" is not null)\n        and (\"debit_plans\".\"weeks\" is null or \"debit_plans\".\"weeks\" between 2 and 12)"

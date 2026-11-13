@@ -43,6 +43,26 @@ export function oneOffNoticeDate(emailedAt: Date, timeZone: string, noticeDays: 
 export const NOTICE_LAPSE_DAYS = 7;
 const DAYS_PER_WEEK = 7;
 
+/**
+ * How far ahead of the database's clock a debit's or a notice's time may be
+ * (migration 0064 checks it, as `interval '5 minutes'`): the app's server
+ * clock may run a little ahead of the database's.
+ */
+export const DEBIT_CLOCK_MARGIN_MINUTES = 5;
+/**
+ * How long after an email was sent its notice may still be recorded (0064:
+ * `interval '1 hour'`): a slow send or a nightly run near its time limit.
+ * Its notice days count from the day it was sent, never the day recorded.
+ */
+export const NOTICE_SEND_WINDOW_MINUTES = 60;
+/**
+ * The nightly notice run emails a plan at most this many times since its
+ * last change, its last notice or the business's last Email again (a failed
+ * send, one with no debit stated, or a lapsed notice), then the charge asks
+ * the business to email it instead.
+ */
+export const AUTOMATIC_NOTICE_LIMIT = 2;
+
 /** A notice as emailed: its first debit day and the parts of the charge already debited then. */
 export interface ChargeNoticeTerms {
   noticeDate: string;
@@ -51,9 +71,9 @@ export interface ChargeNoticeTerms {
 
 /**
  * The days a part (1 for a whole charge; 1 to N of a split) may be debited
- * under a notice: from its notice date until NOTICE_LAPSE_DAYS after the
- * week it falls in (a split's parts come a week apart, the first in the
- * notice's first week). Null for a part the notice doesn't cover.
+ * under a notice: from the week it falls in (a split's parts come a week
+ * apart, the first from the notice date) until NOTICE_LAPSE_DAYS after.
+ * Null for a part the notice doesn't cover.
  */
 export function noticeWindow(
   notice: ChargeNoticeTerms,
@@ -63,10 +83,8 @@ export function noticeWindow(
   if (weeksIn < 0) {
     return null;
   }
-  return {
-    from: notice.noticeDate,
-    until: addDays(notice.noticeDate, weeksIn * DAYS_PER_WEEK + NOTICE_LAPSE_DAYS),
-  };
+  const from = addDays(notice.noticeDate, weeksIn * DAYS_PER_WEEK);
+  return { from, until: addDays(from, NOTICE_LAPSE_DAYS) };
 }
 
 /** Whether a part may be debited on `today` (the business's day) under a notice. No notice, no debit. */
@@ -110,7 +128,7 @@ export function debitPlanLabelOn(
 
 /**
  * The Renter's email's words for how a charge will be debited, with the
- * whole window it may be taken in, e.g. "It will be debited from your
+ * window its next part may be taken in, e.g. "It will be debited from your
  * account ending 3456 on or after Sun 15 Nov 2026, and no later than Sun 22
  * Nov 2026."; null when it won't be debited.
  */
@@ -118,12 +136,15 @@ export function chargeDebitNoticeText(input: {
   plan: DebitCollectionPlan;
   /** For a split: the parts still to take. */
   weeks: number | null;
-  noticeDate: string;
+  /** The next part's window (noticeWindow). */
+  window: { from: string; until: string };
+  /** Whether a split's next part is its first. */
+  isFirstPart: boolean;
   accountEnding: string;
 }): string | null {
   // The Renter may read it next year, so the year is always given.
-  const day = formatShortCalendarDate(input.noticeDate, "");
-  const lastDay = formatShortCalendarDate(addDays(input.noticeDate, NOTICE_LAPSE_DAYS), "");
+  const day = formatShortCalendarDate(input.window.from, "");
+  const lastDay = formatShortCalendarDate(input.window.until, "");
   const account = `your account ending ${input.accountEnding}`;
   switch (input.plan) {
     case "not_debited":
@@ -133,7 +154,7 @@ export function chargeDebitNoticeText(input: {
     case "next_debit":
       return `It will be debited from ${account} with your first weekly debit on or after ${day}, and no later than ${lastDay}.`;
     case "split":
-      return `It will be debited from ${account} in ${input.weeks ?? 0} weekly parts, the first on or after ${day} and no later than ${lastDay}, then one each week.`;
+      return `It will be debited from ${account} in ${input.weeks ?? 0} weekly parts, the ${input.isFirstPart ? "first" : "next"} on or after ${day} and no later than ${lastDay}, then one each week.`;
   }
 }
 
@@ -145,17 +166,29 @@ export function chargeNoticeStatusText(input: {
   plan: DebitCollectionPlan | null;
   /** Its current notice's first day; none when it has none, or it lapsed or was voided. */
   noticeDate: string | null;
+  /** Nothing is left owing for it to take (paid another way): no debit, so no notice. */
+  isCovered?: boolean;
+  /** The nightly run stopped emailing it (AUTOMATIC_NOTICE_LIMIT): the business must. */
+  isGivenUp?: boolean;
   today: string;
 }): string {
   const isDebited = input.plan !== null && isDebitingPlan(input.plan);
-  if (input.emailedOn === null) {
-    return isDebited ? "Invoice not sent: email it before it can be debited" : "Invoice not sent";
-  }
-  const emailed = `Invoice emailed ${formatShortCalendarDate(input.emailedOn, input.today)}`;
+  const emailed = input.emailedOn
+    ? `Invoice emailed ${formatShortCalendarDate(input.emailedOn, input.today)}`
+    : "Invoice not sent";
   if (!isDebited) {
     return emailed;
   }
-  return input.noticeDate
-    ? `${emailed} · debit on ${formatShortCalendarDate(input.noticeDate, input.today)}`
-    : `${emailed} without a current debit date: email it again before it can be debited`;
+  if (input.isCovered) {
+    return `${emailed} · covered: nothing left owing to debit`;
+  }
+  if (input.noticeDate) {
+    return `${emailed} · debit on ${formatShortCalendarDate(input.noticeDate, input.today)}`;
+  }
+  if (input.isGivenUp) {
+    return `${emailed} · Couldn't email the debit date: Email invoice again`;
+  }
+  return input.emailedOn
+    ? `${emailed} without a current debit date: email it again before it can be debited`
+    : "Invoice not sent: email it before it can be debited";
 }

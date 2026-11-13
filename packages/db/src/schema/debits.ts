@@ -82,6 +82,12 @@ export const debitPlans = pgTable(
      * any change of plan or weeks (migration 0064); a new email gives a new one.
      */
     noticeId: uuid("notice_id"),
+    /**
+     * Emails the nightly notice run sent for this plan since its last change,
+     * its last notice or the business's last Email again: the run stops at
+     * AUTOMATIC_NOTICE_LIMIT and the charge asks the business instead.
+     */
+    automaticNoticeCount: integer("automatic_notice_count").notNull().default(0),
     ...timestampColumns,
   },
   // Typed by hand: the plan and its notices link to each other.
@@ -95,6 +101,7 @@ export const debitPlans = pgTable(
     rentalLink("debit_plans", table),
     ledgerLineLink("debit_plans", table),
     index("debit_plans_rental_idx").on(table.operatorId, table.rentalId),
+    check("debit_plans_automatic_notices", sql`${table.automaticNoticeCount} >= 0`),
     check(
       "debit_plans_weeks",
       sql`(${table.plan} = 'split') = (${table.weeks} is not null)
@@ -121,6 +128,8 @@ export const debitNotices = pgTable(
     weeks: integer("weeks"),
     noticeDate: date("notice_date").notNull(),
     partsBefore: integer("parts_before").notNull(),
+    /** When the email stating it was sent: its notice days count from that day. */
+    emailedAt: timestamp("emailed_at", { withTimezone: true }).notNull(),
     /** The invoice whose email stated it. */
     issuedDocumentId: uuid("issued_document_id").notNull(),
     /** Who pressed Email again; none when the app emailed it itself. */

@@ -24,6 +24,7 @@ CREATE TABLE "debit_notices" (
 	"weeks" integer,
 	"notice_date" date NOT NULL,
 	"parts_before" integer NOT NULL,
+	"emailed_at" timestamp with time zone NOT NULL,
 	"issued_document_id" uuid NOT NULL,
 	"given_by_user_id" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -33,6 +34,7 @@ CREATE TABLE "debit_notices" (
 );
 --> statement-breakpoint
 ALTER TABLE "debit_plans" ADD COLUMN "notice_id" uuid;--> statement-breakpoint
+ALTER TABLE "debit_plans" ADD COLUMN "automatic_notice_count" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
 ALTER TABLE "debit_plans" ADD CONSTRAINT "debit_plans_id_operator_unique" UNIQUE("id","operator_id");--> statement-breakpoint
 ALTER TABLE "debit_notices" ADD CONSTRAINT "debit_notices_operator_id_operators_id_fk" FOREIGN KEY ("operator_id") REFERENCES "public"."operators"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "debit_notices" ADD CONSTRAINT "debit_notices_given_by_user_id_users_id_fk" FOREIGN KEY ("given_by_user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -40,7 +42,8 @@ ALTER TABLE "debit_notices" ADD CONSTRAINT "debit_notices_rental_fk" FOREIGN KEY
 ALTER TABLE "debit_notices" ADD CONSTRAINT "debit_notices_plan_fk" FOREIGN KEY ("debit_plan_id","operator_id") REFERENCES "public"."debit_plans"("id","operator_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "debit_notices" ADD CONSTRAINT "debit_notices_document_fk" FOREIGN KEY ("issued_document_id","operator_id") REFERENCES "public"."issued_documents"("id","operator_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "debit_notices_plan_idx" ON "debit_notices" USING btree ("operator_id","debit_plan_id");--> statement-breakpoint
-ALTER TABLE "debit_plans" ADD CONSTRAINT "debit_plans_notice_fk" FOREIGN KEY ("notice_id","operator_id","id") REFERENCES "public"."debit_notices"("id","operator_id","debit_plan_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint--> statement-breakpoint
+ALTER TABLE "debit_plans" ADD CONSTRAINT "debit_plans_notice_fk" FOREIGN KEY ("notice_id","operator_id","id") REFERENCES "public"."debit_notices"("id","operator_id","debit_plan_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "debit_plans" ADD CONSTRAINT "debit_plans_automatic_notices" CHECK ("debit_plans"."automatic_notice_count" >= 0);--> statement-breakpoint
 
 -- Notices are records: only ever added (rule 13; kept with the money records).
 CREATE TRIGGER "debit_notices_append_only"
@@ -52,28 +55,40 @@ CREATE TRIGGER "debit_notices_no_truncate"
 
 -- A notice states the plan's terms as they are when it is recorded, counts
 -- the parts already debited, and gives at least the rental's notice period
--- from the day it is recorded on the business's calendar (the rental's
--- settings copy; never under the platform minimum of 3 days).
+-- from the day its email was sent, on the business's calendar (the rental's
+-- settings copy; a missing or odd value, or one under it, reads as the
+-- platform minimum of 3 days). The email's send time is taken as the app
+-- gives it, but only from the last hour (a slow send, or a nightly run near
+-- its time limit) up to the clock margin ahead, so a notice can neither be
+-- backdated nor dated from a later day than its email: a send that crosses
+-- midnight keeps the date it stated.
 CREATE FUNCTION "app"."check_debit_notice"() RETURNS trigger
   LANGUAGE plpgsql
   SET search_path = pg_catalog, public, pg_temp
 AS $$
 DECLARE
   planned "debit_plans"%ROWTYPE;
+  stated_days text;
   earliest date;
 BEGIN
   SELECT * INTO planned FROM "debit_plans" WHERE "id" = NEW.debit_plan_id;
-  SELECT ("now"() AT TIME ZONE "o"."timezone")::date + greatest(
-      coalesce(("r"."settings_snapshot" ->> 'oneOffNoticeDays')::integer, 3), 3)
-    INTO earliest
+  SELECT "r"."settings_snapshot" ->> 'oneOffNoticeDays',
+      (NEW.emailed_at AT TIME ZONE "o"."timezone")::date
+    INTO stated_days, earliest
     FROM "rentals" "r" JOIN "operators" "o" ON "o"."id" = "r"."operator_id"
     WHERE "r"."id" = planned.rental_id;
+  earliest := earliest + greatest(
+    CASE WHEN stated_days ~ '^[0-9]{1,3}$' THEN stated_days::integer ELSE 3 END, 3);
   IF planned.id IS NULL OR NEW.rental_id IS DISTINCT FROM planned.rental_id
     OR NEW.plan IS DISTINCT FROM planned.plan OR NEW.weeks IS DISTINCT FROM planned.weeks THEN
     RAISE EXCEPTION 'a notice states its plan as it is' USING ERRCODE = 'check_violation';
   END IF;
   IF NEW.parts_before <> (SELECT count(*) FROM "debit_items" WHERE "ledger_line_id" = planned.ledger_line_id) THEN
     RAISE EXCEPTION 'a notice counts the parts already debited' USING ERRCODE = 'check_violation';
+  END IF;
+  -- The send window (one hour back) and the clock margin (5 minutes ahead).
+  IF NEW.emailed_at < "now"() - interval '1 hour' OR NEW.emailed_at > "now"() + interval '5 minutes' THEN
+    RAISE EXCEPTION 'a notice is recorded as its email is sent' USING ERRCODE = 'check_violation';
   END IF;
   IF earliest IS NULL OR NEW.notice_date < earliest THEN
     RAISE EXCEPTION 'a notice gives the full notice period' USING ERRCODE = 'check_violation';
@@ -89,7 +104,8 @@ CREATE TRIGGER "debit_notices_checked"
 -- only until any part of it is in a debit. It starts with no notice; it may
 -- point at a notice of its own (the link's key makes sure of that) stating
 -- exactly its plan and weeks; and any change of plan or weeks voids its
--- notice, so a changed plan is never debited on the old one's email.
+-- notice, so a changed plan is never debited on the old one's email, and
+-- starts the nightly run's count of automatic notice emails again.
 CREATE OR REPLACE FUNCTION "app"."check_debit_plan"() RETURNS trigger
   LANGUAGE plpgsql
   SET search_path = pg_catalog, public, pg_temp
@@ -118,6 +134,7 @@ BEGIN
         USING ERRCODE = 'check_violation';
     END IF;
     NEW.notice_id := NULL;
+    NEW.automatic_notice_count := 0;
     RETURN NEW;
   END IF;
   IF NEW.notice_id IS NOT NULL AND NEW.notice_id IS DISTINCT FROM OLD.notice_id AND NOT EXISTS (
@@ -134,8 +151,9 @@ $$;--> statement-breakpoint
 -- one-off part (a charge for no rent period) needs its plan's current
 -- notice, stating that plan, to cover the part and the debit's day on the
 -- business's calendar: from the notice's date to 7 days after the week the
--- part falls in. A one-off debit is never dated ahead of now, so the window
--- can't be met by a debit dated in the future.
+-- part falls in. A one-off debit is never dated ahead of now by more than
+-- the clock margin (5 minutes: the app's clock may run a little ahead of
+-- the database's), so the window can't be met by a debit dated ahead.
 CREATE OR REPLACE FUNCTION "app"."check_debit_item"() RETURNS trigger
   LANGUAGE plpgsql
   SET search_path = pg_catalog, public, pg_temp
@@ -163,7 +181,7 @@ BEGIN
     WHERE "d"."ledger_line_id" = NEW.ledger_line_id
       AND "n"."plan" = "d"."plan" AND "n"."weeks" IS NOT DISTINCT FROM "d"."weeks";
   weeks_in := NEW.instalment - 1 - given.parts_before;
-  IF given.id IS NULL OR weeks_in < 0 OR requested > "now"()
+  IF given.id IS NULL OR weeks_in < 0 OR requested > "now"() + interval '5 minutes'
     OR debit_day < given.notice_date
     OR debit_day > given.notice_date + weeks_in * 7 + 7 THEN
     RAISE EXCEPTION 'a one-off charge is debited only inside the notice the Renter was emailed'
@@ -181,7 +199,7 @@ GRANT SELECT, INSERT ON "debit_notices" TO "web_app_role";--> statement-breakpoi
 CREATE POLICY "debit_notices_web_tenant" ON "debit_notices" FOR ALL TO "web_app_role"
   USING ("operator_id" = "app"."current_operator_id"())
   WITH CHECK ("operator_id" = "app"."current_operator_id"());--> statement-breakpoint
-GRANT UPDATE ("notice_id") ON "debit_plans" TO "web_app_role";--> statement-breakpoint
+GRANT UPDATE ("notice_id", "automatic_notice_count") ON "debit_plans" TO "web_app_role";--> statement-breakpoint
 
 -- Owner read policies for the SECURITY DEFINER lookups below, as for
 -- payments in 0063.
