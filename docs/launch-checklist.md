@@ -301,6 +301,15 @@ From the weekly debits review (Phase 4 slice 5, 9 Nov 2026), not blocking:
 
 docs/plans/one-off-charge-notice.md, put off on purpose:
 
+- [ ] From the third review round (13 Nov): a database refusal of a one-off part (`unlessRefused`, debit-reserve.ts) is only logged, not counted in the run's problems, so AGS gets no alert; count it so the nightly alert email fires.
+- [ ] `unlessRefused` catches every check refusal during the insert, not only the notice rule's; narrow it to the trigger's own error code.
+- [ ] Email invoice again (or a re-statement of a standing notice) on a covered charge still states "will be debited … on or after …" though nothing will be taken; drop the debit line when covered. Two charges can each pass the covered check against the same owing amount.
+- [ ] The trigger lets every part of a split be debited from the notice date; the code starts part k a week later each. Align the trigger with `noticeWindow`.
+- [ ] A charge planned "with the next weekly debit" on a rental where no rent week can be debited cycles notice → lapse → new notice (about one email a week, never a debit outside a stated window). Stop re-noticing once a lapse had no possible debit.
+- [ ] Whether a charge is "covered" depends on the whole rental's balance; a covered charge is noticed later if arrears grow. Correct, but explain it on screen.
+- [ ] `automatic_notice_count` changes write no activity log line (a working counter); write the reason in the plan, or log them.
+- [ ] `restartAutomaticNotices` updates plans without locking the rental first (single statement; a rare deadlock is caught). Lock the rental first to keep the documented order.
+
 - [ ] The lawyer confirms the 3-day minimum and the invoice email's wording against the BECS rules, Stripe's DDR service agreement and consumer law (docs/legal-notes.md); change `MINIMUM_ONE_OFF_NOTICE_DAYS` (packages/core/src/one-off-notice.ts) if told to.
 - [ ] Confirm in the Stripe sandbox that reading a direct debit's last four digits (`paymentMethods.retrieve` on the connected account, `au_becs_debit.last4`) works with Accounts v2, on the dev site, with a real one-off charge planned "Debit on [date]".
 - [ ] A browser test for "Invoice not sent" and Email invoice again (the browser tests' email always sends; covered by the app's own tests only).
