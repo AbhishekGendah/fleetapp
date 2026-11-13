@@ -287,13 +287,23 @@ describe("one-off charge notice", () => {
       CHECK_VIOLATION,
     );
     // A send that crossed midnight where the business is: its date counts from the day it went.
-    const sentAt = minutes(-50);
-    const zone = Intl.supportedValuesOf("timeZone").find(
-      (each) => todayInTimeZone(sentAt, each) !== todayInTimeZone(new Date(), each),
-    )!;
+    // A fixed-offset zone puts midnight 15 minutes ago, whatever the time of day the test runs.
+    const sentAt = minutes(-30);
+    const midnight = minutes(-15);
+    const minutesPastUtcMidnight = midnight.getUTCHours() * 60 + midnight.getUTCMinutes();
+    const eastMinutes = (1440 - minutesPastUtcMidnight) % 1440;
+    const offset = eastMinutes > 720 ? eastMinutes - 1440 : eastMinutes;
+    const clock = `${String(Math.floor(Math.abs(offset) / 60)).padStart(2, "0")}:${String(Math.abs(offset) % 60).padStart(2, "0")}`;
+    // POSIX zone names count west as positive: "<TST>-02:30" is 2½ hours east of UTC.
+    const zone = `<TST>${offset >= 0 ? "-" : "+"}${clock}`;
     await setTimezone(zone);
     try {
-      const sentDay = todayInTimeZone(sentAt, zone);
+      const days = (await superuser.db.execute(
+        sql`SELECT (${sentAt.toISOString()}::timestamptz AT TIME ZONE ${zone})::date::text AS sent,
+                   (now() AT TIME ZONE ${zone})::date::text AS today`,
+      )) as unknown as { rows: { sent: string; today: string }[] };
+      const { sent: sentDay, today } = days.rows[0]!;
+      expect(sentDay).not.toBe(today);
       expect(
         await postgresErrorCodeOf(
           recordNotice(planId, { emailedAt: sentAt, noticeDate: addDays(sentDay, 2) }),
