@@ -1397,7 +1397,22 @@ duplicates`, rule 30). Sign-in browser code, sign-out, the health
   - Abhi's question (12 Nov): what stops a business silently debiting
     small amounts? Plan approved 12 Nov with a 3-day notice period:
     docs/plans/one-off-charge-notice.md (every one-off charge invoiced and
-    emailed at once, debited no sooner than 3 days later). Being built.
+    emailed at once, debited no sooner than 3 days later). Built 12-13 Nov
+    (migration 0064): every one-off charge gets its own invoice emailed at
+    once (business can't switch it off); a debit needs a notice that states
+    the exact terms (plan, weeks, window "on or after X, no later than X+7"),
+    recorded in debit_notices; any plan change voids it and re-emails; a
+    lapsed notice is re-given; invoices go without a debit line when Stripe
+    or the direct debit isn't usable; automatic emails capped at 2 per
+    plan; a refused one-off part never stops the week's rent debit; the
+    database refuses any one-off part outside a valid notice. Three review
+    rounds, two checkers each (blockers fixed each round: plan changes
+    reusing old notices, debits after the stated date, disconnected Stripe
+    blocking invoices, clock drift blocking rent, nightly re-email loops).
+    Choice made for Abhi: slice 6's "Debit what's owing now" never takes a
+    one-off charge before its notice date. Leftovers on the launch
+    checklist. Test sheet rows O-572 to O-577; O-326, O-331, O-332, O-334
+    (retired), O-340, O-343, O-560, O-562, O-563, O-567 updated.
 
 - **Database transactions held together (11 Nov 2026, approved by Abhi).**
   The dev site's demo data stopped on "Rentals that are out now" with a
