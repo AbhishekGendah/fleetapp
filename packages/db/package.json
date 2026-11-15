@@ -36,7 +36,7 @@
   },
   "devDependencies": {
     "@fleetapp/config": "workspace:*",
-    "@types/node": "26.6.5",
+    "@types/node": "26.6.6",
     "@types/pg": "8.15.5",
     "@types/ws": "8.18.1",
     "dotenv": "18.0.1",
