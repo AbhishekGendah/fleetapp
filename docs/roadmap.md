@@ -5,7 +5,7 @@ before any code is written. Detail of what is built is in
 docs/progress.md; what must happen before the first real Operator is in
 docs/launch-checklist.md.
 
-Status: ✅ done · 🔨 in progress · ⏳ not started. Last checked 1 Nov 2026.
+Status: ✅ done · 🔨 in progress · ⏳ not started. Last checked 23 Nov 2026.
 
 ## Phase 1 — Foundation ✅
 
@@ -70,15 +70,30 @@ Status: ✅ done · 🔨 in progress · ⏳ not started. Last checked 1 Nov 2026
 - Car status "rented" and booking checks (age, licence class,
   provisional, expiry), held over from Phase 2.
 
-## Phase 4 — Money ⏳
+## Added between Phase 3 and 4 ✅
 
-- Stripe Connect onboarding.
-- Ledger.
-- BECS mandates.
-- Weekly charges, one-off charges.
-- Failed payments.
-- Invoices, receipts, statements.
-- Profit per car (costs are already recorded from Phase 2).
+- Look and feel (theme A, navy strip, cards on phones; docs/plans/look-and-feel.md).
+- Review fixes batches 1-7 from the full code review (4-5 Nov).
+- Business Renters, slices 1-5: businesses, drivers, driver changes,
+  business invoices and statements (docs/plans/business-renters.md, 7-9 Nov).
+
+## Phase 4 — Money 🔨 (plan: docs/plans/phase-4.md)
+
+- ✅ Slice 1-2: ledger, charges, payments, invoices, receipts, credit
+  notes, statements, nightly rent.
+- ✅ Slice 3: Stripe Connect onboarding (each Operator's own account).
+- ✅ Slice 4: Renter's direct debit and bond by Stripe.
+- ✅ Slice 5: weekly debits (live 9 Nov; sandbox-tested 11-13 Nov).
+- ✅ One-off charges always invoiced, 3 days' notice before any debit
+  (docs/plans/one-off-charge-notice.md, live 13 Nov).
+- ⏳ Slice 6: failed payments and arrears (plan drafted, to refresh).
+- ⏳ Slice 7: closing a rental (bond refund, closing statement).
+- ⏳ Slice 8: profit per car, money on the dashboard.
+
+## Approved, after Phase 4 ⏳
+
+- Find a car (docs/plans/find-a-car.md, approved 8 Nov).
+- Condition photos (docs/plans/condition-photos.md, approved 8 Nov).
 
 ## Phase 5 — Fleet operations ⏳
 
